@@ -14,6 +14,11 @@ router.get('/login', (req, res) => {
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
   
+  if (!username || !password) {
+    req.flash('error', 'Please enter username and password');
+    return res.redirect('/login');
+  }
+
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username);
   
   if (!user || !bcrypt.compareSync(password, user.password)) {
@@ -48,6 +53,11 @@ router.get('/profile', requireAuth, (req, res) => {
 router.put('/profile', requireAuth, (req, res) => {
   const { first_name, last_name, email, phone } = req.body;
   
+  if (!first_name || !last_name || !email) {
+    req.flash('error', 'First name, last name, and email are required');
+    return res.redirect('/profile');
+  }
+
   try {
     db.prepare(`
       UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
@@ -61,7 +71,11 @@ router.put('/profile', requireAuth, (req, res) => {
     
     req.flash('success', 'Profile updated successfully');
   } catch (err) {
-    req.flash('error', 'Error updating profile: ' + err.message);
+    if (err.message && err.message.includes('UNIQUE')) {
+      req.flash('error', 'Email address is already in use');
+    } else {
+      req.flash('error', 'Error updating profile. Please try again.');
+    }
   }
   
   res.redirect('/profile');
@@ -83,17 +97,31 @@ router.put('/profile/password', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
   
-  if (new_password.length < 6) {
-    req.flash('error', 'Password must be at least 6 characters');
+  // Enforce password policy: min 8 chars, at least one uppercase, one lowercase, one number
+  if (new_password.length < 8) {
+    req.flash('error', 'Password must be at least 8 characters');
+    return res.redirect('/profile');
+  }
+  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password)) {
+    req.flash('error', 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
     return res.redirect('/profile');
   }
   
-  const hashed = bcrypt.hashSync(new_password, 10);
+  const hashed = bcrypt.hashSync(new_password, 12);
   db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(hashed, req.session.user.id);
   
-  req.flash('success', 'Password changed successfully');
-  res.redirect('/profile');
+  // Regenerate session to invalidate old session
+  const sessionUser = req.session.user;
+  req.session.regenerate((err) => {
+    if (err) {
+      req.flash('error', 'Error updating session');
+      return res.redirect('/profile');
+    }
+    req.session.user = sessionUser;
+    req.flash('success', 'Password changed successfully');
+    res.redirect('/profile');
+  });
 });
 
 module.exports = router;

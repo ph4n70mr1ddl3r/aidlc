@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = require('express').Router();
 router.use(requireAuth);
@@ -26,25 +26,31 @@ router.get('/', (req, res) => {
 });
 
 // New change
-router.get('/new', (req, res) => {
+router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
   res.render('pages/changes/form', { title: 'New Change', change: {}, staff, isEdit: false });
 });
 
 // Create change
-router.post('/', (req, res) => {
+router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to } = req.body;
   
+  if (!title || !change_type) {
+    req.flash('error', 'Title and change type are required');
+    return res.redirect('/changes/new');
+  }
+
   try {
     db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, description, change_type, status || 'scheduled', priority, scheduled_start || null, scheduled_end || null, impact, assigned_to || null);
+    `).run(title, description || null, change_type, status || 'scheduled', priority || 'medium',
+      scheduled_start || null, scheduled_end || null, impact || null, assigned_to || null);
     
     req.flash('success', 'Change record created');
     res.redirect('/changes');
   } catch (err) {
-    req.flash('error', 'Error creating change: ' + err.message);
+    req.flash('error', 'Error creating change. Please try again.');
     res.redirect('/changes/new');
   }
 });
@@ -66,7 +72,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit change
-router.get('/:id/edit', (req, res) => {
+router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const change = db.prepare('SELECT * FROM change_log WHERE id = ?').get(req.params.id);
   if (!change) {
     req.flash('error', 'Change not found');
@@ -77,7 +83,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update change
-router.put('/:id', (req, res) => {
+router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
   
   try {
@@ -86,20 +92,20 @@ router.put('/:id', (req, res) => {
         priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
         impact = ?, assigned_to = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title, description, change_type, status, priority,
+    `).run(title, description || null, change_type, status, priority,
       scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
-      impact, assigned_to || null, req.params.id);
+      impact || null, assigned_to || null, req.params.id);
     
     req.flash('success', 'Change updated');
     res.redirect(`/changes/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating change: ' + err.message);
+    req.flash('error', 'Error updating change. Please try again.');
     res.redirect(`/changes/${req.params.id}/edit`);
   }
 });
 
 // Delete change
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('DELETE FROM change_log WHERE id = ?').run(req.params.id);
     req.flash('success', 'Change deleted');

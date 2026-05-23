@@ -52,7 +52,11 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     res.redirect('/staff');
   } catch (err) {
-    req.flash('error', 'Error creating staff member: ' + err.message);
+    if (err.message && err.message.includes('UNIQUE')) {
+      req.flash('error', 'Username or email already exists');
+    } else {
+      req.flash('error', 'Error creating staff member. Please try again.');
+    }
     res.redirect('/staff/new');
   }
 });
@@ -128,7 +132,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Staff member updated');
     res.redirect(`/staff/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating staff: ' + err.message);
+    if (err.message && err.message.includes('UNIQUE')) {
+      req.flash('error', 'Email address is already in use');
+    } else {
+      req.flash('error', 'Error updating staff. Please try again.');
+    }
     res.redirect(`/staff/${req.params.id}/edit`);
   }
 });
@@ -136,8 +144,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 // Reset password
 router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   const { new_password } = req.body;
-  if (!new_password || new_password.length < 6) {
-    req.flash('error', 'Password must be at least 6 characters');
+  if (!new_password || new_password.length < 8) {
+    req.flash('error', 'Password must be at least 8 characters');
     return res.redirect(`/staff/${req.params.id}`);
   }
   

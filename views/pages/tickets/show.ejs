@@ -10,6 +10,7 @@
     <a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/tickets/<%= ticket.id %>?_method=DELETE" method="POST" style="display:inline;" 
           onsubmit="return confirm('Are you sure you want to delete this ticket?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
     </form>
   </div>
@@ -22,6 +23,7 @@
     <% ['open','in_progress','waiting','resolved','closed'].forEach(s => { %>
       <% if (s !== ticket.status) { %>
         <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
           <button type="submit" class="btn btn-sm btn-outline"><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></button>
         </form>
@@ -74,6 +76,7 @@
 
         <!-- Add Comment Form -->
         <form action="/tickets/<%= ticket.id %>/comments" method="POST" style="margin-top:20px;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="form-group">
             <label>Add Comment</label>
             <textarea name="comment" class="form-control" rows="3" placeholder="Type your comment..." required></textarea>

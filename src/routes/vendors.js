@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = require('express').Router();
 router.use(requireAuth);
@@ -25,24 +25,31 @@ router.get('/', (req, res) => {
 });
 
 // New vendor
-router.get('/new', (req, res) => {
+router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   res.render('pages/vendors/form', { title: 'New Vendor', vendor: {}, isEdit: false });
 });
 
 // Create vendor
-router.post('/', (req, res) => {
+router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating } = req.body;
   
+  if (!name) {
+    req.flash('error', 'Vendor name is required');
+    return res.redirect('/vendors/new');
+  }
+
   try {
     db.prepare(`
       INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, contact_person, email, phone, address, website, category, contract_start || null, contract_end || null, notes, rating || null);
+    `).run(name, contact_person || null, email || null, phone || null, address || null, 
+      website || null, category || null, contract_start || null, contract_end || null, 
+      notes || null, rating ? Math.max(1, Math.min(5, parseInt(rating))) : null);
     
     req.flash('success', `Vendor ${name} created`);
     res.redirect('/vendors');
   } catch (err) {
-    req.flash('error', 'Error creating vendor: ' + err.message);
+    req.flash('error', 'Error creating vendor. Please try again.');
     res.redirect('/vendors/new');
   }
 });
@@ -58,7 +65,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit vendor
-router.get('/:id/edit', (req, res) => {
+router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(req.params.id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
@@ -68,7 +75,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update vendor
-router.put('/:id', (req, res) => {
+router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active } = req.body;
   
   try {
@@ -77,20 +84,22 @@ router.put('/:id', (req, res) => {
         website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
         is_active = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, contact_person, email, phone, address, website, category,
-      contract_start || null, contract_end || null, notes, rating || null,
+    `).run(name, contact_person || null, email || null, phone || null, address || null,
+      website || null, category || null,
+      contract_start || null, contract_end || null, notes || null, 
+      rating ? Math.max(1, Math.min(5, parseInt(rating))) : null,
       is_active ? 1 : 0, req.params.id);
     
     req.flash('success', 'Vendor updated');
     res.redirect(`/vendors/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating vendor: ' + err.message);
+    req.flash('error', 'Error updating vendor. Please try again.');
     res.redirect(`/vendors/${req.params.id}/edit`);
   }
 });
 
 // Delete vendor
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('DELETE FROM vendors WHERE id = ?').run(req.params.id);
     req.flash('success', 'Vendor deleted');

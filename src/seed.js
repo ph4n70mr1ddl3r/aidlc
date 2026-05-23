@@ -17,6 +17,7 @@ db.exec(`
   DELETE FROM knowledge_articles;
   DELETE FROM change_log;
   DELETE FROM users;
+  DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log');
 `);
 
 // ========================
@@ -120,7 +121,9 @@ const insertTicket = db.prepare(`
 
 tickets.forEach((t, i) => {
   const num = `TK-20260523-${String(i + 1).padStart(3, '0')}`;
-  const resolvedAt = t.status === 'resolved' || t.status === 'closed' ? "datetime('now', '-1 day')" : null;
+  const resolvedAt = t.status === 'resolved' || t.status === 'closed'
+    ? new Date(Date.now() - 86400000).toISOString().replace('T', ' ').slice(0, 19)
+    : null;
   insertTicket.run(num, t.title, t.description, t.category, t.priority, t.status,
     t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
     t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);

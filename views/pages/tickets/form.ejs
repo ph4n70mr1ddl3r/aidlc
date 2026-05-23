@@ -11,6 +11,7 @@
 <div class="card">
   <div class="card-body">
     <form action="<%= isEdit ? '/tickets/' + ticket.id + '?_method=PUT' : '/tickets' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1;">
           <label>Title *</label>

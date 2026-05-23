@@ -4,7 +4,7 @@
   <div><h2><%= article.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/knowledge">Knowledge Base</a> / <%= article.title %></div></div>
   <div class="flex gap-2">
     <a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this article?')"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this article?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
 </div>
 <div class="card mb-3"><div class="card-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
@@ -16,6 +16,7 @@
   <% if (article.tags) { %><span class="text-sm text-muted"><i class="fas fa-tags"></i> <%= article.tags %></span><% } %>
 </div></div>
 <div class="card"><div class="card-body">
-  <div style="font-size:15px;line-height:1.8;white-space:pre-wrap;"><%= article.content %></div>
+  <style>.card-body h1{font-size:1.5em;margin:0.8em 0 0.4em}.card-body h2{font-size:1.3em;margin:0.8em 0 0.4em}.card-body h3{font-size:1.1em;margin:0.6em 0 0.3em}.card-body ul,.card-body ol{padding-left:1.5em;margin:0.5em 0}.card-body code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:0.9em}.card-body pre{background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin:0.5em 0}.card-body pre code{background:none;padding:0}.card-body blockquote{border-left:3px solid var(--primary);padding-left:12px;margin:0.5em 0;color:var(--text-light)}.card-body a{color:var(--primary)}.card-body img{max-width:100%}.card-body table{width:100%;border-collapse:collapse;margin:0.5em 0}.card-body th,.card-body td{border:1px solid var(--border);padding:6px 12px}</style>
+  <div style="font-size:15px;line-height:1.8;"><%- article.renderedContent %></div>
 </div></div>
 <%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

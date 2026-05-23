@@ -6,6 +6,7 @@
   <div class="flex gap-2">
     <a href="/projects/<%= project.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this project and all tasks?')">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
     </form>
   </div>
@@ -46,6 +47,7 @@
     <div class="card-body">
       <!-- Add Task -->
       <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" required>
         <select name="priority" class="form-control" style="width:120px;">
           <option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option>
@@ -61,6 +63,7 @@
       <% tasks.forEach(t => { %>
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
         <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" class="flex items-center gap-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()">
             <option value="todo" <%= t.status === 'todo' ? 'selected' : '' %>>To Do</option>
             <option value="in_progress" <%= t.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
@@ -73,7 +76,7 @@
           </span>
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
-          <a href="#" onclick="if(confirm('Delete task?')){var f=document.createElement('form');f.method='POST';f.action='/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE';f.innerHTML='<input type=hidden name=_method value=DELETE>';this.parentNode.appendChild(f);f.submit();}return false;" 
+          <a href="#" onclick="if(confirm('Delete task?')){var f=document.createElement('form');f.method='POST';f.action='/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE';f.innerHTML='<input type=hidden name=_method value=DELETE><input type=hidden name=_csrf value="<%= csrfToken %>">';this.parentNode.appendChild(f);f.submit();}return false;" 
              class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></a>
         </form>
       </div>
@@ -88,6 +91,7 @@
       <div class="card-header"><h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %>)</h3></div>
       <div class="card-body">
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="user_id" class="form-control" style="flex:1;" required>
             <option value="">Add member...</option>
             <% staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }) %>
@@ -104,6 +108,7 @@
             <div class="text-sm text-muted"><%= m.project_role %></div>
           </div>
           <form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;"><i class="fas fa-times"></i></button>
           </form>
         </div>

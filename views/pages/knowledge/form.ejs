@@ -3,6 +3,7 @@
 <div class="page-header"><div><h2><%= isEdit ? 'Edit Article' : 'New Article' %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/knowledge">Knowledge Base</a> / <%= isEdit ? 'Edit' : 'New' %></div></div></div>
 <div class="card"><div class="card-body">
   <form action="<%= isEdit ? '/knowledge/' + article.id + '?_method=PUT' : '/knowledge' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-group"><label>Title *</label><input type="text" name="title" class="form-control" value="<%= article.title || '' %>" required></div>
     <div class="form-grid">
       <div class="form-group"><label>Category *</label><select name="category" class="form-control" required>

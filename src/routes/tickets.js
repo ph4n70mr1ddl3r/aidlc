@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = require('express').Router();
 router.use(requireAuth);
@@ -50,6 +50,11 @@ router.post('/', (req, res) => {
   const { title, description, category, priority, requester_name, requester_email,
           requester_department, requester_phone, assigned_to, asset_id, due_date } = req.body;
   
+  if (!title || !category || !requester_name || !requester_email) {
+    req.flash('error', 'Title, category, requester name, and requester email are required');
+    return res.redirect('/tickets/new');
+  }
+
   // Generate ticket number
   const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
   const ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1).padStart(3, '0')}`;
@@ -60,14 +65,14 @@ router.post('/', (req, res) => {
         requester_name, requester_email, requester_department, requester_phone,
         assigned_to, asset_id, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title, description, category, priority,
-      requester_name, requester_email, requester_department, requester_phone,
+    `).run(ticket_number, title, description || null, category, priority || 'medium',
+      requester_name, requester_email, requester_department || null, requester_phone || null,
       assigned_to || null, asset_id || null, due_date || null);
     
     req.flash('success', `Ticket ${ticket_number} created successfully`);
     res.redirect('/tickets');
   } catch (err) {
-    req.flash('error', 'Error creating ticket: ' + err.message);
+    req.flash('error', 'Error creating ticket. Please check your input and try again.');
     res.redirect('/tickets/new');
   }
 });
@@ -122,8 +127,8 @@ router.put('/:id', (req, res) => {
     let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
-    const params = [title, description, category, priority, status,
-      assigned_to || null, asset_id || null, due_date || null, resolution_notes];
+    const params = [title, description || null, category, priority, status,
+      assigned_to || null, asset_id || null, due_date || null, resolution_notes || null];
     
     if (status === 'resolved' || status === 'closed') {
       query += `, resolved_at = datetime('now')`;
@@ -136,7 +141,7 @@ router.put('/:id', (req, res) => {
     req.flash('success', 'Ticket updated successfully');
     res.redirect(`/tickets/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating ticket: ' + err.message);
+    req.flash('error', 'Error updating ticket. Please try again.');
     res.redirect(`/tickets/${req.params.id}/edit`);
   }
 });
@@ -145,11 +150,16 @@ router.put('/:id', (req, res) => {
 router.post('/:id/comments', (req, res) => {
   const { comment, is_internal } = req.body;
   
+  if (!comment || !comment.trim()) {
+    req.flash('error', 'Comment cannot be empty');
+    return res.redirect(`/tickets/${req.params.id}`);
+  }
+
   try {
     db.prepare(`
       INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
-    `).run(req.params.id, req.session.user.id, comment, is_internal ? 1 : 0);
+    `).run(req.params.id, req.session.user.id, comment.trim(), is_internal ? 1 : 0);
     
     req.flash('success', 'Comment added');
   } catch (err) {
@@ -160,7 +170,14 @@ router.post('/:id/comments', (req, res) => {
 
 // Quick status update
 router.put('/:id/status', (req, res) => {
+  const validStatuses = ['open', 'in_progress', 'waiting', 'resolved', 'closed'];
   const { status } = req.body;
+  
+  if (!validStatuses.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/tickets/${req.params.id}`);
+  }
+
   try {
     let query = `UPDATE tickets SET status = ?, updated_at = datetime('now')`;
     if (status === 'resolved' || status === 'closed') {
@@ -168,7 +185,7 @@ router.put('/:id/status', (req, res) => {
     }
     query += ` WHERE id = ?`;
     db.prepare(query).run(status, req.params.id);
-    req.flash('success', `Ticket status updated to ${status}`);
+    req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
     req.flash('error', 'Error updating status');
   }
@@ -176,7 +193,7 @@ router.put('/:id/status', (req, res) => {
 });
 
 // Delete ticket
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('DELETE FROM tickets WHERE id = ?').run(req.params.id);
     req.flash('success', 'Ticket deleted');

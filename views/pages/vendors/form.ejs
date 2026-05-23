@@ -3,6 +3,7 @@
 <div class="page-header"><div><h2><%= isEdit ? 'Edit Vendor' : 'New Vendor' %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/vendors">Vendors</a> / <%= isEdit ? 'Edit' : 'New' %></div></div></div>
 <div class="card"><div class="card-body">
   <form action="<%= isEdit ? '/vendors/' + vendor.id + '?_method=PUT' : '/vendors' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <div class="form-group"><label>Vendor Name *</label><input type="text" name="name" class="form-control" value="<%= vendor.name || '' %>" required></div>
       <div class="form-group"><label>Contact Person</label><input type="text" name="contact_person" class="form-control" value="<%= vendor.contact_person || '' %>"></div>

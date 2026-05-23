@@ -7,6 +7,7 @@
 
 <div class="card"><div class="card-body">
   <form action="<%= isEdit ? '/staff/' + user.id + '?_method=PUT' : '/staff' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <% if (!isEdit) { %>
       <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" value="<%= user.username || '' %>" required></div>

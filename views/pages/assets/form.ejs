@@ -11,6 +11,7 @@
 <div class="card">
   <div class="card-body">
     <form action="<%= isEdit ? '/assets/' + asset.id + '?_method=PUT' : '/assets' %>" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="form-grid">
         <div class="form-group">
           <label>Asset Tag *</label>

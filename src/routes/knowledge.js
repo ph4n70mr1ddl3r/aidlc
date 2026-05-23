@@ -1,8 +1,30 @@
 const db = require('../models/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { marked } = require('marked');
+const sanitizeHtml = require('sanitize-html');
 
 const router = require('express').Router();
 router.use(requireAuth);
+
+// Configure marked for safe rendering
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
+function renderMarkdown(content) {
+  const html = marked.parse(content);
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'input']),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ['src', 'alt', 'title'],
+      input: ['type', 'checked', 'disabled'],
+      code: ['class'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+  });
+}
 
 // List articles
 router.get('/', (req, res) => {
@@ -38,16 +60,21 @@ router.get('/new', (req, res) => {
 router.post('/', (req, res) => {
   const { title, content, category, tags, status, is_featured } = req.body;
   
+  if (!title || !content || !category) {
+    req.flash('error', 'Title, content, and category are required');
+    return res.redirect('/knowledge/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title, content, category, tags, req.session.user.id, status || 'draft', is_featured ? 1 : 0);
+    `).run(title, content, category, tags || null, req.session.user.id, status || 'draft', is_featured ? 1 : 0);
     
     req.flash('success', 'Article created');
     res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
-    req.flash('error', 'Error creating article: ' + err.message);
+    req.flash('error', 'Error creating article. Please try again.');
     res.redirect('/knowledge/new');
   }
 });
@@ -68,6 +95,10 @@ router.get('/:id', (req, res) => {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
+
+  // Render markdown to sanitized HTML
+  article.renderedContent = renderMarkdown(article.content);
+  
   res.render('pages/knowledge/show', { title: article.title, article });
 });
 
@@ -90,18 +121,18 @@ router.put('/:id', (req, res) => {
       UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
         status = ?, is_featured = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title, content, category, tags, status, is_featured ? 1 : 0, req.params.id);
+    `).run(title, content, category, tags || null, status, is_featured ? 1 : 0, req.params.id);
     
     req.flash('success', 'Article updated');
     res.redirect(`/knowledge/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating article: ' + err.message);
+    req.flash('error', 'Error updating article. Please try again.');
     res.redirect(`/knowledge/${req.params.id}/edit`);
   }
 });
 
 // Delete article
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(req.params.id);
     req.flash('success', 'Article deleted');

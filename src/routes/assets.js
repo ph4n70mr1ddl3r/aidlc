@@ -34,31 +34,41 @@ router.get('/', (req, res) => {
 });
 
 // New asset form
-router.get('/new', (req, res) => {
+router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
   res.render('pages/assets/form', { title: 'New Asset', asset: {}, staff, isEdit: false });
 });
 
 // Create asset
-router.post('/', (req, res) => {
+router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { asset_tag, name, category, manufacturer, model, serial_number, status,
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
   
+  if (!asset_tag || !name || !category) {
+    req.flash('error', 'Asset tag, name, and category are required');
+    return res.redirect('/assets/new');
+  }
+
   try {
     db.prepare(`
       INSERT INTO assets (asset_tag, name, category, manufacturer, model, serial_number,
         status, condition_rating, purchase_date, purchase_price, warranty_expiry,
         assigned_to, location, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(asset_tag, name, category, manufacturer, model, serial_number || null,
-      status, condition_rating, purchase_date || null, purchase_price || null,
-      warranty_expiry || null, assigned_to || null, location, notes);
+    `).run(asset_tag, name, category, manufacturer || null, model || null, serial_number || null,
+      status || 'in_storage', condition_rating || 'good', purchase_date || null, 
+      purchase_price ? parseFloat(purchase_price) : null,
+      warranty_expiry || null, assigned_to || null, location || null, notes || null);
     
     req.flash('success', `Asset ${asset_tag} created successfully`);
     res.redirect('/assets');
   } catch (err) {
-    req.flash('error', 'Error creating asset: ' + err.message);
+    if (err.message && err.message.includes('UNIQUE')) {
+      req.flash('error', 'Asset tag or serial number already exists');
+    } else {
+      req.flash('error', 'Error creating asset. Please check your input and try again.');
+    }
     res.redirect('/assets/new');
   }
 });
@@ -87,7 +97,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit asset form
-router.get('/:id/edit', (req, res) => {
+router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(req.params.id);
   if (!asset) {
     req.flash('error', 'Asset not found');
@@ -98,7 +108,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update asset
-router.put('/:id', (req, res) => {
+router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { asset_tag, name, category, manufacturer, model, serial_number, status,
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
@@ -110,21 +120,31 @@ router.put('/:id', (req, res) => {
         purchase_date = ?, purchase_price = ?, warranty_expiry = ?,
         assigned_to = ?, location = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(asset_tag, name, category, manufacturer, model, serial_number || null,
-      status, condition_rating, purchase_date || null, purchase_price || null,
-      warranty_expiry || null, assigned_to || null, location, notes, req.params.id);
+    `).run(asset_tag, name, category, manufacturer || null, model || null, serial_number || null,
+      status, condition_rating, purchase_date || null,
+      purchase_price ? parseFloat(purchase_price) : null,
+      warranty_expiry || null, assigned_to || null, location || null, notes || null, req.params.id);
     
     req.flash('success', 'Asset updated successfully');
     res.redirect(`/assets/${req.params.id}`);
   } catch (err) {
-    req.flash('error', 'Error updating asset: ' + err.message);
+    if (err.message && err.message.includes('UNIQUE')) {
+      req.flash('error', 'Asset tag or serial number already exists');
+    } else {
+      req.flash('error', 'Error updating asset. Please check your input and try again.');
+    }
     res.redirect(`/assets/${req.params.id}/edit`);
   }
 });
 
 // Delete asset
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
+    // Check for related tickets
+    const relatedCount = db.prepare('SELECT COUNT(*) as c FROM tickets WHERE asset_id = ?').get(req.params.id).c;
+    if (relatedCount > 0) {
+      db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?').run(req.params.id);
+    }
     db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);
     req.flash('success', 'Asset deleted');
   } catch (err) {

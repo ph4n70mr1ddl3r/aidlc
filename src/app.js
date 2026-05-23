@@ -5,6 +5,16 @@ const flash = require('connect-flash');
 const methodOverride = require('method-override');
 const morgan = require('morgan');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
+const { doubleCsrf } = require('csrf-csrf');
+
+// Validate session secret in production
+if (process.env.NODE_ENV === 'production' &&
+    (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'it-dept-manager-secret-change-in-production')) {
+  console.error('ERROR: SESSION_SECRET must be changed from default in production');
+  process.exit(1);
+}
 
 // Initialize database
 require('./models/database');
@@ -26,10 +36,43 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    sameSite: 'lax'
+  }
 }));
 
 app.use(flash());
+
+// Cookie parser (required for CSRF)
+app.use(cookieParser());
+
+// CSRF Protection
+const csrfConfig = doubleCsrf({
+  getSecret: () => process.env.SESSION_SECRET || 'fallback-secret',
+  getSessionIdentifier: (req) => req.sessionID || 'anonymous',
+  cookieName: 'csrf-token',
+  cookieOptions: {
+    sameSite: 'lax',
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+  },
+  getCsrfTokenFromRequest: (req) => req.body._csrf || req.headers['x-csrf-token'],
+  size: 64,
+});
+app.use(csrfConfig.doubleCsrfProtection);
+
+// Rate limiting on login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: 'Too many login attempts. Please try again later.',
+  skipSuccessfulRequests: true,
+});
+app.use('/login', loginLimiter);
 
 // Global template variables
 app.use((req, res, next) => {
@@ -40,6 +83,7 @@ app.use((req, res, next) => {
     info: req.flash('info')
   };
   res.locals.currentPage = req.path;
+  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
   next();
 });
 
@@ -70,7 +114,14 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).render('pages/error', { title: 'Error', error: err });
+  if (err.code === 'EBADCSRFTOKEN') {
+    req.flash('error', 'Invalid security token. Please try again.');
+    return res.redirect(req.get('Referrer') || '/');
+  }
+  const detail = process.env.NODE_ENV === 'production'
+    ? 'Something went wrong.'
+    : err.message;
+  res.status(500).render('pages/error', { title: 'Error', error: { message: detail } });
 });
 
 const PORT = process.env.PORT || 3000;
