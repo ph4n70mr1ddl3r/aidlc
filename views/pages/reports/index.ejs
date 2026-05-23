@@ -1,0 +1,27 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2>Reports & Analytics</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Reports</div></div></div>
+<div class="grid-3">
+  <a href="/reports/tickets" class="card" style="text-decoration:none;color:var(--text);transition:box-shadow 0.2s;">
+    <div class="card-body" style="text-align:center;padding:30px;">
+      <i class="fas fa-ticket" style="font-size:36px;color:var(--primary);margin-bottom:12px;"></i>
+      <h3>Ticket Analytics</h3>
+      <p class="text-sm text-muted mt-1">Resolution times, SLA performance, category breakdown</p>
+    </div>
+  </a>
+  <a href="/reports/assets" class="card" style="text-decoration:none;color:var(--text);transition:box-shadow 0.2s;">
+    <div class="card-body" style="text-align:center;padding:30px;">
+      <i class="fas fa-box" style="font-size:36px;color:var(--success);margin-bottom:12px;"></i>
+      <h3>Asset Report</h3>
+      <p class="text-sm text-muted mt-1">Inventory value, age distribution, warranty status</p>
+    </div>
+  </a>
+  <a href="/reports/staff" class="card" style="text-decoration:none;color:var(--text);transition:box-shadow 0.2s;">
+    <div class="card-body" style="text-align:center;padding:30px;">
+      <i class="fas fa-users" style="font-size:36px;color:var(--warning);margin-bottom:12px;"></i>
+      <h3>Staff Performance</h3>
+      <p class="text-sm text-muted mt-1">Ticket resolution rates, task completion, workload</p>
+    </div>
+  </a>
+</div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

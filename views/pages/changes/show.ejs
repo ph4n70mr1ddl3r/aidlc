@@ -1,0 +1,20 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header">
+  <div><h2><%= change.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/changes">Changes</a> / <%= change.title %></div></div>
+  <div class="flex gap-2">
+    <a href="/changes/<%= change.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+  </div>
+</div>
+<div class="card"><div class="card-body">
+  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-medium"><%= change.change_type %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= change.status %>"><%= change.status %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= change.priority %>"><%= change.priority %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= change.assigned_name || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Scheduled</div><div class="detail-value"><%= change.scheduled_start ? new Date(change.scheduled_start).toLocaleString() : '-' %> — <%= change.scheduled_end ? new Date(change.scheduled_end).toLocaleString() : '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Actual</div><div class="detail-value"><%= change.actual_start ? new Date(change.actual_start).toLocaleString() : '-' %> — <%= change.actual_end ? new Date(change.actual_end).toLocaleString() : '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Description</div><div class="detail-value" style="white-space:pre-wrap;"><%= change.description || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Impact</div><div class="detail-value" style="white-space:pre-wrap;"><%= change.impact || '-' %></div></div>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

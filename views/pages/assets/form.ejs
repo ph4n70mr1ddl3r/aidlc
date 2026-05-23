@@ -1,0 +1,98 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="page-header">
+  <div>
+    <h2><%= isEdit ? 'Edit Asset' : 'New Asset' %></h2>
+    <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/assets">Assets</a> / <%= isEdit ? 'Edit' : 'New' %></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form action="<%= isEdit ? '/assets/' + asset.id + '?_method=PUT' : '/assets' %>" method="POST">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Asset Tag *</label>
+          <input type="text" name="asset_tag" class="form-control" value="<%= asset.asset_tag || 'AST-' + String(Math.floor(Math.random()*900)+100) %>" required>
+        </div>
+        <div class="form-group">
+          <label>Name *</label>
+          <input type="text" name="name" class="form-control" value="<%= asset.name || '' %>" required>
+        </div>
+        <div class="form-group">
+          <label>Category *</label>
+          <select name="category" class="form-control" required>
+            <% ['laptop','desktop','server','monitor','printer','network','phone','tablet','software','peripheral','other'].forEach(c => { %>
+              <option value="<%= c %>" <%= asset.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Manufacturer</label>
+          <input type="text" name="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" name="model" class="form-control" value="<%= asset.model || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Serial Number</label>
+          <input type="text" name="serial_number" class="form-control" value="<%= asset.serial_number || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select name="status" class="form-control">
+            <% ['in_use','in_storage','in_repair','disposed','reserved'].forEach(s => { %>
+              <option value="<%= s %>" <%= (asset.status || 'in_storage') === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Condition</label>
+          <select name="condition_rating" class="form-control">
+            <% ['new','good','fair','poor','broken'].forEach(c => { %>
+              <option value="<%= c %>" <%= (asset.condition_rating || 'good') === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Purchase Date</label>
+          <input type="date" name="purchase_date" class="form-control" value="<%= asset.purchase_date ? asset.purchase_date.slice(0,10) : '' %>">
+        </div>
+        <div class="form-group">
+          <label>Purchase Price ($)</label>
+          <input type="number" name="purchase_price" class="form-control" step="0.01" value="<%= asset.purchase_price || '' %>">
+        </div>
+        <div class="form-group">
+          <label>Warranty Expiry</label>
+          <input type="date" name="warranty_expiry" class="form-control" value="<%= asset.warranty_expiry ? asset.warranty_expiry.slice(0,10) : '' %>">
+        </div>
+        <div class="form-group">
+          <label>Assigned To</label>
+          <select name="assigned_to" class="form-control">
+            <option value="">Unassigned</option>
+            <% staff.forEach(s => { %>
+              <option value="<%= s.id %>" <%= asset.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" name="location" class="form-control" value="<%= asset.location || '' %>">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" class="form-control"><%= asset.notes || '' %></textarea>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:12px;">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update Asset' : 'Create Asset' %></button>
+        <a href="/assets" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

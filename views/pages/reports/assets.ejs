@@ -1,0 +1,57 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2>Asset Report</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Assets</div></div></div>
+
+<div class="stats-grid">
+  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Total Assets</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '$0' %></div><div class="stat-label">Total Value</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value"><%= warrantyExpiring.length %></div><div class="stat-label">Warranty Expiring (90d)</div></div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card"><div class="card-header"><h3>By Category</h3></div><div class="card-body">
+    <% byCategory.forEach(c => { const total = byCategory.reduce((a,b) => a + b.count, 0); const pct = total > 0 ? Math.round(c.count/total*100) : 0; %>
+    <div style="margin-bottom:12px;">
+      <div class="flex justify-between text-sm mb-1"><span><%= c.category %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '$0' %></span></div>
+      <div class="progress-bar"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+    </div><% }) %>
+  </div></div>
+  <div class="card"><div class="card-header"><h3>By Status</h3></div><div class="card-body">
+    <% byStatus.forEach(s => { const total = byStatus.reduce((a,b) => a + b.count, 0); const pct = total > 0 ? Math.round(s.count/total*100) : 0; %>
+    <div style="margin-bottom:12px;">
+      <div class="flex justify-between text-sm mb-1"><span><%= s.status.replace(/_/g, ' ') %></span><span><%= s.count %> (<%= pct %>%)</span></div>
+      <div class="progress-bar"><div class="progress-fill green" style="width:<%= pct %>%"></div></div>
+    </div><% }) %>
+  </div></div>
+  <div class="card"><div class="card-header"><h3>By Condition</h3></div><div class="card-body">
+    <% byCondition.forEach(c => { const total = byCondition.reduce((a,b) => a + b.count, 0); const pct = total > 0 ? Math.round(c.count/total*100) : 0; %>
+    <div style="margin-bottom:12px;">
+      <div class="flex justify-between text-sm mb-1"><span><%= c.condition_rating %></span><span><%= c.count %> (<%= pct %>%)</span></div>
+      <div class="progress-bar"><div class="progress-fill <%= c.condition_rating === 'new' || c.condition_rating === 'good' ? 'green' : 'orange' %>" style="width:<%= pct %>%"></div></div>
+    </div><% }) %>
+  </div></div>
+  <div class="card"><div class="card-header"><h3>Age Distribution</h3></div><div class="card-body">
+    <% ageDistribution.forEach(a => { const total = ageDistribution.reduce((x,y) => x + y.count, 0); const pct = total > 0 ? Math.round(a.count/total*100) : 0; %>
+    <div style="margin-bottom:12px;">
+      <div class="flex justify-between text-sm mb-1"><span><%= a.age_group %></span><span><%= a.count %> (<%= pct %>%)</span></div>
+      <div class="progress-bar"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+    </div><% }) %>
+  </div></div>
+</div>
+
+<% if (warrantyExpiring.length > 0) { %>
+<div class="card mt-3"><div class="card-header"><h3>Warranty Expiring Soon (90 days)</h3></div><div class="card-body" style="padding:0;">
+  <div class="table-responsive"><table>
+    <thead><tr><th>Asset</th><th>Name</th><th>Warranty Expiry</th><th>Days Left</th></tr></thead>
+    <tbody><% warrantyExpiring.forEach(a => { 
+      const days = Math.round((new Date(a.warranty_expiry) - new Date()) / (1000*60*60*24));
+    %><tr>
+      <td style="font-weight:600;"><%= a.asset_tag %></td>
+      <td><%= a.name %></td>
+      <td><%= new Date(a.warranty_expiry).toLocaleDateString() %></td>
+      <td><span class="badge badge-<%= days <= 30 ? 'critical' : days <= 60 ? 'high' : 'medium' %>"><%= days %> days</span></td>
+    </tr><% }) %></tbody>
+  </table></div>
+</div></div><% } %>
+
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

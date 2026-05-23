@@ -1,0 +1,80 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="page-header">
+  <div>
+    <h2>Tickets</h2>
+    <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Tickets</div>
+  </div>
+  <a href="/tickets/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Ticket</a>
+</div>
+
+<!-- Filters -->
+<form method="GET" action="/tickets" class="filter-bar">
+  <input type="text" name="search" class="search-input" placeholder="Search tickets..." value="<%= filters.search || '' %>">
+  <select name="status">
+    <option value="">All Status</option>
+    <option value="open" <%= filters.status === 'open' ? 'selected' : '' %>>Open</option>
+    <option value="in_progress" <%= filters.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+    <option value="waiting" <%= filters.status === 'waiting' ? 'selected' : '' %>>Waiting</option>
+    <option value="resolved" <%= filters.status === 'resolved' ? 'selected' : '' %>>Resolved</option>
+    <option value="closed" <%= filters.status === 'closed' ? 'selected' : '' %>>Closed</option>
+  </select>
+  <select name="priority">
+    <option value="">All Priority</option>
+    <option value="critical" <%= filters.priority === 'critical' ? 'selected' : '' %>>Critical</option>
+    <option value="high" <%= filters.priority === 'high' ? 'selected' : '' %>>High</option>
+    <option value="medium" <%= filters.priority === 'medium' ? 'selected' : '' %>>Medium</option>
+    <option value="low" <%= filters.priority === 'low' ? 'selected' : '' %>>Low</option>
+  </select>
+  <select name="category">
+    <option value="">All Categories</option>
+    <option value="hardware" <%= filters.category === 'hardware' ? 'selected' : '' %>>Hardware</option>
+    <option value="software" <%= filters.category === 'software' ? 'selected' : '' %>>Software</option>
+    <option value="network" <%= filters.category === 'network' ? 'selected' : '' %>>Network</option>
+    <option value="access" <%= filters.category === 'access' ? 'selected' : '' %>>Access</option>
+    <option value="email" <%= filters.category === 'email' ? 'selected' : '' %>>Email</option>
+    <option value="security" <%= filters.category === 'security' ? 'selected' : '' %>>Security</option>
+    <option value="other" <%= filters.category === 'other' ? 'selected' : '' %>>Other</option>
+  </select>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <a href="/tickets" class="btn btn-sm btn-outline">Clear</a>
+</form>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    <% if (tickets.length === 0) { %>
+      <div class="empty-state">
+        <i class="fas fa-ticket"></i>
+        <h3>No tickets found</h3>
+        <p>Create a new ticket or adjust your filters</p>
+      </div>
+    <% } else { %>
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Ticket</th><th>Title</th><th>Requester</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Created</th><th>Actions</th></tr></thead>
+        <tbody>
+          <% tickets.forEach(t => { %>
+          <tr>
+            <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
+            <td><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a></td>
+            <td class="text-sm"><%= t.requester_name %></td>
+            <td class="text-sm"><%= t.category %></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
+            <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+            <td class="text-sm"><%= t.assigned_name || '<span class="text-muted">Unassigned</span>' %></td>
+            <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
+            <td class="actions-cell">
+              <a href="/tickets/<%= t.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

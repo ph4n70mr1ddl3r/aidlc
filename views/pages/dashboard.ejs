@@ -1,0 +1,174 @@
+<%- include('../partials/header') %>
+<%- include('../partials/nav') %>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue"><i class="fas fa-ticket"></i></div>
+    <div>
+      <div class="stat-value"><%= ticketStats.open + ticketStats.in_progress %></div>
+      <div class="stat-label">Active Tickets</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon <%= ticketStats.critical_open > 0 ? 'red' : 'green' %>"><i class="fas fa-exclamation-triangle"></i></div>
+    <div>
+      <div class="stat-value"><%= ticketStats.critical_open %></div>
+      <div class="stat-label">Critical Open</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fas fa-box"></i></div>
+    <div>
+      <div class="stat-value"><%= assetStats.total %></div>
+      <div class="stat-label">Total Assets</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fas fa-project-diagram"></i></div>
+    <div>
+      <div class="stat-value"><%= projectStats.in_progress %></div>
+      <div class="stat-label">Active Projects</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon cyan"><i class="fas fa-users"></i></div>
+    <div>
+      <div class="stat-value"><%= staffCount.total %></div>
+      <div class="stat-label">IT Staff</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fas fa-wrench"></i></div>
+    <div>
+      <div class="stat-value"><%= assetStats.in_repair %></div>
+      <div class="stat-label">In Repair</div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerts -->
+<% if (ticketStats.critical_open > 0) { %>
+  <div class="alert-card danger">
+    <h4><i class="fas fa-exclamation-triangle"></i> Critical Tickets Alert</h4>
+    <p><%= ticketStats.critical_open %> critical ticket(s) require immediate attention</p>
+  </div>
+<% } %>
+
+<% if (expiringWarranties.length > 0) { %>
+  <div class="alert-card">
+    <h4><i class="fas fa-shield-alt"></i> Warranty Expiring Soon</h4>
+    <p><%= expiringWarranties.length %> asset(s) with warranty expiring in the next 30 days</p>
+  </div>
+<% } %>
+
+<% if (licenseAlerts.length > 0) { %>
+  <div class="alert-card">
+    <h4><i class="fas fa-key"></i> License Expiring Soon</h4>
+    <p><%= licenseAlerts.length %> software license(s) expiring in the next 30 days</p>
+  </div>
+<% } %>
+
+<div class="grid-2-1">
+  <!-- My Tickets -->
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-user-clock" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets</h3>
+      <a href="/tickets?assigned_to=<%= user.id %>" class="btn btn-sm btn-outline">View All</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <% if (myTickets.length === 0) { %>
+        <div class="empty-state" style="padding:30px;">
+          <i class="fas fa-check-circle" style="color:var(--success)"></i>
+          <h3>All caught up!</h3>
+          <p>No active tickets assigned to you</p>
+        </div>
+      <% } else { %>
+        <div class="table-responsive">
+          <table>
+            <thead><tr><th>Ticket</th><th>Title</th><th>Priority</th><th>Status</th><th>Created</th></tr></thead>
+            <tbody>
+              <% myTickets.forEach(t => { %>
+              <tr>
+                <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
+                <td><%= t.title %></td>
+                <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
+                <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+                <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Quick Stats Sidebar -->
+  <div>
+    <!-- Staff Workload -->
+    <div class="card mb-2">
+      <div class="card-header"><h3><i class="fas fa-chart-bar" style="margin-right:8px;color:var(--primary)"></i>Team Workload</h3></div>
+      <div class="card-body">
+        <% staffWorkload.forEach(s => { %>
+          <div style="margin-bottom:12px;">
+            <div class="flex justify-between mb-1">
+              <span class="text-sm"><%= s.name %></span>
+              <span class="text-sm text-muted"><%= s.open_tickets %> tickets</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill <%= s.open_tickets > 5 ? 'red' : s.open_tickets > 3 ? 'orange' : 'blue' %>" 
+                   style="width: <%= Math.min(s.open_tickets * 15, 100) %>%"></div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Upcoming Changes -->
+    <% if (upcomingChanges.length > 0) { %>
+    <div class="card">
+      <div class="card-header"><h3><i class="fas fa-calendar" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes</h3></div>
+      <div class="card-body">
+        <% upcomingChanges.forEach(c => { %>
+          <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+            <div class="text-sm" style="font-weight:600;"><%= c.title %></div>
+            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= new Date(c.scheduled_start).toLocaleDateString() %></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Recent Tickets -->
+<div class="card mt-3">
+  <div class="card-header">
+    <h3><i class="fas fa-clock" style="margin-right:8px;color:var(--primary)"></i>Recent Tickets</h3>
+    <a href="/tickets" class="btn btn-sm btn-outline">View All</a>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div class="table-responsive">
+      <table>
+        <thead><tr><th>Ticket</th><th>Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Created</th></tr></thead>
+        <tbody>
+          <% recentTickets.forEach(t => { %>
+          <tr>
+            <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
+            <td><%= t.title %></td>
+            <td class="text-sm"><%= t.category %></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
+            <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+            <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
+            <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/nav-close') %>
+<%- include('../partials/footer') %>

@@ -1,0 +1,65 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="page-header">
+  <div>
+    <h2><%= asset.asset_tag %> - <%= asset.name %></h2>
+    <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/assets">Assets</a> / <%= asset.asset_tag %></div>
+  </div>
+  <div class="flex gap-2">
+    <a href="/assets/<%= asset.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/assets/<%= asset.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this asset?')">
+      <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="grid-2-1">
+  <div>
+    <div class="card mb-3">
+      <div class="card-header"><h3><i class="fas fa-info-circle" style="margin-right:8px;color:var(--primary)"></i>Asset Details</h3></div>
+      <div class="card-body">
+        <div class="detail-row"><div class="detail-label">Asset Tag</div><div class="detail-value" style="font-weight:600;"><%= asset.asset_tag %></div></div>
+        <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><%= asset.name %></div></div>
+        <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= asset.category %></div></div>
+        <div class="detail-row"><div class="detail-label">Manufacturer</div><div class="detail-value"><%= asset.manufacturer || '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Model</div><div class="detail-value"><%= asset.model || '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Serial Number</div><div class="detail-value" style="font-family:monospace;"><%= asset.serial_number || '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= asset.status.replace(/_/g, ' ') %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= asset.condition_rating === 'new' || asset.condition_rating === 'good' ? 'low' : 'medium' %>"><%= asset.condition_rating %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><%= asset.warranty_expiry ? new Date(asset.warranty_expiry).toLocaleDateString() : '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Location</div><div class="detail-value"><%= asset.location || '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= asset.assigned_name ? asset.assigned_name + ' (' + asset.assigned_email + ')' : 'Unassigned' %></div></div>
+        <% if (asset.notes) { %>
+        <div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= asset.notes %></div></div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Related Tickets -->
+  <div class="card">
+    <div class="card-header"><h3><i class="fas fa-ticket" style="margin-right:8px;color:var(--primary)"></i>Related Tickets</h3></div>
+    <div class="card-body">
+      <% if (relatedTickets.length === 0) { %>
+        <p class="text-muted text-sm">No tickets linked to this asset</p>
+      <% } else { %>
+        <% relatedTickets.forEach(t => { %>
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <a href="/tickets/<%= t.id %>" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;"><%= t.ticket_number %></a>
+            <div class="text-sm"><%= t.title %></div>
+            <div class="flex gap-2" style="margin-top:4px;">
+              <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
+              <span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+            </div>
+          </div>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

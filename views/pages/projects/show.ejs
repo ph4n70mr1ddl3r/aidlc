@@ -1,0 +1,117 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="page-header">
+  <div><h2><%= project.name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/projects">Projects</a> / <%= project.name %></div></div>
+  <div class="flex gap-2">
+    <a href="/projects/<%= project.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this project and all tasks?')">
+      <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
+    </form>
+  </div>
+</div>
+
+<!-- Project Header -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="flex justify-between items-center mb-2">
+      <div>
+        <span class="badge badge-<%= project.status %>" style="font-size:14px;padding:6px 16px;"><%= project.status.replace(/_/g, ' ') %></span>
+        <span class="badge badge-<%= project.priority %>" style="font-size:14px;padding:6px 16px;"><%= project.priority %></span>
+      </div>
+      <div class="text-sm text-muted">
+        Owner: <strong><%= project.owner_name || 'Unassigned' %></strong> | 
+        <%= project.start_date ? new Date(project.start_date).toLocaleDateString() : 'TBD' %> — <%= project.end_date ? new Date(project.end_date).toLocaleDateString() : 'TBD' %>
+      </div>
+    </div>
+    <% if (project.description) { %><p class="text-sm" style="margin-bottom:16px;"><%= project.description %></p><% } %>
+    <div class="flex items-center gap-2">
+      <span class="text-sm"><strong>Progress: <%= project.progress %>%</strong></span>
+      <div class="progress-bar" style="flex:1;">
+        <div class="progress-fill <%= project.progress >= 75 ? 'green' : project.progress >= 50 ? 'blue' : 'orange' %>" style="width:<%= project.progress %>%"></div>
+      </div>
+      <% if (project.budget > 0) { %>
+        <span class="text-sm text-muted">$<%= Number(project.spent).toLocaleString() %> / $<%= Number(project.budget).toLocaleString() %></span>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2-1">
+  <!-- Tasks -->
+  <div class="card">
+    <div class="card-header">
+      <h3><i class="fas fa-tasks" style="margin-right:8px;color:var(--primary)"></i>Tasks (<%= tasks.length %>)</h3>
+    </div>
+    <div class="card-body">
+      <!-- Add Task -->
+      <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" required>
+        <select name="priority" class="form-control" style="width:120px;">
+          <option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option>
+        </select>
+        <select name="assigned_to" class="form-control" style="width:160px;">
+          <option value="">Unassigned</option>
+          <% staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }) %>
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
+      </form>
+
+      <!-- Task List -->
+      <% tasks.forEach(t => { %>
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+        <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" class="flex items-center gap-2">
+          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()">
+            <option value="todo" <%= t.status === 'todo' ? 'selected' : '' %>>To Do</option>
+            <option value="in_progress" <%= t.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
+            <option value="review" <%= t.status === 'review' ? 'selected' : '' %>>Review</option>
+            <option value="done" <%= t.status === 'done' ? 'selected' : '' %>>Done</option>
+          </select>
+          <span style="flex:1;font-size:14px;<%= t.status === 'done' ? 'text-decoration:line-through;color:var(--text-light);' : '' %>">
+            <strong><%= t.title %></strong>
+            <span class="text-sm text-muted"> — <%= t.assigned_name || 'Unassigned' %></span>
+          </span>
+          <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
+          <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
+          <a href="#" onclick="if(confirm('Delete task?')){var f=document.createElement('form');f.method='POST';f.action='/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE';f.innerHTML='<input type=hidden name=_method value=DELETE>';this.parentNode.appendChild(f);f.submit();}return false;" 
+             class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></a>
+        </form>
+      </div>
+      <% }) %>
+      <% if (tasks.length === 0) { %><p class="text-muted text-sm">No tasks yet. Add one above.</p><% } %>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div>
+    <div class="card mb-2">
+      <div class="card-header"><h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %>)</h3></div>
+      <div class="card-body">
+        <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">
+          <select name="user_id" class="form-control" style="flex:1;" required>
+            <option value="">Add member...</option>
+            <% staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }) %>
+          </select>
+          <select name="role" class="form-control" style="width:120px;">
+            <option value="member">Member</option><option value="lead">Lead</option><option value="stakeholder">Stakeholder</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i></button>
+        </form>
+        <% members.forEach(m => { %>
+        <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
+            <div class="text-sm text-muted"><%= m.project_role %></div>
+          </div>
+          <form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST">
+            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;"><i class="fas fa-times"></i></button>
+          </form>
+        </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

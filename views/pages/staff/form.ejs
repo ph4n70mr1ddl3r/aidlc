@@ -1,0 +1,40 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="page-header">
+  <div><h2><%= isEdit ? 'Edit Staff Member' : 'New Staff Member' %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/staff">Staff</a> / <%= isEdit ? 'Edit' : 'New' %></div></div>
+</div>
+
+<div class="card"><div class="card-body">
+  <form action="<%= isEdit ? '/staff/' + user.id + '?_method=PUT' : '/staff' %>" method="POST">
+    <div class="form-grid">
+      <% if (!isEdit) { %>
+      <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" value="<%= user.username || '' %>" required></div>
+      <div class="form-group"><label>Password *</label><input type="password" name="password" class="form-control" required minlength="6"></div>
+      <% } %>
+      <div class="form-group"><label>First Name *</label><input type="text" name="first_name" class="form-control" value="<%= user.first_name || '' %>" required></div>
+      <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" class="form-control" value="<%= user.last_name || '' %>" required></div>
+      <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" value="<%= user.email || '' %>" required></div>
+      <div class="form-group"><label>Role *</label><select name="role" class="form-control" required>
+        <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+        <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+        <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+      </select></div>
+      <div class="form-group"><label>Department</label><input type="text" name="department" class="form-control" value="<%= user.department || '' %>"></div>
+      <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control" value="<%= user.phone || '' %>"></div>
+      <% if (isEdit) { %>
+      <div class="form-group"><label>Active</label><select name="is_active" class="form-control">
+        <option value="1" <%= user.is_active ? 'selected' : '' %>>Active</option>
+        <option value="0" <%= !user.is_active ? 'selected' : '' %>>Inactive</option>
+      </select></div>
+      <% } %>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>
+      <a href="/staff" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div></div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

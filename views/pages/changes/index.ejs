@@ -1,0 +1,25 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2>Change Log</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a></div>
+<form method="GET" action="/changes" class="filter-bar">
+  <select name="status"><option value="">All Status</option><% ['scheduled','in_progress','completed','failed','cancelled'].forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select>
+  <select name="change_type"><option value="">All Types</option><% ['maintenance','upgrade','incident','security','configuration'].forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %></select>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <a href="/changes" class="btn btn-sm btn-outline">Clear</a>
+</form>
+<div class="card"><div class="card-body" style="padding:0;">
+  <% if (changes.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No changes found</h3></div>
+  <% } else { %><div class="table-responsive"><table>
+    <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
+    <tbody><% changes.forEach(c => { %><tr>
+      <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
+      <td><span class="badge badge-medium"><%= c.change_type %></span></td>
+      <td><span class="badge badge-<%= c.priority %>"><%= c.priority %></span></td>
+      <td><span class="badge badge-<%= c.status %>"><%= c.status %></span></td>
+      <td class="text-sm"><%= c.scheduled_start ? new Date(c.scheduled_start).toLocaleString() : '-' %></td>
+      <td class="text-sm"><%= c.assigned_name || '-' %></td>
+      <td class="actions-cell"><a href="/changes/<%= c.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
+    </tr><% }) %></tbody>
+  </table></div><% } %>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

@@ -1,0 +1,35 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2><%= isEdit ? 'Edit Change' : 'New Change' %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/changes">Changes</a> / <%= isEdit ? 'Edit' : 'New' %></div></div></div>
+<div class="card"><div class="card-body">
+  <form action="<%= isEdit ? '/changes/' + change.id + '?_method=PUT' : '/changes' %>" method="POST">
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;"><label>Title *</label><input type="text" name="title" class="form-control" value="<%= change.title || '' %>" required></div>
+      <div class="form-group" style="grid-column:1/-1;"><label>Description</label><textarea name="description" class="form-control"><%= change.description || '' %></textarea></div>
+      <div class="form-group"><label>Type *</label><select name="change_type" class="form-control" required>
+        <% ['maintenance','upgrade','incident','security','configuration'].forEach(t => { %><option value="<%= t %>" <%= change.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %>
+      </select></div>
+      <div class="form-group"><label>Status</label><select name="status" class="form-control">
+        <% ['scheduled','in_progress','completed','failed','cancelled'].forEach(s => { %><option value="<%= s %>" <%= (change.status || 'scheduled') === s ? 'selected' : '' %>><%= s %></option><% }) %>
+      </select></div>
+      <div class="form-group"><label>Priority</label><select name="priority" class="form-control">
+        <% ['critical','high','medium','low'].forEach(p => { %><option value="<%= p %>" <%= (change.priority || 'medium') === p ? 'selected' : '' %>><%= p %></option><% }) %>
+      </select></div>
+      <div class="form-group"><label>Assigned To</label><select name="assigned_to" class="form-control">
+        <option value="">Unassigned</option><% staff.forEach(s => { %><option value="<%= s.id %>" <%= change.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }) %>
+      </select></div>
+      <div class="form-group"><label>Scheduled Start</label><input type="datetime-local" name="scheduled_start" class="form-control" value="<%= change.scheduled_start ? change.scheduled_start.slice(0,16) : '' %>"></div>
+      <div class="form-group"><label>Scheduled End</label><input type="datetime-local" name="scheduled_end" class="form-control" value="<%= change.scheduled_end ? change.scheduled_end.slice(0,16) : '' %>"></div>
+      <% if (isEdit) { %>
+      <div class="form-group"><label>Actual Start</label><input type="datetime-local" name="actual_start" class="form-control" value="<%= change.actual_start ? change.actual_start.slice(0,16) : '' %>"></div>
+      <div class="form-group"><label>Actual End</label><input type="datetime-local" name="actual_end" class="form-control" value="<%= change.actual_end ? change.actual_end.slice(0,16) : '' %>"></div>
+      <% } %>
+      <div class="form-group" style="grid-column:1/-1;"><label>Impact</label><textarea name="impact" class="form-control" rows="2"><%= change.impact || '' %></textarea></div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:12px;">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>
+      <a href="/changes" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

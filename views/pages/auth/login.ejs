@@ -1,0 +1,36 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+
+<div class="login-container">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:24px;">
+      <i class="fas fa-server" style="font-size:40px;color:var(--primary);"></i>
+    </div>
+    <h1 style="text-align:center;">IT Department Manager</h1>
+    <p style="text-align:center;">Sign in to your account</p>
+    
+    <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
+      <div class="flash error"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
+    <% }) } %>
+
+    <form action="/login" method="POST">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" class="form-control" placeholder="Enter username" required autofocus>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">
+        <i class="fas fa-sign-in-alt"></i> Sign In
+      </button>
+    </form>
+    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--text-light);">
+      Default: admin / admin123
+    </p>
+  </div>
+</div>
+
+<%- include('../../partials/nav-close') %>
+<%- include('../../partials/footer') %>

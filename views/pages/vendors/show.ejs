@@ -1,0 +1,23 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header">
+  <div><h2><%= vendor.name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/vendors">Vendors</a> / <%= vendor.name %></div></div>
+  <div class="flex gap-2">
+    <a href="/vendors/<%= vendor.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/vendors/<%= vendor.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this vendor?')"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+  </div>
+</div>
+<div class="card"><div class="card-body">
+  <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value" style="font-weight:600;"><%= vendor.name %></div></div>
+  <div class="detail-row"><div class="detail-label">Contact Person</div><div class="detail-value"><%= vendor.contact_person || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><a href="mailto:<%= vendor.email %>"><%= vendor.email || '-' %></a></div></div>
+  <div class="detail-row"><div class="detail-label">Phone</div><div class="detail-value"><%= vendor.phone || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value"><%= vendor.address || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Website</div><div class="detail-value"><% if (vendor.website) { %><a href="<%= vendor.website %>" target="_blank"><%= vendor.website %></a><% } else { %>-<% } %></div></div>
+  <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= vendor.category || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Contract</div><div class="detail-value"><%= vendor.contract_start ? new Date(vendor.contract_start).toLocaleDateString() : '?' %> — <%= vendor.contract_end ? new Date(vendor.contract_end).toLocaleDateString() : '?' %></div></div>
+  <div class="detail-row"><div class="detail-label">Rating</div><div class="detail-value"><% if (vendor.rating) { for (let i=0;i<vendor.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } } else { %>-<% } %></div></div>
+  <div class="detail-row"><div class="detail-label">Active</div><div class="detail-value"><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Yes' : 'No' %></span></div></div>
+  <% if (vendor.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= vendor.notes %></div></div><% } %>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

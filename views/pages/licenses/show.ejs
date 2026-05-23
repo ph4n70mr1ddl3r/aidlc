@@ -1,0 +1,21 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header">
+  <div><h2><%= license.software_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/licenses">Licenses</a> / <%= license.software_name %></div></div>
+  <div class="flex gap-2">
+    <a href="/licenses/<%= license.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/licenses/<%= license.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete?')"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+  </div>
+</div>
+<div class="card"><div class="card-body">
+  <div class="detail-row"><div class="detail-label">Software</div><div class="detail-value" style="font-weight:600;"><%= license.software_name %></div></div>
+  <div class="detail-row"><div class="detail-label">Vendor</div><div class="detail-value"><%= license.vendor || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">License Key</div><div class="detail-value" style="font-family:monospace;background:var(--bg);padding:4px 8px;border-radius:4px;display:inline-block;"><%= license.license_key || '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-medium"><%= license.license_type %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Seats</div><div class="detail-value"><%= license.used_seats %> / <%= license.total_seats %> used (<%= license.total_seats > 0 ? Math.round((license.used_seats/license.total_seats)*100) : 0 %>%)</div></div>
+  <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= license.purchase_date ? new Date(license.purchase_date).toLocaleDateString() : '-' %></div></div>
+  <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? new Date(license.expiry_date).toLocaleDateString() : 'Perpetual' %></div></div>
+  <div class="detail-row"><div class="detail-label">Cost</div><div class="detail-value"><%= license.cost ? '$' + Number(license.cost).toLocaleString() : '-' %></div></div>
+  <% if (license.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= license.notes %></div></div><% } %>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

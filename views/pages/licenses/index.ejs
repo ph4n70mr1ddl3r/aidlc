@@ -1,0 +1,31 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2>Software Licenses</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Licenses</div></div><a href="/licenses/new" class="btn btn-primary"><i class="fas fa-plus"></i> New License</a></div>
+<form method="GET" action="/licenses" class="filter-bar">
+  <input type="text" name="search" class="search-input" placeholder="Search licenses..." value="<%= filters.search || '' %>">
+  <select name="license_type"><option value="">All Types</option><% ['perpetual','subscription','volume','oem','academic'].forEach(t => { %><option value="<%= t %>" <%= filters.license_type === t ? 'selected' : '' %>><%= t %></option><% }) %></select>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <a href="/licenses" class="btn btn-sm btn-outline">Clear</a>
+</form>
+<div class="card"><div class="card-body" style="padding:0;">
+  <% if (licenses.length === 0) { %><div class="empty-state"><i class="fas fa-key"></i><h3>No licenses found</h3></div>
+  <% } else { %><div class="table-responsive"><table>
+    <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
+    <tbody><% licenses.forEach(l => { 
+      const usagePercent = l.total_seats > 0 ? Math.round((l.used_seats / l.total_seats) * 100) : 0;
+      const expiringSoon = l.expiry_date && new Date(l.expiry_date) < new Date(Date.now() + 30*24*60*60*1000);
+    %><tr>
+      <td><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a></td>
+      <td class="text-sm"><%= l.vendor || '-' %></td>
+      <td><span class="badge badge-medium"><%= l.license_type %></span></td>
+      <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
+      <td><div class="progress-bar" style="width:80px;display:inline-block;vertical-align:middle;">
+        <div class="progress-fill <%= usagePercent > 90 ? 'red' : usagePercent > 70 ? 'orange' : 'green' %>" style="width:<%= usagePercent %>%"></div>
+      </div> <span class="text-sm"><%= usagePercent %>%</span></td>
+      <td class="text-sm" style="<%= expiringSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? new Date(l.expiry_date).toLocaleDateString() : 'Perpetual' %></td>
+      <td class="text-sm"><%= l.cost ? '$' + Number(l.cost).toLocaleString() : '-' %></td>
+      <td class="actions-cell"><a href="/licenses/<%= l.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
+    </tr><% }) %></tbody>
+  </table></div><% } %>
+</div></div>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

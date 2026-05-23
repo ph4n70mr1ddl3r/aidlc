@@ -1,0 +1,46 @@
+  <% if (user) { %>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <i class="fas fa-server"></i>
+      <div><h2>IT Dept Manager</h2><small>Enterprise Edition</small></div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">Main</div>
+      <a href="/dashboard" class="nav-item <%= currentPage.startsWith('/dashboard') ? 'active' : '' %>"><i class="fas fa-chart-pie"></i> Dashboard</a>
+      <div class="nav-section">Operations</div>
+      <a href="/tickets" class="nav-item <%= currentPage.startsWith('/ticket') ? 'active' : '' %>"><i class="fas fa-ticket"></i> Tickets</a>
+      <a href="/assets" class="nav-item <%= currentPage.startsWith('/asset') ? 'active' : '' %>"><i class="fas fa-box"></i> Assets</a>
+      <a href="/licenses" class="nav-item <%= currentPage.startsWith('/license') ? 'active' : '' %>"><i class="fas fa-key"></i> Licenses</a>
+      <a href="/projects" class="nav-item <%= currentPage.startsWith('/project') ? 'active' : '' %>"><i class="fas fa-project-diagram"></i> Projects</a>
+      <div class="nav-section">Management</div>
+      <a href="/staff" class="nav-item <%= currentPage.startsWith('/staff') ? 'active' : '' %>"><i class="fas fa-users"></i> Staff</a>
+      <a href="/vendors" class="nav-item <%= currentPage.startsWith('/vendor') ? 'active' : '' %>"><i class="fas fa-building"></i> Vendors</a>
+      <a href="/changes" class="nav-item <%= currentPage.startsWith('/change') ? 'active' : '' %>"><i class="fas fa-history"></i> Changes</a>
+      <div class="nav-section">Resources</div>
+      <a href="/knowledge" class="nav-item <%= currentPage.startsWith('/knowledge') ? 'active' : '' %>"><i class="fas fa-book"></i> Knowledge Base</a>
+      <a href="/reports" class="nav-item <%= currentPage.startsWith('/report') ? 'active' : '' %>"><i class="fas fa-chart-bar"></i> Reports</a>
+    </div>
+  </nav>
+  <div class="main-content">
+    <header class="header">
+      <div class="header-left"><h1><%= typeof title !== 'undefined' ? title : 'Dashboard' %></h1></div>
+      <div class="header-right">
+        <a href="/tickets?status=open&assigned_to=<%= user.id %>" class="btn btn-sm btn-outline" title="My Tickets"><i class="fas fa-bell"></i></a>
+        <a href="/profile" class="user-menu">
+          <div class="user-avatar"><%= user.first_name[0] %><%= user.last_name[0] %></div>
+          <div class="user-info"><div class="name"><%= user.first_name %> <%= user.last_name %></div><div class="role"><%= user.role %></div></div>
+        </a>
+        <a href="/logout" class="btn btn-sm btn-outline" title="Logout"><i class="fas fa-sign-out-alt"></i></a>
+      </div>
+    </header>
+    <div class="page-content">
+      <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
+        <div class="flash success"><i class="fas fa-check-circle"></i> <%= m %></div>
+      <% }) } %>
+      <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
+        <div class="flash error"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
+      <% }) } %>
+      <% if (flash.info && flash.info.length) { flash.info.forEach(m => { %>
+        <div class="flash info"><i class="fas fa-info-circle"></i> <%= m %></div>
+      <% }) } %>
+  <% } %>
