@@ -1,29 +1,45 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
+const { paginate, paginationBaseUrl, buildFilters } = require('../utils');
 
 const router = require('express').Router();
-router.use(requireAuth);
+router.use(requireAuth, auditMiddleware);
 
-// List projects
+const VALID_STATUSES = ['planning','in_progress','on_hold','completed','cancelled'];
+const VALID_PRIORITIES = ['critical','high','medium','low'];
+
+// List projects (paginated)
 router.get('/', (req, res) => {
-  const { status, priority } = req.query;
-  let where = ['1=1'];
-  let params = [];
-  
-  if (status) { where.push('p.status = ?'); params.push(status); }
-  if (priority) { where.push('p.priority = ?'); params.push(priority); }
-  
+  const { page, limit, offset } = paginate(req);
+
+  const filters = buildFilters({
+    'p.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
+    'p.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
+  });
+
+  const where = filters.where.length ? filters.where.join(' AND ') : '1=1';
+  const params = [...filters.params];
+
+  const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${where}`).get(...params).c;
+  const totalPages = Math.ceil(total / limit) || 1;
+
   const projects = db.prepare(`
     SELECT p.*, u.first_name || ' ' || u.last_name as owner_name,
       (SELECT COUNT(*) FROM project_tasks WHERE project_id = p.id) as task_count,
       (SELECT COUNT(*) FROM project_tasks WHERE project_id = p.id AND status = 'done') as done_count
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
-    WHERE ${where.join(' AND ')}
+    WHERE ${where}
     ORDER BY p.updated_at DESC
-  `).all(...params);
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
 
-  res.render('pages/projects/index', { title: 'Projects', projects, filters: req.query });
+  res.render('pages/projects/index', {
+    title: 'Projects', projects, filters: req.query,
+    page, totalPages, total,
+    baseUrl: paginationBaseUrl(req),
+  });
 });
 
 // New project form
@@ -35,19 +51,23 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 // Create project
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { name, description, status, priority, start_date, end_date, budget, owner_id } = req.body;
-  
+
   if (!name) {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
 
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+
   try {
     const result = db.prepare(`
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, description || null, status || 'planning', priority || 'medium', 
+    `).run(name, description || null, safeStatus, safePriority,
       start_date || null, end_date || null, budget ? parseFloat(budget) : 0, owner_id || null);
-    
+
+    req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
@@ -64,7 +84,7 @@ router.get('/:id', (req, res) => {
     LEFT JOIN users u ON p.owner_id = u.id
     WHERE p.id = ?
   `).get(req.params.id);
-  
+
   if (!project) {
     req.flash('error', 'Project not found');
     return res.redirect('/projects');
@@ -86,14 +106,14 @@ router.get('/:id', (req, res) => {
   `).all(req.params.id);
 
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
-  
+
   res.render('pages/projects/show', { title: project.name, project, tasks, members, staff });
 });
 
 // Update project
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
-  
+
   try {
     db.prepare(`
       UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
@@ -101,9 +121,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(name, description || null, status, priority, start_date || null, end_date || null,
-      budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0, 
+      budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0,
       progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, req.params.id);
-    
+
+    req.audit('update', 'project', parseInt(req.params.id), `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
   } catch (err) {
     req.flash('error', 'Error updating project. Please try again.');
@@ -111,10 +132,16 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   res.redirect(`/projects/${req.params.id}`);
 });
 
-// Delete project
+// Delete project (with tasks & members in transaction)
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
-    db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+    const deleteProject = db.transaction(() => {
+      db.prepare('DELETE FROM project_tasks WHERE project_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM project_members WHERE project_id = ?').run(req.params.id);
+      db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+    });
+    deleteProject();
+    req.audit('delete', 'project', parseInt(req.params.id), 'Deleted project and related tasks/members');
     req.flash('success', 'Project deleted');
   } catch (err) {
     req.flash('error', 'Error deleting project');
@@ -125,24 +152,28 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
 // Add task to project
 router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, status, priority, assigned_to, due_date } = req.body;
-  
+
   if (!title) {
     req.flash('error', 'Task title is required');
     return res.redirect(`/projects/${req.params.id}`);
   }
 
   try {
-    db.prepare(`
-      INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(req.params.id, title, description || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
-    
-    // Update project progress
-    const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.id).c;
-    const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.id).c;
-    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-    db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.id);
-    
+    const addTask = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(req.params.id, title, description || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
+
+      // Update project progress
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.id).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.id).c;
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.id);
+    });
+    addTask();
+
+    req.audit('create', 'project_task', null, `Added task "${title}" to project #${req.params.id}`);
     req.flash('success', 'Task added');
   } catch (err) {
     req.flash('error', 'Error adding task. Please try again.');
@@ -153,24 +184,28 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
 // Update task
 router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, status, priority, assigned_to, due_date } = req.body;
-  
+
   try {
-    let query = `
-      UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
-        assigned_to = ?, due_date = ?,
-        updated_at = datetime('now')`;
-    if (status === 'done') {
-      query += `, completed_at = datetime('now')`;
-    }
-    query += ` WHERE id = ? AND project_id = ?`;
-    db.prepare(query).run(title, description || null, status, priority || 'medium', assigned_to || null, due_date || null, req.params.taskId, req.params.projectId);
-    
-    // Update project progress
-    const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
-    const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
-    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-    db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
-    
+    const updateTask = db.transaction(() => {
+      let query = `
+        UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
+          assigned_to = ?, due_date = ?,
+          updated_at = datetime('now')`;
+      if (status === 'done') {
+        query += `, completed_at = datetime('now')`;
+      }
+      query += ` WHERE id = ? AND project_id = ?`;
+      db.prepare(query).run(title, description || null, status, priority || 'medium', assigned_to || null, due_date || null, req.params.taskId, req.params.projectId);
+
+      // Update project progress
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
+    });
+    updateTask();
+
+    req.audit('update', 'project_task', parseInt(req.params.taskId), `Updated task "${title}"`);
     req.flash('success', 'Task updated');
   } catch (err) {
     req.flash('error', 'Error updating task');
@@ -181,15 +216,18 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
 // Delete task
 router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, res) => {
   try {
-    db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
-      .run(req.params.taskId, req.params.projectId);
-    
-    // Update project progress
-    const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
-    const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
-    const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-    db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
-    
+    const deleteTask = db.transaction(() => {
+      db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
+        .run(req.params.taskId, req.params.projectId);
+
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
+      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
+    });
+    deleteTask();
+
+    req.audit('delete', 'project_task', parseInt(req.params.taskId), 'Deleted task');
     req.flash('success', 'Task deleted');
   } catch (err) {
     req.flash('error', 'Error deleting task');
@@ -203,6 +241,7 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
       .run(req.params.id, user_id, role || 'member');
+    req.audit('create', 'project_member', null, `Added member #${user_id} to project #${req.params.id}`);
     req.flash('success', 'Member added');
   } catch (err) {
     req.flash('error', 'Error adding member');
@@ -215,6 +254,7 @@ router.delete('/:id/members/:memberId', requireRole('admin', 'manager'), (req, r
   try {
     db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?')
       .run(req.params.memberId, req.params.id);
+    req.audit('delete', 'project_member', parseInt(req.params.memberId), `Removed member from project #${req.params.id}`);
     req.flash('success', 'Member removed');
   } catch (err) {
     req.flash('error', 'Error removing member');

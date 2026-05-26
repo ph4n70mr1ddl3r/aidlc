@@ -1,36 +1,48 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
+const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
 const bcrypt = require('bcryptjs');
 
 const router = require('express').Router();
-router.use(requireAuth);
+router.use(requireAuth, auditMiddleware);
 
-// List staff
+// List staff (paginated)
 router.get('/', (req, res) => {
-  const { role, department, search } = req.query;
-  let where = ['1=1'];
-  let params = [];
-  
-  if (role) { where.push('role = ?'); params.push(role); }
-  if (department) { where.push('department = ?'); params.push(department); }
-  if (search) {
-    where.push('(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR username LIKE ?)');
-    const term = `%${search}%`;
-    params.push(term, term, term, term);
-  }
-  
+  const { page, limit, offset } = paginate(req);
+
+  const validRoles = ['admin', 'manager', 'staff'];
+  const filters = buildFilters({
+    'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
+    'u.department': { value: req.query.department || '' },
+  });
+
+  const where = [...filters.where];
+  const params = [...filters.params];
+  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+
+  const whereClause = where.length ? where.join(' AND ') : '1=1';
+
+  const total = db.prepare(`SELECT COUNT(*) as c FROM users u WHERE ${whereClause}`).get(...params).c;
+  const totalPages = Math.ceil(total / limit) || 1;
+
   const staff = db.prepare(`
     SELECT u.*,
       (SELECT COUNT(*) FROM tickets WHERE assigned_to = u.id AND status IN ('open','in_progress','waiting')) as open_tickets,
       (SELECT COUNT(*) FROM project_tasks WHERE assigned_to = u.id AND status IN ('todo','in_progress')) as open_tasks
     FROM users u
-    WHERE ${where.join(' AND ')}
+    WHERE ${whereClause}
     ORDER BY u.first_name ASC
-  `).all(...params);
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
 
   const departments = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department').all().map(r => r.department);
-  
-  res.render('pages/staff/index', { title: 'Staff', staff, departments, filters: req.query });
+
+  res.render('pages/staff/index', {
+    title: 'Staff', staff, departments, filters: req.query,
+    page, totalPages, total,
+    baseUrl: paginationBaseUrl(req),
+  });
 });
 
 // New staff form
@@ -41,14 +53,28 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 // Create staff
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { username, password, email, first_name, last_name, role, department, phone } = req.body;
-  
+
+  if (!username || !password || !email || !first_name || !last_name) {
+    req.flash('error', 'All required fields must be filled in');
+    return res.redirect('/staff/new');
+  }
+  if (password.length < 12) {
+    req.flash('error', 'Password must be at least 12 characters');
+    return res.redirect('/staff/new');
+  }
+  if (!['admin', 'manager', 'staff'].includes(role)) {
+    req.flash('error', 'Invalid role');
+    return res.redirect('/staff/new');
+  }
+
   try {
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    db.prepare(`
+    const hashedPassword = bcrypt.hashSync(password, 12);
+    const result = db.prepare(`
       INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(username, hashedPassword, email, first_name, last_name, role, department, phone);
-    
+
+    req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     res.redirect('/staff');
   } catch (err) {
@@ -70,7 +96,7 @@ router.get('/:id', (req, res) => {
   }
 
   const { password: _, ...safeUser } = staffUser;
-  
+
   const assignedTickets = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE assigned_to = ?
@@ -104,7 +130,7 @@ router.get('/:id', (req, res) => {
     assignedTickets,
     assignedTasks,
     assignedAssets,
-    projectMemberships
+    projectMemberships,
   });
 });
 
@@ -121,14 +147,20 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 // Update staff
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { email, first_name, last_name, role, department, phone, is_active } = req.body;
-  
+
+  if (!['admin', 'manager', 'staff'].includes(role)) {
+    req.flash('error', 'Invalid role');
+    return res.redirect(`/staff/${req.params.id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
         department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(email, first_name, last_name, role, department, phone, is_active ? 1 : 0, req.params.id);
-    
+
+    req.audit('update', 'user', parseInt(req.params.id), `Updated staff ${first_name} ${last_name}`);
     req.flash('success', 'Staff member updated');
     res.redirect(`/staff/${req.params.id}`);
   } catch (err) {
@@ -144,23 +176,25 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 // Reset password
 router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   const { new_password } = req.body;
-  if (!new_password || new_password.length < 8) {
-    req.flash('error', 'Password must be at least 8 characters');
+  if (!new_password || new_password.length < 12) {
+    req.flash('error', 'Password must be at least 12 characters');
     return res.redirect(`/staff/${req.params.id}`);
   }
-  
-  const hashed = bcrypt.hashSync(new_password, 10);
+
+  const hashed = bcrypt.hashSync(new_password, 12);
   db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(hashed, req.params.id);
-  
+
+  req.audit('update', 'user', parseInt(req.params.id), 'Password reset by admin');
   req.flash('success', 'Password reset successfully');
   res.redirect(`/staff/${req.params.id}`);
 });
 
-// Delete staff
+// Delete staff (soft delete — deactivate)
 router.delete('/:id', requireRole('admin'), (req, res) => {
   try {
     db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(req.params.id);
+    req.audit('deactivate', 'user', parseInt(req.params.id), 'Deactivated user');
     req.flash('success', 'Staff member deactivated');
   } catch (err) {
     req.flash('error', 'Error deactivating staff');

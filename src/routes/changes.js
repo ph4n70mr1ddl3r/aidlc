@@ -1,28 +1,45 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
+const { paginate, paginationBaseUrl, buildFilters } = require('../utils');
 
 const router = require('express').Router();
-router.use(requireAuth);
+router.use(requireAuth, auditMiddleware);
 
-// List changes
+const VALID_CHANGE_TYPES = ['maintenance','upgrade','incident','security','configuration'];
+const VALID_STATUSES = ['scheduled','in_progress','completed','failed','cancelled'];
+const VALID_PRIORITIES = ['critical','high','medium','low'];
+
+// List changes (paginated)
 router.get('/', (req, res) => {
-  const { status, change_type, priority } = req.query;
-  let where = ['1=1'];
-  let params = [];
-  
-  if (status) { where.push('c.status = ?'); params.push(status); }
-  if (change_type) { where.push('c.change_type = ?'); params.push(change_type); }
-  if (priority) { where.push('c.priority = ?'); params.push(priority); }
-  
+  const { page, limit, offset } = paginate(req);
+
+  const filters = buildFilters({
+    'c.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
+    'c.change_type': { value: VALID_CHANGE_TYPES.includes(req.query.change_type) ? req.query.change_type : '' },
+    'c.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
+  });
+
+  const where = filters.where.length ? filters.where.join(' AND ') : '1=1';
+  const params = [...filters.params];
+
+  const total = db.prepare(`SELECT COUNT(*) as c FROM change_log c WHERE ${where}`).get(...params).c;
+  const totalPages = Math.ceil(total / limit) || 1;
+
   const changes = db.prepare(`
     SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
-    WHERE ${where.join(' AND ')}
+    WHERE ${where}
     ORDER BY c.scheduled_start DESC
-  `).all(...params);
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
 
-  res.render('pages/changes/index', { title: 'Change Log', changes, filters: req.query });
+  res.render('pages/changes/index', {
+    title: 'Change Log', changes, filters: req.query,
+    page, totalPages, total,
+    baseUrl: paginationBaseUrl(req),
+  });
 });
 
 // New change
@@ -34,19 +51,25 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 // Create change
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to } = req.body;
-  
+
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
 
+  if (!VALID_CHANGE_TYPES.includes(change_type)) {
+    req.flash('error', 'Invalid change type');
+    return res.redirect('/changes/new');
+  }
+
   try {
-    db.prepare(`
+    const result = db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title, description || null, change_type, status || 'scheduled', priority || 'medium',
       scheduled_start || null, scheduled_end || null, impact || null, assigned_to || null);
-    
+
+    req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
     res.redirect('/changes');
   } catch (err) {
@@ -63,7 +86,7 @@ router.get('/:id', (req, res) => {
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE c.id = ?
   `).get(req.params.id);
-  
+
   if (!change) {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
@@ -85,7 +108,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 // Update change
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
-  
+
   try {
     db.prepare(`
       UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
@@ -95,7 +118,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     `).run(title, description || null, change_type, status, priority,
       scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
       impact || null, assigned_to || null, req.params.id);
-    
+
+    req.audit('update', 'change', parseInt(req.params.id), `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
     res.redirect(`/changes/${req.params.id}`);
   } catch (err) {
@@ -108,6 +132,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     db.prepare('DELETE FROM change_log WHERE id = ?').run(req.params.id);
+    req.audit('delete', 'change', parseInt(req.params.id), 'Deleted change record');
     req.flash('success', 'Change deleted');
   } catch (err) {
     req.flash('error', 'Error deleting change');

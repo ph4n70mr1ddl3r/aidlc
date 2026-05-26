@@ -7,51 +7,107 @@ const morgan = require('morgan');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const crypto = require('crypto');
 const { doubleCsrf } = require('csrf-csrf');
 
-// Validate session secret in production
-if (process.env.NODE_ENV === 'production' &&
-    (!process.env.SESSION_SECRET || process.env.SESSION_SECRET === 'it-dept-manager-secret-change-in-production')) {
-  console.error('ERROR: SESSION_SECRET must be changed from default in production');
-  process.exit(1);
+// ---------------------------------------------------------------------------
+// Validate critical env vars in production
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV === 'production') {
+  const weak = [
+    'change-me-to-a-random-string-in-production',
+    'it-dept-manager-secret-change-in-production',
+    'fallback-secret',
+    'session-secret',
+  ];
+  if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET)) {
+    console.error('ERROR: SESSION_SECRET must be set to a strong random value in production');
+    process.exit(1);
+  }
+  if (!process.env.CSRF_SECRET || weak.includes(process.env.CSRF_SECRET)) {
+    console.error('ERROR: CSRF_SECRET must be set to a strong random value in production');
+    process.exit(1);
+  }
 }
 
-// Initialize database
+// ---------------------------------------------------------------------------
+// Initialize database (schema creation)
+// ---------------------------------------------------------------------------
 require('./models/database');
 
 const app = express();
 
+// ---------------------------------------------------------------------------
+// Security headers via Helmet
+// ---------------------------------------------------------------------------
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
+      fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
+      imgSrc: ["'self'", 'data:'],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// ---------------------------------------------------------------------------
 // View engine
+// ---------------------------------------------------------------------------
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
 
-// Middleware
+// ---------------------------------------------------------------------------
+// Core middleware
+// ---------------------------------------------------------------------------
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// ---------------------------------------------------------------------------
+// Session configuration
+// ---------------------------------------------------------------------------
+const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? null : 'dev-only-secret');
+if (!sessionSecret) {
+  console.error('ERROR: SESSION_SECRET is required in production');
+  process.exit(1);
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fallback-secret',
+  secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax'
-  }
+    sameSite: 'lax',
+  },
 }));
 
 app.use(flash());
 
+// ---------------------------------------------------------------------------
 // Cookie parser (required for CSRF)
+// ---------------------------------------------------------------------------
 app.use(cookieParser());
 
-// CSRF Protection
+// ---------------------------------------------------------------------------
+// CSRF Protection (separate secret from session)
+// ---------------------------------------------------------------------------
+const csrfSecret = process.env.CSRF_SECRET || (process.env.NODE_ENV === 'production' ? null : 'dev-csrf-secret');
+if (!csrfSecret) {
+  console.error('ERROR: CSRF_SECRET is required in production');
+  process.exit(1);
+}
+
 const csrfConfig = doubleCsrf({
-  getSecret: () => process.env.SESSION_SECRET || 'fallback-secret',
+  getSecret: () => csrfSecret,
   getSessionIdentifier: (req) => req.sessionID || 'anonymous',
   cookieName: 'csrf-token',
   cookieOptions: {
@@ -65,7 +121,9 @@ const csrfConfig = doubleCsrf({
 });
 app.use(csrfConfig.doubleCsrfProtection);
 
+// ---------------------------------------------------------------------------
 // Rate limiting on login
+// ---------------------------------------------------------------------------
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
@@ -74,20 +132,24 @@ const loginLimiter = rateLimit({
 });
 app.use('/login', loginLimiter);
 
+// ---------------------------------------------------------------------------
 // Global template variables
+// ---------------------------------------------------------------------------
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = {
     success: req.flash('success'),
     error: req.flash('error'),
-    info: req.flash('info')
+    info: req.flash('info'),
   };
   res.locals.currentPage = req.path;
   res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
   next();
 });
 
+// ---------------------------------------------------------------------------
 // Routes
+// ---------------------------------------------------------------------------
 app.use('/', require('./routes/auth'));
 app.use('/dashboard', require('./routes/dashboard'));
 app.use('/assets', require('./routes/assets'));
@@ -124,10 +186,31 @@ app.use((err, req, res, next) => {
   res.status(500).render('pages/error', { title: 'Error', error: { message: detail } });
 });
 
+// ---------------------------------------------------------------------------
+// Start server
+// ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
 });
+
+// ---------------------------------------------------------------------------
+// Graceful shutdown
+// ---------------------------------------------------------------------------
+function shutdown(signal) {
+  console.log(`\n${signal} received — shutting down gracefully…`);
+  server.close(() => {
+    console.log('HTTP server closed.');
+    const db = require('./models/database');
+    db.close();
+    console.log('Database connection closed.');
+    process.exit(0);
+  });
+  // Force exit after 10 s if connections don't drain
+  setTimeout(() => process.exit(1), 10000);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 module.exports = app;

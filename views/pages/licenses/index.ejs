@@ -28,4 +28,8 @@
     </tr><% }) %></tbody>
   </table></div><% } %>
 </div></div>
+<% if (typeof total !== 'undefined') { %>
+  <div class="pagination-info"><%= total %> license(s) found</div>
+  <%- include('../../partials/pagination') %>
+<% } %>
 <%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

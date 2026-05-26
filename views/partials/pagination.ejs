@@ -1,0 +1,43 @@
+<%
+  // Expected locals: currentPage, totalPages, baseUrl (path with query params minus page)
+  const buildUrl = (page) => {
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    return baseUrl + sep + 'page=' + page;
+  };
+%>
+<% if (totalPages > 1) { %>
+  <div class="pagination-info">
+    Page <%= currentPage %> of <%= totalPages %>
+  </div>
+  <div class="pagination">
+    <% if (currentPage > 1) { %>
+      <a href="<%= buildUrl(currentPage - 1) %>"><i class="fas fa-chevron-left"></i></a>
+    <% } else { %>
+      <span class="disabled"><i class="fas fa-chevron-left"></i></span>
+    <% } %>
+
+    <% const start = Math.max(1, currentPage - 2); %>
+    <% const end = Math.min(totalPages, currentPage + 2); %>
+    <% if (start > 1) { %>
+      <a href="<%= buildUrl(1) %>">1</a>
+      <% if (start > 2) { %><span>…</span><% } %>
+    <% } %>
+    <% for (let p = start; p <= end; p++) { %>
+      <% if (p === currentPage) { %>
+        <span class="active"><%= p %></span>
+      <% } else { %>
+        <a href="<%= buildUrl(p) %>"><%= p %></a>
+      <% } %>
+    <% } %>
+    <% if (end < totalPages) { %>
+      <% if (end < totalPages - 1) { %><span>…</span><% } %>
+      <a href="<%= buildUrl(totalPages) %>"><%= totalPages %></a>
+    <% } %>
+
+    <% if (currentPage < totalPages) { %>
+      <a href="<%= buildUrl(currentPage + 1) %>"><i class="fas fa-chevron-right"></i></a>
+    <% } else { %>
+      <span class="disabled"><i class="fas fa-chevron-right"></i></span>
+    <% } %>
+  </div>
+<% } %>

@@ -1,6 +1,7 @@
 const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { audit } = require('../middleware/audit');
 
 const router = require('express').Router();
 
@@ -13,14 +14,14 @@ router.get('/login', (req, res) => {
 // Login handler
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
-  
+
   if (!username || !password) {
     req.flash('error', 'Please enter username and password');
     return res.redirect('/login');
   }
 
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username);
-  
+
   if (!user || !bcrypt.compareSync(password, user.password)) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
@@ -32,13 +33,18 @@ router.post('/login', (req, res) => {
   // Store user in session (without password)
   const { password: _, ...sessionUser } = user;
   req.session.user = sessionUser;
-  
+
+  audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${username} logged in` });
+
   req.flash('success', `Welcome back, ${user.first_name}!`);
   res.redirect('/dashboard');
 });
 
 // Logout
 router.get('/logout', (req, res) => {
+  if (req.session.user) {
+    audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
+  }
   req.session.destroy();
   res.redirect('/login');
 });
@@ -52,7 +58,7 @@ router.get('/profile', requireAuth, (req, res) => {
 // Update profile
 router.put('/profile', requireAuth, (req, res) => {
   const { first_name, last_name, email, phone } = req.body;
-  
+
   if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');
     return res.redirect('/profile');
@@ -63,12 +69,13 @@ router.put('/profile', requireAuth, (req, res) => {
       UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(first_name, last_name, email, phone, req.session.user.id);
-    
+
     // Update session
     req.session.user.first_name = first_name;
     req.session.user.last_name = last_name;
     req.session.user.email = email;
-    
+
+    audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE')) {
@@ -77,40 +84,42 @@ router.put('/profile', requireAuth, (req, res) => {
       req.flash('error', 'Error updating profile. Please try again.');
     }
   }
-  
+
   res.redirect('/profile');
 });
 
 // Change password
 router.put('/profile/password', requireAuth, (req, res) => {
   const { current_password, new_password, confirm_password } = req.body;
-  
+
   const user = db.prepare('SELECT password FROM users WHERE id = ?').get(req.session.user.id);
-  
+
   if (!bcrypt.compareSync(current_password, user.password)) {
     req.flash('error', 'Current password is incorrect');
     return res.redirect('/profile');
   }
-  
+
   if (new_password !== confirm_password) {
     req.flash('error', 'New passwords do not match');
     return res.redirect('/profile');
   }
-  
-  // Enforce password policy: min 8 chars, at least one uppercase, one lowercase, one number
-  if (new_password.length < 8) {
-    req.flash('error', 'Password must be at least 8 characters');
+
+  // Password policy: min 12 chars, uppercase, lowercase, number, special char
+  if (new_password.length < 12) {
+    req.flash('error', 'Password must be at least 12 characters');
     return res.redirect('/profile');
   }
-  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password)) {
-    req.flash('error', 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
+    req.flash('error', 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
     return res.redirect('/profile');
   }
-  
+
   const hashed = bcrypt.hashSync(new_password, 12);
   db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
     .run(hashed, req.session.user.id);
-  
+
+  audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
+
   // Regenerate session to invalidate old session
   const sessionUser = req.session.user;
   req.session.regenerate((err) => {
