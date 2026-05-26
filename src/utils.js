@@ -20,7 +20,6 @@ function paginate(req) {
 function paginationBaseUrl(req) {
   const q = { ...req.query };
   delete q.page;
-  delete q.limit;
   const qs = new URLSearchParams(q).toString();
   return req.path + (qs ? '?' + qs : '');
 }
@@ -60,4 +59,13 @@ function addSearch(where, params, search, columns) {
   columns.forEach(() => params.push(term));
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, DEFAULT_PAGE_SIZE };
+/**
+ * Safely parse a route parameter as a positive integer
+ * Returns null if invalid
+ */
+function safeId(value) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, DEFAULT_PAGE_SIZE };

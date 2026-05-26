@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -98,12 +98,15 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show asset
 router.get('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+
   const asset = db.prepare(`
     SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name, u.email as assigned_email
     FROM assets a
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE a.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!asset) {
     req.flash('error', 'Asset not found');
@@ -113,14 +116,17 @@ router.get('/:id', (req, res) => {
   const relatedTickets = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
-  `).all(req.params.id);
+  `).all(id);
 
   res.render('pages/assets/show', { title: asset.name, asset, relatedTickets });
 });
 
 // Edit asset form
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
-  const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+
+  const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
   if (!asset) {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
@@ -131,6 +137,9 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 
 // Update asset
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+
   const { asset_tag, name, category, manufacturer, model, serial_number, status,
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
@@ -145,30 +154,33 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     `).run(asset_tag, name, category, manufacturer || null, model || null, serial_number || null,
       status, condition_rating, purchase_date || null,
       purchase_price ? parseFloat(purchase_price) : null,
-      warranty_expiry || null, assigned_to || null, location || null, notes || null, req.params.id);
+      warranty_expiry || null, assigned_to || null, location || null, notes || null, id);
 
-    req.audit('update', 'asset', parseInt(req.params.id), `Updated asset ${asset_tag}`);
+    req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');
-    res.redirect(`/assets/${req.params.id}`);
+    res.redirect(`/assets/${id}`);
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {
       req.flash('error', 'Error updating asset. Please check your input and try again.');
     }
-    res.redirect(`/assets/${req.params.id}/edit`);
+    res.redirect(`/assets/${id}/edit`);
   }
 });
 
 // Delete asset
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+
   try {
     const deleteStmt = db.transaction(() => {
-      db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);
+      db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?').run(id);
+      db.prepare('DELETE FROM assets WHERE id = ?').run(id);
     });
     deleteStmt();
-    req.audit('delete', 'asset', parseInt(req.params.id), 'Deleted asset');
+    req.audit('delete', 'asset', id, 'Deleted asset');
     req.flash('success', 'Asset deleted');
   } catch (err) {
     req.flash('error', 'Error deleting asset');

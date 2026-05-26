@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -80,12 +80,15 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show change
 router.get('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+
   const change = db.prepare(`
     SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE c.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!change) {
     req.flash('error', 'Change not found');
@@ -96,7 +99,10 @@ router.get('/:id', (req, res) => {
 
 // Edit change
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
-  const change = db.prepare('SELECT * FROM change_log WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+
+  const change = db.prepare('SELECT * FROM change_log WHERE id = ?').get(id);
   if (!change) {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
@@ -107,11 +113,14 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 
 // Update change
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
 
   if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid change type, status, or priority');
-    return res.redirect(`/changes/${req.params.id}/edit`);
+    return res.redirect(`/changes/${id}/edit`);
   }
 
   try {
@@ -122,22 +131,25 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
-      (impact || '').substring(0, 500) || null, assigned_to || null, req.params.id);
+      (impact || '').substring(0, 500) || null, assigned_to || null, id);
 
-    req.audit('update', 'change', parseInt(req.params.id), `Updated change "${title}" (status: ${status})`);
+    req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
-    res.redirect(`/changes/${req.params.id}`);
+    res.redirect(`/changes/${id}`);
   } catch (err) {
     req.flash('error', 'Error updating change. Please try again.');
-    res.redirect(`/changes/${req.params.id}/edit`);
+    res.redirect(`/changes/${id}/edit`);
   }
 });
 
 // Delete change
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+
   try {
-    db.prepare('DELETE FROM change_log WHERE id = ?').run(req.params.id);
-    req.audit('delete', 'change', parseInt(req.params.id), 'Deleted change record');
+    db.prepare('DELETE FROM change_log WHERE id = ?').run(id);
+    req.audit('delete', 'change', id, 'Deleted change record');
     req.flash('success', 'Change deleted');
   } catch (err) {
     req.flash('error', 'Error deleting change');

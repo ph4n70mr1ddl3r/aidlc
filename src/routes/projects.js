@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -81,12 +81,15 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show project
 router.get('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
+
   const project = db.prepare(`
     SELECT p.*, u.first_name || ' ' || u.last_name as owner_name
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
     WHERE p.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!project) {
     req.flash('error', 'Project not found');
@@ -99,14 +102,14 @@ router.get('/:id', (req, res) => {
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
     ORDER BY pt.status ASC, pt.priority DESC, pt.due_date ASC
-  `).all(req.params.id);
+  `).all(id);
 
   const members = db.prepare(`
     SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
     FROM project_members pm
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
-  `).all(req.params.id);
+  `).all(id);
 
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
 
@@ -115,6 +118,9 @@ router.get('/:id', (req, res) => {
 
 // Update project
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
+
   const { name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
 
   const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
@@ -122,7 +128,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!name || !safeStatus || !safePriority) {
     req.flash('error', 'Valid name, status, and priority are required');
-    return res.redirect(`/projects/${req.params.id}`);
+    return res.redirect(`/projects/${id}`);
   }
 
   try {
@@ -133,26 +139,29 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, start_date || null, end_date || null,
       budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0,
-      progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, req.params.id);
+      progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, id);
 
-    req.audit('update', 'project', parseInt(req.params.id), `Updated project ${name}`);
+    req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
   } catch (err) {
     req.flash('error', 'Error updating project. Please try again.');
   }
-  res.redirect(`/projects/${req.params.id}`);
+  res.redirect(`/projects/${id}`);
 });
 
 // Delete project (with tasks & members in transaction)
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
+
   try {
     const deleteProject = db.transaction(() => {
-      db.prepare('DELETE FROM project_tasks WHERE project_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM project_members WHERE project_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
+      db.prepare('DELETE FROM project_tasks WHERE project_id = ?').run(id);
+      db.prepare('DELETE FROM project_members WHERE project_id = ?').run(id);
+      db.prepare('DELETE FROM projects WHERE id = ?').run(id);
     });
     deleteProject();
-    req.audit('delete', 'project', parseInt(req.params.id), 'Deleted project and related tasks/members');
+    req.audit('delete', 'project', id, 'Deleted project and related tasks/members');
     req.flash('success', 'Project deleted');
   } catch (err) {
     req.flash('error', 'Error deleting project');
@@ -162,11 +171,14 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
 
 // Add task to project
 router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
+  const projectId = safeId(req.params.id);
+  if (!projectId) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
+
   const { title, description, status, priority, assigned_to, due_date } = req.body;
 
   if (!title) {
     req.flash('error', 'Task title is required');
-    return res.redirect(`/projects/${req.params.id}`);
+    return res.redirect(`/projects/${projectId}`);
   }
 
   try {
@@ -174,26 +186,30 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(req.params.id, title.substring(0, 200), (description || '').substring(0, 5000) || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
+      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
 
       // Update project progress
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.id).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.id).c;
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.id);
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
     });
     addTask();
 
-    req.audit('create', 'project_task', null, `Added task "${title}" to project #${req.params.id}`);
+    req.audit('create', 'project_task', null, `Added task "${title}" to project #${projectId}`);
     req.flash('success', 'Task added');
   } catch (err) {
     req.flash('error', 'Error adding task. Please try again.');
   }
-  res.redirect(`/projects/${req.params.id}`);
+  res.redirect(`/projects/${projectId}`);
 });
 
 // Update task
 router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, res) => {
+  const projectId = safeId(req.params.projectId);
+  const taskId = safeId(req.params.taskId);
+  if (!projectId || !taskId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
+
   const { title, description, status, priority, assigned_to, due_date } = req.body;
 
   try {
@@ -206,71 +222,81 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = datetime('now')`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority || 'medium', assigned_to || null, due_date || null, req.params.taskId, req.params.projectId);
+      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority || 'medium', assigned_to || null, due_date || null, taskId, projectId);
 
       // Update project progress
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
     });
     updateTask();
 
-    req.audit('update', 'project_task', parseInt(req.params.taskId), `Updated task "${title}"`);
+    req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
     req.flash('success', 'Task updated');
   } catch (err) {
     req.flash('error', 'Error updating task');
   }
-  res.redirect(`/projects/${req.params.projectId}`);
+  res.redirect(`/projects/${projectId}`);
 });
 
 // Delete task
 router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, res) => {
+  const projectId = safeId(req.params.projectId);
+  const taskId = safeId(req.params.taskId);
+  if (!projectId || !taskId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
+
   try {
     const deleteTask = db.transaction(() => {
       db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
-        .run(req.params.taskId, req.params.projectId);
+        .run(taskId, projectId);
 
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(req.params.projectId).c;
+      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
       const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, req.params.projectId);
+      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
     });
     deleteTask();
 
-    req.audit('delete', 'project_task', parseInt(req.params.taskId), 'Deleted task');
+    req.audit('delete', 'project_task', taskId, 'Deleted task');
     req.flash('success', 'Task deleted');
   } catch (err) {
     req.flash('error', 'Error deleting task');
   }
-  res.redirect(`/projects/${req.params.projectId}`);
+  res.redirect(`/projects/${projectId}`);
 });
 
 // Add member to project
 router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
   const { user_id, role } = req.body;
   try {
     db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
-      .run(req.params.id, user_id, role || 'member');
-    req.audit('create', 'project_member', null, `Added member #${user_id} to project #${req.params.id}`);
+      .run(id, user_id, role || 'member');
+    req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
     req.flash('success', 'Member added');
   } catch (err) {
     req.flash('error', 'Error adding member');
   }
-  res.redirect(`/projects/${req.params.id}`);
+  res.redirect(`/projects/${id}`);
 });
 
 // Remove member from project
 router.delete('/:id/members/:memberId', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  const memberId = safeId(req.params.memberId);
+  if (!id || !memberId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
+
   try {
     db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?')
-      .run(req.params.memberId, req.params.id);
-    req.audit('delete', 'project_member', parseInt(req.params.memberId), `Removed member from project #${req.params.id}`);
+      .run(memberId, id);
+    req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
     req.flash('success', 'Member removed');
   } catch (err) {
     req.flash('error', 'Error removing member');
   }
-  res.redirect(`/projects/${req.params.id}`);
+  res.redirect(`/projects/${id}`);
 });
 
 module.exports = router;

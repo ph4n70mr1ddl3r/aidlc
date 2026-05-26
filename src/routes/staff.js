@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 const bcrypt = require('bcryptjs');
 
 const router = require('express').Router();
@@ -94,7 +94,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show staff member
 router.get('/:id', (req, res) => {
-  const staffUser = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+
+  const staffUser = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!staffUser) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -107,7 +110,7 @@ router.get('/:id', (req, res) => {
     FROM tickets WHERE assigned_to = ?
     ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC
     LIMIT 10
-  `).all(req.params.id);
+  `).all(id);
 
   const assignedTasks = db.prepare(`
     SELECT pt.*, p.name as project_name, p.id as project_id
@@ -115,19 +118,19 @@ router.get('/:id', (req, res) => {
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
     ORDER BY pt.due_date ASC
-  `).all(req.params.id);
+  `).all(id);
 
   const assignedAssets = db.prepare(`
     SELECT id, asset_tag, name, category, status
     FROM assets WHERE assigned_to = ?
-  `).all(req.params.id);
+  `).all(id);
 
   const projectMemberships = db.prepare(`
     SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status
     FROM project_members pm
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
-  `).all(req.params.id);
+  `).all(id);
 
   res.render('pages/staff/show', {
     title: `${safeUser.first_name} ${safeUser.last_name}`,
@@ -141,7 +144,10 @@ router.get('/:id', (req, res) => {
 
 // Edit staff form
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!user) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -151,11 +157,14 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 
 // Update staff
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+
   const { email, first_name, last_name, role, department, phone, is_active } = req.body;
 
   if (!['admin', 'manager', 'staff'].includes(role)) {
     req.flash('error', 'Invalid role');
-    return res.redirect(`/staff/${req.params.id}/edit`);
+    return res.redirect(`/staff/${id}/edit`);
   }
 
   try {
@@ -163,23 +172,26 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
         department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(email, first_name, last_name, role, department, phone, is_active ? 1 : 0, req.params.id);
+    `).run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
+      (department || '').substring(0, 100), (phone || '').substring(0, 50), is_active ? 1 : 0, id);
 
-    req.audit('update', 'user', parseInt(req.params.id), `Updated staff ${first_name} ${last_name}`);
+    req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     req.flash('success', 'Staff member updated');
-    res.redirect(`/staff/${req.params.id}`);
+    res.redirect(`/staff/${id}`);
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Email address is already in use');
     } else {
       req.flash('error', 'Error updating staff. Please try again.');
     }
-    res.redirect(`/staff/${req.params.id}/edit`);
+    res.redirect(`/staff/${id}/edit`);
   }
 });
 
 // Reset password
 router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
   const { new_password } = req.body;
   if (!new_password || new_password.length < 12) {
     req.flash('error', 'Password must be at least 12 characters');
@@ -187,23 +199,26 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   }
   if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
     req.flash('error', 'Password must contain uppercase, lowercase, number, and special character');
-    return res.redirect(`/staff/${req.params.id}`);
+    return res.redirect(`/staff/${id}`);
   }
 
   const hashed = bcrypt.hashSync(new_password, 12);
   db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(hashed, req.params.id);
+    .run(hashed, id);
 
-  req.audit('update', 'user', parseInt(req.params.id), 'Password reset by admin');
+  req.audit('update', 'user', id, 'Password reset by admin');
   req.flash('success', 'Password reset successfully');
-  res.redirect(`/staff/${req.params.id}`);
+  res.redirect(`/staff/${id}`);
 });
 
 // Delete staff (soft delete — deactivate)
 router.delete('/:id', requireRole('admin'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+
   try {
-    db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(req.params.id);
-    req.audit('deactivate', 'user', parseInt(req.params.id), 'Deactivated user');
+    db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+    req.audit('deactivate', 'user', id, 'Deactivated user');
     req.flash('success', 'Staff member deactivated');
   } catch (err) {
     req.flash('error', 'Error deactivating staff');

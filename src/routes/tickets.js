@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -106,6 +106,9 @@ router.post('/', (req, res) => {
 
 // Show ticket
 router.get('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+
   const ticket = db.prepare(`
     SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name,
       a.name as asset_name, a.asset_tag
@@ -113,7 +116,7 @@ router.get('/:id', (req, res) => {
     LEFT JOIN users u ON t.assigned_to = u.id
     LEFT JOIN assets a ON t.asset_id = a.id
     WHERE t.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!ticket) {
     req.flash('error', 'Ticket not found');
@@ -126,7 +129,7 @@ router.get('/:id', (req, res) => {
     JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
     ORDER BY tc.created_at ASC
-  `).all(req.params.id);
+  `).all(id);
 
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
 
@@ -135,7 +138,10 @@ router.get('/:id', (req, res) => {
 
 // Edit ticket form
 router.get('/:id/edit', (req, res) => {
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
   if (!ticket) {
     req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
@@ -147,35 +153,54 @@ router.get('/:id/edit', (req, res) => {
 
 // Update ticket
 router.put('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+
   const { title, description, category, priority, status, assigned_to, asset_id,
           due_date, resolution_notes } = req.body;
+
+  // Validate enum fields
+  if (category && !VALID_CATEGORIES.includes(category)) {
+    req.flash('error', 'Invalid category');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (status && !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
 
   try {
     let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
-      assigned_to || null, asset_id || null, due_date || null, resolution_notes || null];
+      assigned_to || null, asset_id || null, due_date || null, (resolution_notes || '').substring(0, 5000)];
 
     if (status === 'resolved' || status === 'closed') {
       query += `, resolved_at = datetime('now')`;
     }
     query += ` WHERE id = ?`;
-    params.push(req.params.id);
+    params.push(id);
 
     db.prepare(query).run(...params);
 
-    req.audit('update', 'ticket', parseInt(req.params.id), `Updated ticket (status: ${status})`);
+    req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
-    res.redirect(`/tickets/${req.params.id}`);
+    res.redirect(`/tickets/${id}`);
   } catch (err) {
     req.flash('error', 'Error updating ticket. Please try again.');
-    res.redirect(`/tickets/${req.params.id}/edit`);
+    res.redirect(`/tickets/${id}/edit`);
   }
 });
 
 // Add comment
 router.post('/:id/comments', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
   const { comment, is_internal } = req.body;
 
   if (!comment || !comment.trim()) {
@@ -187,23 +212,25 @@ router.post('/:id/comments', (req, res) => {
     db.prepare(`
       INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
-    `).run(req.params.id, req.session.user.id, comment.trim().substring(0, 5000), is_internal ? 1 : 0);
+    `).run(id, req.session.user.id, comment.trim().substring(0, 5000), is_internal ? 1 : 0);
 
-    req.audit('comment', 'ticket', parseInt(req.params.id), 'Added comment');
+    req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');
   } catch (err) {
     req.flash('error', 'Error adding comment');
   }
-  res.redirect(`/tickets/${req.params.id}`);
+  res.redirect(`/tickets/${id}`);
 });
 
 // Quick status update
 router.put('/:id/status', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
   const { status } = req.body;
 
   if (!VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
-    return res.redirect(`/tickets/${req.params.id}`);
+    return res.redirect(`/tickets/${id}`);
   }
 
   try {
@@ -212,24 +239,27 @@ router.put('/:id/status', (req, res) => {
       query += `, resolved_at = datetime('now')`;
     }
     query += ` WHERE id = ?`;
-    db.prepare(query).run(status, req.params.id);
-    req.audit('update', 'ticket', parseInt(req.params.id), `Status changed to ${status}`);
+    db.prepare(query).run(status, id);
+    req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
     req.flash('error', 'Error updating status');
   }
-  res.redirect(`/tickets/${req.params.id}`);
+  res.redirect(`/tickets/${id}`);
 });
 
 // Delete ticket
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+
   try {
     const deleteStmt = db.transaction(() => {
-      db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?').run(req.params.id);
-      db.prepare('DELETE FROM tickets WHERE id = ?').run(req.params.id);
+      db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?').run(id);
+      db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
     });
     deleteStmt();
-    req.audit('delete', 'ticket', parseInt(req.params.id), 'Deleted ticket');
+    req.audit('delete', 'ticket', id, 'Deleted ticket');
     req.flash('success', 'Ticket deleted');
   } catch (err) {
     req.flash('error', 'Error deleting ticket');

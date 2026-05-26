@@ -30,14 +30,19 @@ router.post('/login', (req, res) => {
   // Update last login
   db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(user.id);
 
-  // Store user in session (without password)
+  // Store user in session (without password) — regenerate session to prevent fixation
   const { password: _, ...sessionUser } = user;
-  req.session.user = sessionUser;
 
-  audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${username} logged in` });
-
-  req.flash('success', `Welcome back, ${user.first_name}!`);
-  res.redirect('/dashboard');
+  req.session.regenerate((err) => {
+    if (err) {
+      req.flash('error', 'Login failed. Please try again.');
+      return res.redirect('/login');
+    }
+    req.session.user = sessionUser;
+    audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${username} logged in` });
+    req.flash('success', `Welcome back, ${user.first_name}!`);
+    res.redirect('/dashboard');
+  });
 });
 
 // Logout

@@ -20,13 +20,17 @@ if (process.env.NODE_ENV === 'production') {
     'it-dept-manager-secret-change-in-production',
     'fallback-secret',
     'session-secret',
+    'dev-session-secret-change-for-production',
+    'dev-csrf-secret-change-for-production',
+    'generate-a-random-string-here',
+    'generate-another-random-string-here',
   ];
-  if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET)) {
-    console.error('ERROR: SESSION_SECRET must be set to a strong random value in production');
+  if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET) || process.env.SESSION_SECRET.length < 32) {
+    console.error('ERROR: SESSION_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }
-  if (!process.env.CSRF_SECRET || weak.includes(process.env.CSRF_SECRET)) {
-    console.error('ERROR: CSRF_SECRET must be set to a strong random value in production');
+  if (!process.env.CSRF_SECRET || weak.includes(process.env.CSRF_SECRET) || process.env.CSRF_SECRET.length < 32) {
+    console.error('ERROR: CSRF_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }
 }
@@ -69,8 +73,8 @@ app.set('views', path.join(__dirname, '..', 'views'));
 // Core middleware
 // ---------------------------------------------------------------------------
 app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(methodOverride('_method'));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -121,7 +125,7 @@ const csrfConfig = doubleCsrf({
   getSessionIdentifier: (req) => req.sessionID || 'anonymous',
   cookieName: 'csrf-token',
   cookieOptions: {
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -171,6 +175,16 @@ app.use('/knowledge', require('./routes/knowledge'));
 app.use('/changes', require('./routes/changes'));
 app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
+
+// Health check (unauthenticated)
+app.get('/health', (req, res) => {
+  try {
+    require('./models/database').prepare('SELECT 1').get();
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.status(503).json({ status: 'error', message: 'Database unavailable' });
+  }
+});
 
 // Home redirect
 app.get('/', (req, res) => {

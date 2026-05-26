@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 
@@ -101,15 +101,18 @@ router.post('/', (req, res) => {
 
 // Show article
 router.get('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+
   // Increment views
-  db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(req.params.id);
+  db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
 
   const article = db.prepare(`
     SELECT k.*, u.first_name || ' ' || u.last_name as author_name
     FROM knowledge_articles k
     LEFT JOIN users u ON k.author_id = u.id
     WHERE k.id = ?
-  `).get(req.params.id);
+  `).get(id);
 
   if (!article) {
     req.flash('error', 'Article not found');
@@ -123,7 +126,10 @@ router.get('/:id', (req, res) => {
 
 // Edit article
 router.get('/:id/edit', (req, res) => {
-  const article = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+
+  const article = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?').get(id);
   if (!article) {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
@@ -133,29 +139,44 @@ router.get('/:id/edit', (req, res) => {
 
 // Update article
 router.put('/:id', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+
   const { title, content, category, tags, status, is_featured } = req.body;
+
+  if (!VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+  if (!VALID_CATEGORIES.includes(category)) {
+    req.flash('error', 'Invalid category');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
 
   try {
     db.prepare(`
       UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
         status = ?, is_featured = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), status, is_featured ? 1 : 0, req.params.id);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), status, is_featured ? 1 : 0, id);
 
-    req.audit('update', 'knowledge_article', parseInt(req.params.id), `Updated article "${title}"`);
+    req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');
-    res.redirect(`/knowledge/${req.params.id}`);
+    res.redirect(`/knowledge/${id}`);
   } catch (err) {
     req.flash('error', 'Error updating article. Please try again.');
-    res.redirect(`/knowledge/${req.params.id}/edit`);
+    res.redirect(`/knowledge/${id}/edit`);
   }
 });
 
 // Delete article
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+
   try {
-    db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(req.params.id);
-    req.audit('delete', 'knowledge_article', parseInt(req.params.id), 'Deleted article');
+    db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(id);
+    req.audit('delete', 'knowledge_article', id, 'Deleted article');
     req.flash('success', 'Article deleted');
   } catch (err) {
     req.flash('error', 'Error deleting article');

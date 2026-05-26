@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -50,12 +50,14 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/vendors/new');
   }
 
+  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
+
   try {
     const result = db.prepare(`
       INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, category || null, contract_start || null, contract_end || null,
+      (website || '').substring(0, 500) || null, safeCategory, contract_start || null, contract_end || null,
       (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, parseInt(rating))) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
@@ -69,7 +71,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show vendor
 router.get('/:id', (req, res) => {
-  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
+  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
     return res.redirect('/vendors');
@@ -79,7 +84,10 @@ router.get('/:id', (req, res) => {
 
 // Edit vendor
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
-  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
+  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
     return res.redirect('/vendors');
@@ -89,7 +97,12 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 
 // Update vendor
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active } = req.body;
+
+  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   try {
     db.prepare(`
@@ -98,25 +111,28 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         is_active = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, category || null,
-      contract_start || null, contract_end || null, notes || null,
+      (website || '').substring(0, 500) || null, safeCategory,
+      contract_start || null, contract_end || null, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, parseInt(rating))) : null,
-      is_active ? 1 : 0, req.params.id);
+      is_active ? 1 : 0, id);
 
-    req.audit('update', 'vendor', parseInt(req.params.id), `Updated vendor ${name}`);
+    req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
-    res.redirect(`/vendors/${req.params.id}`);
+    res.redirect(`/vendors/${id}`);
   } catch (err) {
     req.flash('error', 'Error updating vendor. Please try again.');
-    res.redirect(`/vendors/${req.params.id}/edit`);
+    res.redirect(`/vendors/${id}/edit`);
   }
 });
 
 // Delete vendor
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
   try {
-    db.prepare('DELETE FROM vendors WHERE id = ?').run(req.params.id);
-    req.audit('delete', 'vendor', parseInt(req.params.id), 'Deleted vendor');
+    db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
+    req.audit('delete', 'vendor', id, 'Deleted vendor');
     req.flash('success', 'Vendor deleted');
   } catch (err) {
     req.flash('error', 'Error deleting vendor');

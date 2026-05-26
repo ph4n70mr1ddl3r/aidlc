@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -69,7 +69,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
 // Show license
 router.get('/:id', (req, res) => {
-  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+
+  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
@@ -79,7 +82,10 @@ router.get('/:id', (req, res) => {
 
 // Edit license
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
-  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(req.params.id);
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+
+  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
@@ -89,11 +95,14 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 
 // Update license
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+
   const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
 
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
     req.flash('error', 'Invalid license type');
-    return res.redirect(`/licenses/${req.params.id}/edit`);
+    return res.redirect(`/licenses/${id}/edit`);
   }
 
   try {
@@ -104,22 +113,25 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       total_seats ? parseInt(total_seats) : 1, used_seats ? parseInt(used_seats) : 0,
-      purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, notes || null, req.params.id);
+      purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
-    req.audit('update', 'license', parseInt(req.params.id), `Updated license for ${software_name}`);
+    req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');
-    res.redirect(`/licenses/${req.params.id}`);
+    res.redirect(`/licenses/${id}`);
   } catch (err) {
     req.flash('error', 'Error updating license. Please try again.');
-    res.redirect(`/licenses/${req.params.id}/edit`);
+    res.redirect(`/licenses/${id}/edit`);
   }
 });
 
 // Delete license
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+
   try {
-    db.prepare('DELETE FROM licenses WHERE id = ?').run(req.params.id);
-    req.audit('delete', 'license', parseInt(req.params.id), 'Deleted license');
+    db.prepare('DELETE FROM licenses WHERE id = ?').run(id);
+    req.audit('delete', 'license', id, 'Deleted license');
     req.flash('success', 'License deleted');
   } catch (err) {
     req.flash('error', 'Error deleting license');
