@@ -66,8 +66,8 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title, description || null, change_type, status || 'scheduled', priority || 'medium',
-      scheduled_start || null, scheduled_end || null, impact || null, assigned_to || null);
+    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status || 'scheduled', priority || 'medium',
+      scheduled_start || null, scheduled_end || null, (impact || '').substring(0, 500) || null, assigned_to || null);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -120,9 +120,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
         impact = ?, assigned_to = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title, description || null, change_type, status, priority,
+    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
-      impact || null, assigned_to || null, req.params.id);
+      (impact || '').substring(0, 500) || null, assigned_to || null, req.params.id);
 
     req.audit('update', 'change', parseInt(req.params.id), `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');

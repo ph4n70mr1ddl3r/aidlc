@@ -86,7 +86,7 @@ router.post('/', (req, res) => {
         requester_name, requester_email, requester_department, requester_phone,
         assigned_to, asset_id, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title.substring(0, 200), description || null, category, priority || 'medium',
+    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, priority || 'medium',
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
       assigned_to || null, asset_id || null, due_date || null);
     return { ticket_number, id: result.lastInsertRowid };
@@ -154,7 +154,7 @@ router.put('/:id', (req, res) => {
     let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
-    const params = [title, description || null, category, priority, status,
+    const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
       assigned_to || null, asset_id || null, due_date || null, resolution_notes || null];
 
     if (status === 'resolved' || status === 'closed') {
@@ -187,7 +187,7 @@ router.post('/:id/comments', (req, res) => {
     db.prepare(`
       INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
-    `).run(req.params.id, req.session.user.id, comment.trim(), is_internal ? 1 : 0);
+    `).run(req.params.id, req.session.user.id, comment.trim().substring(0, 5000), is_internal ? 1 : 0);
 
     req.audit('comment', 'ticket', parseInt(req.params.id), 'Added comment');
     req.flash('success', 'Comment added');

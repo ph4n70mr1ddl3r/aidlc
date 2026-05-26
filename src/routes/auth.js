@@ -68,7 +68,7 @@ router.put('/profile', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(first_name, last_name, email, phone, req.session.user.id);
+    `).run(first_name.substring(0, 100), last_name.substring(0, 100), email.substring(0, 200), (phone || '').substring(0, 50), req.session.user.id);
 
     // Update session
     req.session.user.first_name = first_name;

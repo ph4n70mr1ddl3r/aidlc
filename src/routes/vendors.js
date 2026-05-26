@@ -54,9 +54,9 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, contact_person || null, email || null, phone || null, address || null,
-      website || null, category || null, contract_start || null, contract_end || null,
-      notes || null, rating ? Math.max(1, Math.min(5, parseInt(rating))) : null);
+    `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+      (website || '').substring(0, 500) || null, category || null, contract_start || null, contract_end || null,
+      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, parseInt(rating))) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -97,8 +97,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
         is_active = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, contact_person || null, email || null, phone || null, address || null,
-      website || null, category || null,
+    `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+      (website || '').substring(0, 500) || null, category || null,
       contract_start || null, contract_end || null, notes || null,
       rating ? Math.max(1, Math.min(5, parseInt(rating))) : null,
       is_active ? 1 : 0, req.params.id);

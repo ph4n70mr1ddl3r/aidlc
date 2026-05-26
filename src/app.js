@@ -39,6 +39,11 @@ require('./models/database');
 const app = express();
 
 // ---------------------------------------------------------------------------
+// Trust proxy (required for correct req.ip behind reverse proxy)
+// ---------------------------------------------------------------------------
+app.set('trust proxy', 1);
+
+// ---------------------------------------------------------------------------
 // Security headers via Helmet
 // ---------------------------------------------------------------------------
 app.use(helmet({
@@ -78,6 +83,11 @@ if (!sessionSecret) {
   process.exit(1);
 }
 
+// In production, MemoryStore is not suitable — warn if no external store is configured
+if (process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: Using default MemoryStore for sessions. Consider using a production-grade session store (e.g. connect-sqlite, redis).');
+}
+
 app.use(session({
   secret: sessionSecret,
   resave: false,
@@ -111,7 +121,7 @@ const csrfConfig = doubleCsrf({
   getSessionIdentifier: (req) => req.sessionID || 'anonymous',
   cookieName: 'csrf-token',
   cookieOptions: {
-    sameSite: 'lax',
+    sameSite: 'strict',
     path: '/',
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,

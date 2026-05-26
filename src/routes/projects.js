@@ -67,7 +67,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, description || null, safeStatus, safePriority,
+    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
       start_date || null, end_date || null, budget ? parseFloat(budget) : 0, owner_id || null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
@@ -131,7 +131,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name.substring(0, 200), description || null, safeStatus, safePriority, start_date || null, end_date || null,
+    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, start_date || null, end_date || null,
       budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0,
       progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, req.params.id);
 
@@ -174,7 +174,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(req.params.id, title, description || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
+      `).run(req.params.id, title.substring(0, 200), (description || '').substring(0, 5000) || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
 
       // Update project progress
       const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.id).c;
@@ -206,7 +206,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = datetime('now')`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title, description || null, status, priority || 'medium', assigned_to || null, due_date || null, req.params.taskId, req.params.projectId);
+      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority || 'medium', assigned_to || null, due_date || null, req.params.taskId, req.params.projectId);
 
       // Update project progress
       const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(req.params.projectId).c;

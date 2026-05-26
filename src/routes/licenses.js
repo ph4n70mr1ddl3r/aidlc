@@ -54,7 +54,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(software_name, vendor || null, license_key || null, license_type || null,
+    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       total_seats ? parseInt(total_seats) : 1, used_seats ? parseInt(used_seats) : 0,
       purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, notes || null);
 
@@ -102,7 +102,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(software_name, vendor || null, license_key || null, license_type || null,
+    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       total_seats ? parseInt(total_seats) : 1, used_seats ? parseInt(used_seats) : 0,
       purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, notes || null, req.params.id);
 

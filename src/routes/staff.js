@@ -12,9 +12,12 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const validRoles = ['admin', 'manager', 'staff'];
+  // Whitelist known departments from DB
+  const departments = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department').all().map(r => r.department);
+  const validDepartments = departments;
   const filters = buildFilters({
     'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
-    'u.department': { value: req.query.department || '' },
+    'u.department': { value: validDepartments.includes(req.query.department) ? req.query.department : '' },
   });
 
   const where = [...filters.where];
@@ -35,8 +38,6 @@ router.get('/', (req, res) => {
     ORDER BY u.first_name ASC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
-
-  const departments = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department').all().map(r => r.department);
 
   res.render('pages/staff/index', {
     title: 'Staff', staff, departments, filters: req.query,
@@ -182,6 +183,10 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   const { new_password } = req.body;
   if (!new_password || new_password.length < 12) {
     req.flash('error', 'Password must be at least 12 characters');
+    return res.redirect(`/staff/${req.params.id}`);
+  }
+  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
+    req.flash('error', 'Password must contain uppercase, lowercase, number, and special character');
     return res.redirect(`/staff/${req.params.id}`);
   }
 

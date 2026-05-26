@@ -1,8 +1,9 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
 
 const router = require('express').Router();
-router.use(requireAuth);
+router.use(requireAuth, auditMiddleware);
 
 router.get('/', (req, res) => {
   // Ticket stats

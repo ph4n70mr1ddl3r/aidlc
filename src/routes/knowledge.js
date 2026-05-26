@@ -88,7 +88,7 @@ router.post('/', (req, res) => {
     const result = db.prepare(`
       INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), content, category, (tags || '').substring(0, 500), req.session.user.id, status || 'draft', is_featured ? 1 : 0);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), req.session.user.id, status || 'draft', is_featured ? 1 : 0);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');
@@ -140,7 +140,7 @@ router.put('/:id', (req, res) => {
       UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
         status = ?, is_featured = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title.substring(0, 200), content, category, (tags || '').substring(0, 500), status, is_featured ? 1 : 0, req.params.id);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), status, is_featured ? 1 : 0, req.params.id);
 
     req.audit('update', 'knowledge_article', parseInt(req.params.id), `Updated article "${title}"`);
     req.flash('success', 'Article updated');
