@@ -248,7 +248,9 @@
       .main-content { margin-left: 0; }
       .stats-grid { grid-template-columns: 1fr 1fr; }
       .form-grid { grid-template-columns: 1fr; }
+      .mobile-menu-toggle { display: inline-flex !important; }
     }
+    .mobile-menu-toggle { display: none; }
 
     /* Pagination */
     .pagination {

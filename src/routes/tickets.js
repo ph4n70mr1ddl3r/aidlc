@@ -77,21 +77,25 @@ router.post('/', (req, res) => {
     return res.redirect('/tickets/new');
   }
 
-  // Generate ticket number
-  const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
-  const ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1).padStart(3, '0')}`;
-
-  try {
+  // Generate ticket number atomically
+  const createTicket = db.transaction(() => {
+    const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
+    const ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1).padStart(3, '0')}`;
     const result = db.prepare(`
       INSERT INTO tickets (ticket_number, title, description, category, priority,
         requester_name, requester_email, requester_department, requester_phone,
         assigned_to, asset_id, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title, description || null, category, priority || 'medium',
-      requester_name, requester_email, requester_department || null, requester_phone || null,
+    `).run(ticket_number, title.substring(0, 200), description || null, category, priority || 'medium',
+      requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
       assigned_to || null, asset_id || null, due_date || null);
+    return { ticket_number, id: result.lastInsertRowid };
+  });
 
-    req.audit('create', 'ticket', result.lastInsertRowid, `Created ticket ${ticket_number}`);
+  try {
+    const { ticket_number, id } = createTicket();
+
+    req.audit('create', 'ticket', id, `Created ticket ${ticket_number}`);
     req.flash('success', `Ticket ${ticket_number} created successfully`);
     res.redirect('/tickets');
   } catch (err) {

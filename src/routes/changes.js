@@ -109,6 +109,11 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
 
+  if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid change type, status, or priority');
+    return res.redirect(`/changes/${req.params.id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,

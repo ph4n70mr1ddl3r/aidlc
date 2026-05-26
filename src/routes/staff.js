@@ -62,6 +62,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Password must be at least 12 characters');
     return res.redirect('/staff/new');
   }
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    req.flash('error', 'Password must contain uppercase, lowercase, number, and special character');
+    return res.redirect('/staff/new');
+  }
   if (!['admin', 'manager', 'staff'].includes(role)) {
     req.flash('error', 'Invalid role');
     return res.redirect('/staff/new');
@@ -72,7 +76,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, email, first_name, last_name, role, department, phone);
+    `).run(username, hashedPassword, email, first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);

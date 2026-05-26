@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, buildFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -18,8 +18,11 @@ router.get('/', (req, res) => {
     'p.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
   });
 
-  const where = filters.where.length ? filters.where.join(' AND ') : '1=1';
+  const where = [...filters.where];
   const params = [...filters.params];
+  addSearch(where, params, req.query.search, ['p.name', 'p.description']);
+
+  const whereClause = where.length ? where.join(' AND ') : '1=1';
 
   const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${where}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;
@@ -114,13 +117,21 @@ router.get('/:id', (req, res) => {
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
 
+  const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : undefined;
+
+  if (!name || !safeStatus || !safePriority) {
+    req.flash('error', 'Valid name, status, and priority are required');
+    return res.redirect(`/projects/${req.params.id}`);
+  }
+
   try {
     db.prepare(`
       UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name, description || null, status, priority, start_date || null, end_date || null,
+    `).run(name.substring(0, 200), description || null, safeStatus, safePriority, start_date || null, end_date || null,
       budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0,
       progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, req.params.id);
 

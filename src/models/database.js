@@ -290,6 +290,12 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_kb_category ON knowledge_articles(category);
     CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
     CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_tickets_asset ON tickets(asset_id);
+    CREATE INDEX IF NOT EXISTS idx_assets_assigned ON assets(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_changes_scheduled ON change_log(scheduled_start);
+    CREATE INDEX IF NOT EXISTS idx_changes_status ON change_log(status);
+    CREATE INDEX IF NOT EXISTS idx_licenses_expiry ON licenses(expiry_date);
   `);
 }
 

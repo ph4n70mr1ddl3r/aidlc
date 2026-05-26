@@ -6,12 +6,14 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters } = require('../uti
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+const VALID_CATEGORIES_VENDOR = ['Hardware', 'Cloud', 'Security', 'Network', 'Maintenance', 'Software', 'Consulting', 'Telecom', 'Other'];
+
 // List vendors (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'v.category': { value: req.query.category || '' },
+    'v.category': { value: VALID_CATEGORIES_VENDOR.includes(req.query.category) ? req.query.category : '' },
   });
 
   const where = [...filters.where];

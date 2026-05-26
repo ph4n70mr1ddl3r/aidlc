@@ -75,10 +75,13 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
         status, condition_rating, purchase_date, purchase_price, warranty_expiry,
         assigned_to, location, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(asset_tag, name, category, manufacturer || null, model || null, serial_number || null,
+    `).run(
+      asset_tag.substring(0, 50), name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
+      (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
       status || 'in_storage', condition_rating || 'good', purchase_date || null,
       purchase_price ? parseFloat(purchase_price) : null,
-      warranty_expiry || null, assigned_to || null, location || null, notes || null);
+      warranty_expiry || null, assigned_to || null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
+    );
 
     req.audit('create', 'asset', result.lastInsertRowid, `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);

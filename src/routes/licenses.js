@@ -91,6 +91,11 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
 
+  if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
+    req.flash('error', 'Invalid license type');
+    return res.redirect(`/licenses/${req.params.id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
