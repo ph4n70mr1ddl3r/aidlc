@@ -64,7 +64,7 @@ router.post('/', (req, res) => {
   const { title, description, category, priority, requester_name, requester_email,
           requester_department, requester_phone, assigned_to, asset_id, due_date } = req.body;
 
-  if (!title || !category || !requester_name || !requester_email) {
+  if (!title || !title.trim() || !category || !requester_name || !requester_email) {
     req.flash('error', 'Title, category, requester name, and requester email are required');
     return res.redirect('/tickets/new');
   }
@@ -161,9 +161,13 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
   }
+  if (!category) {
+    req.flash('error', 'Category is required');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
 
   // Validate enum fields
-  if (category && !VALID_CATEGORIES.includes(category)) {
+  if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -175,17 +179,30 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Invalid status');
     return res.redirect(`/tickets/${id}/edit`);
   }
+  const safeCategory = category;
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
+  if (!safeStatus) {
+    req.flash('error', 'Status is required');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
 
   try {
+    // Fetch current ticket to compare status transitions
+    const ticket = db.prepare('SELECT status FROM tickets WHERE id = ?').get(id);
+    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+
     let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
-    const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
+    const params = [title.substring(0, 200), (description || '').substring(0, 5000), safeCategory, safePriority, safeStatus,
       assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null, (resolution_notes || '').substring(0, 5000)];
 
-    if (status === 'resolved' || status === 'closed') {
+    const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
+    const isNowResolved = status === 'resolved' || status === 'closed';
+    if (isNowResolved && !wasResolved) {
       query += `, resolved_at = datetime('now')`;
-    } else {
+    } else if (!isNowResolved && wasResolved) {
       query += `, resolved_at = NULL`;
     }
     query += ` WHERE id = ?`;

@@ -8,7 +8,6 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
-const crypto = require('crypto');
 const { doubleCsrf } = require('csrf-csrf');
 
 // ---------------------------------------------------------------------------
@@ -121,7 +120,7 @@ if (!csrfSecret) {
 }
 
 const csrfConfig = doubleCsrf({
-  getSecret: () => csrfSecret,
+  getSecret: (req) => req.sessionID || 'anonymous',
   getSessionIdentifier: (req) => req.sessionID || 'anonymous',
   cookieName: 'csrf-token',
   cookieOptions: {
@@ -195,7 +194,8 @@ app.use('/reports', require('./routes/reports'));
 // Health check (unauthenticated)
 app.get('/health', (req, res) => {
   try {
-    require('./models/database').prepare('SELECT 1').get();
+    const db = require('./models/database');
+    db.prepare('SELECT 1 AS ok').get();
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   } catch (err) {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });

@@ -23,14 +23,14 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM change_log c WHERE ${where}`).get(...params).c;
+  const total = db.prepare(`SELECT COUNT(*) as c FROM change_log c WHERE ${whereClause}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;
 
   const changes = db.prepare(`
     SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
-    WHERE ${where}
+    WHERE ${whereClause}
     ORDER BY c.scheduled_start DESC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);

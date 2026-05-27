@@ -2,7 +2,7 @@
 <%- include('../../partials/nav') %>
 <div class="page-header">
   <div><h2>Ticket Analytics</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Tickets</div></div>
-  <form method="GET" class="flex items-center gap-2">
+  <form method="GET" action="/reports/tickets" class="flex items-center gap-2">
     <select name="period" class="form-control" style="width:160px;" onchange="this.form.submit()">
       <option value="7" <%= String(period) === '7' ? 'selected' : '' %>>Last 7 days</option>
       <option value="30" <%= String(period) === '30' ? 'selected' : '' %>>Last 30 days</option>

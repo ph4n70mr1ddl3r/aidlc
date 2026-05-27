@@ -19,6 +19,7 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
     'u.department': { value: validDepartments.includes(req.query.department) ? req.query.department : '' },
+    'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' },
   });
 
   const where = [...filters.where];

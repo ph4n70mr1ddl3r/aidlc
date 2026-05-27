@@ -7,6 +7,7 @@ const {
   PROJECT_PRIORITIES: VALID_PRIORITIES,
   TASK_STATUSES: VALID_TASK_STATUSES,
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
+  MEMBER_ROLES: VALID_MEMBER_ROLES,
 } = require('../constants');
 
 const router = require('express').Router();
@@ -294,7 +295,6 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
-    const VALID_MEMBER_ROLES = ['lead', 'member', 'stakeholder'];
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
     db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
       .run(id, safeUserId, safeRole);

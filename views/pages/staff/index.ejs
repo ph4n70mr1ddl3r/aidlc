@@ -20,6 +20,11 @@
     <option value="">All Departments</option>
     <% departments.forEach(d => { %><option value="<%= d %>" <%= filters.department === d ? 'selected' : '' %>><%= d %></option><% }) %>
   </select>
+  <select name="status">
+    <option value="">All Status</option>
+    <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
+    <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/staff" class="btn btn-sm btn-outline">Clear</a>
 </form>
