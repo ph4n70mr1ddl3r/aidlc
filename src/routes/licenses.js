@@ -55,12 +55,15 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/licenses/new');
   }
 
+  const seats = Math.max(1, safeInt(total_seats, 1));
+  const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
+
   try {
     const result = db.prepare(`
       INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      safeInt(total_seats, 1), safeInt(used_seats, 0),
+      seats, used,
       purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
@@ -110,6 +113,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
 
+  const seats = Math.max(1, safeInt(total_seats, 1));
+  const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
+
   try {
     db.prepare(`
       UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
@@ -117,7 +123,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      safeInt(total_seats, 1), safeInt(used_seats, 0),
+      seats, used,
       purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);

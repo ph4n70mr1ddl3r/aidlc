@@ -76,8 +76,11 @@
           </span>
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
-          <a href="#" onclick="if(confirm('Delete task?')){var f=document.createElement('form');f.method='POST';f.action='/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE';f.innerHTML='<input type=hidden name=_method value=DELETE><input type=hidden name=_csrf value="<%= csrfToken %>">';this.parentNode.appendChild(f);f.submit();}return false;" 
-             class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></a>
+          <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete task?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="_method" value="DELETE">
+            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></button>
+          </form>
         </form>
       </div>
       <% }) %>

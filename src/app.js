@@ -136,15 +136,8 @@ const csrfConfig = doubleCsrf({
 app.use(csrfConfig.doubleCsrfProtection);
 
 // ---------------------------------------------------------------------------
-// Rate limiting on login
+// Rate limiting
 // ---------------------------------------------------------------------------
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
-  message: 'Too many login attempts. Please try again later.',
-  skipSuccessfulRequests: true,
-});
-app.use('/login', loginLimiter);
 
 // Rate limit password-related endpoints to prevent brute-force
 const passwordLimiter = rateLimit({

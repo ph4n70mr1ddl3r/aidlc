@@ -10,7 +10,12 @@
       <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" value="<%= vendor.email || '' %>"></div>
       <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control" value="<%= vendor.phone || '' %>"></div>
       <div class="form-group"><label>Website</label><input type="url" name="website" class="form-control" value="<%= vendor.website || '' %>"></div>
-      <div class="form-group"><label>Category</label><input type="text" name="category" class="form-control" value="<%= vendor.category || '' %>" placeholder="e.g. Hardware, Cloud, Security"></div>
+      <div class="form-group"><label>Category</label><select name="category" class="form-control">
+        <option value="">Select category</option>
+        <% ['Hardware','Cloud','Security','Network','Maintenance','Software','Consulting','Telecom','Other'].forEach(c => { %>
+          <option value="<%= c %>" <%= vendor.category === c ? 'selected' : '' %>><%= c %></option>
+        <% }) %>
+      </select></div>
       <div class="form-group"><label>Contract Start</label><input type="date" name="contract_start" class="form-control" value="<%= vendor.contract_start ? vendor.contract_start.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Contract End</label><input type="date" name="contract_end" class="form-control" value="<%= vendor.contract_end ? vendor.contract_end.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Rating (1-5)</label><input type="number" name="rating" class="form-control" min="1" max="5" value="<%= vendor.rating || '' %>"></div>

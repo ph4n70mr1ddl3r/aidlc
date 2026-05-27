@@ -51,7 +51,14 @@ router.get('/', (req, res) => {
 // New asset form
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
-  res.render('pages/assets/form', { title: 'New Asset', asset: {}, staff, isEdit: false });
+  // Generate next asset tag server-side (avoid client-side randomness)
+  const last = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1').get();
+  let nextTag = 'AST-001';
+  if (last && last.asset_tag) {
+    const num = parseInt(last.asset_tag.replace(/\D/g, ''), 10);
+    if (num) nextTag = 'AST-' + String(num + 1).padStart(3, '0');
+  }
+  res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: nextTag }, staff, isEdit: false });
 });
 
 // Create asset
@@ -83,7 +90,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
       safeStatus, safeCondition, purchase_date || null,
       purchase_price ? safeFloat(purchase_price, null) : null,
-      warranty_expiry || null, assigned_to || null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
+      warranty_expiry || null, assigned_to ? safeId(assigned_to) : null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
     );
 
     req.audit('create', 'asset', result.lastInsertRowid, `Created asset ${asset_tag}`);
@@ -170,7 +177,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
       (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
       purchase_date || null, purchase_price ? safeFloat(purchase_price, null) : null,
-      warranty_expiry || null, assigned_to || null,
+      warranty_expiry || null, assigned_to ? safeId(assigned_to) : null,
       (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
     );
 

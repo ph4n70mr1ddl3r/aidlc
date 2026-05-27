@@ -89,7 +89,7 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
-      assigned_to || null, asset_id || null, due_date || null);
+      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null);
     return { ticket_number, id: result.lastInsertRowid };
   });
 
@@ -179,7 +179,7 @@ router.put('/:id', (req, res) => {
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
-      assigned_to || null, asset_id || null, due_date || null, (resolution_notes || '').substring(0, 5000)];
+      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null, (resolution_notes || '').substring(0, 5000)];
 
     if (status === 'resolved' || status === 'closed') {
       query += `, resolved_at = datetime('now')`;

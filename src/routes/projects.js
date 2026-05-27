@@ -1,13 +1,15 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 const VALID_STATUSES = ['planning','in_progress','on_hold','completed','cancelled'];
 const VALID_PRIORITIES = ['critical','high','medium','low'];
+const VALID_TASK_STATUSES = ['todo','in_progress','review','done'];
+const VALID_TASK_PRIORITIES = ['high','medium','low'];
 
 /**
  * Recalculate and persist project progress from task completion ratio
@@ -78,7 +80,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      start_date || null, end_date || null, budget ? safeFloat(budget, 0) : 0, owner_id || null);
+      start_date || null, end_date || null, budget ? safeFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -149,7 +151,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, start_date || null, end_date || null,
       budget ? safeFloat(budget, 0) : 0, spent ? safeFloat(spent, 0) : 0,
-      progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, id);
+      Math.max(0, Math.min(100, safeInt(progress, 0))), owner_id ? safeId(owner_id) : null, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
@@ -196,7 +198,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
+      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, due_date || null);
 
       recalcProjectProgress(projectId);
     });
@@ -228,7 +230,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = datetime('now')`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority || 'medium', assigned_to || null, due_date || null, taskId, projectId);
+      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, due_date || null, taskId, projectId);
 
       recalcProjectProgress(projectId);
     });
@@ -271,8 +273,10 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
   const { user_id, role } = req.body;
   try {
+    const safeUserId = safeId(user_id);
+    if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
     db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
-      .run(id, user_id, role || 'member');
+      .run(id, safeUserId, role || 'member');
     req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
     req.flash('success', 'Member added');
   } catch (err) {

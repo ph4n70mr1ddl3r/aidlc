@@ -69,7 +69,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
-      scheduled_start || null, scheduled_end || null, (impact || '').substring(0, 500) || null, assigned_to || null);
+      scheduled_start || null, scheduled_end || null, (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -133,7 +133,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
-      (impact || '').substring(0, 500) || null, assigned_to || null, id);
+      (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
