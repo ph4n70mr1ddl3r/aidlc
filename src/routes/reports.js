@@ -1,6 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
+const { safeInt } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -12,7 +13,7 @@ router.get('/', (req, res) => {
 
 // Ticket Analytics
 router.get('/tickets', (req, res) => {
-  const period = Math.max(1, Math.min(365, parseInt(req.query.period) || 30));
+  const period = safeInt(req.query.period, 30) > 0 ? Math.min(365, safeInt(req.query.period, 30)) : 30;
   
   // Tickets over time (by day)
   const ticketsByDay = db.prepare(`
@@ -114,7 +115,7 @@ router.get('/assets', (req, res) => {
 
 // Staff Performance
 router.get('/staff', (req, res) => {
-  const period = Math.max(1, Math.min(365, parseInt(req.query.period) || 30));
+  const period = safeInt(req.query.period, 30) > 0 ? Math.min(365, safeInt(req.query.period, 30)) : 30;
   
   const performance = db.prepare(`
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,

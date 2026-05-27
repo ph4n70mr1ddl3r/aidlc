@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -50,13 +50,18 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/licenses/new');
   }
 
+  if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
+    req.flash('error', 'Invalid license type');
+    return res.redirect('/licenses/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      total_seats ? parseInt(total_seats) : 1, used_seats ? parseInt(used_seats) : 0,
-      purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, notes || null);
+      safeInt(total_seats, 1), safeInt(used_seats, 0),
+      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, notes || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -112,8 +117,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      total_seats ? parseInt(total_seats) : 1, used_seats ? parseInt(used_seats) : 0,
-      purchase_date || null, expiry_date || null, cost ? parseFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
+      safeInt(total_seats, 1), safeInt(used_seats, 0),
+      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

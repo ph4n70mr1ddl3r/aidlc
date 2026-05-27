@@ -24,7 +24,7 @@ router.get('/', (req, res) => {
     't.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
     't.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
     't.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
-    't.assigned_to': { value: req.query.assigned_to ? parseInt(req.query.assigned_to) || '' : '' },
+    't.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' },
   });
 
   const where = [...filters.where];

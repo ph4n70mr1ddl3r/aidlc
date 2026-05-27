@@ -68,4 +68,25 @@ function safeId(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, DEFAULT_PAGE_SIZE };
+/**
+ * Safely parse a numeric form field, returning `fallback` for NaN / non-finite.
+ * @param {*} value
+ * @param {number} [fallback=0]
+ * @returns {number}
+ */
+function safeFloat(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Safely parse an integer form field, returning `fallback` for NaN.
+ */
+function safeInt(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, DEFAULT_PAGE_SIZE };

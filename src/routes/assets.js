@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -9,6 +9,7 @@ router.use(requireAuth, auditMiddleware);
 // Allowed filter values (whitelist)
 const VALID_CATEGORIES = ['laptop','desktop','server','monitor','printer','network','phone','tablet','software','peripheral','other'];
 const VALID_STATUSES = ['in_use','in_storage','in_repair','disposed','reserved'];
+const VALID_CONDITIONS = ['new','good','fair','poor','broken'];
 
 // List assets (paginated)
 router.get('/', (req, res) => {
@@ -17,7 +18,7 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'a.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
     'a.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-    'a.assigned_to': { value: req.query.assigned_to ? parseInt(req.query.assigned_to) || '' : '' },
+    'a.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' },
   });
 
   const where = [...filters.where];
@@ -68,6 +69,8 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect('/assets/new');
   }
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
+  const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
 
   try {
     const result = db.prepare(`
@@ -78,8 +81,8 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     `).run(
       asset_tag.substring(0, 50), name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
       (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
-      status || 'in_storage', condition_rating || 'good', purchase_date || null,
-      purchase_price ? parseFloat(purchase_price) : null,
+      safeStatus, safeCondition, purchase_date || null,
+      purchase_price ? safeFloat(purchase_price, null) : null,
       warranty_expiry || null, assigned_to || null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
     );
 
@@ -144,6 +147,17 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
 
+  if (!asset_tag || !name || !category) {
+    req.flash('error', 'Asset tag, name, and category are required');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (!VALID_CATEGORIES.includes(category)) {
+    req.flash('error', 'Invalid category');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
+  const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
+
   try {
     db.prepare(`
       UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
@@ -151,10 +165,14 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         purchase_date = ?, purchase_price = ?, warranty_expiry = ?,
         assigned_to = ?, location = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(asset_tag, name, category, manufacturer || null, model || null, serial_number || null,
-      status, condition_rating, purchase_date || null,
-      purchase_price ? parseFloat(purchase_price) : null,
-      warranty_expiry || null, assigned_to || null, location || null, notes || null, id);
+    `).run(
+      asset_tag.substring(0, 50), name.substring(0, 200), category,
+      (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
+      (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
+      purchase_date || null, purchase_price ? safeFloat(purchase_price, null) : null,
+      warranty_expiry || null, assigned_to || null,
+      (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
+    );
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');

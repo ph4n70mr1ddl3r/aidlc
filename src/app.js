@@ -146,6 +146,15 @@ const loginLimiter = rateLimit({
 });
 app.use('/login', loginLimiter);
 
+// Rate limit password-related endpoints to prevent brute-force
+const passwordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many password attempts. Please try again later.',
+  skipSuccessfulRequests: true,
+});
+app.use('/profile/password', passwordLimiter);
+
 // ---------------------------------------------------------------------------
 // Global template variables
 // ---------------------------------------------------------------------------
@@ -202,7 +211,12 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   if (err.code === 'EBADCSRFTOKEN') {
     req.flash('error', 'Invalid security token. Please try again.');
-    return res.redirect(req.get('Referrer') || '/');
+    const ref = req.get('Referrer');
+    // Only redirect to same-origin referrer to prevent open redirect
+    if (ref && ref.startsWith(req.protocol + '://' + req.get('Host') + '/')) {
+      return res.redirect(ref);
+    }
+    return res.redirect('/');
   }
   const detail = process.env.NODE_ENV === 'production'
     ? 'Something went wrong.'

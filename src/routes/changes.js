@@ -61,12 +61,14 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Invalid change type');
     return res.redirect('/changes/new');
   }
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'scheduled';
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
   try {
     const result = db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status || 'scheduled', priority || 'medium',
+    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
       scheduled_start || null, scheduled_end || null, (impact || '').substring(0, 500) || null, assigned_to || null);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);

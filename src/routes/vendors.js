@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -50,6 +50,11 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/vendors/new');
   }
 
+  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
+    req.flash('error', 'Invalid category');
+    return res.redirect('/vendors/new');
+  }
+
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   try {
@@ -58,7 +63,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, contract_start || null, contract_end || null,
-      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, parseInt(rating))) : null);
+      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -113,7 +118,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory,
       contract_start || null, contract_end || null, (notes || '').substring(0, 2000) || null,
-      rating ? Math.max(1, Math.min(5, parseInt(rating))) : null,
+      rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
       is_active ? 1 : 0, id);
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);

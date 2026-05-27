@@ -1,13 +1,23 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 const VALID_STATUSES = ['planning','in_progress','on_hold','completed','cancelled'];
 const VALID_PRIORITIES = ['critical','high','medium','low'];
+
+/**
+ * Recalculate and persist project progress from task completion ratio
+ */
+function recalcProjectProgress(projectId) {
+  const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+  const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  db.prepare('UPDATE projects SET progress = ?, updated_at = datetime(\'now\') WHERE id = ?').run(progress, projectId);
+}
 
 // List projects (paginated)
 router.get('/', (req, res) => {
@@ -68,7 +78,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      start_date || null, end_date || null, budget ? parseFloat(budget) : 0, owner_id || null);
+      start_date || null, end_date || null, budget ? safeFloat(budget, 0) : 0, owner_id || null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -138,7 +148,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, start_date || null, end_date || null,
-      budget ? parseFloat(budget) : 0, spent ? parseFloat(spent) : 0,
+      budget ? safeFloat(budget, 0) : 0, spent ? safeFloat(spent, 0) : 0,
       progress ? Math.max(0, Math.min(100, parseInt(progress))) : 0, owner_id || null, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
@@ -188,11 +198,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, status || 'todo', priority || 'medium', assigned_to || null, due_date || null);
 
-      // Update project progress
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
+      recalcProjectProgress(projectId);
     });
     addTask();
 
@@ -224,11 +230,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
       query += ` WHERE id = ? AND project_id = ?`;
       db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority || 'medium', assigned_to || null, due_date || null, taskId, projectId);
 
-      // Update project progress
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
+      recalcProjectProgress(projectId);
     });
     updateTask();
 
@@ -251,10 +253,7 @@ router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req
       db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
         .run(taskId, projectId);
 
-      const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-      const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      db.prepare(`UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?`).run(progress, projectId);
+      recalcProjectProgress(projectId);
     });
     deleteTask();
 

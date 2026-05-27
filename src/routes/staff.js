@@ -216,6 +216,12 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
+  // Prevent admin from deactivating themselves
+  if (id === req.session.user.id) {
+    req.flash('error', 'You cannot deactivate your own account');
+    return res.redirect('/staff');
+  }
+
   try {
     db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
     req.audit('deactivate', 'user', id, 'Deactivated user');
