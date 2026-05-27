@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword } = require('../utils');
+const { validatePassword, isValidEmail } = require('../utils');
 
 const router = require('express').Router();
 
@@ -78,6 +78,11 @@ router.put('/profile', requireAuth, (req, res) => {
 
   if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');
+    return res.redirect('/profile');
+  }
+
+  if (!isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
     return res.redirect('/profile');
   }
 

@@ -61,8 +61,8 @@
 
       <!-- Task List -->
       <% tasks.forEach(t => { %>
-      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
-        <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" class="flex items-center gap-2">
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;" class="flex items-center gap-2">
+        <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" style="display:flex;align-items:center;gap:8px;flex:1;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()">
             <option value="todo" <%= t.status === 'todo' ? 'selected' : '' %>>To Do</option>
@@ -76,11 +76,10 @@
           </span>
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
-          <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete task?')">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input type="hidden" name="_method" value="DELETE">
-            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></button>
-          </form>
+        </form>
+        <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete task?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></button>
         </form>
       </div>
       <% }) %>

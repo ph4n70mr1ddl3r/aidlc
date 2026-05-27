@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail } = require('../utils');
 const bcrypt = require('bcryptjs');
 
 const router = require('express').Router();
@@ -61,6 +61,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
   if (!isValidUsername(username)) {
     req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
+    return res.redirect('/staff/new');
+  }
+  if (!isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
     return res.redirect('/staff/new');
   }
   const pwError = validatePassword(password);
@@ -165,6 +169,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (!isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/staff/${id}/edit`);
   }
   if (!['admin', 'manager', 'staff'].includes(role)) {

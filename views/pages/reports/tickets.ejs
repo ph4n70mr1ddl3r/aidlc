@@ -4,10 +4,10 @@
   <div><h2>Ticket Analytics</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Tickets</div></div>
   <form method="GET" class="flex items-center gap-2">
     <select name="period" class="form-control" style="width:160px;" onchange="this.form.submit()">
-      <option value="7" <%= period === '7' ? 'selected' : '' %>>Last 7 days</option>
-      <option value="30" <%= period === '30' ? 'selected' : '' %>>Last 30 days</option>
-      <option value="90" <%= period === '90' ? 'selected' : '' %>>Last 90 days</option>
-      <option value="365" <%= period === '365' ? 'selected' : '' %>>Last year</option>
+      <option value="7" <%= String(period) === '7' ? 'selected' : '' %>>Last 7 days</option>
+      <option value="30" <%= String(period) === '30' ? 'selected' : '' %>>Last 30 days</option>
+      <option value="90" <%= String(period) === '90' ? 'selected' : '' %>>Last 90 days</option>
+      <option value="365" <%= String(period) === '365' ? 'selected' : '' %>>Last year</option>
     </select>
   </form>
 </div>
@@ -61,7 +61,7 @@
   <div class="card-header"><h3>SLA Performance</h3></div>
   <div class="card-body">
     <div class="stats-grid" style="margin-bottom:0;">
-      <div class="stat-card"><div class="stat-value"><%= slaStats.withithin_1d || 0 %></div><div class="stat-label">Within 1 Day</div></div>
+      <div class="stat-card"><div class="stat-value"><%= slaStats.within_1d || 0 %></div><div class="stat-label">Within 1 Day</div></div>
       <div class="stat-card"><div class="stat-value"><%= slaStats.within_3d || 0 %></div><div class="stat-label">Within 3 Days</div></div>
       <div class="stat-card"><div class="stat-value"><%= slaStats.within_7d || 0 %></div><div class="stat-label">Within 7 Days</div></div>
     </div>

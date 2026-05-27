@@ -62,7 +62,7 @@
             <td class="text-sm"><%= t.category %></td>
             <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
             <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
-            <td class="text-sm"><%= t.assigned_name || '<span class="text-muted">Unassigned</span>' %></td>
+            <td class="text-sm"><%= t.assigned_name || '' %><% if (!t.assigned_name) { %><span class="text-muted">Unassigned</span><% } %></td>
             <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
             <td class="actions-cell">
               <a href="/tickets/<%= t.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a>

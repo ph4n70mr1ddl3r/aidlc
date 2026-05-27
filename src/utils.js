@@ -71,6 +71,13 @@ function isValidUsername(username) {
 }
 
 /**
+ * Validate basic email format. Returns true if valid.
+ */
+function isValidEmail(email) {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+}
+
+/**
  * Add LIKE search conditions safely
  */
 function addSearch(where, params, search, columns) {
@@ -111,4 +118,4 @@ function safeInt(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, isValidEmail, DEFAULT_PAGE_SIZE };
