@@ -61,7 +61,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       safeInt(total_seats, 1), safeInt(used_seats, 0),
-      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, notes || null);
+      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);

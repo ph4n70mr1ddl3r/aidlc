@@ -76,6 +76,7 @@ router.post('/', (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect('/tickets/new');
   }
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
   // Generate ticket number atomically
   const createTicket = db.transaction(() => {
@@ -86,7 +87,7 @@ router.post('/', (req, res) => {
         requester_name, requester_email, requester_department, requester_phone,
         assigned_to, asset_id, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, priority || 'medium',
+    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
       assigned_to || null, asset_id || null, due_date || null);
     return { ticket_number, id: result.lastInsertRowid };

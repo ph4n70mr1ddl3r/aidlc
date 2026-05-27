@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername } = require('../utils');
 const bcrypt = require('bcryptjs');
 
 const router = require('express').Router();
@@ -59,12 +59,13 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'All required fields must be filled in');
     return res.redirect('/staff/new');
   }
-  if (password.length < 12) {
-    req.flash('error', 'Password must be at least 12 characters');
+  if (!isValidUsername(username)) {
+    req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
     return res.redirect('/staff/new');
   }
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-    req.flash('error', 'Password must contain uppercase, lowercase, number, and special character');
+  const pwError = validatePassword(password);
+  if (pwError) {
+    req.flash('error', pwError);
     return res.redirect('/staff/new');
   }
   if (!['admin', 'manager', 'staff'].includes(role)) {
@@ -77,7 +78,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     const result = db.prepare(`
       INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, email, first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
+    `).run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
@@ -162,6 +163,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { email, first_name, last_name, role, department, phone, is_active } = req.body;
 
+  if (!email || !first_name || !last_name) {
+    req.flash('error', 'Email, first name, and last name are required');
+    return res.redirect(`/staff/${id}/edit`);
+  }
   if (!['admin', 'manager', 'staff'].includes(role)) {
     req.flash('error', 'Invalid role');
     return res.redirect(`/staff/${id}/edit`);
@@ -197,8 +202,9 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
     req.flash('error', 'Password must be at least 12 characters');
     return res.redirect(`/staff/${req.params.id}`);
   }
-  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
-    req.flash('error', 'Password must contain uppercase, lowercase, number, and special character');
+  const pwErr = validatePassword(new_password);
+  if (pwErr) {
+    req.flash('error', pwErr);
     return res.redirect(`/staff/${id}`);
   }
 

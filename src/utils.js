@@ -49,6 +49,28 @@ function buildFilters(filters) {
 }
 
 /**
+ * Validate a password against the corporate password policy.
+ * Returns an error message string if invalid, or null if valid.
+ */
+function validatePassword(password) {
+  if (!password || password.length < 12) {
+    return 'Password must be at least 12 characters';
+  }
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    return 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
+  }
+  return null;
+}
+
+/**
+ * Validate that a string is a safe username (alphanumeric, dashes, underscores, dots).
+ * Returns true if valid.
+ */
+function isValidUsername(username) {
+  return typeof username === 'string' && /^[a-zA-Z0-9._-]{2,50}$/.test(username);
+}
+
+/**
  * Add LIKE search conditions safely
  */
 function addSearch(where, params, search, columns) {
@@ -89,4 +111,4 @@ function safeInt(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, DEFAULT_PAGE_SIZE };

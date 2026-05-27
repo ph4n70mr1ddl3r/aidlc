@@ -2,6 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
+const { validatePassword } = require('../utils');
 
 const router = require('express').Router();
 
@@ -20,7 +21,9 @@ router.post('/login', (req, res) => {
     return res.redirect('/login');
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(username);
+  // Sanitize username — only allow reasonable characters
+  const safeUsername = String(username).substring(0, 50);
+  const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(safeUsername);
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     req.flash('error', 'Invalid username or password');
@@ -39,7 +42,7 @@ router.post('/login', (req, res) => {
       return res.redirect('/login');
     }
     req.session.user = sessionUser;
-    audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${username} logged in` });
+    audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
     req.flash('success', `Welcome back, ${user.first_name}!`);
     res.redirect('/dashboard');
   });
@@ -109,13 +112,9 @@ router.put('/profile/password', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
 
-  // Password policy: min 12 chars, uppercase, lowercase, number, special char
-  if (new_password.length < 12) {
-    req.flash('error', 'Password must be at least 12 characters');
-    return res.redirect('/profile');
-  }
-  if (!/[A-Z]/.test(new_password) || !/[a-z]/.test(new_password) || !/[0-9]/.test(new_password) || !/[^A-Za-z0-9]/.test(new_password)) {
-    req.flash('error', 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+  const pwError = validatePassword(new_password);
+  if (pwError) {
+    req.flash('error', pwError);
     return res.redirect('/profile');
   }
 

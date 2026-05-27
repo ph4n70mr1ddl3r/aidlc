@@ -107,6 +107,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active } = req.body;
 
+  if (!name) {
+    req.flash('error', 'Vendor name is required');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   try {

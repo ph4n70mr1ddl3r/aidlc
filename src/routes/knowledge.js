@@ -104,9 +104,6 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
-  // Increment views
-  db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
-
   const article = db.prepare(`
     SELECT k.*, u.first_name || ' ' || u.last_name as author_name
     FROM knowledge_articles k
@@ -118,6 +115,9 @@ router.get('/:id', (req, res) => {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
+
+  // Increment views only after confirming article exists
+  db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
 
   article.renderedContent = renderMarkdown(article.content);
 
