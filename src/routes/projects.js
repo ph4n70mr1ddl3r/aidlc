@@ -2,14 +2,15 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const {
+  PROJECT_STATUSES: VALID_STATUSES,
+  PROJECT_PRIORITIES: VALID_PRIORITIES,
+  TASK_STATUSES: VALID_TASK_STATUSES,
+  TASK_PRIORITIES: VALID_TASK_PRIORITIES,
+} = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_STATUSES = ['planning','in_progress','on_hold','completed','cancelled'];
-const VALID_PRIORITIES = ['critical','high','medium','low'];
-const VALID_TASK_STATUSES = ['todo','in_progress','review','done'];
-const VALID_TASK_PRIORITIES = ['high','medium','low'];
 
 /**
  * Recalculate and persist project progress from task completion ratio

@@ -5,7 +5,7 @@
   <form action="<%= isEdit ? '/vendors/' + vendor.id + '?_method=PUT' : '/vendors' %>" method="POST">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
-      <div class="form-group"><label>Vendor Name *</label><input type="text" name="name" class="form-control" value="<%= vendor.name || '' %>" required></div>
+      <div class="form-group"><label>Vendor Name *</label><input type="text" name="name" class="form-control" value="<%= vendor.name || '' %>" maxlength="200" required></div>
       <div class="form-group"><label>Contact Person</label><input type="text" name="contact_person" class="form-control" value="<%= vendor.contact_person || '' %>"></div>
       <div class="form-group"><label>Email</label><input type="email" name="email" class="form-control" value="<%= vendor.email || '' %>"></div>
       <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control" value="<%= vendor.phone || '' %>"></div>

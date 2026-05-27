@@ -2,6 +2,7 @@
 <%- include('../../partials/nav') %>
 <div class="page-header"><div><h2>Change Log</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a></div>
 <form method="GET" action="/changes" class="filter-bar">
+  <input type="text" name="search" class="search-input" placeholder="Search changes..." value="<%= filters.search || '' %>">
   <select name="status"><option value="">All Status</option><% ['scheduled','in_progress','completed','failed','cancelled'].forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select>
   <select name="change_type"><option value="">All Types</option><% ['maintenance','upgrade','incident','security','configuration'].forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>

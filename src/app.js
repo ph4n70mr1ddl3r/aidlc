@@ -148,6 +148,20 @@ const passwordLimiter = rateLimit({
 });
 app.use('/profile/password', passwordLimiter);
 
+// Rate limit write endpoints to prevent spam
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50,
+  message: 'Too many requests. Please slow down.',
+  skipSuccessfulRequests: false,
+});
+app.use(['/tickets', '/assets', '/knowledge', '/comments', '/changes', '/licenses'], (req, res, next) => {
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    return writeLimiter(req, res, next);
+  }
+  next();
+});
+
 // ---------------------------------------------------------------------------
 // Global template variables
 // ---------------------------------------------------------------------------
@@ -159,7 +173,7 @@ app.use((req, res, next) => {
     info: req.flash('info'),
   };
   res.locals.currentPage = req.path;
-  res.locals.csrfToken = req.csrfToken ? req.csrfToken() : '';
+  res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
   next();
 });
 

@@ -1,14 +1,11 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_CHANGE_TYPES = ['maintenance','upgrade','incident','security','configuration'];
-const VALID_STATUSES = ['scheduled','in_progress','completed','failed','cancelled'];
-const VALID_PRIORITIES = ['critical','high','medium','low'];
 
 // List changes (paginated)
 router.get('/', (req, res) => {
@@ -20,8 +17,11 @@ router.get('/', (req, res) => {
     'c.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
   });
 
-  const where = filters.where.length ? filters.where.join(' AND ') : '1=1';
+  const where = [...filters.where];
   const params = [...filters.params];
+  addSearch(where, params, req.query.search, ['c.title', 'c.description']);
+
+  const whereClause = where.length ? where.join(' AND ') : '1=1';
 
   const total = db.prepare(`SELECT COUNT(*) as c FROM change_log c WHERE ${where}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;

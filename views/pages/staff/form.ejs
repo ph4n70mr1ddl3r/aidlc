@@ -10,12 +10,12 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <% if (!isEdit) { %>
-      <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" value="<%= user.username || '' %>" required></div>
+      <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" value="<%= user.username || '' %>" maxlength="50" required></div>
       <div class="form-group"><label>Password *</label><input type="password" name="password" class="form-control" required minlength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}" title="Minimum 12 characters with uppercase, lowercase, number, and special character" autocomplete="new-password"></div>
       <% } %>
-      <div class="form-group"><label>First Name *</label><input type="text" name="first_name" class="form-control" value="<%= user.first_name || '' %>" required></div>
-      <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" class="form-control" value="<%= user.last_name || '' %>" required></div>
-      <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" value="<%= user.email || '' %>" required></div>
+      <div class="form-group"><label>First Name *</label><input type="text" name="first_name" class="form-control" value="<%= user.first_name || '' %>" maxlength="100" required></div>
+      <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" class="form-control" value="<%= user.last_name || '' %>" maxlength="100" required></div>
+      <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" value="<%= user.email || '' %>" maxlength="200" required></div>
       <div class="form-group"><label>Role *</label><select name="role" class="form-control" required>
         <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
         <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>

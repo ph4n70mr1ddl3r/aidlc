@@ -15,11 +15,11 @@
       <div class="form-grid">
         <div class="form-group">
           <label>Asset Tag *</label>
-          <input type="text" name="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" required>
+          <input type="text" name="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="50" required>
         </div>
         <div class="form-group">
           <label>Name *</label>
-          <input type="text" name="name" class="form-control" value="<%= asset.name || '' %>" required>
+          <input type="text" name="name" class="form-control" value="<%= asset.name || '' %>" maxlength="200" required>
         </div>
         <div class="form-group">
           <label>Category *</label>
@@ -31,15 +31,15 @@
         </div>
         <div class="form-group">
           <label>Manufacturer</label>
-          <input type="text" name="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>">
+          <input type="text" name="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>" maxlength="100">
         </div>
         <div class="form-group">
           <label>Model</label>
-          <input type="text" name="model" class="form-control" value="<%= asset.model || '' %>">
+          <input type="text" name="model" class="form-control" value="<%= asset.model || '' %>" maxlength="100">
         </div>
         <div class="form-group">
           <label>Serial Number</label>
-          <input type="text" name="serial_number" class="form-control" value="<%= asset.serial_number || '' %>">
+          <input type="text" name="serial_number" class="form-control" value="<%= asset.serial_number || '' %>" maxlength="100">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -80,7 +80,7 @@
         </div>
         <div class="form-group">
           <label>Location</label>
-          <input type="text" name="location" class="form-control" value="<%= asset.location || '' %>">
+          <input type="text" name="location" class="form-control" value="<%= asset.location || '' %>" maxlength="100">
         </div>
       </div>
       <div class="form-group">

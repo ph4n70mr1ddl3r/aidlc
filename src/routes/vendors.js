@@ -2,11 +2,10 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt } = require('../utils');
+const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_CATEGORIES_VENDOR = ['Hardware', 'Cloud', 'Security', 'Network', 'Maintenance', 'Software', 'Consulting', 'Telecom', 'Other'];
 
 // List vendors (paginated)
 router.get('/', (req, res) => {

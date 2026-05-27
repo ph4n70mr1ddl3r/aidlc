@@ -2,6 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail } = require('../utils');
+const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 
 const router = require('express').Router();
@@ -11,7 +12,7 @@ router.use(requireAuth, auditMiddleware);
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
-  const validRoles = ['admin', 'manager', 'staff'];
+  const validRoles = USER_ROLES;
   // Whitelist known departments from DB
   const departments = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department').all().map(r => r.department);
   const validDepartments = departments;
@@ -72,7 +73,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', pwError);
     return res.redirect('/staff/new');
   }
-  if (!['admin', 'manager', 'staff'].includes(role)) {
+  if (!USER_ROLES.includes(role)) {
     req.flash('error', 'Invalid role');
     return res.redirect('/staff/new');
   }
@@ -175,7 +176,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (!['admin', 'manager', 'staff'].includes(role)) {
+  if (!USER_ROLES.includes(role)) {
     req.flash('error', 'Invalid role');
     return res.redirect(`/staff/${id}/edit`);
   }

@@ -2,13 +2,10 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_CATEGORIES = ['hardware','software','network','access','email','security','other'];
-const VALID_PRIORITIES = ['critical','high','medium','low'];
-const VALID_STATUSES = ['open','in_progress','waiting','resolved','closed'];
 
 const SORT_MAP = {
   newest: 't.created_at DESC',
@@ -160,6 +157,11 @@ router.put('/:id', (req, res) => {
   const { title, description, category, priority, status, assigned_to, asset_id,
           due_date, resolution_notes } = req.body;
 
+  if (!title || !title.trim()) {
+    req.flash('error', 'Title is required');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
   // Validate enum fields
   if (category && !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
@@ -183,6 +185,8 @@ router.put('/:id', (req, res) => {
 
     if (status === 'resolved' || status === 'closed') {
       query += `, resolved_at = datetime('now')`;
+    } else {
+      query += `, resolved_at = NULL`;
     }
     query += ` WHERE id = ?`;
     params.push(id);

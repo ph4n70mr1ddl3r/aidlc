@@ -227,6 +227,7 @@
     .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
     .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
     .text-center { text-align: center; }
+    .text-right { text-align: right; }
     .text-muted { color: var(--text-light); }
     .text-sm { font-size: 13px; }
     .mt-1 { margin-top: 8px; } .mt-2 { margin-top: 16px; } .mt-3 { margin-top: 24px; }

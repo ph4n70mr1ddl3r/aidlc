@@ -2,14 +2,10 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-// Allowed filter values (whitelist)
-const VALID_CATEGORIES = ['laptop','desktop','server','monitor','printer','network','phone','tablet','software','peripheral','other'];
-const VALID_STATUSES = ['in_use','in_storage','in_repair','disposed','reserved'];
-const VALID_CONDITIONS = ['new','good','fair','poor','broken'];
 
 // List assets (paginated)
 router.get('/', (req, res) => {

@@ -2,14 +2,12 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_CATEGORIES = ['how_to','troubleshooting','policy','faq','sop','other'];
-const VALID_STATUSES = ['draft','published','archived'];
 
 // Configure marked for safe rendering
 marked.setOptions({
@@ -84,11 +82,13 @@ router.post('/', (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'draft';
+
   try {
     const result = db.prepare(`
       INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), req.session.user.id, status || 'draft', is_featured ? 1 : 0);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), req.session.user.id, safeStatus, is_featured ? 1 : 0);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');

@@ -2,11 +2,10 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-const VALID_LICENSE_TYPES = ['perpetual','subscription','volume','oem','academic'];
 
 // List licenses (paginated)
 router.get('/', (req, res) => {
