@@ -7,6 +7,7 @@
 </div>
 
 <form method="GET" action="/projects" class="filter-bar">
+  <input type="text" name="search" class="search-input" placeholder="Search projects..." value="<%= filters.search || '' %>">
   <select name="status">
     <option value="">All Status</option>
     <% ['planning','in_progress','on_hold','completed','cancelled'].forEach(s => { %>
@@ -28,7 +29,7 @@
       <p class="text-sm text-muted mb-2"><%= (p.description || '').substring(0, 120) %><%= (p.description || '').length > 120 ? '...' : '' %></p>
       <div class="flex justify-between items-center mb-1">
         <span class="text-sm">Progress</span>
-        <span class="text-sm font-weight:600"><%= p.progress %>%</span>
+        <span class="text-sm" style="font-weight:600"><%= p.progress %>%</span>
       </div>
       <div class="progress-bar mb-2">
         <div class="progress-fill <%= p.progress >= 75 ? 'green' : p.progress >= 50 ? 'blue' : p.progress >= 25 ? 'orange' : 'red' %>" style="width:<%= p.progress %>%"></div>

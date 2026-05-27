@@ -36,7 +36,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${where}`).get(...params).c;
+  const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${whereClause}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;
 
   const projects = db.prepare(`
@@ -45,7 +45,7 @@ router.get('/', (req, res) => {
       (SELECT COUNT(*) FROM project_tasks WHERE project_id = p.id AND status = 'done') as done_count
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
-    WHERE ${where}
+    WHERE ${whereClause}
     ORDER BY p.updated_at DESC
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
@@ -220,6 +220,24 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
 
   const { title, description, status, priority, assigned_to, due_date } = req.body;
 
+  // Defensive: handle quick-status-change forms that only send `status`
+  const safeTitle = title || undefined;
+  if (!safeTitle) {
+    // Quick status update only — preserve existing values
+    try {
+      const existing = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?').get(taskId, projectId);
+      if (!existing) { req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`); }
+      const updateTask = db.transaction(() => {
+        db.prepare(`UPDATE project_tasks SET status = ?, updated_at = datetime('now')${status === 'done' ? `, completed_at = datetime('now')` : ''} WHERE id = ? AND project_id = ?`)
+          .run(VALID_TASK_STATUSES.includes(status) ? status : existing.status, taskId, projectId);
+        recalcProjectProgress(projectId);
+      });
+      updateTask();
+      req.flash('success', 'Task updated');
+    } catch (err) { req.flash('error', 'Error updating task'); }
+    return res.redirect(`/projects/${projectId}`);
+  }
+
   try {
     const updateTask = db.transaction(() => {
       let query = `
@@ -275,8 +293,10 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
+    const VALID_MEMBER_ROLES = ['lead', 'member', 'stakeholder'];
+    const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
     db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
-      .run(id, safeUserId, role || 'member');
+      .run(id, safeUserId, safeRole);
     req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
     req.flash('success', 'Member added');
   } catch (err) {

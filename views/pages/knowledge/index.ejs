@@ -31,7 +31,7 @@
       <td class="text-sm"><%= a.author_name || '-' %></td>
       <td><span class="badge badge-<%= a.status %>"><%= a.status %></span></td>
       <td class="text-sm"><%= a.views %></td>
-      <td><%= a.is_featured ? '<i class="fas fa-check" style="color:var(--success)"></i>' : '-' %></td>
+      <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)"></i><% } else { %>-<% } %></td>
       <td class="text-sm"><%= new Date(a.updated_at).toLocaleDateString() %></td>
       <td class="actions-cell"><a href="/knowledge/<%= a.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
     </tr><% }) %></tbody>
