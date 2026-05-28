@@ -230,7 +230,14 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
       const existing = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?').get(taskId, projectId);
       if (!existing) { req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`); }
       const updateTask = db.transaction(() => {
-        db.prepare(`UPDATE project_tasks SET status = ?, updated_at = datetime('now')${status === 'done' ? `, completed_at = datetime('now')` : ''} WHERE id = ? AND project_id = ?`)
+        let q = `UPDATE project_tasks SET status = ?, updated_at = datetime('now')`;
+        if (status === 'done') {
+          q += `, completed_at = datetime('now')`;
+        } else {
+          q += `, completed_at = NULL`;
+        }
+        q += ` WHERE id = ? AND project_id = ?`;
+        db.prepare(q)
           .run(VALID_TASK_STATUSES.includes(status) ? status : existing.status, taskId, projectId);
         recalcProjectProgress(projectId);
       });
@@ -247,7 +254,9 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
           assigned_to = ?, due_date = ?,
           updated_at = datetime('now')`;
       if (status === 'done') {
-        query += `, completed_at = datetime('now')`;
+        query += `, completed_at = COALESCE(completed_at, datetime('now'))`;
+      } else {
+        query += `, completed_at = NULL`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
       db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, due_date || null, taskId, projectId);

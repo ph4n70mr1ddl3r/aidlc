@@ -10,12 +10,12 @@ router.get('/', (req, res) => {
   const ticketStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open,
-      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-      SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END) as waiting,
-      SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as resolved,
-      SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed,
-      SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END) as critical_open
+      COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) as open,
+      COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+      COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0) as waiting,
+      COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) as resolved,
+      COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) as closed,
+      COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END), 0) as critical_open
     FROM tickets
   `).get();
 
@@ -23,10 +23,10 @@ router.get('/', (req, res) => {
   const assetStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END) as in_use,
-      SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END) as in_storage,
-      SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END) as in_repair,
-      SUM(CASE WHEN warranty_expiry < date('now') THEN 1 ELSE 0 END) as warranty_expired
+      COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
+      COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
+      COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair,
+      COALESCE(SUM(CASE WHEN warranty_expiry < date('now') THEN 1 ELSE 0 END), 0) as warranty_expired
     FROM assets
   `).get();
 
@@ -34,10 +34,10 @@ router.get('/', (req, res) => {
   const projectStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
-      SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) as in_progress,
-      SUM(CASE WHEN status = 'planning' THEN 1 ELSE 0 END) as planning,
-      SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-      SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END) as on_hold
+      COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+      COALESCE(SUM(CASE WHEN status = 'planning' THEN 1 ELSE 0 END), 0) as planning,
+      COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
+      COALESCE(SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END), 0) as on_hold
     FROM projects
   `).get();
 

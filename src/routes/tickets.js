@@ -258,7 +258,10 @@ router.put('/:id/status', (req, res) => {
   try {
     let query = `UPDATE tickets SET status = ?, updated_at = datetime('now')`;
     if (status === 'resolved' || status === 'closed') {
-      query += `, resolved_at = datetime('now')`;
+      query += `, resolved_at = COALESCE(resolved_at, datetime('now'))`;
+    } else {
+      // Clear resolved_at when reopening a ticket
+      query += `, resolved_at = NULL`;
     }
     query += ` WHERE id = ?`;
     db.prepare(query).run(status, id);

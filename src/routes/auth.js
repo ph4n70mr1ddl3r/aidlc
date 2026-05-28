@@ -68,8 +68,9 @@ router.get('/logout', (req, res) => {
 
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id);
-  res.render('pages/auth/profile', { title: 'My Profile', profileUser: user });
+  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id);
+  const { password: _, ...profileUser } = row;
+  res.render('pages/auth/profile', { title: 'My Profile', profileUser });
 });
 
 // Update profile
