@@ -120,7 +120,7 @@ if (!csrfSecret) {
 }
 
 const csrfConfig = doubleCsrf({
-  getSecret: (req) => req.sessionID || 'anonymous',
+  getSecret: () => csrfSecret,
   getSessionIdentifier: (req) => req.sessionID || 'anonymous',
   cookieName: 'csrf-token',
   cookieOptions: {

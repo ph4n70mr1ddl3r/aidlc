@@ -144,6 +144,11 @@ router.put('/:id', (req, res) => {
 
   const { title, content, category, tags, status, is_featured } = req.body;
 
+  if (!title || !title.trim() || !content || !content.trim()) {
+    req.flash('error', 'Title and content are required');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+
   if (!VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/knowledge/${id}/edit`);

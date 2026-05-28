@@ -122,7 +122,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (website || '').substring(0, 500) || null, safeCategory,
       contract_start || null, contract_end || null, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
-      is_active ? 1 : 0, id);
+      is_active === '0' || is_active === 0 ? 0 : 1, id);
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');

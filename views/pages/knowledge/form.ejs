@@ -18,7 +18,7 @@
       </select></div>
     </div>
     <div class="form-group"><label>Tags</label><input type="text" name="tags" class="form-control" value="<%= article.tags || '' %>" maxlength="500" placeholder="Comma separated tags"></div>
-    <div class="form-group"><label>Content *</label><textarea name="content" class="form-control" rows="15" style="font-family:monospace;font-size:13px;" required><%= article.content || '' %></textarea></div>
+    <div class="form-group"><label>Content *</label><textarea name="content" class="form-control" rows="15" style="font-family:monospace;font-size:13px;" maxlength="50000" required><%= article.content || '' %></textarea></div>
     <div class="form-group"><label><input type="checkbox" name="is_featured" value="1" <%= article.is_featured ? 'checked' : '' %>> Featured article</label></div>
     <div style="display:flex;gap:12px;margin-top:20px;">
       <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>
