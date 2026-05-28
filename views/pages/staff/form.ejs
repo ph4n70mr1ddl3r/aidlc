@@ -12,14 +12,18 @@
       <% if (!isEdit) { %>
       <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" value="<%= user.username || '' %>" maxlength="50" required></div>
       <div class="form-group"><label>Password *</label><input type="password" name="password" class="form-control" required minlength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}" title="Minimum 12 characters with uppercase, lowercase, number, and special character" autocomplete="new-password"></div>
+      <% } else { %>
+      <div class="form-group"><label>Username</label><input type="text" class="form-control" value="<%= user.username %>" disabled style="background:var(--bg)"></div>
       <% } %>
       <div class="form-group"><label>First Name *</label><input type="text" name="first_name" class="form-control" value="<%= user.first_name || '' %>" maxlength="100" required></div>
       <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" class="form-control" value="<%= user.last_name || '' %>" maxlength="100" required></div>
       <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" value="<%= user.email || '' %>" maxlength="200" required></div>
       <div class="form-group"><label>Role *</label><select name="role" class="form-control" required>
-        <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
-        <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+        <% if (typeof viewerRole === 'undefined' || viewerRole === 'admin') { %>
         <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+        <% } %>
+        <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
+        <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
       </select></div>
       <div class="form-group"><label>Department</label><input type="text" name="department" class="form-control" value="<%= user.department || '' %>"></div>
       <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control" value="<%= user.phone || '' %>"></div>

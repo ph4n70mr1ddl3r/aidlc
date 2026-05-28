@@ -50,7 +50,7 @@ router.get('/', (req, res) => {
 
 // New staff form
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
-  res.render('pages/staff/form', { title: 'New Staff Member', user: {}, isEdit: false });
+  res.render('pages/staff/form', { title: 'New Staff Member', user: {}, isEdit: false, viewerRole: req.session.user.role });
 });
 
 // Create staff
@@ -159,7 +159,12 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
-  res.render('pages/staff/form', { title: 'Edit Staff Member', user, isEdit: true });
+  // Managers cannot edit admin accounts
+  if (req.session.user.role !== 'admin' && user.role === 'admin') {
+    req.flash('error', 'You cannot modify administrator accounts');
+    return res.redirect('/staff');
+  }
+  res.render('pages/staff/form', { title: 'Edit Staff Member', user, isEdit: true, viewerRole: req.session.user.role });
 });
 
 // Update staff
@@ -181,10 +186,20 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Invalid role');
     return res.redirect(`/staff/${id}/edit`);
   }
+
+  // Fetch the target user to check their current role
+  const targetUser = db.prepare('SELECT role FROM users WHERE id = ?').get(id);
+  if (!targetUser) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
+
   // Only admins can assign the admin role
   if (role === 'admin' && req.session.user.role !== 'admin') {
     req.flash('error', 'Only administrators can assign the admin role');
     return res.redirect(`/staff/${id}/edit`);
+  }
+  // Managers cannot edit or deactivate admin accounts
+  if (req.session.user.role !== 'admin' && targetUser.role === 'admin') {
+    req.flash('error', 'You cannot modify administrator accounts');
+    return res.redirect('/staff');
   }
 
   try {
@@ -212,10 +227,17 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+
+  // Prevent admin from resetting own password via this route (use profile instead)
+  if (id === req.session.user.id) {
+    req.flash('error', 'Use the profile page to change your own password');
+    return res.redirect('/profile');
+  }
+
   const { new_password } = req.body;
   if (!new_password || new_password.length < 12) {
     req.flash('error', 'Password must be at least 12 characters');
-    return res.redirect(`/staff/${req.params.id}`);
+    return res.redirect(`/staff/${id}`);
   }
   const pwErr = validatePassword(new_password);
   if (pwErr) {

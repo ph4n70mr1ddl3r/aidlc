@@ -1,10 +1,10 @@
 const db = require('../models/database');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { safeInt } = require('../utils');
 
 const router = require('express').Router();
-router.use(requireAuth, auditMiddleware);
+router.use(requireAuth, requireRole('admin', 'manager'), auditMiddleware);
 
 // Reports dashboard
 router.get('/', (req, res) => {

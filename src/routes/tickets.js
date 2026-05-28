@@ -2,6 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { isValidEmail } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -66,6 +67,11 @@ router.post('/', (req, res) => {
 
   if (!title || !title.trim() || !category || !requester_name || !requester_email) {
     req.flash('error', 'Title, category, requester name, and requester email are required');
+    return res.redirect('/tickets/new');
+  }
+
+  if (!isValidEmail(requester_email)) {
+    req.flash('error', 'Please enter a valid requester email address');
     return res.redirect('/tickets/new');
   }
 

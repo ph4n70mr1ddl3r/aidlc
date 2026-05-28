@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -51,6 +51,11 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
   if (email && !isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
+    return res.redirect('/vendors/new');
+  }
+
+  if (website && !isValidUrl(website)) {
+    req.flash('error', 'Website must be a valid http/https URL');
     return res.redirect('/vendors/new');
   }
 
@@ -117,6 +122,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
   if (email && !isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (website && !isValidUrl(website)) {
+    req.flash('error', 'Website must be a valid http/https URL');
     return res.redirect(`/vendors/${id}/edit`);
   }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;

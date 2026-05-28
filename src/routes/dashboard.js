@@ -25,8 +25,7 @@ router.get('/', (req, res) => {
       COUNT(*) as total,
       COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
       COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
-      COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair,
-      COALESCE(SUM(CASE WHEN warranty_expiry < date('now') THEN 1 ELSE 0 END), 0) as warranty_expired
+      COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair
     FROM assets
   `).get();
 

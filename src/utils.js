@@ -118,4 +118,17 @@ function safeInt(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, isValidEmail, DEFAULT_PAGE_SIZE };
+/**
+ * Validate a URL (http/https only). Returns true if valid.
+ */
+function isValidUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, DEFAULT_PAGE_SIZE };
