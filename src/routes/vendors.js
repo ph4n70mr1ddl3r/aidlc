@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -71,7 +71,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, safeCategory, contract_start || null, contract_end || null,
+      (website || '').substring(0, 500) || null, safeCategory, safeDate(contract_start), safeDate(contract_end),
       (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
@@ -138,7 +138,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory,
-      contract_start || null, contract_end || null, (notes || '').substring(0, 2000) || null,
+      safeDate(contract_start), safeDate(contract_end), (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
       is_active === '0' || is_active === 0 ? 0 : 1, id);
 

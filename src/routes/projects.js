@@ -82,7 +82,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      start_date || null, end_date || null, budget ? safeFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
+      safeDate(start_date), safeDate(end_date), budget ? safeFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -151,7 +151,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, start_date || null, end_date || null,
+    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, safeDate(start_date), safeDate(end_date),
       budget ? safeFloat(budget, 0) : 0, spent ? safeFloat(spent, 0) : 0,
       Math.max(0, Math.min(100, safeInt(progress, 0))), owner_id ? safeId(owner_id) : null, id);
 
@@ -200,7 +200,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, due_date || null);
+      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date));
 
       recalcProjectProgress(projectId);
     });
@@ -259,7 +259,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = NULL`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, due_date || null, taskId, projectId);
+      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date), taskId, projectId);
 
       recalcProjectProgress(projectId);
     });

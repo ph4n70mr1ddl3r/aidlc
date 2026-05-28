@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
@@ -69,7 +69,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
-      scheduled_start || null, scheduled_end || null, (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
+      safeDateTimeLocal(scheduled_start), safeDateTimeLocal(scheduled_end), (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -136,7 +136,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         impact = ?, assigned_to = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
-      scheduled_start || null, scheduled_end || null, actual_start || null, actual_end || null,
+      safeDateTimeLocal(scheduled_start), safeDateTimeLocal(scheduled_end), safeDateTimeLocal(actual_start), safeDateTimeLocal(actual_end),
       (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);

@@ -145,4 +145,40 @@ function isValidUrl(url) {
   }
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, DEFAULT_PAGE_SIZE };
+/**
+ * Validate a date string in YYYY-MM-DD format.
+ * Returns true if valid.
+ */
+function isValidDate(value) {
+  if (!value || typeof value !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(value + 'T00:00:00');
+  return !isNaN(d.getTime());
+}
+
+/**
+ * Validate a datetime string in YYYY-MM-DDTHH:MM format (from datetime-local input).
+ * Returns true if valid.
+ */
+function isValidDateTimeLocal(value) {
+  if (!value || typeof value !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
+  const d = new Date(value);
+  return !isNaN(d.getTime());
+}
+
+/**
+ * Sanitize a date field: return the value if valid, or null.
+ */
+function safeDate(value) {
+  return isValidDate(value) ? value : null;
+}
+
+/**
+ * Sanitize a datetime-local field: return the value if valid, or null.
+ */
+function safeDateTimeLocal(value) {
+  return isValidDateTimeLocal(value) ? value : null;
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, DEFAULT_PAGE_SIZE };

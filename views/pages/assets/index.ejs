@@ -23,6 +23,14 @@
       <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>
+  <% if (typeof staff !== 'undefined') { %>
+  <select name="assigned_to">
+    <option value="">All Assignees</option>
+    <% staff.forEach(s => { %>
+      <option value="<%= s.id %>" <%= filters.assigned_to == String(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+    <% }) %>
+  </select>
+  <% } %>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/assets" class="btn btn-sm btn-outline">Clear</a>
 </form>

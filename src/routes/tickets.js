@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate } = require('../utils');
 const { isValidEmail } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
@@ -102,7 +102,7 @@ router.post('/', (req, res) => {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
           requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
-          assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null);
+          assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date));
         return { ticket_number, id: result.lastInsertRowid };
       } catch (err) {
         if (err.message && err.message.includes('UNIQUE') && err.message.includes('ticket_number')) {
@@ -221,7 +221,7 @@ router.put('/:id', (req, res) => {
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), safeCategory, safePriority, safeStatus,
-      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null, (resolution_notes || '').substring(0, 5000)];
+      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = status === 'resolved' || status === 'closed';
