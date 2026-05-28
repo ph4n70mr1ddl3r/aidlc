@@ -15,7 +15,7 @@
 <div class="card"><div class="card-body" style="padding:0;">
   <% if (vendors.length === 0) { %><div class="empty-state"><i class="fas fa-building"></i><h3>No vendors found</h3></div>
   <% } else { %><div class="table-responsive"><table>
-    <thead><tr><th>Name</th><th>Contact</th><th>Email</th><th>Category</th><th>Contract End</th><th>Rating</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Name</th><th>Contact</th><th>Email</th><th>Category</th><th>Contract End</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody><% vendors.forEach(v => { %><tr>
       <td><a href="/vendors/<%= v.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= v.name %></a></td>
       <td class="text-sm"><%= v.contact_person || '-' %></td>
@@ -23,6 +23,7 @@
       <td class="text-sm"><%= v.category || '-' %></td>
       <td class="text-sm"><%= v.contract_end ? new Date(v.contract_end).toLocaleDateString() : '-' %></td>
       <td><% if (v.rating) { for (let i=0;i<v.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);font-size:12px;"></i><% } for (let i=v.rating;i<5;i++) { %><i class="far fa-star" style="color:var(--border);font-size:12px;"></i><% } } else { %>-<% } %></td>
+      <td><span class="badge badge-<%= v.is_active ? 'low' : 'critical' %>"><%= v.is_active ? 'Active' : 'Inactive' %></span></td>
       <td class="actions-cell"><a href="/vendors/<%= v.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
     </tr><% }) %></tbody>
   </table></div><% } %>

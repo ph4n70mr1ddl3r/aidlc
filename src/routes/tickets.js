@@ -57,7 +57,13 @@ router.get('/', (req, res) => {
 router.get('/new', (req, res) => {
   const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
   const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
-  res.render('pages/tickets/form', { title: 'New Ticket', ticket: {}, staff, assets, isEdit: false });
+  // Pre-fill requester info from logged-in user
+  const prefill = {
+    requester_name: `${req.session.user.first_name} ${req.session.user.last_name}`,
+    requester_email: req.session.user.email,
+    requester_department: req.session.user.department || '',
+  };
+  res.render('pages/tickets/form', { title: 'New Ticket', ticket: prefill, staff, assets, isEdit: false });
 });
 
 // Create ticket

@@ -302,6 +302,11 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_vendors_active ON vendors(is_active);
     CREATE INDEX IF NOT EXISTS idx_project_tasks_status ON project_tasks(status);
     CREATE INDEX IF NOT EXISTS idx_project_tasks_assigned ON project_tasks(assigned_to);
+    CREATE INDEX IF NOT EXISTS idx_project_tasks_project ON project_tasks(project_id);
+    CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON ticket_comments(ticket_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_licenses_software ON licenses(software_name);
   `);
 }
 

@@ -37,6 +37,17 @@
     <option value="security" <%= filters.category === 'security' ? 'selected' : '' %>>Security</option>
     <option value="other" <%= filters.category === 'other' ? 'selected' : '' %>>Other</option>
   </select>
+  <select name="assigned_to">
+    <option value="">All Assignees</option>
+    <% if (typeof staff !== 'undefined') { staff.forEach(s => { %>
+      <option value="<%= s.id %>" <%= filters.assigned_to == String(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+    <% }) } %>
+  </select>
+  <select name="sort">
+    <option value="newest" <%= filters.sort === 'newest' || !filters.sort ? 'selected' : '' %>>Newest First</option>
+    <option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option>
+    <option value="priority" <%= filters.sort === 'priority' ? 'selected' : '' %>>Priority</option>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/tickets" class="btn btn-sm btn-outline">Clear</a>
 </form>
