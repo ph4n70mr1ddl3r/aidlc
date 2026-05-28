@@ -2,7 +2,7 @@
 <%- include('../../partials/nav') %>
 
 <div class="page-header">
-  <div><h2>Staff</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Staff</div></div>
+  <div><h2>Staff <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Staff</div></div>
   <% if (user.role === 'admin' || user.role === 'manager') { %>
   <a href="/staff/new" class="btn btn-primary"><i class="fas fa-plus"></i> Add Staff</a>
   <% } %>

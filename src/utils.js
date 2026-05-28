@@ -110,6 +110,20 @@ function safeFloat(value, fallback = 0) {
 }
 
 /**
+ * Safely parse a numeric form field, returning `fallback` for NaN / non-finite / negative.
+ * Use for monetary values that should be non-negative.
+ * @param {*} value
+ * @param {number|null} [fallback=null]
+ * @returns {number|null}
+ */
+function safePositiveFloat(value, fallback = null) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = parseFloat(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return n;
+}
+
+/**
  * Safely parse an integer form field, returning `fallback` for NaN.
  */
 function safeInt(value, fallback = 0) {
@@ -131,4 +145,4 @@ function isValidUrl(url) {
   }
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, DEFAULT_PAGE_SIZE };

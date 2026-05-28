@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
@@ -85,7 +85,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       asset_tag.substring(0, 50), name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
       (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
       safeStatus, safeCondition, purchase_date || null,
-      purchase_price !== undefined && purchase_price !== '' ? safeFloat(purchase_price, null) : null,
+      purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
       warranty_expiry || null, assigned_to ? safeId(assigned_to) : null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
     );
 
@@ -172,7 +172,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       asset_tag.substring(0, 50), name.substring(0, 200), category,
       (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
       (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
-      purchase_date || null, purchase_price !== undefined && purchase_price !== '' ? safeFloat(purchase_price, null) : null,
+      purchase_date || null, purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
       warranty_expiry || null, assigned_to ? safeId(assigned_to) : null,
       (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
     );

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
 
 const router = require('express').Router();
@@ -63,7 +63,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       seats, used,
-      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null);
+      purchase_date || null, expiry_date || null, cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -127,7 +127,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       seats, used,
-      purchase_date || null, expiry_date || null, cost ? safeFloat(cost, null) : null, (notes || '').substring(0, 2000) || null, id);
+      purchase_date || null, expiry_date || null, cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

@@ -157,24 +157,24 @@ const seed = db.transaction(() => {
 
   // Project tasks
   const tasks = [
-    { project_id: 1, title: 'Assessment of current workloads', description: 'Document all on-prem workloads and dependencies', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-02-15' },
-    { project_id: 1, title: 'AWS Landing Zone setup', description: 'Configure multi-account AWS environment', status: 'done', priority: 'high', assigned_to: 6, due_date: '2026-03-01' },
+    { project_id: 1, title: 'Assessment of current workloads', description: 'Document all on-prem workloads and dependencies', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-02-15', completed_at: '2026-02-14' },
+    { project_id: 1, title: 'AWS Landing Zone setup', description: 'Configure multi-account AWS environment', status: 'done', priority: 'high', assigned_to: 6, due_date: '2026-03-01', completed_at: '2026-02-28' },
     { project_id: 1, title: 'Database migration planning', description: 'Plan PostgreSQL to RDS migration strategy', status: 'in_progress', priority: 'high', assigned_to: 3, due_date: '2026-05-15' },
     { project_id: 1, title: 'CDN configuration', description: 'Set up CloudFront distributions', status: 'todo', priority: 'medium', assigned_to: 6, due_date: '2026-06-01' },
     { project_id: 1, title: 'Testing & validation', description: 'Full regression testing of migrated workloads', status: 'todo', priority: 'high', assigned_to: 4, due_date: '2026-07-15' },
-    { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-03-15' },
-    { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: '2026-04-30' },
+    { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-03-15', completed_at: '2026-03-14' },
+    { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: '2026-04-30', completed_at: '2026-04-29' },
     { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: '2026-06-15' },
     { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' },
   ];
 
   const insertTask = db.prepare(`
-    INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const t of tasks) {
-    insertTask.run(t.project_id, t.title, t.description, t.status, t.priority, t.assigned_to, t.due_date);
+    insertTask.run(t.project_id, t.title, t.description, t.status, t.priority, t.assigned_to, t.due_date, t.completed_at || null);
   }
   console.log(`✅ Created ${tasks.length} project tasks`);
 
