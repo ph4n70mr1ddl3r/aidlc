@@ -75,19 +75,32 @@ router.post('/', (req, res) => {
   }
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
-  // Generate ticket number atomically
+  // Generate ticket number atomically with retry on UNIQUE collision
   const createTicket = db.transaction(() => {
-    const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
-    const ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1).padStart(3, '0')}`;
-    const result = db.prepare(`
-      INSERT INTO tickets (ticket_number, title, description, category, priority,
-        requester_name, requester_email, requester_department, requester_phone,
-        assigned_to, asset_id, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
-      requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
-      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null);
-    return { ticket_number, id: result.lastInsertRowid };
+    let ticket_number;
+    let attempts = 0;
+    while (attempts < 5) {
+      const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
+      ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1 + attempts).padStart(3, '0')}`;
+      try {
+        const result = db.prepare(`
+          INSERT INTO tickets (ticket_number, title, description, category, priority,
+            requester_name, requester_email, requester_department, requester_phone,
+            assigned_to, asset_id, due_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
+          requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
+          assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, due_date || null);
+        return { ticket_number, id: result.lastInsertRowid };
+      } catch (err) {
+        if (err.message && err.message.includes('UNIQUE') && err.message.includes('ticket_number')) {
+          attempts++;
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error('Failed to generate unique ticket number after 5 attempts');
   });
 
   try {

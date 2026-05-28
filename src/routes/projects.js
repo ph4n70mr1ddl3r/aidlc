@@ -69,7 +69,7 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { name, description, status, priority, start_date, end_date, budget, owner_id } = req.body;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
@@ -140,7 +140,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : undefined;
 
-  if (!name || !safeStatus || !safePriority) {
+  if (!name || !name.trim() || !safeStatus || !safePriority) {
     req.flash('error', 'Valid name, status, and priority are required');
     return res.redirect(`/projects/${id}`);
   }

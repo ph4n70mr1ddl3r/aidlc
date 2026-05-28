@@ -77,7 +77,7 @@ router.get('/profile', requireAuth, (req, res) => {
 router.put('/profile', requireAuth, (req, res) => {
   const { first_name, last_name, email, phone } = req.body;
 
-  if (!first_name || !last_name || !email) {
+  if (!first_name || !first_name.trim() || !last_name || !last_name.trim() || !email) {
     req.flash('error', 'First name, last name, and email are required');
     return res.redirect('/profile');
   }

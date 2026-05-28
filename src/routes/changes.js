@@ -52,7 +52,7 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to } = req.body;
 
-  if (!title || !change_type) {
+  if (!title || !title.trim() || !change_type) {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
@@ -120,6 +120,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
 
+  if (!title || !title.trim()) {
+    req.flash('error', 'Title is required');
+    return res.redirect(`/changes/${id}/edit`);
+  }
   if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid change type, status, or priority');
     return res.redirect(`/changes/${id}/edit`);

@@ -57,7 +57,7 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { username, password, email, first_name, last_name, role, department, phone } = req.body;
 
-  if (!username || !password || !email || !first_name || !last_name) {
+  if (!username || !password || !email || !first_name || !first_name.trim() || !last_name || !last_name.trim()) {
     req.flash('error', 'All required fields must be filled in');
     return res.redirect('/staff/new');
   }
@@ -169,7 +169,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { email, first_name, last_name, role, department, phone, is_active } = req.body;
 
-  if (!email || !first_name || !last_name) {
+  if (!email || !first_name || !first_name.trim() || !last_name || !last_name.trim()) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -179,6 +179,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
   if (!USER_ROLES.includes(role)) {
     req.flash('error', 'Invalid role');
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  // Only admins can assign the admin role
+  if (role === 'admin' && req.session.user.role !== 'admin') {
+    req.flash('error', 'Only administrators can assign the admin role');
     return res.redirect(`/staff/${id}/edit`);
   }
 

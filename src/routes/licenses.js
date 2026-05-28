@@ -44,7 +44,7 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
 
-  if (!software_name) {
+  if (!software_name || !software_name.trim()) {
     req.flash('error', 'Software name is required');
     return res.redirect('/licenses/new');
   }
@@ -107,6 +107,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
 
+  if (!software_name || !software_name.trim()) {
+    req.flash('error', 'Software name is required');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
     req.flash('error', 'Invalid license type');
     return res.redirect(`/licenses/${id}/edit`);

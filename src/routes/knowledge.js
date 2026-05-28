@@ -72,7 +72,7 @@ router.get('/new', (req, res) => {
 router.post('/', (req, res) => {
   const { title, content, category, tags, status, is_featured } = req.body;
 
-  if (!title || !content || !category) {
+  if (!title || !title.trim() || !content || !content.trim() || !category) {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
   }

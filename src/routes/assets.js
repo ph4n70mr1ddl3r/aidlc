@@ -63,7 +63,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
 
-  if (!asset_tag || !name || !category) {
+  if (!asset_tag || !name || !name.trim() || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect('/assets/new');
   }
@@ -150,7 +150,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
           condition_rating, purchase_date, purchase_price, warranty_expiry,
           assigned_to, location, notes } = req.body;
 
-  if (!asset_tag || !name || !category) {
+  if (!asset_tag || !name || !name.trim() || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -44,8 +44,13 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating } = req.body;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     req.flash('error', 'Vendor name is required');
+    return res.redirect('/vendors/new');
+  }
+
+  if (email && !isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
     return res.redirect('/vendors/new');
   }
 
@@ -106,8 +111,12 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active } = req.body;
 
-  if (!name) {
+  if (!name || !name.trim()) {
     req.flash('error', 'Vendor name is required');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (email && !isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/vendors/${id}/edit`);
   }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
