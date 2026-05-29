@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim } = require('../utils');
 const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 
@@ -55,9 +55,16 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create staff
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { username, password, email, first_name, last_name, role, department, phone } = req.body;
+  const username = trim(req.body.username);
+  const { password } = req.body;
+  const email = trim(req.body.email);
+  const first_name = trim(req.body.first_name);
+  const last_name = trim(req.body.last_name);
+  const { role } = req.body;
+  const department = trim(req.body.department);
+  const phone = trim(req.body.phone);
 
-  if (!username || !password || !email || !first_name || !first_name.trim() || !last_name || !last_name.trim()) {
+  if (!username || !password || !email || !first_name || !last_name) {
     req.flash('error', 'All required fields must be filled in');
     return res.redirect('/staff/new');
   }
@@ -172,9 +179,15 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  const { email, first_name, last_name, role, department, phone, is_active } = req.body;
+  const email = trim(req.body.email);
+  const first_name = trim(req.body.first_name);
+  const last_name = trim(req.body.last_name);
+  const { role } = req.body;
+  const department = trim(req.body.department);
+  const phone = trim(req.body.phone);
+  const { is_active } = req.body;
 
-  if (!email || !first_name || !first_name.trim() || !last_name || !last_name.trim()) {
+  if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
   }

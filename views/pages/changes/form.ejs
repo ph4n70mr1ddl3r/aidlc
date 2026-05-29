@@ -6,7 +6,7 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1;"><label>Title *</label><input type="text" name="title" class="form-control" value="<%= change.title || '' %>" maxlength="200" required></div>
-      <div class="form-group" style="grid-column:1/-1;"><label>Description</label><textarea name="description" class="form-control"><%= change.description || '' %></textarea></div>
+      <div class="form-group" style="grid-column:1/-1;"><label>Description</label><textarea name="description" class="form-control" maxlength="5000"><%= change.description || '' %></textarea></div>
       <div class="form-group"><label>Type *</label><select name="change_type" class="form-control" required>
         <% ['maintenance','upgrade','incident','security','configuration'].forEach(t => { %><option value="<%= t %>" <%= change.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %>
       </select></div>
@@ -25,7 +25,7 @@
       <div class="form-group"><label>Actual Start</label><input type="datetime-local" name="actual_start" class="form-control" value="<%= change.actual_start ? change.actual_start.slice(0,16) : '' %>"></div>
       <div class="form-group"><label>Actual End</label><input type="datetime-local" name="actual_end" class="form-control" value="<%= change.actual_end ? change.actual_end.slice(0,16) : '' %>"></div>
       <% } %>
-      <div class="form-group" style="grid-column:1/-1;"><label>Impact</label><textarea name="impact" class="form-control" rows="2"><%= change.impact || '' %></textarea></div>
+      <div class="form-group" style="grid-column:1/-1;"><label>Impact</label><textarea name="impact" class="form-control" rows="2" maxlength="500"><%= change.impact || '' %></textarea></div>
     </div>
     <div style="margin-top:20px;display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>

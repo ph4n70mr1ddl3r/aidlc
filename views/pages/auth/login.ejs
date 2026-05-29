@@ -11,6 +11,12 @@
     <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
       <div class="flash error"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
     <% }) } %>
+    <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
+      <div class="flash success"><i class="fas fa-check-circle"></i> <%= m %></div>
+    <% }) } %>
+    <% if (flash.info && flash.info.length) { flash.info.forEach(m => { %>
+      <div class="flash info"><i class="fas fa-info-circle"></i> <%= m %></div>
+    <% }) } %>
 
     <form action="/login" method="POST">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">

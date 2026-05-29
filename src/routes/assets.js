@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
@@ -59,22 +59,22 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create asset
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const asset_tag = (req.body.asset_tag || '').trim();
-  const name = (req.body.name || '').trim();
+  const asset_tag = trim(req.body.asset_tag);
+  const name = trim(req.body.name);
   const category = req.body.category;
-  const manufacturer = req.body.manufacturer;
-  const model = req.body.model;
-  const serial_number = req.body.serial_number;
+  const manufacturer = trim(req.body.manufacturer);
+  const model = trim(req.body.model);
+  const serial_number = trim(req.body.serial_number);
   const status = req.body.status;
   const condition_rating = req.body.condition_rating;
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
   const assigned_to = req.body.assigned_to;
-  const location = req.body.location;
-  const notes = req.body.notes;
+  const location = trim(req.body.location);
+  const notes = trim(req.body.notes);
 
-  if (!asset_tag || !name || !name.trim() || !category) {
+  if (!asset_tag || !name || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect('/assets/new');
   }
@@ -157,22 +157,22 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
 
-  const asset_tag = (req.body.asset_tag || '').trim();
-  const name = (req.body.name || '').trim();
+  const asset_tag = trim(req.body.asset_tag);
+  const name = trim(req.body.name);
   const category = req.body.category;
-  const manufacturer = req.body.manufacturer;
-  const model = req.body.model;
-  const serial_number = req.body.serial_number;
+  const manufacturer = trim(req.body.manufacturer);
+  const model = trim(req.body.model);
+  const serial_number = trim(req.body.serial_number);
   const status = req.body.status;
   const condition_rating = req.body.condition_rating;
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
   const assigned_to = req.body.assigned_to;
-  const location = req.body.location;
-  const notes = req.body.notes;
+  const location = trim(req.body.location);
+  const notes = trim(req.body.notes);
 
-  if (!asset_tag || !name || !name.trim() || !category) {
+  if (!asset_tag || !name || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }

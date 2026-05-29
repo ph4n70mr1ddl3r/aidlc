@@ -191,6 +191,18 @@ app.use('/changes', require('./routes/changes'));
 app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 
+// ---------------------------------------------------------------------------
+// Cache-Control: prevent caching of authenticated pages
+// ---------------------------------------------------------------------------
+app.use((req, res, next) => {
+  if (req.session.user) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 // Health check (unauthenticated)
 app.get('/health', (req, res) => {
   try {

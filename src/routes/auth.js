@@ -118,6 +118,11 @@ router.put('/profile', requireAuth, (req, res) => {
 router.put('/profile/password', requireAuth, (req, res) => {
   const { current_password, new_password, confirm_password } = req.body;
 
+  if (!current_password) {
+    req.flash('error', 'Current password is required');
+    return res.redirect('/profile');
+  }
+
   const user = db.prepare('SELECT password FROM users WHERE id = ?').get(req.session.user.id);
 
   if (!bcrypt.compareSync(current_password, user.password)) {

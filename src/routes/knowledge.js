@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
@@ -70,9 +70,14 @@ router.get('/new', (req, res) => {
 
 // Create article
 router.post('/', (req, res) => {
-  const { title, content, category, tags, status, is_featured } = req.body;
+  const title = trim(req.body.title);
+  const content = trim(req.body.content);
+  const category = req.body.category;
+  const tags = trim(req.body.tags);
+  const status = req.body.status;
+  const is_featured = req.body.is_featured;
 
-  if (!title || !title.trim() || !content || !content.trim() || !category) {
+  if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
   }
@@ -90,7 +95,7 @@ router.post('/', (req, res) => {
     const result = db.prepare(`
       INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), req.session.user.id, safeStatus, safeFeatured);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500), req.session.user.id, safeStatus, safeFeatured);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');
@@ -162,9 +167,14 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/knowledge/${id}`);
   }
 
-  const { title, content, category, tags, status, is_featured } = req.body;
+  const title = trim(req.body.title);
+  const content = trim(req.body.content);
+  const category = req.body.category;
+  const tags = trim(req.body.tags);
+  const status = req.body.status;
+  const is_featured = req.body.is_featured;
 
-  if (!title || !title.trim() || !content || !content.trim()) {
+  if (!title || !content) {
     req.flash('error', 'Title and content are required');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -185,7 +195,7 @@ router.put('/:id', (req, res) => {
       UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
         status = ?, is_featured = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, (tags || '').substring(0, 500), status, safeFeatured, id);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500), status, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');

@@ -22,7 +22,7 @@
       <div class="form-group"><label>Rating (1-5)</label><input type="number" name="rating" class="form-control" min="1" max="5" value="<%= vendor.rating || '' %>"></div>
       <% if (isEdit) { %><div class="form-group"><label>Active</label><select name="is_active" class="form-control"><option value="1" <%= vendor.is_active ? 'selected' : '' %>>Yes</option><option value="0" <%= !vendor.is_active ? 'selected' : '' %>>No</option></select></div><% } %>
     </div>
-    <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control"><%= vendor.notes || '' %></textarea></div>
+    <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" maxlength="2000"><%= vendor.notes || '' %></textarea></div>
     <div style="margin-top:20px;display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>
       <a href="/vendors" class="btn btn-secondary">Cancel</a>

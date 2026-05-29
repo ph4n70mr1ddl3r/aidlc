@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
 
 const router = require('express').Router();
@@ -42,9 +42,13 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create license
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
+  const software_name = trim(req.body.software_name);
+  const vendor = trim(req.body.vendor);
+  const license_key = trim(req.body.license_key);
+  const { license_type, total_seats, used_seats, purchase_date, expiry_date, cost } = req.body;
+  const notes = trim(req.body.notes);
 
-  if (!software_name || !software_name.trim()) {
+  if (!software_name) {
     req.flash('error', 'Software name is required');
     return res.redirect('/licenses/new');
   }
@@ -105,9 +109,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
 
-  const { software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes } = req.body;
+  const software_name = trim(req.body.software_name);
+  const vendor = trim(req.body.vendor);
+  const license_key = trim(req.body.license_key);
+  const { license_type, total_seats, used_seats, purchase_date, expiry_date, cost } = req.body;
+  const notes = trim(req.body.notes);
 
-  if (!software_name || !software_name.trim()) {
+  if (!software_name) {
     req.flash('error', 'Software name is required');
     return res.redirect(`/licenses/${id}/edit`);
   }

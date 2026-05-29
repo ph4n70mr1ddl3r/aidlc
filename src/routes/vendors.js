@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate, trim } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -42,9 +42,17 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create vendor
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating } = req.body;
+  const name = trim(req.body.name);
+  const contact_person = trim(req.body.contact_person);
+  const email = trim(req.body.email);
+  const phone = trim(req.body.phone);
+  const address = trim(req.body.address);
+  const website = trim(req.body.website);
+  const { category, contract_start, contract_end } = req.body;
+  const notes = trim(req.body.notes);
+  const { rating } = req.body;
 
-  if (!name || !name.trim()) {
+  if (!name) {
     req.flash('error', 'Vendor name is required');
     return res.redirect('/vendors/new');
   }
@@ -114,9 +122,17 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
-  const { name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active } = req.body;
+  const name = trim(req.body.name);
+  const contact_person = trim(req.body.contact_person);
+  const email = trim(req.body.email);
+  const phone = trim(req.body.phone);
+  const address = trim(req.body.address);
+  const website = trim(req.body.website);
+  const { category, contract_start, contract_end, is_active } = req.body;
+  const notes = trim(req.body.notes);
+  const { rating } = req.body;
 
-  if (!name || !name.trim()) {
+  if (!name) {
     req.flash('error', 'Vendor name is required');
     return res.redirect(`/vendors/${id}/edit`);
   }

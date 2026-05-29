@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, trim, safeDate } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -67,9 +67,11 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create project
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { name, description, status, priority, start_date, end_date, budget, owner_id } = req.body;
+  const name = trim(req.body.name);
+  const description = trim(req.body.description);
+  const { status, priority, start_date, end_date, budget, owner_id } = req.body;
 
-  if (!name || !name.trim()) {
+  if (!name) {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
@@ -135,12 +137,14 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
 
-  const { name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
+  const name = trim(req.body.name);
+  const description = trim(req.body.description);
+  const { status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
 
-  const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : undefined;
+  const safeStatus = VALID_STATUSES.includes(status) ? status : null;
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : null;
 
-  if (!name || !name.trim() || !safeStatus || !safePriority) {
+  if (!name || !safeStatus || !safePriority) {
     req.flash('error', 'Valid name, status, and priority are required');
     return res.redirect(`/projects/${id}`);
   }
@@ -188,7 +192,9 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
   const projectId = safeId(req.params.id);
   if (!projectId) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
 
-  const { title, description, status, priority, assigned_to, due_date } = req.body;
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
+  const { status, priority, assigned_to, due_date } = req.body;
 
   if (!title) {
     req.flash('error', 'Task title is required');
@@ -200,7 +206,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date));
+      `).run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date));
 
       recalcProjectProgress(projectId);
     });
@@ -220,11 +226,12 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
 
-  const { title, description, status, priority, assigned_to, due_date } = req.body;
+  const rawTitle = req.body.title;
+  const description = trim(req.body.description);
+  const { status, priority, assigned_to, due_date } = req.body;
 
   // Defensive: handle quick-status-change forms that only send `status`
-  const safeTitle = title || undefined;
-  if (!safeTitle) {
+  if (!rawTitle) {
     // Quick status update only — preserve existing values
     try {
       const existing = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?').get(taskId, projectId);
@@ -248,6 +255,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
   }
 
   try {
+    const title = trim(rawTitle);
     const updateTask = db.transaction(() => {
       let query = `
         UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
@@ -259,7 +267,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = NULL`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date), taskId, projectId);
+      db.prepare(query).run(title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date), taskId, projectId);
 
       recalcProjectProgress(projectId);
     });

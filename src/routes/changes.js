@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
@@ -50,9 +50,13 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create change
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to } = req.body;
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
+  const { change_type, status, priority, scheduled_start, scheduled_end } = req.body;
+  const impact = trim(req.body.impact);
+  const { assigned_to } = req.body;
 
-  if (!title || !title.trim() || !change_type) {
+  if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
@@ -118,9 +122,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
 
-  const { title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to } = req.body;
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
+  const { change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end } = req.body;
+  const impact = trim(req.body.impact);
+  const { assigned_to } = req.body;
 
-  if (!title || !title.trim()) {
+  if (!title) {
     req.flash('error', 'Title is required');
     return res.redirect(`/changes/${id}/edit`);
   }

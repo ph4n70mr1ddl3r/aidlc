@@ -1,8 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate } = require('../utils');
-const { isValidEmail } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -30,7 +29,7 @@ router.get('/', (req, res) => {
   addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
-  const orderBy = SORT_MAP[req.query.sort] || SORT_MAP.newest;
+  const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
 
   const total = db.prepare(`SELECT COUNT(*) as c FROM tickets t WHERE ${whereClause}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;
@@ -69,13 +68,13 @@ router.get('/new', (req, res) => {
 // Create ticket
 router.post('/', (req, res) => {
   const title = (req.body.title || '').trim();
-  const description = req.body.description;
+  const description = (req.body.description || '').trim();
   const category = req.body.category;
   const priority = req.body.priority;
   const requester_name = (req.body.requester_name || '').trim();
   const requester_email = (req.body.requester_email || '').trim();
-  const requester_department = req.body.requester_department;
-  const requester_phone = req.body.requester_phone;
+  const requester_department = (req.body.requester_department || '').trim();
+  const requester_phone = (req.body.requester_phone || '').trim();
   const assigned_to = req.body.assigned_to;
   const asset_id = req.body.asset_id;
   const due_date = req.body.due_date;
@@ -189,7 +188,7 @@ router.put('/:id', (req, res) => {
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
   const title = (req.body.title || '').trim();
-  const description = req.body.description;
+  const description = (req.body.description || '').trim();
   const category = req.body.category;
   const priority = req.body.priority;
   const status = req.body.status;
@@ -222,7 +221,7 @@ router.put('/:id', (req, res) => {
   }
   const safeCategory = category;
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
-  const safeStatus = VALID_STATUSES.includes(status) ? status : undefined;
+  const safeStatus = VALID_STATUSES.includes(status) ? status : null;
   if (!safeStatus) {
     req.flash('error', 'Status is required');
     return res.redirect(`/tickets/${id}/edit`);
@@ -276,6 +275,9 @@ router.post('/:id/comments', (req, res) => {
       INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
     `).run(id, req.session.user.id, comment.trim().substring(0, 5000), is_internal ? 1 : 0);
+
+    // Refresh ticket updated_at so it sorts as recently active
+    db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`).run(id);
 
     req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');
