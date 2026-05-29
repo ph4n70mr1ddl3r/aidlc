@@ -82,7 +82,10 @@ function isValidEmail(email) {
  */
 function addSearch(where, params, search, columns) {
   if (!search) return;
-  const term = `%${search}%`;
+  const raw = String(search);
+  // Escape SQL LIKE wildcards
+  const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  const term = `%${escaped}%`;
   const conditions = columns.map(c => `${c} LIKE ?`);
   where.push(`(${conditions.join(' OR ')})`);
   columns.forEach(() => params.push(term));
@@ -181,4 +184,11 @@ function safeDateTimeLocal(value) {
   return isValidDateTimeLocal(value) ? value : null;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, DEFAULT_PAGE_SIZE };
+/**
+ * Trim a string value from req.body. Returns '' for non-strings.
+ */
+function trim(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, DEFAULT_PAGE_SIZE };

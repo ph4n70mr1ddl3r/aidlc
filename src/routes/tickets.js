@@ -68,8 +68,17 @@ router.get('/new', (req, res) => {
 
 // Create ticket
 router.post('/', (req, res) => {
-  const { title, description, category, priority, requester_name, requester_email,
-          requester_department, requester_phone, assigned_to, asset_id, due_date } = req.body;
+  const title = (req.body.title || '').trim();
+  const description = req.body.description;
+  const category = req.body.category;
+  const priority = req.body.priority;
+  const requester_name = (req.body.requester_name || '').trim();
+  const requester_email = (req.body.requester_email || '').trim();
+  const requester_department = req.body.requester_department;
+  const requester_phone = req.body.requester_phone;
+  const assigned_to = req.body.assigned_to;
+  const asset_id = req.body.asset_id;
+  const due_date = req.body.due_date;
 
   if (!title || !title.trim() || !category || !requester_name || !requester_email) {
     req.flash('error', 'Title, category, requester name, and requester email are required');
@@ -179,8 +188,15 @@ router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
-  const { title, description, category, priority, status, assigned_to, asset_id,
-          due_date, resolution_notes } = req.body;
+  const title = (req.body.title || '').trim();
+  const description = req.body.description;
+  const category = req.body.category;
+  const priority = req.body.priority;
+  const status = req.body.status;
+  const assigned_to = req.body.assigned_to;
+  const asset_id = req.body.asset_id;
+  const due_date = req.body.due_date;
+  const resolution_notes = req.body.resolution_notes;
 
   if (!title || !title.trim()) {
     req.flash('error', 'Title is required');
@@ -252,7 +268,7 @@ router.post('/:id/comments', (req, res) => {
 
   if (!comment || !comment.trim()) {
     req.flash('error', 'Comment cannot be empty');
-    return res.redirect(`/tickets/${req.params.id}`);
+    return res.redirect(`/tickets/${id}`);
   }
 
   try {

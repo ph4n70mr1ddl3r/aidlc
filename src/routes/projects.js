@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeFloat, safeInt } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -82,7 +82,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      safeDate(start_date), safeDate(end_date), budget ? safeFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
+      safeDate(start_date), safeDate(end_date), budget ? safePositiveFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -152,7 +152,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, safeDate(start_date), safeDate(end_date),
-      budget ? safeFloat(budget, 0) : 0, spent ? safeFloat(spent, 0) : 0,
+      budget ? safePositiveFloat(budget, 0) : 0, spent ? safePositiveFloat(spent, 0) : 0,
       Math.max(0, Math.min(100, safeInt(progress, 0))), owner_id ? safeId(owner_id) : null, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);

@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail } = require('../utils');
+const { validatePassword, isValidEmail, trim } = require('../utils');
 
 const router = require('express').Router();
 
@@ -75,7 +75,10 @@ router.get('/profile', requireAuth, (req, res) => {
 
 // Update profile
 router.put('/profile', requireAuth, (req, res) => {
-  const { first_name, last_name, email, phone } = req.body;
+  const first_name = trim(req.body.first_name);
+  const last_name = trim(req.body.last_name);
+  const email = trim(req.body.email);
+  const phone = trim(req.body.phone);
 
   if (!first_name || !first_name.trim() || !last_name || !last_name.trim() || !email) {
     req.flash('error', 'First name, last name, and email are required');

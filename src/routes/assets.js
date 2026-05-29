@@ -59,9 +59,20 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create asset
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const { asset_tag, name, category, manufacturer, model, serial_number, status,
-          condition_rating, purchase_date, purchase_price, warranty_expiry,
-          assigned_to, location, notes } = req.body;
+  const asset_tag = (req.body.asset_tag || '').trim();
+  const name = (req.body.name || '').trim();
+  const category = req.body.category;
+  const manufacturer = req.body.manufacturer;
+  const model = req.body.model;
+  const serial_number = req.body.serial_number;
+  const status = req.body.status;
+  const condition_rating = req.body.condition_rating;
+  const purchase_date = req.body.purchase_date;
+  const purchase_price = req.body.purchase_price;
+  const warranty_expiry = req.body.warranty_expiry;
+  const assigned_to = req.body.assigned_to;
+  const location = req.body.location;
+  const notes = req.body.notes;
 
   if (!asset_tag || !name || !name.trim() || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
@@ -146,9 +157,20 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
 
-  const { asset_tag, name, category, manufacturer, model, serial_number, status,
-          condition_rating, purchase_date, purchase_price, warranty_expiry,
-          assigned_to, location, notes } = req.body;
+  const asset_tag = (req.body.asset_tag || '').trim();
+  const name = (req.body.name || '').trim();
+  const category = req.body.category;
+  const manufacturer = req.body.manufacturer;
+  const model = req.body.model;
+  const serial_number = req.body.serial_number;
+  const status = req.body.status;
+  const condition_rating = req.body.condition_rating;
+  const purchase_date = req.body.purchase_date;
+  const purchase_price = req.body.purchase_price;
+  const warranty_expiry = req.body.warranty_expiry;
+  const assigned_to = req.body.assigned_to;
+  const location = req.body.location;
+  const notes = req.body.notes;
 
   if (!asset_tag || !name || !name.trim() || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
