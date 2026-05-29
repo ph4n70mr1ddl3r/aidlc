@@ -307,6 +307,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
     CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_licenses_software ON licenses(software_name);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_serial ON assets(serial_number) WHERE serial_number IS NOT NULL;
   `);
 }
 

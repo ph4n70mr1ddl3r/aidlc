@@ -126,7 +126,7 @@ router.get('/:id', (req, res) => {
   res.render('pages/knowledge/show', { title: article.title, article });
 });
 
-// Edit article
+// Edit article (author or admin/manager only)
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
@@ -136,13 +136,31 @@ router.get('/:id/edit', (req, res) => {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
+
+  const isOwner = article.author_id === req.session.user.id;
+  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  if (!isOwner && !isPrivileged) {
+    req.flash('error', 'You can only edit your own articles');
+    return res.redirect(`/knowledge/${id}`);
+  }
+
   res.render('pages/knowledge/form', { title: 'Edit Article', article, isEdit: true });
 });
 
-// Update article
+// Update article (author or admin/manager only)
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+
+  // Authorization check
+  const existing = db.prepare('SELECT author_id FROM knowledge_articles WHERE id = ?').get(id);
+  if (!existing) { req.flash('error', 'Article not found'); return res.redirect('/knowledge'); }
+  const isOwner = existing.author_id === req.session.user.id;
+  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  if (!isOwner && !isPrivileged) {
+    req.flash('error', 'You can only edit your own articles');
+    return res.redirect(`/knowledge/${id}`);
+  }
 
   const { title, content, category, tags, status, is_featured } = req.body;
 

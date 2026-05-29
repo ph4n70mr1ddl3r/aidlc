@@ -57,8 +57,8 @@ router.post('/login', loginLimiter, (req, res) => {
   });
 });
 
-// Logout
-router.get('/logout', (req, res) => {
+// Logout (POST only — GET logout is CSRF-vulnerable)
+router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
   }
