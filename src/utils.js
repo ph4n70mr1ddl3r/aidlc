@@ -86,7 +86,7 @@ function addSearch(where, params, search, columns) {
   // Escape SQL LIKE wildcards
   const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
-  const conditions = columns.map(c => `${c} LIKE ?`);
+  const conditions = columns.map(c => `${c} LIKE ? ESCAPE '\\'`);
   where.push(`(${conditions.join(' OR ')})`);
   columns.forEach(() => params.push(term));
 }

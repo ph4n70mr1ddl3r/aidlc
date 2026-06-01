@@ -154,7 +154,7 @@ const writeLimiter = rateLimit({
   message: 'Too many requests. Please slow down.',
   skipSuccessfulRequests: false,
 });
-app.use(['/tickets', '/assets', '/knowledge', '/comments', '/changes', '/licenses'], (req, res, next) => {
+app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses'], (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
     return writeLimiter(req, res, next);
   }
