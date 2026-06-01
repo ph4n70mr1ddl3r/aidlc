@@ -13,6 +13,7 @@ router.get('/', (req, res) => {
 
   const filters = buildFilters({
     'v.category': { value: VALID_CATEGORIES_VENDOR.includes(req.query.category) ? req.query.category : '' },
+    'v.is_active': { value: req.query.is_active === '1' ? 1 : req.query.is_active === '0' ? 0 : '' },
   });
 
   const where = [...filters.where];
@@ -74,12 +75,19 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
+  const sContractStart = safeDate(contract_start);
+  const sContractEnd = safeDate(contract_end);
+  if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
+    req.flash('error', 'Contract end must be on or after contract start');
+    return res.redirect('/vendors/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, safeCategory, safeDate(contract_start), safeDate(contract_end),
+      (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
       (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
@@ -146,6 +154,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
+  const sContractStart = safeDate(contract_start);
+  const sContractEnd = safeDate(contract_end);
+  if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
+    req.flash('error', 'Contract end must be on or after contract start');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
@@ -154,7 +169,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory,
-      safeDate(contract_start), safeDate(contract_end), (notes || '').substring(0, 2000) || null,
+      sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
       is_active === '0' || is_active === 0 ? 0 : 1, id);
 

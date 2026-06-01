@@ -9,6 +9,11 @@
       <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option>
     <% }) %>
   </select>
+  <select name="is_active">
+    <option value="">All Status</option>
+    <option value="1" <%= filters.is_active === '1' ? 'selected' : '' %>>Active</option>
+    <option value="0" <%= filters.is_active === '0' ? 'selected' : '' %>>Inactive</option>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/vendors" class="btn btn-sm btn-outline">Clear</a>
 </form>

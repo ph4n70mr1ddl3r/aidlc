@@ -79,12 +79,19 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
+  const sStart = safeDate(start_date);
+  const sEnd = safeDate(end_date);
+  if (sStart && sEnd && sEnd < sStart) {
+    req.flash('error', 'End date must be on or after start date');
+    return res.redirect('/projects/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      safeDate(start_date), safeDate(end_date), budget ? safePositiveFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
+      sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -155,12 +162,19 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : (existingProject ? existingProject.spent : 0);
     const safeProgress = progress !== undefined && progress !== '' ? Math.max(0, Math.min(100, safeInt(progress, 0))) : (existingProject ? existingProject.progress : 0);
 
+    const sStart = safeDate(start_date);
+    const sEnd = safeDate(end_date);
+    if (sStart && sEnd && sEnd < sStart) {
+      req.flash('error', 'End date must be on or after start date');
+      return res.redirect(`/projects/${id}`);
+    }
+
     db.prepare(`
       UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, safeDate(start_date), safeDate(end_date),
+    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,
       budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, owner_id ? safeId(owner_id) : null, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);

@@ -33,9 +33,19 @@ router.get('/', (req, res) => {
 
   const staff = db.prepare(`
     SELECT u.*,
-      (SELECT COUNT(*) FROM tickets WHERE assigned_to = u.id AND status IN ('open','in_progress','waiting')) as open_tickets,
-      (SELECT COUNT(*) FROM project_tasks WHERE assigned_to = u.id AND status IN ('todo','in_progress')) as open_tasks
+      COALESCE(tCounts.open_tickets, 0) as open_tickets,
+      COALESCE(ptCounts.open_tasks, 0) as open_tasks
     FROM users u
+    LEFT JOIN (
+      SELECT assigned_to, COUNT(*) as open_tickets
+      FROM tickets WHERE status IN ('open','in_progress','waiting')
+      GROUP BY assigned_to
+    ) tCounts ON tCounts.assigned_to = u.id
+    LEFT JOIN (
+      SELECT assigned_to, COUNT(*) as open_tasks
+      FROM project_tasks WHERE status IN ('todo','in_progress')
+      GROUP BY assigned_to
+    ) ptCounts ON ptCounts.assigned_to = u.id
     WHERE ${whereClause}
     ORDER BY u.first_name ASC
     LIMIT ? OFFSET ?

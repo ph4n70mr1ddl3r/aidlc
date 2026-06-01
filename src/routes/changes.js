@@ -68,12 +68,19 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'scheduled';
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
+  const sStart = safeDateTimeLocal(scheduled_start);
+  const sEnd = safeDateTimeLocal(scheduled_end);
+  if (sStart && sEnd && sEnd < sStart) {
+    req.flash('error', 'Scheduled end must be on or after scheduled start');
+    return res.redirect('/changes/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
-      safeDateTimeLocal(scheduled_start), safeDateTimeLocal(scheduled_end), (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
+      sStart, sEnd, (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -137,6 +144,19 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect(`/changes/${id}/edit`);
   }
 
+  const sSchedStart = safeDateTimeLocal(scheduled_start);
+  const sSchedEnd = safeDateTimeLocal(scheduled_end);
+  if (sSchedStart && sSchedEnd && sSchedEnd < sSchedStart) {
+    req.flash('error', 'Scheduled end must be on or after scheduled start');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  const sActStart = safeDateTimeLocal(actual_start);
+  const sActEnd = safeDateTimeLocal(actual_end);
+  if (sActStart && sActEnd && sActEnd < sActStart) {
+    req.flash('error', 'Actual end must be on or after actual start');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
@@ -144,7 +164,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         impact = ?, assigned_to = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
-      safeDateTimeLocal(scheduled_start), safeDateTimeLocal(scheduled_end), safeDateTimeLocal(actual_start), safeDateTimeLocal(actual_end),
+      sSchedStart, sSchedEnd, sActStart, sActEnd,
       (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
