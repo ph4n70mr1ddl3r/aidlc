@@ -2,10 +2,16 @@
 <%- include('../../partials/nav') %>
 <div class="page-header">
   <div><h2><%= article.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/knowledge">Knowledge Base</a> / <%= article.title %></div></div>
+  <%
+    const canEditArticle = article.author_id === user.id || user.role === 'admin' || user.role === 'manager';
+    const canDeleteArticle = user.role === 'admin' || user.role === 'manager';
+  %>
+  <% if (canEditArticle || canDeleteArticle) { %>
   <div class="flex gap-2">
-    <a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this article?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <% if (canEditArticle) { %><a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
+    <% if (canDeleteArticle) { %><form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this article?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form><% } %>
   </div>
+  <% } %>
 </div>
 <div class="card mb-3"><div class="card-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
   <span class="badge badge-<%= article.status %>"><%= article.status %></span>

@@ -3,9 +3,11 @@
 
 <div class="page-header">
   <div><h2><%= staffUser.first_name %> <%= staffUser.last_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/staff">Staff</a> / <%= staffUser.first_name %> <%= staffUser.last_name %></div></div>
+  <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
   </div>
+  <% } %>
 </div>
 
 <div class="grid-2-1">

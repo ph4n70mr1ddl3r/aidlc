@@ -209,6 +209,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Only administrators can assign the admin role');
     return res.redirect(`/staff/${id}/edit`);
   }
+  // Prevent admin from changing their own role (would lock themselves out)
+  if (id === req.session.user.id && role !== req.session.user.role) {
+    req.flash('error', 'You cannot change your own role');
+    return res.redirect(`/staff/${id}/edit`);
+  }
   // Managers cannot edit or deactivate admin accounts
   if (req.session.user.role !== 'admin' && targetUser.role === 'admin') {
     req.flash('error', 'You cannot modify administrator accounts');

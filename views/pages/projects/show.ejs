@@ -48,9 +48,10 @@
     </div>
     <div class="card-body">
       <!-- Add Task -->
+      <% if (user.role === 'admin' || user.role === 'manager') { %>
       <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" required>
+        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" maxlength="200" required>
         <select name="priority" class="form-control" style="width:120px;">
           <option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option>
         </select>
@@ -60,13 +61,14 @@
         </select>
         <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
       </form>
+      <% } %>
 
       <!-- Task List -->
       <% tasks.forEach(t => { %>
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;" class="flex items-center gap-2">
         <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" style="display:flex;align-items:center;gap:8px;flex:1;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()">
+          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()" <% if (user.role !== 'admin' && user.role !== 'manager') { %>disabled<% } %>>
             <option value="todo" <%= t.status === 'todo' ? 'selected' : '' %>>To Do</option>
             <option value="in_progress" <%= t.status === 'in_progress' ? 'selected' : '' %>>In Progress</option>
             <option value="review" <%= t.status === 'review' ? 'selected' : '' %>>Review</option>
@@ -79,10 +81,10 @@
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
         </form>
-        <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete task?')">
+        <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete task?')">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);"><i class="fas fa-times"></i></button>
-        </form>
+        </form><% } %>
       </div>
       <% }) %>
       <% if (tasks.length === 0) { %><p class="text-muted text-sm">No tasks yet. Add one above.</p><% } %>
@@ -94,6 +96,7 @@
     <div class="card mb-2">
       <div class="card-header"><h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %>)</h3></div>
       <div class="card-body">
+        <% if (user.role === 'admin' || user.role === 'manager') { %>
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="user_id" class="form-control" style="flex:1;" required>
@@ -105,16 +108,17 @@
           </select>
           <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i></button>
         </form>
+        <% } %>
         <% members.forEach(m => { %>
         <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
           <div>
             <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
             <div class="text-sm text-muted"><%= m.project_role %></div>
           </div>
-          <form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST">
+          <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;"><i class="fas fa-times"></i></button>
-          </form>
+          </form><% } %>
         </div>
         <% }) %>
       </div>
