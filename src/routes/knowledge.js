@@ -16,16 +16,25 @@ marked.setOptions({
 });
 
 function renderMarkdown(content) {
-  const html = marked.parse(content);
-  return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary']),
-    allowedAttributes: {
-      ...sanitizeHtml.defaults.allowedAttributes,
-      img: ['src', 'alt', 'title'],
-      code: ['class'],
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-  });
+  try {
+    const html = marked.parse(content);
+    return sanitizeHtml(html, {
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary']),
+      allowedAttributes: {
+        ...sanitizeHtml.defaults.allowedAttributes,
+        img: ['src', 'alt', 'title'],
+        code: ['class'],
+      },
+      allowedSchemes: ['http', 'https', 'mailto'],
+    });
+  } catch (err) {
+    // If markdown/sanitization fails, escape and return as plain text
+    console.error('Markdown render error:', err.message);
+    return sanitizeHtml(content, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
+  }
 }
 
 // List articles (paginated)

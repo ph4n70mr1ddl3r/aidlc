@@ -317,10 +317,14 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
     const safeUserId = safeId(user_id);
     if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
-    db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
+    const result = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
       .run(id, safeUserId, safeRole);
-    req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
-    req.flash('success', 'Member added');
+    if (result.changes === 0) {
+      req.flash('info', 'User is already a member of this project');
+    } else {
+      req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
+      req.flash('success', 'Member added');
+    }
   } catch (err) {
     req.flash('error', 'Error adding member');
   }

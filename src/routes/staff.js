@@ -291,8 +291,13 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
 
   try {
     db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
-    req.audit('deactivate', 'user', id, 'Deactivated user');
-    req.flash('success', 'Staff member deactivated');
+
+    // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
+    db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
+      WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`).run(id);
+
+    req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets');
+    req.flash('success', 'Staff member deactivated and open tickets unassigned');
   } catch (err) {
     req.flash('error', 'Error deactivating staff');
   }

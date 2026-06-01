@@ -53,13 +53,22 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      // 'unsafe-inline' required for inline event handlers (onclick, onchange, onsubmit)
+      // and embedded <script> tags (license key reveal). Refactor to nonce-based CSP
+      // or external scripts with addEventListener for a stricter policy.
+      scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:'],
     },
   },
   crossOriginEmbedderPolicy: false,
+  // Enable HSTS in production (1 year, include subdomains, preload)
+  hsts: process.env.NODE_ENV === 'production' ? {
+    maxAge: 365 * 24 * 60 * 60,
+    includeSubDomains: true,
+    preload: true,
+  } : false,
 }));
 
 // ---------------------------------------------------------------------------
@@ -75,7 +84,11 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(methodOverride('_method'));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// Static assets with cache-control in production
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
+  etag: true,
+}));
 
 // ---------------------------------------------------------------------------
 // Session configuration
