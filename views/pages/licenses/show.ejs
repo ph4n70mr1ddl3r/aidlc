@@ -2,10 +2,12 @@
 <%- include('../../partials/nav') %>
 <div class="page-header">
   <div><h2><%= license.software_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/licenses">Licenses</a> / <%= license.software_name %></div></div>
+  <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/licenses/<%= license.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/licenses/<%= license.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this license?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
+  <% } %>
 </div>
 <div class="card"><div class="card-body">
   <div class="detail-row"><div class="detail-label">Software</div><div class="detail-value" style="font-weight:600;"><%= license.software_name %></div></div>

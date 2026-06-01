@@ -2,10 +2,12 @@
 <%- include('../../partials/nav') %>
 <div class="page-header">
   <div><h2><%= change.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/changes">Changes</a> / <%= change.title %></div></div>
+  <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/changes/<%= change.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this change?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
+  <% } %>
 </div>
 <div class="card"><div class="card-body">
   <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-medium"><%= change.change_type %></span></div></div>

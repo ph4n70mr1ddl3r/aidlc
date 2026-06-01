@@ -18,11 +18,10 @@ marked.setOptions({
 function renderMarkdown(content) {
   const html = marked.parse(content);
   return sanitizeHtml(html, {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'input']),
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary']),
     allowedAttributes: {
       ...sanitizeHtml.defaults.allowedAttributes,
       img: ['src', 'alt', 'title'],
-      input: ['type', 'checked', 'disabled'],
       code: ['class'],
     },
     allowedSchemes: ['http', 'https', 'mailto'],

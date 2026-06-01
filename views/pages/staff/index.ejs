@@ -9,7 +9,7 @@
 </div>
 
 <form method="GET" action="/staff" class="filter-bar">
-  <input type="text" name="search" class="search-input" placeholder="Search staff..." value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search staff..." value="<%= filters.search || '' %>">
   <select name="role">
     <option value="">All Roles</option>
     <option value="admin" <%= filters.role === 'admin' ? 'selected' : '' %>>Admin</option>

@@ -3,6 +3,7 @@
 
 <div class="page-header">
   <div><h2><%= project.name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/projects">Projects</a> / <%= project.name %></div></div>
+  <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/projects/<%= project.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this project and all tasks?')">
@@ -10,6 +11,7 @@
       <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
     </form>
   </div>
+  <% } %>
 </div>
 
 <!-- Project Header -->

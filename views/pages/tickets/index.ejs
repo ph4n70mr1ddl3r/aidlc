@@ -11,7 +11,7 @@
 
 <!-- Filters -->
 <form method="GET" action="/tickets" class="filter-bar">
-  <input type="text" name="search" class="search-input" placeholder="Search tickets..." value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search tickets..." value="<%= filters.search || '' %>">
   <select name="status">
     <option value="">All Status</option>
     <option value="open" <%= filters.status === 'open' ? 'selected' : '' %>>Open</option>

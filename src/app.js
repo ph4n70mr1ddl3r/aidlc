@@ -206,6 +206,7 @@ app.use('/reports', require('./routes/reports'));
 
 // Health check (unauthenticated)
 app.get('/health', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const db = require('./models/database');
     db.prepare('SELECT 1 AS ok').get();

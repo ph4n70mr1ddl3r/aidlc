@@ -2,10 +2,12 @@
 <%- include('../../partials/nav') %>
 <div class="page-header">
   <div><h2><%= vendor.name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/vendors">Vendors</a> / <%= vendor.name %></div></div>
+  <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/vendors/<%= vendor.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/vendors/<%= vendor.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this vendor?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
+  <% } %>
 </div>
 <div class="card"><div class="card-body">
   <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value" style="font-weight:600;"><%= vendor.name %></div></div>

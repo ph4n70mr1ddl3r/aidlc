@@ -9,7 +9,7 @@
 </div>
 
 <form method="GET" action="/projects" class="filter-bar">
-  <input type="text" name="search" class="search-input" placeholder="Search projects..." value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search projects..." value="<%= filters.search || '' %>">
   <select name="status">
     <option value="">All Status</option>
     <% ['planning','in_progress','on_hold','completed','cancelled'].forEach(s => { %>
