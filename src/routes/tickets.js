@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -67,19 +67,19 @@ router.get('/new', (req, res) => {
 
 // Create ticket
 router.post('/', (req, res) => {
-  const title = (req.body.title || '').trim();
-  const description = (req.body.description || '').trim();
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
   const category = req.body.category;
   const priority = req.body.priority;
-  const requester_name = (req.body.requester_name || '').trim();
-  const requester_email = (req.body.requester_email || '').trim();
-  const requester_department = (req.body.requester_department || '').trim();
-  const requester_phone = (req.body.requester_phone || '').trim();
+  const requester_name = trim(req.body.requester_name);
+  const requester_email = trim(req.body.requester_email);
+  const requester_department = trim(req.body.requester_department);
+  const requester_phone = trim(req.body.requester_phone);
   const assigned_to = req.body.assigned_to;
   const asset_id = req.body.asset_id;
   const due_date = req.body.due_date;
 
-  if (!title || !title.trim() || !category || !requester_name || !requester_email) {
+  if (!title || !category || !requester_name || !requester_email) {
     req.flash('error', 'Title, category, requester name, and requester email are required');
     return res.redirect('/tickets/new');
   }
@@ -187,17 +187,17 @@ router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
-  const title = (req.body.title || '').trim();
-  const description = (req.body.description || '').trim();
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
   const category = req.body.category;
   const priority = req.body.priority;
   const status = req.body.status;
   const assigned_to = req.body.assigned_to;
   const asset_id = req.body.asset_id;
   const due_date = req.body.due_date;
-  const resolution_notes = req.body.resolution_notes;
+  const resolution_notes = trim(req.body.resolution_notes);
 
-  if (!title || !title.trim()) {
+  if (!title) {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -239,7 +239,7 @@ router.put('/:id', (req, res) => {
       assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-    const isNowResolved = status === 'resolved' || status === 'closed';
+    const isNowResolved = safeStatus === 'resolved' || safeStatus === 'closed';
     if (isNowResolved && !wasResolved) {
       query += `, resolved_at = datetime('now')`;
     } else if (!isNowResolved && wasResolved) {
@@ -250,7 +250,7 @@ router.put('/:id', (req, res) => {
 
     db.prepare(query).run(...params);
 
-    req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
+    req.audit('update', 'ticket', id, `Updated ticket (status: ${safeStatus})`);
     req.flash('success', 'Ticket updated successfully');
     res.redirect(`/tickets/${id}`);
   } catch (err) {

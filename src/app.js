@@ -177,6 +177,19 @@ app.use((req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Cache-Control: prevent caching of authenticated pages
+// Must come BEFORE routes so headers are set on matched routes.
+// ---------------------------------------------------------------------------
+app.use((req, res, next) => {
+  if (req.session.user) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
+// ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
 app.use('/', require('./routes/auth'));
@@ -190,18 +203,6 @@ app.use('/knowledge', require('./routes/knowledge'));
 app.use('/changes', require('./routes/changes'));
 app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
-
-// ---------------------------------------------------------------------------
-// Cache-Control: prevent caching of authenticated pages
-// ---------------------------------------------------------------------------
-app.use((req, res, next) => {
-  if (req.session.user) {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-  }
-  next();
-});
 
 // Health check (unauthenticated)
 app.get('/health', (req, res) => {

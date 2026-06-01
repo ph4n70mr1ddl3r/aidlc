@@ -214,6 +214,12 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'You cannot modify administrator accounts');
     return res.redirect('/staff');
   }
+  // Prevent admin from deactivating their own account via the edit form
+  const safeIsActive = (is_active === '0' || is_active === 0) ? 0 : 1;
+  if (id === req.session.user.id && !safeIsActive) {
+    req.flash('error', 'You cannot deactivate your own account');
+    return res.redirect('/staff');
+  }
 
   try {
     db.prepare(`
@@ -221,7 +227,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
         department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
-      (department || '').substring(0, 100), (phone || '').substring(0, 50), is_active === '0' || is_active === 0 ? 0 : 1, id);
+      (department || '').substring(0, 100), (phone || '').substring(0, 50), safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     req.flash('success', 'Staff member updated');

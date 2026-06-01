@@ -150,14 +150,18 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    // Preserve existing spent/progress when not provided in form data
+    const existingProject = db.prepare('SELECT spent, progress FROM projects WHERE id = ?').get(id);
+    const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : (existingProject ? existingProject.spent : 0);
+    const safeProgress = progress !== undefined && progress !== '' ? Math.max(0, Math.min(100, safeInt(progress, 0))) : (existingProject ? existingProject.progress : 0);
+
     db.prepare(`
       UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, safeDate(start_date), safeDate(end_date),
-      budget ? safePositiveFloat(budget, 0) : 0, spent ? safePositiveFloat(spent, 0) : 0,
-      Math.max(0, Math.min(100, safeInt(progress, 0))), owner_id ? safeId(owner_id) : null, id);
+      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, owner_id ? safeId(owner_id) : null, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');

@@ -62,8 +62,10 @@ router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
   }
-  req.session.destroy();
-  res.redirect('/login');
+  req.session.destroy(() => {
+    res.clearCookie('connect.sid');
+    res.redirect('/login');
+  });
 });
 
 // Profile page
@@ -80,7 +82,7 @@ router.put('/profile', requireAuth, (req, res) => {
   const email = trim(req.body.email);
   const phone = trim(req.body.phone);
 
-  if (!first_name || !first_name.trim() || !last_name || !last_name.trim() || !email) {
+  if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');
     return res.redirect('/profile');
   }

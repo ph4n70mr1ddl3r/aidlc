@@ -191,4 +191,12 @@ function trim(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, DEFAULT_PAGE_SIZE };
+/**
+ * Safely encode a value for embedding in a <script> tag as JSON.
+ * JSON.stringify handles quotes/escapes but does NOT escape </script>.
+ */
+function jsonScriptSafe(value) {
+  return JSON.stringify(value).replace(/<\/script/gi, '<\\/script');
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, DEFAULT_PAGE_SIZE };
