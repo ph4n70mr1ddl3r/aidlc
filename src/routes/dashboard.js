@@ -55,7 +55,7 @@ router.get('/', (req, res) => {
   const myTickets = db.prepare(`
     SELECT * FROM tickets 
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')
-    ORDER BY priority DESC, created_at ASC LIMIT 10
+    ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, created_at ASC LIMIT 10
   `).all(req.session.user.id);
 
   // Expiring warranties (next 30 days)

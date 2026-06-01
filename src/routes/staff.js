@@ -235,6 +235,17 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (department || '').substring(0, 100), (phone || '').substring(0, 50), safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
+
+    // Keep session in sync if admin is editing their own record
+    if (id === req.session.user.id) {
+      req.session.user.first_name = first_name;
+      req.session.user.last_name = last_name;
+      req.session.user.email = email;
+      req.session.user.role = role;
+      req.session.user.department = department;
+      req.session.user.phone = phone;
+    }
+
     req.flash('success', 'Staff member updated');
     res.redirect(`/staff/${id}`);
   } catch (err) {
@@ -245,6 +256,29 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     }
     res.redirect(`/staff/${id}/edit`);
   }
+});
+
+// Reactivate staff (dedicated route — no hidden-field tampering risk)
+router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (id === req.session.user.id) {
+    req.flash('error', 'You cannot reactivate your own account');
+    return res.redirect('/staff');
+  }
+
+  try {
+    const target = db.prepare('SELECT role, is_active FROM users WHERE id = ?').get(id);
+    if (!target) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
+    if (target.is_active) { req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`); }
+
+    db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?').run(id);
+    req.audit('update', 'user', id, 'Reactivated user account');
+    req.flash('success', 'Account reactivated successfully');
+  } catch (err) {
+    req.flash('error', 'Error reactivating account');
+  }
+  res.redirect(`/staff/${id}`);
 });
 
 // Reset password
@@ -290,11 +324,14 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   }
 
   try {
-    db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+    const deactivate = db.transaction(() => {
+      db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
 
-    // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
-    db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
-      WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`).run(id);
+      // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
+      db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
+        WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`).run(id);
+    });
+    deactivate();
 
     req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets');
     req.flash('success', 'Staff member deactivated and open tickets unassigned');
