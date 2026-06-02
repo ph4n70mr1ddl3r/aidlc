@@ -30,6 +30,12 @@ router.post('/login', loginRateLimiter, (req, res) => {
     return res.redirect('/login');
   }
 
+  // Reject excessively long passwords early to prevent wasted bcrypt CPU
+  if (String(password).length > 128) {
+    req.flash('error', 'Invalid username or password');
+    return res.redirect('/login');
+  }
+
   // Sanitize username — only allow reasonable characters
   const safeUsername = String(username).substring(0, 50);
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(safeUsername);

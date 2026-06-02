@@ -340,11 +340,26 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
         WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`).run(id);
+
+      // Unassign non-done project tasks and recalculate affected project progress
+      const affectedProjects = db.prepare(
+        `SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != 'done'`
+      ).all(id).map(r => r.project_id);
+
+      db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
+        WHERE assigned_to = ? AND status != 'done'`).run(id);
+
+      for (const projectId of affectedProjects) {
+        const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+        const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
+        const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+        db.prepare('UPDATE projects SET progress = ?, updated_at = datetime(\'now\') WHERE id = ?').run(progress, projectId);
+      }
     });
     deactivate();
 
-    req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets');
-    req.flash('success', 'Staff member deactivated and open tickets unassigned');
+    req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks');
+    req.flash('success', 'Staff member deactivated and open tickets/tasks unassigned');
   } catch (err) {
     req.flash('error', 'Error deactivating staff');
   }

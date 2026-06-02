@@ -307,7 +307,11 @@ router.put('/:id/status', (req, res) => {
       query += `, resolved_at = NULL`;
     }
     query += ` WHERE id = ?`;
-    db.prepare(query).run(status, id);
+    const result = db.prepare(query).run(status, id);
+    if (result.changes === 0) {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {

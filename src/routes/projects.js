@@ -124,7 +124,7 @@ router.get('/:id', (req, res) => {
     FROM project_tasks pt
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
-    ORDER BY pt.status ASC, pt.priority DESC, pt.due_date ASC
+    ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, pt.priority DESC, pt.due_date ASC
   `).all(id);
 
   const members = db.prepare(`
