@@ -28,7 +28,7 @@
         <button class="btn btn-sm btn-outline mobile-menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" title="Menu"><i class="fas fa-bars"></i></button>
         <a href="/tickets?status=open&assigned_to=<%= user.id %>" class="btn btn-sm btn-outline" title="My Tickets"><i class="fas fa-bell"></i></a>
         <a href="/profile" class="user-menu">
-          <div class="user-avatar"><%= user.first_name[0] %><%= user.last_name[0] %></div>
+          <div class="user-avatar"><%= (user.first_name || '?')[0] %><%= (user.last_name || '?')[0] %></div>
           <div class="user-info"><div class="name"><%= user.first_name %> <%= user.last_name %></div><div class="role"><%= user.role %></div></div>
         </a>
         <form action="/logout" method="POST" style="display:inline;"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-sm btn-outline" title="Logout"><i class="fas fa-sign-out-alt"></i></button></form>

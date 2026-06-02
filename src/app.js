@@ -60,9 +60,15 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
     },
   },
   crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
   // Explicit referrer policy — only send origin to cross-origin targets
   referrerPolicy: { policy: ['strict-origin-when-cross-origin'] },
   // Enable HSTS in production (1 year, include subdomains, preload)
@@ -83,6 +89,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 // Core middleware
 // ---------------------------------------------------------------------------
 app.use(morgan('dev'));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(methodOverride('_method'));
 // Static assets with cache-control in production
@@ -101,8 +108,8 @@ if (!sessionSecret) {
 }
 
 // In production, MemoryStore is not suitable — warn if no external store is configured
-if (process.env.NODE_ENV === 'production') {
-  console.warn('WARNING: Using default MemoryStore for sessions. Consider using a production-grade session store (e.g. connect-sqlite, redis).');
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_STORE) {
+  console.warn('WARNING: Using default MemoryStore for sessions. Consider configuring a production-grade session store (e.g. connect-sqlite, redis) via SESSION_STORE env var.');
 }
 
 app.use(session({
@@ -248,10 +255,16 @@ app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     req.flash('error', 'Invalid security token. Please try again.');
     const ref = req.get('Referrer');
-    // Only redirect to same-origin referrer to prevent open redirect
-    if (ref && ref.startsWith(req.protocol + '://' + req.get('Host') + '/')) {
-      return res.redirect(ref);
-    }
+    // Only redirect to same-origin referrer pathname to prevent open redirect
+    try {
+      if (ref) {
+        const refUrl = new URL(ref);
+        const expectedHost = req.get('Host');
+        if (refUrl.host === expectedHost && refUrl.protocol + '//' === req.protocol + '://') {
+          return res.redirect(refUrl.pathname + refUrl.search);
+        }
+      }
+    } catch (_) { /* invalid URL, ignore */ }
     return res.redirect('/');
   }
   const detail = process.env.NODE_ENV === 'production'
@@ -270,6 +283,11 @@ const server = app.listen(PORT, () => {
 });
 
 // ---------------------------------------------------------------------------
+// Request timeout (prevents hung connections)
+// ---------------------------------------------------------------------------
+server.timeout = 30_000; // 30 seconds
+server.keepAliveTimeout = 5_000;
+
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 function shutdown(signal) {

@@ -122,8 +122,9 @@ const seed = db.transaction(() => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
   tickets.forEach((t, i) => {
-    const num = `TK-20260523-${String(i + 1).padStart(3, '0')}`;
+    const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
     const resolvedAt = t.status === 'resolved' || t.status === 'closed'
       ? new Date(Date.now() - 86400000).toISOString().replace('T', ' ').slice(0, 19)
       : null;

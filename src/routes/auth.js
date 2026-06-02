@@ -8,7 +8,7 @@ const router = require('express').Router();
 
 // Apply login rate limiter only to POST /login
 const rateLimit = require('express-rate-limit');
-const loginLimiter = rateLimit({
+const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: 'Too many login attempts. Please try again later.',
@@ -22,7 +22,7 @@ router.get('/login', (req, res) => {
 });
 
 // Login handler
-router.post('/login', loginLimiter, (req, res) => {
+router.post('/login', loginRateLimiter, (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
