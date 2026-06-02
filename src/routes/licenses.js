@@ -128,12 +128,19 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
 
   try {
+    // Verify license exists before updating; fetch existing key for preservation
+    const existing = db.prepare('SELECT id, license_key FROM licenses WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'License not found'); return res.redirect('/licenses'); }
+
+    // If license_key field was left blank on edit, preserve the existing key
+    const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
+
     db.prepare(`
       UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
         total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
+    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
       seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 

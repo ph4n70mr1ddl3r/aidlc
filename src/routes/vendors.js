@@ -162,6 +162,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    // Verify vendor exists before updating
+    const existing = db.prepare('SELECT id, is_active FROM vendors WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
+
+    const wasActive = existing.is_active;
+    const nowActive = is_active === '0' || is_active === 0 ? 0 : 1;
+
     db.prepare(`
       UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
         website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
@@ -171,9 +178,15 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (website || '').substring(0, 500) || null, safeCategory,
       sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
-      is_active === '0' || is_active === 0 ? 0 : 1, id);
+      nowActive, id);
 
-    req.audit('update', 'vendor', id, `Updated vendor ${name}`);
+    if (wasActive && !nowActive) {
+      req.audit('deactivate', 'vendor', id, `Deactivated vendor ${name}`);
+    } else if (!wasActive && nowActive) {
+      req.audit('reactivate', 'vendor', id, `Reactivated vendor ${name}`);
+    } else {
+      req.audit('update', 'vendor', id, `Updated vendor ${name}`);
+    }
     req.flash('success', 'Vendor updated');
     res.redirect(`/vendors/${id}`);
   } catch (err) {

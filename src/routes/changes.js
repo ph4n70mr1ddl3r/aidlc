@@ -158,6 +158,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    // Verify change exists before updating
+    const existing = db.prepare('SELECT id FROM change_log WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'Change not found'); return res.redirect('/changes'); }
+
     db.prepare(`
       UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
         priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,

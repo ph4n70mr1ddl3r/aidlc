@@ -4,6 +4,7 @@ const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim } = require('../utils');
 const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -294,8 +295,17 @@ router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
   res.redirect(`/staff/${id}`);
 });
 
+// Rate limit admin password resets to prevent bcrypt DoS
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many password resets. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Reset password
-router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
+router.put('/:id/reset-password', requireRole('admin'), resetLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
