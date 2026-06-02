@@ -95,32 +95,28 @@ router.post('/', (req, res) => {
   }
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
-  // Generate ticket number atomically with retry on UNIQUE collision
+  // Generate ticket number atomically using dedicated counter table
   const createTicket = db.transaction(() => {
-    let ticket_number;
-    let attempts = 0;
-    while (attempts < 5) {
-      const count = db.prepare("SELECT COUNT(*) as c FROM tickets WHERE date(created_at) = date('now')").get().c;
-      ticket_number = `TK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${String(count + 1 + attempts).padStart(3, '0')}`;
-      try {
-        const result = db.prepare(`
-          INSERT INTO tickets (ticket_number, title, description, category, priority,
-            requester_name, requester_email, requester_department, requester_phone,
-            assigned_to, asset_id, due_date)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
-          requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
-          assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date));
-        return { ticket_number, id: result.lastInsertRowid };
-      } catch (err) {
-        if (err.message && err.message.includes('UNIQUE') && err.message.includes('ticket_number')) {
-          attempts++;
-          continue;
-        }
-        throw err;
-      }
-    }
-    throw new Error('Failed to generate unique ticket number after 5 attempts');
+    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    // Atomically increment the counter for today's date
+    const row = db.prepare(`
+      INSERT INTO ticket_counter (counter_date, next_seq)
+      VALUES (?, 1)
+      ON CONFLICT(counter_date) DO UPDATE SET next_seq = next_seq + 1
+      RETURNING next_seq
+    `).get(todayStr);
+    const seq = row.next_seq;
+    const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
+
+    const result = db.prepare(`
+      INSERT INTO tickets (ticket_number, title, description, category, priority,
+        requester_name, requester_email, requester_department, requester_phone,
+        assigned_to, asset_id, due_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
+      requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
+      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date));
+    return { ticket_number, id: result.lastInsertRowid };
   });
 
   try {

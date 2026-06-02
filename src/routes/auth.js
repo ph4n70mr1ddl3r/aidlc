@@ -31,7 +31,7 @@ router.post('/login', loginRateLimiter, (req, res) => {
   }
 
   // Reject excessively long passwords early to prevent wasted bcrypt CPU
-  if (String(password).length > 128) {
+  if (typeof password !== 'string' || password.length > 128) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }

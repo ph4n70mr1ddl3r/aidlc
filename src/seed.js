@@ -20,7 +20,8 @@ const seed = db.transaction(() => {
     DELETE FROM change_log;
     DELETE FROM audit_log;
     DELETE FROM users;
-    DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log','audit_log');
+    DELETE FROM ticket_counter;
+    DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log','audit_log','ticket_counter');
   `);
 
   // ========================

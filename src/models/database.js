@@ -276,6 +276,14 @@ function initSchema() {
     );
 
     -- ========================
+    -- TICKET COUNTER (for atomic ticket number generation)
+    -- ========================
+    CREATE TABLE IF NOT EXISTS ticket_counter (
+      counter_date TEXT PRIMARY KEY,
+      next_seq INTEGER NOT NULL DEFAULT 1
+    );
+
+    -- ========================
     -- INDEXES
     -- ========================
     CREATE INDEX IF NOT EXISTS idx_assets_tag ON assets(asset_tag);

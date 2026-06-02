@@ -43,8 +43,11 @@ const app = express();
 
 // ---------------------------------------------------------------------------
 // Trust proxy (required for correct req.ip behind reverse proxy)
+// Only enable when actually behind a proxy (set TRUST_PROXY=1 in env)
 // ---------------------------------------------------------------------------
-app.set('trust proxy', 1);
+if (process.env.TRUST_PROXY === '1') {
+  app.set('trust proxy', 1);
+}
 
 // ---------------------------------------------------------------------------
 // Security headers via Helmet
@@ -171,11 +174,11 @@ app.use('/profile/password', passwordLimiter);
 // Rate limit write endpoints to prevent spam
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50,
+  max: 100,
   message: 'Too many requests. Please slow down.',
   skipSuccessfulRequests: false,
 });
-app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses'], (req, res, next) => {
+app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors'], (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
     return writeLimiter(req, res, next);
   }

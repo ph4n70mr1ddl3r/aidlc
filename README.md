@@ -119,6 +119,7 @@ Environment variables (set in `.env`):
 | `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev) |
 | `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev) |
 | `NODE_ENV` | `development` | `development` or `production` |
+| `TRUST_PROXY` | `0` | Set to `1` when behind a reverse proxy (nginx, etc.) |
 
 ## Security
 
@@ -129,7 +130,7 @@ Environment variables (set in `.env`):
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
 - **HTML sanitization** on user-generated markdown content
-- **Audit logging** of all data mutations
+- **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
 
 ## Scripts
 

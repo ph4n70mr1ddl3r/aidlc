@@ -272,10 +272,6 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
-  if (id === req.session.user.id) {
-    req.flash('error', 'You cannot reactivate your own account');
-    return res.redirect('/staff');
-  }
 
   try {
     const target = db.prepare('SELECT role, is_active FROM users WHERE id = ?').get(id);
