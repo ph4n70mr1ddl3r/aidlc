@@ -199,4 +199,14 @@ function jsonScriptSafe(value) {
   return JSON.stringify(value).replace(/<\/script/gi, '<\\/script');
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, DEFAULT_PAGE_SIZE };
+/**
+ * Fetch active staff list (id, first_name, last_name).
+ * Centralized to avoid repeating the same query across routes.
+ * @param {import('better-sqlite3').Database} db
+ * @returns {Array<{id: number, first_name: string, last_name: string}>}
+ */
+function getActiveStaff(db) {
+  return db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, DEFAULT_PAGE_SIZE };

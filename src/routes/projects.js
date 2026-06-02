@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, trim, safeDate } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, trim, safeDate, getActiveStaff } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -61,7 +61,7 @@ router.get('/', (req, res) => {
 
 // New project form
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   res.render('pages/projects/form', { title: 'New Project', project: {}, staff, isEdit: false });
 });
 
@@ -134,7 +134,7 @@ router.get('/:id', (req, res) => {
     WHERE pm.project_id = ?
   `).all(id);
 
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
 
   res.render('pages/projects/show', { title: project.name, project, tasks, members, staff });
 });

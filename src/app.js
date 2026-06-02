@@ -63,6 +63,8 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
+  // Explicit referrer policy — only send origin to cross-origin targets
+  referrerPolicy: { policy: ['strict-origin-when-cross-origin'] },
   // Enable HSTS in production (1 year, include subdomains, preload)
   hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 365 * 24 * 60 * 60,
@@ -185,6 +187,7 @@ app.use((req, res, next) => {
   };
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
+  res.locals.jsonScriptSafe = require('./utils').jsonScriptSafe;
   next();
 });
 

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim, getActiveStaff } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
@@ -44,7 +44,7 @@ router.get('/', (req, res) => {
 
 // New change
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   res.render('pages/changes/form', { title: 'New Change', change: {}, staff, isEdit: false });
 });
 
@@ -120,7 +120,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
   }
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   res.render('pages/changes/form', { title: 'Edit Change', change, staff, isEdit: true });
 });
 

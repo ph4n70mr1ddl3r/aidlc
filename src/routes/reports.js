@@ -119,15 +119,29 @@ router.get('/staff', (req, res) => {
   
   const performance = db.prepare(`
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
-      (SELECT COUNT(*) FROM tickets WHERE assigned_to = u.id AND status IN ('open','in_progress','waiting')) as open_tickets,
-      (SELECT COUNT(*) FROM tickets WHERE assigned_to = u.id AND resolved_at IS NOT NULL 
-        AND resolved_at >= date('now', '-' || ? || ' days')) as resolved_tickets,
-      (SELECT AVG(julianday(resolved_at) - julianday(created_at)) 
-        FROM tickets WHERE assigned_to = u.id AND resolved_at IS NOT NULL
-        AND resolved_at >= date('now', '-' || ? || ' days')) as avg_resolution_days,
-      (SELECT COUNT(*) FROM project_tasks WHERE assigned_to = u.id AND status = 'done'
-        AND completed_at >= date('now', '-' || ? || ' days')) as completed_tasks
+      COALESCE(tOpen.open_tickets, 0) as open_tickets,
+      COALESCE(tResolved.resolved_tickets, 0) as resolved_tickets,
+      tResolved.avg_resolution_days,
+      COALESCE(ptDone.completed_tasks, 0) as completed_tasks
     FROM users u
+    LEFT JOIN (
+      SELECT assigned_to, COUNT(*) as open_tickets
+      FROM tickets WHERE status IN ('open','in_progress','waiting')
+      GROUP BY assigned_to
+    ) tOpen ON tOpen.assigned_to = u.id
+    LEFT JOIN (
+      SELECT assigned_to, COUNT(*) as resolved_tickets,
+        AVG(julianday(resolved_at) - julianday(created_at)) as avg_resolution_days
+      FROM tickets WHERE resolved_at IS NOT NULL
+        AND resolved_at >= date('now', '-' || ? || ' days')
+      GROUP BY assigned_to
+    ) tResolved ON tResolved.assigned_to = u.id
+    LEFT JOIN (
+      SELECT assigned_to, COUNT(*) as completed_tasks
+      FROM project_tasks WHERE status = 'done'
+        AND completed_at >= date('now', '-' || ? || ' days')
+      GROUP BY assigned_to
+    ) ptDone ON ptDone.assigned_to = u.id
     WHERE u.is_active = 1
     ORDER BY resolved_tickets DESC
   `).all(period, period, period);

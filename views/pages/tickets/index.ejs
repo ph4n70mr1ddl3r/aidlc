@@ -40,7 +40,7 @@
   <select name="assigned_to">
     <option value="">All Assignees</option>
     <% if (typeof staff !== 'undefined') { staff.forEach(s => { %>
-      <option value="<%= s.id %>" <%= filters.assigned_to == String(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+      <option value="<%= s.id %>" <%= Number(filters.assigned_to) === s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
     <% }) } %>
   </select>
   <select name="sort">

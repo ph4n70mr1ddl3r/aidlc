@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim, getActiveStaff } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -43,7 +43,7 @@ router.get('/', (req, res) => {
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
 
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
 
   res.render('pages/tickets/index', {
     title: 'Tickets', tickets, staff, filters: req.query,
@@ -54,7 +54,7 @@ router.get('/', (req, res) => {
 
 // New ticket form
 router.get('/new', (req, res) => {
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
   // Pre-fill requester info from logged-in user
   const prefill = {
@@ -162,7 +162,7 @@ router.get('/:id', (req, res) => {
     ORDER BY tc.created_at ASC
   `).all(id);
 
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
 
   res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket, comments, staff });
 });
@@ -177,7 +177,7 @@ router.get('/:id/edit', (req, res) => {
     req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
   }
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
   res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff, assets, isEdit: true });
 });

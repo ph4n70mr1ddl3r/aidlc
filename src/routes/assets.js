@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, getActiveStaff } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
@@ -35,7 +35,7 @@ router.get('/', (req, res) => {
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
 
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
 
   res.render('pages/assets/index', {
     title: 'Assets', assets, staff, filters: req.query,
@@ -46,7 +46,7 @@ router.get('/', (req, res) => {
 
 // New asset form
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   // Generate next asset tag server-side (avoid client-side randomness)
   const last = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1').get();
   let nextTag = 'AST-001';
@@ -148,7 +148,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
-  const staff = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  const staff = getActiveStaff(db);
   res.render('pages/assets/form', { title: 'Edit Asset', asset, staff, isEdit: true });
 });
 
