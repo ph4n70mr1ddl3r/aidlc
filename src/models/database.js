@@ -15,6 +15,10 @@ const db = new Database(DB_PATH);
 // Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+// Wait up to 5 seconds if the database is locked by another writer
+db.pragma('busy_timeout = 5000');
+// NORMAL is safe with WAL and much faster than FULL
+db.pragma('synchronous = NORMAL');
 
 // ---------------------------------------------------------------------------
 // Initialize schema (only run once even if module is required multiple times)

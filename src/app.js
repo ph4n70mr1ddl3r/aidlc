@@ -74,6 +74,8 @@ app.use(helmet({
   crossOriginOpenerPolicy: { policy: 'same-origin' },
   // Explicit referrer policy — only send origin to cross-origin targets
   referrerPolicy: { policy: ['strict-origin-when-cross-origin'] },
+  // Restrict browser features to prevent fingerprinting / abuse
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
   // Enable HSTS in production (1 year, include subdomains, preload)
   hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 365 * 24 * 60 * 60,
@@ -217,6 +219,7 @@ app.use((req, res, next) => {
 
     // Rolling session: extend cookie expiry on each authenticated request
     // so active users aren't unexpectedly logged out after 24 h of idle.
+    // With resave:false, we must call touch() to refresh the store TTL.
     req.session.touch();
   }
   next();
@@ -293,11 +296,22 @@ const server = app.listen(PORT, () => {
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
 });
 
+// Handle server listen errors (e.g. port already in use)
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`ERROR: Port ${PORT} is already in use. Is another instance running?`);
+  } else {
+    console.error('Server error:', err.message);
+  }
+  process.exit(1);
+});
+
 // ---------------------------------------------------------------------------
 // Request timeout (prevents hung connections)
 // ---------------------------------------------------------------------------
 server.timeout = 30_000; // 30 seconds
 server.keepAliveTimeout = 5_000;
+server.headersTimeout = 6_000; // Must be > keepAliveTimeout
 
 // Graceful shutdown
 // ---------------------------------------------------------------------------

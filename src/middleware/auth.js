@@ -36,10 +36,7 @@ function requireAuth(req, res, next) {
 
 function requireRole(...roles) {
   return (req, res, next) => {
-    if (!req.session.user) {
-      req.flash('error', 'Please log in to access this page');
-      return res.redirect('/login');
-    }
+    // requireAuth must run first — this middleware assumes req.session.user exists
     if (!roles.includes(req.session.user.role)) {
       req.flash('error', 'You do not have permission to access this page');
       return res.redirect('/dashboard');
