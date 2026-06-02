@@ -299,8 +299,12 @@ router.put('/:id/reset-password', requireRole('admin'), (req, res) => {
   }
 
   const { new_password } = req.body;
-  if (!new_password) {
+  if (!new_password || typeof new_password !== 'string') {
     req.flash('error', 'Password is required');
+    return res.redirect(`/staff/${id}`);
+  }
+  if (new_password.length > 128) {
+    req.flash('error', 'Password must be at most 128 characters');
     return res.redirect(`/staff/${id}`);
   }
   const pwErr = validatePassword(new_password);

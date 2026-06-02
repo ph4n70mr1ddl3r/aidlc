@@ -109,6 +109,8 @@ router.put('/profile', requireAuth, (req, res) => {
     req.session.user.first_name = first_name;
     req.session.user.last_name = last_name;
     req.session.user.email = email;
+    req.session.user.department = department;
+    req.session.user.phone = phone;
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');
@@ -129,6 +131,12 @@ router.put('/profile/password', requireAuth, (req, res) => {
 
   if (!current_password) {
     req.flash('error', 'Current password is required');
+    return res.redirect('/profile');
+  }
+
+  // Reject excessively long / non-string current password to prevent bcrypt DoS
+  if (typeof current_password !== 'string' || current_password.length > 128) {
+    req.flash('error', 'Invalid current password');
     return res.redirect('/profile');
   }
 
