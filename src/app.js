@@ -167,6 +167,8 @@ const passwordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
   message: 'Too many password attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
   // Count all requests — password routes return 302 redirects for both
   // success and failure, so skipSuccessfulRequests would never count anything.
 });
@@ -178,6 +180,8 @@ const writeLimiter = rateLimit({
   max: 100,
   message: 'Too many requests. Please slow down.',
   skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors'], (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {

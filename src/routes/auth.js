@@ -12,6 +12,8 @@ const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: 'Too many login attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
   // Count all requests — login handler returns 302 redirects for both
   // success and failure, so skipSuccessfulRequests would never count anything.
 });
@@ -109,7 +111,6 @@ router.put('/profile', requireAuth, (req, res) => {
     req.session.user.first_name = first_name;
     req.session.user.last_name = last_name;
     req.session.user.email = email;
-    req.session.user.department = department;
     req.session.user.phone = phone;
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
