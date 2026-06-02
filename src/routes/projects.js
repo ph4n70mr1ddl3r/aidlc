@@ -157,8 +157,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    // Preserve existing spent/progress when not provided in form data
+    // Verify project exists before updating
     const existingProject = db.prepare('SELECT spent, progress FROM projects WHERE id = ?').get(id);
+    if (!existingProject) { req.flash('error', 'Project not found'); return res.redirect('/projects'); }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : (existingProject ? existingProject.spent : 0);
     const safeProgress = progress !== undefined && progress !== '' ? Math.max(0, Math.min(100, safeInt(progress, 0))) : (existingProject ? existingProject.progress : 0);
 

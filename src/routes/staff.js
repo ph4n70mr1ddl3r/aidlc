@@ -237,6 +237,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Please use the deactivate button to deactivate accounts');
     return res.redirect(`/staff/${id}`);
   }
+  // Prevent admin from deactivating their own account
   if (id === req.session.user.id && !safeIsActive) {
     req.flash('error', 'You cannot deactivate your own account');
     return res.redirect('/staff');
