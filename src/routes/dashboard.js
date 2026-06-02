@@ -43,12 +43,13 @@ router.get('/', (req, res) => {
   // Staff stats
   const staffCount = db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1').get();
 
-  // Recent tickets
+  // Recent active tickets (not closed/resolved)
   const recentTickets = db.prepare(`
     SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
-    ORDER BY t.created_at DESC LIMIT 10
+    WHERE t.status NOT IN ('closed', 'resolved')
+    ORDER BY t.updated_at DESC LIMIT 10
   `).all();
 
   // My tickets (assigned to current user)

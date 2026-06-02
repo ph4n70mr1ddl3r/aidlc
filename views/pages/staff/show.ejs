@@ -107,7 +107,7 @@
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="form-group">
               <label>New Password</label>
-              <input type="password" name="new_password" class="form-control" required minlength="12" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}" title="Minimum 12 characters with uppercase, lowercase, number, and special character" autocomplete="new-password">
+              <input type="password" name="new_password" class="form-control" required minlength="12" maxlength="128" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}" title="Minimum 12 characters with uppercase, lowercase, number, and special character" autocomplete="new-password">
             </div>
             <button type="submit" class="btn btn-sm btn-danger" style="width:100%;"><i class="fas fa-key"></i> Reset Password</button>
           </form>
