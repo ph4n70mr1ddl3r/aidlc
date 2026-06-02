@@ -24,7 +24,8 @@
     <span style="font-weight:600;margin-right:8px;">Quick Status:</span>
     <% ['open','in_progress','waiting','resolved','closed'].forEach(s => { %>
       <% if (s !== ticket.status) { %>
-        <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;">
+        <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"
+              onsubmit="return ['resolved','closed'].includes('<%= s %>') ? confirm('Mark this ticket as <%= s %>?') : true">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
           <button type="submit" class="btn btn-sm btn-outline"><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></button>
@@ -54,6 +55,19 @@
           <strong style="color:var(--success);">Resolution:</strong>
           <div style="white-space:pre-wrap;margin-top:4px;"><%= ticket.resolution_notes %></div>
         </div>
+        <% } %>
+
+        <% if (ticket.status === 'resolved' || ticket.status === 'closed') { %>
+        <form action="/tickets/<%= ticket.id %>/satisfaction?_method=PUT" method="POST" style="margin-top:16px;background:var(--bg);padding:12px;border-radius:8px;">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <strong>Satisfaction Rating:</strong>
+          <span style="display:inline-flex;gap:4px;margin-left:8px;">
+            <% [1,2,3,4,5].forEach(r => { %>
+              <button type="submit" name="satisfaction_rating" value="<%= r %>" class="btn btn-sm <%= ticket.satisfaction_rating >= r ? 'btn-warning' : 'btn-outline' %>" title="<%= r %> star<%= r > 1 ? 's' : '' %>" style="padding:4px 8px;"><i class="fas fa-star"></i></button>
+            <% }) %>
+          </span>
+          <% if (ticket.satisfaction_rating) { %><span class="text-sm text-muted" style="margin-left:8px;"><%= ticket.satisfaction_rating %>/5</span><% } %>
+        </form>
         <% } %>
       </div>
     </div>
@@ -112,6 +126,9 @@
         <div class="detail-row"><div class="detail-label">Updated</div><div class="detail-value"><%= new Date(ticket.updated_at).toLocaleString() %></div></div>
         <% if (ticket.resolved_at) { %>
         <div class="detail-row"><div class="detail-label">Resolved</div><div class="detail-value"><%= new Date(ticket.resolved_at).toLocaleString() %></div></div>
+        <% } %>
+        <% if (ticket.satisfaction_rating) { %>
+        <div class="detail-row"><div class="detail-label">Satisfaction</div><div class="detail-value"><% for (let i = 0; i < ticket.satisfaction_rating; i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } %><% for (let i = ticket.satisfaction_rating; i < 5; i++) { %><i class="far fa-star" style="color:var(--text-light);"></i><% } %> <span class="text-sm text-muted"><%= ticket.satisfaction_rating %>/5</span></div></div>
         <% } %>
       </div>
     </div>

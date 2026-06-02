@@ -291,12 +291,11 @@ app.use((err, req, res, next) => {
 // Start server
 // ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-  console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
-});
 
-// Handle server listen errors (e.g. port already in use)
+// Create server and attach error handler BEFORE listening
+// to guarantee we catch EADDRINUSE even in edge cases.
+const server = app.listen(PORT);
+
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`ERROR: Port ${PORT} is already in use. Is another instance running?`);
@@ -304,6 +303,11 @@ server.on('error', (err) => {
     console.error('Server error:', err.message);
   }
   process.exit(1);
+});
+
+server.on('listening', () => {
+  console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
+  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
 });
 
 // ---------------------------------------------------------------------------

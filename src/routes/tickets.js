@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -301,6 +301,10 @@ router.post('/:id/comments', (req, res) => {
   }
 
   try {
+    // Verify ticket exists before adding comment
+    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(id);
+    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+
     const addComment = db.transaction(() => {
       db.prepare(`
         INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
@@ -351,6 +355,32 @@ router.put('/:id/status', (req, res) => {
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
     req.flash('error', 'Error updating status');
+  }
+  res.redirect(`/tickets/${id}`);
+});
+
+// Satisfaction rating
+router.put('/:id/satisfaction', (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  const rating = safeInt(req.body.satisfaction_rating, 0);
+  if (rating < 1 || rating > 5) {
+    req.flash('error', 'Invalid satisfaction rating');
+    return res.redirect(`/tickets/${id}`);
+  }
+
+  try {
+    const result = db.prepare(
+      `UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime('now') WHERE id = ?`
+    ).run(rating, id);
+    if (result.changes === 0) {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
+    req.audit('update', 'ticket', id, `Satisfaction rated ${rating}/5`);
+    req.flash('success', 'Thank you for your feedback!');
+  } catch (err) {
+    req.flash('error', 'Error submitting rating');
   }
   res.redirect(`/tickets/${id}`);
 });
