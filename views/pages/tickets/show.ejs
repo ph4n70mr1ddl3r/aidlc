@@ -84,9 +84,11 @@
             <textarea name="comment" class="form-control" rows="3" placeholder="Type your comment..." maxlength="5000" required></textarea>
           </div>
           <div class="flex items-center gap-2">
+            <% if (user.role === 'admin' || user.role === 'manager') { %>
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
               <input type="checkbox" name="is_internal" value="1"> Internal note (visible to IT staff only)
             </label>
+            <% } %>
             <button type="submit" class="btn btn-primary" style="margin-left:auto;"><i class="fas fa-paper-plane"></i> Add Comment</button>
           </div>
         </form>

@@ -270,7 +270,9 @@ router.post('/:id/comments', (req, res) => {
     db.prepare(`
       INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
       VALUES (?, ?, ?, ?)
-    `).run(id, req.session.user.id, comment.trim().substring(0, 5000), is_internal ? 1 : 0);
+    `).run(id, req.session.user.id, comment.trim().substring(0, 5000),
+      // Only admin/manager can mark comments as internal
+      (is_internal && (req.session.user.role === 'admin' || req.session.user.role === 'manager')) ? 1 : 0);
 
     // Refresh ticket updated_at so it sorts as recently active
     db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`).run(id);
