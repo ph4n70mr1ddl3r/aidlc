@@ -12,13 +12,14 @@ const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: 'Too many login attempts. Please try again later.',
-  skipSuccessfulRequests: true,
+  // Count all requests — login handler returns 302 redirects for both
+  // success and failure, so skipSuccessfulRequests would never count anything.
 });
 
 // Login page
 router.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/dashboard');
-  res.render('pages/auth/login', { title: 'Login' });
+  res.render('pages/auth/login', { title: 'Login', reason: req.query.reason || '' });
 });
 
 // Login handler

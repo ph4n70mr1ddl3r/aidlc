@@ -11,6 +11,9 @@
     <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
       <div class="flash error"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
     <% }) } %>
+    <% if (reason === 'deactivated') { %>
+      <div class="flash error"><i class="fas fa-exclamation-circle"></i> Your account has been deactivated. Contact your administrator.</div>
+    <% } %>
     <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
       <div class="flash success"><i class="fas fa-check-circle"></i> <%= m %></div>
     <% }) } %>

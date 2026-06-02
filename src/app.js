@@ -167,7 +167,8 @@ const passwordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
   message: 'Too many password attempts. Please try again later.',
-  skipSuccessfulRequests: true,
+  // Count all requests — password routes return 302 redirects for both
+  // success and failure, so skipSuccessfulRequests would never count anything.
 });
 app.use('/profile/password', passwordLimiter);
 
@@ -210,6 +211,10 @@ app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
+
+    // Rolling session: extend cookie expiry on each authenticated request
+    // so active users aren't unexpectedly logged out after 24 h of idle.
+    req.session.touch();
   }
   next();
 });

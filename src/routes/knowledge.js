@@ -131,8 +131,10 @@ router.get('/:id', (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  // Increment views only after confirming article exists
-  db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
+  // Increment views only for non-authors to avoid inflating counts
+  if (!req.session.user || article.author_id !== req.session.user.id) {
+    db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
+  }
 
   article.renderedContent = renderMarkdown(article.content);
 
