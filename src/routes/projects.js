@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, trim, safeDate, getActiveStaff } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -12,16 +12,6 @@ const {
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
-
-/**
- * Recalculate and persist project progress from task completion ratio
- */
-function recalcProjectProgress(projectId) {
-  const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-  const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-  db.prepare('UPDATE projects SET progress = ?, updated_at = datetime(\'now\') WHERE id = ?').run(progress, projectId);
-}
 
 // List projects (paginated)
 router.get('/', (req, res) => {
@@ -86,12 +76,19 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/projects/new');
   }
 
+  // Validate owner is an active user
+  const safeOwnerId = owner_id ? safeId(owner_id) : null;
+  if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
+    req.flash('error', 'Selected owner is not available');
+    return res.redirect('/projects/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
-      sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, owner_id ? safeId(owner_id) : null);
+      sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, safeOwnerId);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
@@ -170,13 +167,20 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       return res.redirect(`/projects/${id}`);
     }
 
+    // Validate owner is an active user
+    const safeOwnerId = owner_id ? safeId(owner_id) : null;
+    if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
+      req.flash('error', 'Selected owner is not available');
+      return res.redirect(`/projects/${id}`);
+    }
+
     db.prepare(`
       UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
         start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
         updated_at = datetime('now')
       WHERE id = ?
     `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,
-      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, owner_id ? safeId(owner_id) : null, id);
+      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, safeOwnerId, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
@@ -221,13 +225,18 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
+    if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/projects/${projectId}`);
+    }
     const addTask = db.transaction(() => {
       db.prepare(`
         INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date));
+      `).run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
 
-      recalcProjectProgress(projectId);
+      recalcProjectProgress(db, projectId);
     });
     addTask();
 
@@ -265,7 +274,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         q += ` WHERE id = ? AND project_id = ?`;
         db.prepare(q)
           .run(VALID_TASK_STATUSES.includes(status) ? status : existing.status, taskId, projectId);
-        recalcProjectProgress(projectId);
+        recalcProjectProgress(db, projectId);
       });
       updateTask();
       req.flash('success', 'Task updated');
@@ -275,6 +284,11 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
 
   try {
     const title = trim(rawTitle);
+    const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
+    if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/projects/${projectId}`);
+    }
     const updateTask = db.transaction(() => {
       let query = `
         UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
@@ -286,9 +300,9 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
         query += `, completed_at = NULL`;
       }
       query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', assigned_to ? safeId(assigned_to) : null, safeDate(due_date), taskId, projectId);
+      db.prepare(query).run(title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId);
 
-      recalcProjectProgress(projectId);
+      recalcProjectProgress(db, projectId);
     });
     updateTask();
 
@@ -311,7 +325,7 @@ router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req
       db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
         .run(taskId, projectId);
 
-      recalcProjectProgress(projectId);
+      recalcProjectProgress(db, projectId);
     });
     deleteTask();
 
@@ -331,6 +345,7 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
+    if (!isActiveUser(db, safeUserId)) { req.flash('error', 'Selected user is not available'); return res.redirect(`/projects/${id}`); }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
     const result = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
       .run(id, safeUserId, safeRole);

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim, getActiveStaff } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 
 const router = require('express').Router();
@@ -95,6 +95,23 @@ router.post('/', (req, res) => {
   }
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
 
+  // Validate assignee is an active user
+  const safeAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect('/tickets/new');
+  }
+
+  // Validate linked asset exists
+  const safeAssetId = asset_id ? safeId(asset_id) : null;
+  if (safeAssetId) {
+    const assetExists = db.prepare('SELECT 1 FROM assets WHERE id = ?').get(safeAssetId);
+    if (!assetExists) {
+      req.flash('error', 'Selected asset does not exist');
+      return res.redirect('/tickets/new');
+    }
+  }
+
   // Generate ticket number atomically using dedicated counter table
   const createTicket = db.transaction(() => {
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -115,7 +132,7 @@ router.post('/', (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
-      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date));
+      safeAssignee, safeAssetId, safeDate(due_date));
     return { ticket_number, id: result.lastInsertRowid };
   });
 
@@ -228,11 +245,28 @@ router.put('/:id', (req, res) => {
     const ticket = db.prepare('SELECT status FROM tickets WHERE id = ?').get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
 
+    // Validate assignee is an active user
+    const updateAssignee = assigned_to ? safeId(assigned_to) : null;
+    if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+
+    // Validate linked asset exists
+    const updateAssetId = asset_id ? safeId(asset_id) : null;
+    if (updateAssetId) {
+      const assetExists = db.prepare('SELECT 1 FROM assets WHERE id = ?').get(updateAssetId);
+      if (!assetExists) {
+        req.flash('error', 'Selected asset does not exist');
+        return res.redirect(`/tickets/${id}/edit`);
+      }
+    }
+
     let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
         status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
         updated_at = datetime('now')`;
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), safeCategory, safePriority, safeStatus,
-      assigned_to ? safeId(assigned_to) : null, asset_id ? safeId(asset_id) : null, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
+      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = safeStatus === 'resolved' || safeStatus === 'closed';
@@ -267,15 +301,18 @@ router.post('/:id/comments', (req, res) => {
   }
 
   try {
-    db.prepare(`
-      INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
-      VALUES (?, ?, ?, ?)
-    `).run(id, req.session.user.id, comment.trim().substring(0, 5000),
-      // Only admin/manager can mark comments as internal
-      (is_internal && (req.session.user.role === 'admin' || req.session.user.role === 'manager')) ? 1 : 0);
+    const addComment = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
+        VALUES (?, ?, ?, ?)
+      `).run(id, req.session.user.id, comment.trim().substring(0, 5000),
+        // Only admin/manager can mark comments as internal
+        (is_internal && (req.session.user.role === 'admin' || req.session.user.role === 'manager')) ? 1 : 0);
 
-    // Refresh ticket updated_at so it sorts as recently active
-    db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`).run(id);
+      // Refresh ticket updated_at so it sorts as recently active
+      db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`).run(id);
+    });
+    addComment();
 
     req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');

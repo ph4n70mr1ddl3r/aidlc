@@ -208,8 +208,34 @@ function jsonScriptSafe(value) {
  * @param {import('better-sqlite3').Database} db
  * @returns {Array<{id: number, first_name: string, last_name: string}>}
  */
+/**
+ * Check that a user ID exists and is active.
+ * Used to validate assigned_to / owner_id / user_id before writing.
+ * @param {import('better-sqlite3').Database} db
+ * @param {number|null} userId
+ * @returns {boolean}
+ */
+function isActiveUser(db, userId) {
+  if (!userId) return false;
+  const row = db.prepare('SELECT 1 FROM users WHERE id = ? AND is_active = 1').get(userId);
+  return !!row;
+}
+
+/**
+ * Recalculate and persist project progress from task completion ratio.
+ * Shared between projects.js (task CRUD) and staff.js (deactivation unassign).
+ * @param {import('better-sqlite3').Database} db
+ * @param {number} projectId
+ */
+function recalcProjectProgress(db, projectId) {
+  const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
+  const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?").run(progress, projectId);
+}
+
 function getActiveStaff(db) {
   return db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, isActiveUser, recalcProjectProgress, DEFAULT_PAGE_SIZE };

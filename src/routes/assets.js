@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, getActiveStaff } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
@@ -86,6 +86,13 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
   const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
 
+  // Validate assignee is an active user
+  const createAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (createAssignee && !isActiveUser(db, createAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect('/assets/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO assets (asset_tag, name, category, manufacturer, model, serial_number,
@@ -97,7 +104,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
       (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
       safeStatus, safeCondition, safeDate(purchase_date),
       purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
-      safeDate(warranty_expiry), assigned_to ? safeId(assigned_to) : null, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
+      safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
     );
 
     req.audit('create', 'asset', result.lastInsertRowid, `Created asset ${asset_tag}`);
@@ -183,6 +190,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
   const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
 
+  // Validate assignee is an active user
+  const updateAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+
   try {
     db.prepare(`
       UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
@@ -195,7 +209,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
       (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
       safeDate(purchase_date), purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
-      safeDate(warranty_expiry), assigned_to ? safeId(assigned_to) : null,
+      safeDate(warranty_expiry), updateAssignee,
       (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
     );
 

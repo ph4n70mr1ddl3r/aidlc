@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim, getActiveStaff } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
@@ -75,12 +75,19 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect('/changes/new');
   }
 
+  // Validate assignee is an active user
+  const safeAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect('/changes/new');
+  }
+
   try {
     const result = db.prepare(`
       INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
-      sStart, sEnd, (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null);
+      sStart, sEnd, (impact || '').substring(0, 500) || null, safeAssignee);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -157,6 +164,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect(`/changes/${id}/edit`);
   }
 
+  // Validate assignee is an active user
+  const safeAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+
   try {
     // Verify change exists before updating
     const existing = db.prepare('SELECT id FROM change_log WHERE id = ?').get(id);
@@ -169,7 +183,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       WHERE id = ?
     `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
-      (impact || '').substring(0, 500) || null, assigned_to ? safeId(assigned_to) : null, id);
+      (impact || '').substring(0, 500) || null, safeAssignee, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');

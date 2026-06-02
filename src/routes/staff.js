@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, recalcProjectProgress } = require('../utils');
 const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -367,10 +367,7 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
         WHERE assigned_to = ? AND status != 'done'`).run(id);
 
       for (const projectId of affectedProjects) {
-        const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-        const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-        const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-        db.prepare('UPDATE projects SET progress = ?, updated_at = datetime(\'now\') WHERE id = ?').run(progress, projectId);
+        recalcProjectProgress(db, projectId);
       }
     });
     deactivate();
