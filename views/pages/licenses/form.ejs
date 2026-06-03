@@ -15,7 +15,7 @@
       <div class="form-group"><label>Used Seats</label><input type="number" name="used_seats" class="form-control" value="<%= license.used_seats || 0 %>" min="0"></div>
       <div class="form-group"><label>Purchase Date</label><input type="date" name="purchase_date" class="form-control" value="<%= license.purchase_date ? license.purchase_date.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Expiry Date</label><input type="date" name="expiry_date" class="form-control" value="<%= license.expiry_date ? license.expiry_date.slice(0,10) : '' %>"></div>
-      <div class="form-group"><label>Cost ($)</label><input type="number" name="cost" class="form-control" step="0.01" value="<%= license.cost || '' %>"></div>
+      <div class="form-group"><label>Cost ($)</label><input type="number" name="cost" class="form-control" step="0.01" min="0" value="<%= license.cost || '' %"></div>
     </div>
     <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" maxlength="2000"><%= license.notes || '' %></textarea></div>
     <div style="margin-top:20px;display:flex;gap:12px;">

@@ -152,6 +152,10 @@
       text-decoration: none; border: 1px solid transparent; cursor: pointer;
       transition: all 0.2s; line-height: 1.4; font-family: inherit;
     }
+    .btn:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
     .btn-sm { padding: 5px 12px; font-size: 13px; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-dark); }

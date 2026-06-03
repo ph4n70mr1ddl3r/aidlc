@@ -106,7 +106,7 @@ router.post('/', (req, res) => {
     const result = db.prepare(`
       INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500), req.session.user.id, safeStatus, safeFeatured);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');
@@ -187,8 +187,8 @@ router.put('/:id', (req, res) => {
   const status = req.body.status;
   const is_featured = req.body.is_featured;
 
-  if (!title || !content) {
-    req.flash('error', 'Title and content are required');
+  if (!title || !content || !category) {
+    req.flash('error', 'Title, content, and category are required');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
@@ -208,7 +208,7 @@ router.put('/:id', (req, res) => {
       UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
         status = ?, is_featured = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500), status, safeFeatured, id);
+    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, status, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');

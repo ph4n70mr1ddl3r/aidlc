@@ -5,8 +5,21 @@ const { auditMiddleware } = require('../middleware/audit');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
-router.get('/', (req, res) => {
-  // Ticket stats
+// ---------------------------------------------------------------------------
+// Simple in-memory dashboard cache (30 s TTL).
+// The dashboard runs 10+ aggregation queries on every hit.  A short TTL
+// avoids hammering SQLite on a page users visit frequently while keeping
+// data reasonably fresh.
+// ---------------------------------------------------------------------------
+const DASHBOARD_TTL_MS = 30_000;
+let dashboardCache = { ts: 0, data: null };
+
+function getDashboardData(user) {
+  const now = Date.now();
+  if (dashboardCache.data && (now - dashboardCache.ts) < DASHBOARD_TTL_MS) {
+    return { ...dashboardCache.data, myTickets: dashboardCache.data._myTicketsByUser[user.id] || [] };
+  }
+
   const ticketStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
@@ -19,7 +32,6 @@ router.get('/', (req, res) => {
     FROM tickets
   `).get();
 
-  // Asset stats
   const assetStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
@@ -29,7 +41,6 @@ router.get('/', (req, res) => {
     FROM assets
   `).get();
 
-  // Project stats
   const projectStats = db.prepare(`
     SELECT 
       COUNT(*) as total,
@@ -40,10 +51,8 @@ router.get('/', (req, res) => {
     FROM projects
   `).get();
 
-  // Staff stats
   const staffCount = db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1').get();
 
-  // Recent active tickets (not closed/resolved)
   const recentTickets = db.prepare(`
     SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
@@ -52,35 +61,36 @@ router.get('/', (req, res) => {
     ORDER BY t.updated_at DESC LIMIT 10
   `).all();
 
-  // My tickets (assigned to current user)
-  const myTickets = db.prepare(`
+  // Per-user tickets — cache all users' tickets, pick the right one per request
+  const allUsers = db.prepare('SELECT id FROM users WHERE is_active = 1').all();
+  const myTicketsByUser = {};
+  const myTicketsStmt = db.prepare(`
     SELECT * FROM tickets 
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')
     ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, created_at ASC LIMIT 10
-  `).all(req.session.user.id);
+  `);
+  for (const u of allUsers) {
+    myTicketsByUser[u.id] = myTicketsStmt.all(u.id);
+  }
 
-  // Expiring warranties (next 30 days)
   const expiringWarranties = db.prepare(`
     SELECT * FROM assets 
     WHERE warranty_expiry BETWEEN date('now') AND date('now', '+30 days')
     ORDER BY warranty_expiry ASC
   `).all();
 
-  // Upcoming changes
   const upcomingChanges = db.prepare(`
     SELECT * FROM change_log 
     WHERE status = 'scheduled' AND scheduled_start >= date('now')
     ORDER BY scheduled_start ASC LIMIT 5
   `).all();
 
-  // Tickets by category (for chart)
   const ticketsByCategory = db.prepare(`
     SELECT category, COUNT(*) as count FROM tickets 
     WHERE status IN ('open','in_progress','waiting')
     GROUP BY category ORDER BY count DESC
   `).all();
 
-  // Staff workload
   const staffWorkload = db.prepare(`
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
       COUNT(t.id) as open_tickets
@@ -92,26 +102,40 @@ router.get('/', (req, res) => {
     LIMIT 8
   `).all();
 
-  // License alerts (expiring in 30 days)
   const licenseAlerts = db.prepare(`
     SELECT * FROM licenses 
     WHERE expiry_date BETWEEN date('now') AND date('now', '+30 days')
     ORDER BY expiry_date ASC
   `).all();
 
+  dashboardCache = {
+    ts: now,
+    data: {
+      ticketStats, assetStats, projectStats, staffCount, recentTickets,
+      expiringWarranties, upcomingChanges, ticketsByCategory, staffWorkload, licenseAlerts,
+      _myTicketsByUser: myTicketsByUser,
+    },
+  };
+
+  return { ...dashboardCache.data, myTickets: myTicketsByUser[user.id] || [] };
+}
+
+router.get('/', (req, res) => {
+  const data = getDashboardData(req.session.user);
+
   res.render('pages/dashboard', {
     title: 'Dashboard',
-    ticketStats,
-    assetStats,
-    projectStats,
-    staffCount,
-    recentTickets,
-    myTickets,
-    expiringWarranties,
-    upcomingChanges,
-    ticketsByCategory,
-    staffWorkload,
-    licenseAlerts
+    ticketStats: data.ticketStats,
+    assetStats: data.assetStats,
+    projectStats: data.projectStats,
+    staffCount: data.staffCount,
+    recentTickets: data.recentTickets,
+    myTickets: data.myTickets,
+    expiringWarranties: data.expiringWarranties,
+    upcomingChanges: data.upcomingChanges,
+    ticketsByCategory: data.ticketsByCategory,
+    staffWorkload: data.staffWorkload,
+    licenseAlerts: data.licenseAlerts,
   });
 });
 
