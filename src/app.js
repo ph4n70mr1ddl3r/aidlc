@@ -72,6 +72,7 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
   // Explicit referrer policy — only send origin to cross-origin targets
   referrerPolicy: { policy: ['strict-origin-when-cross-origin'] },
   // Restrict browser features to prevent fingerprinting / abuse

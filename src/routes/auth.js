@@ -18,6 +18,46 @@ const loginRateLimiter = rateLimit({
   // success and failure, so skipSuccessfulRequests would never count anything.
 });
 
+// Track per-account login failures to prevent brute-force across IP rotation
+const loginFailures = new Map(); // username -> { count, lockedUntil }
+const MAX_LOGIN_FAILURES = 5;
+const LOGIN_LOCKOUT_MINUTES = 15;
+
+function checkAccountLockout(username) {
+  const entry = loginFailures.get(username);
+  if (!entry) return false;
+  if (entry.lockedUntil && Date.now() < entry.lockedUntil) return true;
+  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
+    loginFailures.delete(username);
+    return false;
+  }
+  return false;
+}
+
+function recordLoginFailure(username) {
+  let entry = loginFailures.get(username);
+  if (!entry) entry = { count: 0, lockedUntil: null };
+  entry.count++;
+  if (entry.count >= MAX_LOGIN_FAILURES) {
+    entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+    entry.count = 0; // reset count so lockout is fresh on next attempt
+  }
+  loginFailures.set(username, entry);
+}
+
+function clearLoginFailure(username) {
+  loginFailures.delete(username);
+}
+
+// Purge stale entries every 10 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of loginFailures) {
+    if (entry.lockedUntil && now >= entry.lockedUntil) loginFailures.delete(key);
+    else if (!entry.lockedUntil) loginFailures.delete(key); // shouldn't happen but safety
+  }
+}, 10 * 60 * 1000);
+
 // Login page
 router.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/dashboard');
@@ -39,17 +79,26 @@ router.post('/login', loginRateLimiter, (req, res) => {
     return res.redirect('/login');
   }
 
-  // Sanitize username — only allow reasonable characters
+  // Check account-level lockout (prevents brute-force across IP rotation)
   const safeUsername = String(username).substring(0, 50);
+  if (checkAccountLockout(safeUsername)) {
+    req.flash('error', `Account temporarily locked due to too many failed attempts. Try again in ${LOGIN_LOCKOUT_MINUTES} minutes.`);
+    return res.redirect('/login');
+  }
+
   const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(safeUsername);
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
+    recordLoginFailure(safeUsername);
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
 
   // Update last login
   db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(user.id);
+
+  // Clear any login failure tracking for this account
+  clearLoginFailure(safeUsername);
 
   // Store user in session (without password) — regenerate session to prevent fixation
   const { password: _, ...sessionUser } = user;

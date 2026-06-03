@@ -26,6 +26,8 @@ function renderMarkdown(content) {
         code: ['class'],
       },
       allowedSchemes: ['http', 'https', 'mailto'],
+      allowedSchemesAppliedToAttributes: ['href', 'src'],
+      allowProtocolRelative: false,
     });
   } catch (err) {
     // If markdown/sanitization fails, escape and return as plain text
@@ -33,6 +35,7 @@ function renderMarkdown(content) {
     return sanitizeHtml(content, {
       allowedTags: [],
       allowedAttributes: {},
+      allowedSchemes: ['http', 'https', 'mailto'],
     });
   }
 }
