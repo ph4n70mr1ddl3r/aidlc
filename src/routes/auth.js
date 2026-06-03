@@ -22,6 +22,7 @@ const loginRateLimiter = rateLimit({
 const loginFailures = new Map(); // username -> { count, lockedUntil }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
+const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
 
 function checkAccountLockout(username) {
   const entry = loginFailures.get(username);
@@ -36,7 +37,14 @@ function checkAccountLockout(username) {
 
 function recordLoginFailure(username) {
   let entry = loginFailures.get(username);
-  if (!entry) entry = { count: 0, lockedUntil: null };
+  if (!entry) {
+    // Evict oldest entries if Map is at capacity to prevent unbounded memory growth
+    if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+      const firstKey = loginFailures.keys().next().value;
+      if (firstKey !== undefined) loginFailures.delete(firstKey);
+    }
+    entry = { count: 0, lockedUntil: null };
+  }
   entry.count++;
   if (entry.count >= MAX_LOGIN_FAILURES) {
     entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;

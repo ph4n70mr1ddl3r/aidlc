@@ -198,6 +198,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    // Verify asset exists before updating
+    const existing = db.prepare('SELECT id FROM assets WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'Asset not found'); return res.redirect('/assets'); }
+
     db.prepare(`
       UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
         model = ?, serial_number = ?, status = ?, condition_rating = ?,
@@ -234,11 +238,16 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     const deleteStmt = db.transaction(() => {
       db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?').run(id);
-      db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+      const result = db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+      return result.changes;
     });
-    deleteStmt();
-    req.audit('delete', 'asset', id, 'Deleted asset');
-    req.flash('success', 'Asset deleted');
+    const changes = deleteStmt();
+    if (changes === 0) {
+      req.flash('error', 'Asset not found');
+    } else {
+      req.audit('delete', 'asset', id, 'Deleted asset');
+      req.flash('success', 'Asset deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting asset');
   }

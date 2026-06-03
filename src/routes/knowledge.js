@@ -225,9 +225,13 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
   try {
-    db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(id);
-    req.audit('delete', 'knowledge_article', id, 'Deleted article');
-    req.flash('success', 'Article deleted');
+    const result = db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      req.flash('error', 'Article not found');
+    } else {
+      req.audit('delete', 'knowledge_article', id, 'Deleted article');
+      req.flash('success', 'Article deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting article');
   }

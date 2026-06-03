@@ -201,9 +201,13 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
   try {
-    db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
-    req.audit('delete', 'vendor', id, 'Deleted vendor');
-    req.flash('success', 'Vendor deleted');
+    const result = db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      req.flash('error', 'Vendor not found');
+    } else {
+      req.audit('delete', 'vendor', id, 'Deleted vendor');
+      req.flash('success', 'Vendor deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting vendor');
   }

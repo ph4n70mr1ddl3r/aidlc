@@ -159,9 +159,13 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
 
   try {
-    db.prepare('DELETE FROM licenses WHERE id = ?').run(id);
-    req.audit('delete', 'license', id, 'Deleted license');
-    req.flash('success', 'License deleted');
+    const result = db.prepare('DELETE FROM licenses WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      req.flash('error', 'License not found');
+    } else {
+      req.audit('delete', 'license', id, 'Deleted license');
+      req.flash('success', 'License deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting license');
   }

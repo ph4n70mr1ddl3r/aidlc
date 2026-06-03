@@ -200,9 +200,13 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
 
   try {
-    db.prepare('DELETE FROM change_log WHERE id = ?').run(id);
-    req.audit('delete', 'change', id, 'Deleted change record');
-    req.flash('success', 'Change deleted');
+    const result = db.prepare('DELETE FROM change_log WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      req.flash('error', 'Change not found');
+    } else {
+      req.audit('delete', 'change', id, 'Deleted change record');
+      req.flash('success', 'Change deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting change');
   }
