@@ -281,7 +281,7 @@ app.use((err, req, res, next) => {
       if (ref) {
         const refUrl = new URL(ref);
         const expectedHost = req.get('Host');
-        if (refUrl.host === expectedHost && refUrl.protocol + '//' === req.protocol + '://') {
+        if (refUrl.host === expectedHost && refUrl.protocol === (req.secure ? 'https:' : 'http:')) {
           return res.redirect(refUrl.pathname + refUrl.search);
         }
       }

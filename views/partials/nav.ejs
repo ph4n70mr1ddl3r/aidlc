@@ -1,5 +1,5 @@
   <% if (user) { %>
-  <nav class="sidebar" id="sidebar">
+  <nav class="sidebar" id="sidebar" aria-label="Main navigation">
     <div class="sidebar-brand">
       <i class="fas fa-server"></i>
       <div><h2>IT Dept Manager</h2><small>Enterprise Edition</small></div>
@@ -34,7 +34,7 @@
         <form action="/logout" method="POST" style="display:inline;"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-sm btn-outline" title="Logout" aria-label="Logout"><i class="fas fa-sign-out-alt"></i></button></form>
       </div>
     </header>
-    <div class="page-content">
+    <main class="page-content">
       <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
         <div class="flash success"><i class="fas fa-check-circle"></i> <%= m %></div>
       <% }) } %>

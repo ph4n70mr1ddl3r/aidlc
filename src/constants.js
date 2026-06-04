@@ -20,8 +20,8 @@ const TASK_STATUSES = ['todo','in_progress','review','done'];
 const TASK_PRIORITIES = ['high','medium','low'];
 const MEMBER_ROLES = ['lead','member','stakeholder'];
 
-// Vendors
-const VENDOR_CATEGORIES = ['Hardware','Cloud','Security','Network','Maintenance','Software','Consulting','Telecom','Other'];
+// Vendors (stored lowercase for consistency with all other enums)
+const VENDOR_CATEGORIES = ['hardware','cloud','security','network','maintenance','software','consulting','telecom','other'];
 
 // Knowledge Base
 const KB_CATEGORIES = ['how_to','troubleshooting','policy','faq','sop','other'];

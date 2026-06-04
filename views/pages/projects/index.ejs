@@ -12,7 +12,7 @@
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search projects..." value="<%= filters.search || '' %>">
   <select name="status">
     <option value="">All Status</option>
-    <% ['planning','in_progress','on_hold','completed','cancelled'].forEach(s => { %>
+    <% CONSTANTS.PROJECT_STATUSES.forEach(s => { %>
       <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>

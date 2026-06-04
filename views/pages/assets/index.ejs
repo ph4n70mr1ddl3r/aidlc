@@ -15,13 +15,13 @@
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search assets..." value="<%= filters.search || '' %>">
   <select name="category">
     <option value="">All Categories</option>
-    <% ['laptop','desktop','server','monitor','printer','network','phone','tablet','software','peripheral','other'].forEach(c => { %>
+    <% CONSTANTS.ASSET_CATEGORIES.forEach(c => { %>
       <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
     <% }) %>
   </select>
   <select name="status">
     <option value="">All Status</option>
-    <% ['in_use','in_storage','in_repair','disposed','reserved'].forEach(s => { %>
+    <% CONSTANTS.ASSET_STATUSES.forEach(s => { %>
       <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>

@@ -3,7 +3,7 @@
 <div class="page-header"><div><h2>Software Licenses <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Licenses</div></div><% if (user.role === 'admin' || user.role === 'manager') { %><a href="/licenses/new" class="btn btn-primary"><i class="fas fa-plus"></i> New License</a><% } %></div>
 <form method="GET" action="/licenses" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search licenses..." value="<%= filters.search || '' %>">
-  <select name="license_type"><option value="">All Types</option><% ['perpetual','subscription','volume','oem','academic'].forEach(t => { %><option value="<%= t %>" <%= filters.license_type === t ? 'selected' : '' %>><%= t %></option><% }) %></select>
+  <select name="license_type"><option value="">All Types</option><% CONSTANTS.LICENSE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.license_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/licenses" class="btn btn-sm btn-outline">Clear</a>
 </form>

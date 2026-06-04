@@ -205,11 +205,11 @@ const seed = db.transaction(() => {
   // VENDORS
   // ========================
   const vendors = [
-    { name: 'Dell Technologies', contact_person: 'Mike Thompson', email: 'mike.t@dell.com', phone: '800-555-1234', category: 'Hardware', contract_start: '2024-01-01', contract_end: '2026-12-31', rating: 4 },
-    { name: 'Amazon Web Services', contact_person: 'Jennifer Liu', email: 'j.liu@aws.amazon.com', phone: '800-555-2345', category: 'Cloud', contract_start: '2025-01-01', contract_end: '2027-12-31', rating: 5 },
-    { name: 'CrowdStrike', contact_person: 'Alex Rivera', email: 'a.rivera@crowdstrike.com', phone: '800-555-3456', category: 'Security', contract_start: '2025-01-15', contract_end: '2026-01-15', rating: 4 },
-    { name: 'Cisco Systems', contact_person: 'Patricia Nguyen', email: 'p.nguyen@cisco.com', phone: '800-555-4567', category: 'Network', contract_start: '2023-06-01', contract_end: '2026-06-01', rating: 5 },
-    { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'Maintenance', contract_start: '2024-03-01', contract_end: '2025-03-01', rating: 3 },
+    { name: 'Dell Technologies', contact_person: 'Mike Thompson', email: 'mike.t@dell.com', phone: '800-555-1234', category: 'hardware', contract_start: '2024-01-01', contract_end: '2026-12-31', rating: 4 },
+    { name: 'Amazon Web Services', contact_person: 'Jennifer Liu', email: 'j.liu@aws.amazon.com', phone: '800-555-2345', category: 'cloud', contract_start: '2025-01-01', contract_end: '2027-12-31', rating: 5 },
+    { name: 'CrowdStrike', contact_person: 'Alex Rivera', email: 'a.rivera@crowdstrike.com', phone: '800-555-3456', category: 'security', contract_start: '2025-01-15', contract_end: '2026-01-15', rating: 4 },
+    { name: 'Cisco Systems', contact_person: 'Patricia Nguyen', email: 'p.nguyen@cisco.com', phone: '800-555-4567', category: 'network', contract_start: '2023-06-01', contract_end: '2026-06-01', rating: 5 },
+    { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'maintenance', contract_start: '2024-03-01', contract_end: '2025-03-01', rating: 3 },
   ];
 
   const insertVendor = db.prepare(`

@@ -12,9 +12,9 @@
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search staff..." value="<%= filters.search || '' %>">
   <select name="role">
     <option value="">All Roles</option>
-    <option value="admin" <%= filters.role === 'admin' ? 'selected' : '' %>>Admin</option>
-    <option value="manager" <%= filters.role === 'manager' ? 'selected' : '' %>>Manager</option>
-    <option value="staff" <%= filters.role === 'staff' ? 'selected' : '' %>>Staff</option>
+    <% CONSTANTS.USER_ROLES.forEach(r => { %>
+    <option value="<%= r %>" <%= filters.role === r ? 'selected' : '' %>><%= r.charAt(0).toUpperCase() + r.slice(1) %></option>
+    <% }) %>
   </select>
   <select name="department">
     <option value="">All Departments</option>
