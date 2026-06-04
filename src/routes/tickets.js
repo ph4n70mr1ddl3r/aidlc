@@ -341,6 +341,18 @@ router.put('/:id/status', (req, res) => {
   }
 
   try {
+    // Fetch current ticket to verify existence and authorize the change
+    const ticket = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?').get(id);
+    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+
+    // Authorization: admin/manager can always change status.
+    // Regular staff can only change status of tickets assigned to them.
+    const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+    if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+      req.flash('error', 'You can only update status of tickets assigned to you');
+      return res.redirect(`/tickets/${id}`);
+    }
+
     let query = `UPDATE tickets SET status = ?, updated_at = datetime('now')`;
     if (status === 'resolved' || status === 'closed') {
       query += `, resolved_at = COALESCE(resolved_at, datetime('now'))`;
@@ -350,10 +362,6 @@ router.put('/:id/status', (req, res) => {
     }
     query += ` WHERE id = ?`;
     const result = db.prepare(query).run(status, id);
-    if (result.changes === 0) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
@@ -363,8 +371,8 @@ router.put('/:id/status', (req, res) => {
   res.redirect(`/tickets/${id}`);
 });
 
-// Satisfaction rating
-router.put('/:id/satisfaction', (req, res) => {
+// Satisfaction rating (admin/manager only)
+router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
   const rating = safeInt(req.body.satisfaction_rating, 0);

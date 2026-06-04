@@ -135,6 +135,17 @@ router.get('/:id', (req, res) => {
     return res.redirect('/knowledge');
   }
 
+  // Visibility: non-published articles are only visible to the author and admin/manager.
+  // Without this check any authenticated user can read drafts/archived articles by URL.
+  if (article.status !== 'published') {
+    const isOwner = article.author_id === req.session.user.id;
+    const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+    if (!isOwner && !isPrivileged) {
+      req.flash('error', 'Article not found');
+      return res.redirect('/knowledge');
+    }
+  }
+
   // Increment views only once per session per article to prevent refresh inflation.
   // Cap the tracked set to prevent unbounded session growth.
   const VIEWED_KEY = 'kb_viewed';
