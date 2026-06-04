@@ -94,6 +94,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Project created successfully');
     res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
+    console.error('Project create error:', err.message);
     req.flash('error', 'Error creating project. Please try again.');
     res.redirect('/projects/new');
   }
@@ -185,6 +186,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
   } catch (err) {
+    console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
   }
   res.redirect(`/projects/${id}`);
@@ -211,6 +213,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Project deleted');
     }
   } catch (err) {
+    console.error('Project delete error:', err.message);
     req.flash('error', 'Error deleting project');
   }
   res.redirect('/projects');
@@ -249,6 +252,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
     req.audit('create', 'project_task', null, `Added task "${title}" to project #${projectId}`);
     req.flash('success', 'Task added');
   } catch (err) {
+    console.error('Project task add error:', err.message);
     req.flash('error', 'Error adding task. Please try again.');
   }
   res.redirect(`/projects/${projectId}`);
@@ -284,7 +288,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
       });
       updateTask();
       req.flash('success', 'Task updated');
-    } catch (err) { req.flash('error', 'Error updating task'); }
+    } catch (err) { console.error('Project task quick-status error:', err.message); req.flash('error', 'Error updating task'); }
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -315,6 +319,7 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
     req.flash('success', 'Task updated');
   } catch (err) {
+    console.error('Project task update error:', err.message);
     req.flash('error', 'Error updating task');
   }
   res.redirect(`/projects/${projectId}`);
@@ -338,6 +343,7 @@ router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req
     req.audit('delete', 'project_task', taskId, 'Deleted task');
     req.flash('success', 'Task deleted');
   } catch (err) {
+    console.error('Project task delete error:', err.message);
     req.flash('error', 'Error deleting task');
   }
   res.redirect(`/projects/${projectId}`);
@@ -362,6 +368,7 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Member added');
     }
   } catch (err) {
+    console.error('Project member add error:', err.message);
     req.flash('error', 'Error adding member');
   }
   res.redirect(`/projects/${id}`);
@@ -383,6 +390,7 @@ router.delete('/:id/members/:memberId', requireRole('admin', 'manager'), (req, r
       req.flash('success', 'Member removed');
     }
   } catch (err) {
+    console.error('Project member remove error:', err.message);
     req.flash('error', 'Error removing member');
   }
   res.redirect(`/projects/${id}`);

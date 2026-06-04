@@ -58,18 +58,24 @@ function clearLoginFailure(username) {
 }
 
 // Purge stale entries every 10 minutes to prevent memory leak
-setInterval(() => {
+const loginFailureCleanup = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of loginFailures) {
     if (entry.lockedUntil && now >= entry.lockedUntil) loginFailures.delete(key);
     else if (!entry.lockedUntil) loginFailures.delete(key); // shouldn't happen but safety
   }
 }, 10 * 60 * 1000);
+// Allow the process to exit cleanly when the server shuts down;
+// without unref() this timer keeps the event loop alive.
+if (loginFailureCleanup.unref) loginFailureCleanup.unref();
 
 // Login page
 router.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/dashboard');
-  res.render('pages/auth/login', { title: 'Login', reason: req.query.reason || '' });
+  // Only allow known reason values to prevent arbitrary message injection via crafted URLs
+  const allowedReasons = ['deactivated'];
+  const reason = allowedReasons.includes(req.query.reason) ? req.query.reason : '';
+  res.render('pages/auth/login', { title: 'Login', reason });
 });
 
 // Login handler

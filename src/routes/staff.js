@@ -111,6 +111,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Username or email already exists');
     } else {
+      console.error('Staff create error:', err.message);
       req.flash('error', 'Error creating staff member. Please try again.');
     }
     res.redirect('/staff/new');
@@ -270,6 +271,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Email address is already in use');
     } else {
+      console.error('Staff update error:', err.message);
       req.flash('error', 'Error updating staff. Please try again.');
     }
     res.redirect(`/staff/${id}/edit`);
@@ -286,10 +288,11 @@ router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
     if (!target) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
     if (target.is_active) { req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`); }
 
-    db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?').run(id);
+    db.prepare(`UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?`).run(id);
     req.audit('update', 'user', id, 'Reactivated user account');
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
+    console.error('Staff reactivate error:', err.message);
     req.flash('error', 'Error reactivating account');
   }
   res.redirect(`/staff/${id}`);
@@ -375,6 +378,7 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
     req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks');
     req.flash('success', 'Staff member deactivated and open tickets/tasks unassigned');
   } catch (err) {
+    console.error('Staff deactivate error:', err.message);
     req.flash('error', 'Error deactivating staff');
   }
   res.redirect('/staff');

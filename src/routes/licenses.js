@@ -73,6 +73,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', `License for ${software_name} created`);
     res.redirect('/licenses');
   } catch (err) {
+    console.error('License create error:', err.message);
     req.flash('error', 'Error creating license. Please try again.');
     res.redirect('/licenses/new');
   }
@@ -148,6 +149,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'License updated');
     res.redirect(`/licenses/${id}`);
   } catch (err) {
+    console.error('License update error:', err.message);
     req.flash('error', 'Error updating license. Please try again.');
     res.redirect(`/licenses/${id}/edit`);
   }
@@ -167,6 +169,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'License deleted');
     }
   } catch (err) {
+    console.error('License delete error:', err.message);
     req.flash('error', 'Error deleting license');
   }
   res.redirect('/licenses');

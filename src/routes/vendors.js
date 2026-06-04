@@ -94,6 +94,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', `Vendor ${name} created`);
     res.redirect('/vendors');
   } catch (err) {
+    console.error('Vendor create error:', err.message);
     req.flash('error', 'Error creating vendor. Please try again.');
     res.redirect('/vendors/new');
   }
@@ -190,6 +191,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Vendor updated');
     res.redirect(`/vendors/${id}`);
   } catch (err) {
+    console.error('Vendor update error:', err.message);
     req.flash('error', 'Error updating vendor. Please try again.');
     res.redirect(`/vendors/${id}/edit`);
   }
@@ -209,6 +211,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Vendor deleted');
     }
   } catch (err) {
+    console.error('Vendor delete error:', err.message);
     req.flash('error', 'Error deleting vendor');
   }
   res.redirect('/vendors');

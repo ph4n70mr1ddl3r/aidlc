@@ -195,6 +195,9 @@ app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff',
 // ---------------------------------------------------------------------------
 // Global template variables
 // ---------------------------------------------------------------------------
+const utilsModule = require('./utils');
+const constantsModule = require('./constants');
+
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = {
@@ -204,10 +207,10 @@ app.use((req, res, next) => {
   };
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
-  res.locals.jsonScriptSafe = require('./utils').jsonScriptSafe;
+  res.locals.jsonScriptSafe = utilsModule.jsonScriptSafe;
   // Expose validation constants to all templates so EJS forms stay in sync
   // with the single source of truth in constants.js.
-  res.locals.CONSTANTS = require('./constants');
+  res.locals.CONSTANTS = constantsModule;
   next();
 });
 

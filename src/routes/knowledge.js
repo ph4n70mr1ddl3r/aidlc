@@ -112,6 +112,7 @@ router.post('/', (req, res) => {
     req.flash('success', 'Article created');
     res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
+    console.error('Article create error:', err.message);
     req.flash('error', 'Error creating article. Please try again.');
     res.redirect('/knowledge/new');
   }
@@ -134,12 +135,22 @@ router.get('/:id', (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  // Increment views only once per session per article to prevent refresh inflation
-  const viewedKey = 'kb_viewed';
-  if (!req.session[viewedKey]) req.session[viewedKey] = {};
-  if (!req.session[viewedKey][id] && (!req.session.user || article.author_id !== req.session.user.id)) {
+  // Increment views only once per session per article to prevent refresh inflation.
+  // Cap the tracked set to prevent unbounded session growth.
+  const VIEWED_KEY = 'kb_viewed';
+  const MAX_VIEWED_ARTICLES = 200;
+  if (!req.session[VIEWED_KEY]) req.session[VIEWED_KEY] = {};
+  const viewed = req.session[VIEWED_KEY];
+  if (!viewed[id] && (!req.session.user || article.author_id !== req.session.user.id)) {
     db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
-    req.session[viewedKey][id] = true;
+    viewed[id] = true;
+    // Evict oldest entries if the tracking set exceeds the cap
+    const keys = Object.keys(viewed);
+    if (keys.length > MAX_VIEWED_ARTICLES) {
+      for (let i = 0; i < keys.length - MAX_VIEWED_ARTICLES; i++) {
+        delete viewed[keys[i]];
+      }
+    }
   }
 
   article.renderedContent = renderMarkdown(article.content);
@@ -217,6 +228,7 @@ router.put('/:id', (req, res) => {
     req.flash('success', 'Article updated');
     res.redirect(`/knowledge/${id}`);
   } catch (err) {
+    console.error('Article update error:', err.message);
     req.flash('error', 'Error updating article. Please try again.');
     res.redirect(`/knowledge/${id}/edit`);
   }
@@ -236,6 +248,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Article deleted');
     }
   } catch (err) {
+    console.error('Article delete error:', err.message);
     req.flash('error', 'Error deleting article');
   }
   res.redirect('/knowledge');

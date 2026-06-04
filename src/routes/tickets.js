@@ -143,6 +143,7 @@ router.post('/', (req, res) => {
     req.flash('success', `Ticket ${ticket_number} created successfully`);
     res.redirect('/tickets');
   } catch (err) {
+    console.error('Ticket create error:', err.message);
     req.flash('error', 'Error creating ticket. Please check your input and try again.');
     res.redirect('/tickets/new');
   }
@@ -284,6 +285,7 @@ router.put('/:id', (req, res) => {
     req.flash('success', 'Ticket updated successfully');
     res.redirect(`/tickets/${id}`);
   } catch (err) {
+    console.error('Ticket update error:', err.message);
     req.flash('error', 'Error updating ticket. Please try again.');
     res.redirect(`/tickets/${id}/edit`);
   }
@@ -321,6 +323,7 @@ router.post('/:id/comments', (req, res) => {
     req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');
   } catch (err) {
+    console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');
   }
   res.redirect(`/tickets/${id}`);
@@ -354,6 +357,7 @@ router.put('/:id/status', (req, res) => {
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
+    console.error('Ticket status update error:', err.message);
     req.flash('error', 'Error updating status');
   }
   res.redirect(`/tickets/${id}`);
@@ -380,6 +384,7 @@ router.put('/:id/satisfaction', (req, res) => {
     req.audit('update', 'ticket', id, `Satisfaction rated ${rating}/5`);
     req.flash('success', 'Thank you for your feedback!');
   } catch (err) {
+    console.error('Ticket satisfaction error:', err.message);
     req.flash('error', 'Error submitting rating');
   }
   res.redirect(`/tickets/${id}`);
@@ -405,6 +410,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Ticket deleted');
     }
   } catch (err) {
+    console.error('Ticket delete error:', err.message);
     req.flash('error', 'Error deleting ticket');
   }
   res.redirect('/tickets');

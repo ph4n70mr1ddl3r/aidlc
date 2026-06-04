@@ -93,6 +93,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Change record created');
     res.redirect('/changes');
   } catch (err) {
+    console.error('Change create error:', err.message);
     req.flash('error', 'Error creating change. Please try again.');
     res.redirect('/changes/new');
   }
@@ -189,6 +190,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Change updated');
     res.redirect(`/changes/${id}`);
   } catch (err) {
+    console.error('Change update error:', err.message);
     req.flash('error', 'Error updating change. Please try again.');
     res.redirect(`/changes/${id}/edit`);
   }
@@ -208,6 +210,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Change deleted');
     }
   } catch (err) {
+    console.error('Change delete error:', err.message);
     req.flash('error', 'Error deleting change');
   }
   res.redirect('/changes');

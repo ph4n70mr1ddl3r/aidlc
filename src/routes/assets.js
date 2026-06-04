@@ -114,6 +114,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {
+      console.error('Asset create error:', err.message);
       req.flash('error', 'Error creating asset. Please check your input and try again.');
     }
     res.redirect('/assets/new');
@@ -224,6 +225,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     if (err.message && err.message.includes('UNIQUE')) {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {
+      console.error('Asset update error:', err.message);
       req.flash('error', 'Error updating asset. Please check your input and try again.');
     }
     res.redirect(`/assets/${id}/edit`);
@@ -249,6 +251,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.flash('success', 'Asset deleted');
     }
   } catch (err) {
+    console.error('Asset delete error:', err.message);
     req.flash('error', 'Error deleting asset');
   }
   res.redirect('/assets');
