@@ -137,7 +137,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const phone = trim(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
-  const { category, contract_start, contract_end, is_active } = req.body;
+  const { category, contract_start, contract_end } = req.body;
   const notes = trim(req.body.notes);
   const { rating } = req.body;
 
@@ -168,7 +168,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
     const wasActive = existing.is_active;
-    const nowActive = is_active === '0' || is_active === 0 ? 0 : 1;
+    // Disallow deactivation via edit form — use dedicated route instead to ensure
+    // any future cleanup logic (unassignment, notifications) runs consistently.
+    const nowActive = 1;
 
     db.prepare(`
       UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
@@ -181,13 +183,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
       nowActive, id);
 
-    if (wasActive && !nowActive) {
-      req.audit('deactivate', 'vendor', id, `Deactivated vendor ${name}`);
-    } else if (!wasActive && nowActive) {
-      req.audit('reactivate', 'vendor', id, `Reactivated vendor ${name}`);
-    } else {
-      req.audit('update', 'vendor', id, `Updated vendor ${name}`);
-    }
+    req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
     res.redirect(`/vendors/${id}`);
   } catch (err) {
@@ -195,6 +191,46 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Error updating vendor. Please try again.');
     res.redirect(`/vendors/${id}/edit`);
   }
+});
+
+// Deactivate vendor (dedicated route — mirrors staff pattern)
+router.put('/:id/deactivate', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
+  try {
+    const existing = db.prepare('SELECT is_active FROM vendors WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
+    if (!existing.is_active) { req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`); }
+
+    db.prepare(`UPDATE vendors SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+    req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
+    req.flash('success', 'Vendor deactivated');
+  } catch (err) {
+    console.error('Vendor deactivate error:', err.message);
+    req.flash('error', 'Error deactivating vendor');
+  }
+  res.redirect(`/vendors/${id}`);
+});
+
+// Reactivate vendor
+router.put('/:id/reactivate', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+
+  try {
+    const existing = db.prepare('SELECT is_active FROM vendors WHERE id = ?').get(id);
+    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
+    if (existing.is_active) { req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`); }
+
+    db.prepare(`UPDATE vendors SET is_active = 1, updated_at = datetime('now') WHERE id = ?`).run(id);
+    req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
+    req.flash('success', 'Vendor reactivated');
+  } catch (err) {
+    console.error('Vendor reactivate error:', err.message);
+    req.flash('error', 'Error reactivating vendor');
+  }
+  res.redirect(`/vendors/${id}`);
 });
 
 // Delete vendor

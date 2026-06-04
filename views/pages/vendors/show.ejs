@@ -22,4 +22,23 @@
   <div class="detail-row"><div class="detail-label">Active</div><div class="detail-value"><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Yes' : 'No' %></span></div></div>
   <% if (vendor.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= vendor.notes %></div></div><% } %>
 </div></div>
+
+<% if (user.role === 'admin' || user.role === 'manager') { %>
+<div class="card mt-2">
+  <div class="card-header"><h3><i class="fas fa-cog" style="margin-right:8px;color:var(--text-light)"></i>Actions</h3></div>
+  <div class="card-body">
+    <% if (vendor.is_active) { %>
+    <form action="/vendors/<%= vendor.id %>/deactivate?_method=PUT" method="POST" onsubmit="return confirm('Deactivate this vendor?')">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"><i class="fas fa-ban"></i> Deactivate Vendor</button>
+    </form>
+    <% } else { %>
+    <form action="/vendors/<%= vendor.id %>/reactivate?_method=PUT" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-circle"></i> Reactivate Vendor</button>
+    </form>
+    <% } %>
+  </div>
+</div>
+<% } %>
 <%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

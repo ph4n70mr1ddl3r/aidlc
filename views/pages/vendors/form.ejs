@@ -2,7 +2,7 @@
 <%- include('../../partials/nav') %>
 <div class="page-header"><div><h2><%= isEdit ? 'Edit Vendor' : 'New Vendor' %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/vendors">Vendors</a> / <%= isEdit ? 'Edit' : 'New' %></div></div></div>
 <div class="card"><div class="card-body">
-  <form action="<%= isEdit ? '/vendors/' + vendor.id + '?_method=PUT' : '/vendors' %>" method="POST"<% if (isEdit) { %> onsubmit="var s=this.querySelector('[name=is_active]');if(s&&s.value==='0'&&!confirm('Deactivate this vendor?'))return false;"<% } %>>
+  <form action="<%= isEdit ? '/vendors/' + vendor.id + '?_method=PUT' : '/vendors' %>" method="POST">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <div class="form-group"><label>Vendor Name *</label><input type="text" name="name" class="form-control" value="<%= vendor.name || '' %>" maxlength="200" required></div>
@@ -20,7 +20,7 @@
       <div class="form-group"><label>Contract Start</label><input type="date" name="contract_start" class="form-control" value="<%= vendor.contract_start ? vendor.contract_start.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Contract End</label><input type="date" name="contract_end" class="form-control" value="<%= vendor.contract_end ? vendor.contract_end.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Rating (1-5)</label><input type="number" name="rating" class="form-control" min="1" max="5" value="<%= vendor.rating || '' %>"></div>
-      <% if (isEdit) { %><div class="form-group"><label>Active</label><select name="is_active" class="form-control"><option value="1" <%= vendor.is_active ? 'selected' : '' %>>Yes</option><option value="0" <%= !vendor.is_active ? 'selected' : '' %>>No</option></select></div><% } %>
+      <% if (isEdit) { %><div class="form-group"><label>Status</label><span class=\"badge badge-<%= vendor.is_active ? 'low' : 'critical' %>\"><%= vendor.is_active ? 'Active' : 'Inactive' %></span></div><% } %>
     </div>
     <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" maxlength="2000"><%= vendor.notes || '' %></textarea></div>
     <div style="margin-top:20px;display:flex;gap:12px;">

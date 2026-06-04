@@ -332,16 +332,21 @@ router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req
   if (!projectId || !taskId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
 
   try {
+    let changes = 0;
     const deleteTask = db.transaction(() => {
-      db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
+      const result = db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
         .run(taskId, projectId);
-
-      recalcProjectProgress(db, projectId);
+      changes = result.changes;
+      if (changes > 0) recalcProjectProgress(db, projectId);
     });
     deleteTask();
 
-    req.audit('delete', 'project_task', taskId, 'Deleted task');
-    req.flash('success', 'Task deleted');
+    if (changes === 0) {
+      req.flash('error', 'Task not found');
+    } else {
+      req.audit('delete', 'project_task', taskId, 'Deleted task');
+      req.flash('success', 'Task deleted');
+    }
   } catch (err) {
     console.error('Project task delete error:', err.message);
     req.flash('error', 'Error deleting task');

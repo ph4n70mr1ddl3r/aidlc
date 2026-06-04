@@ -345,8 +345,11 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   }
 
   try {
+    let changes = 0;
     const deactivate = db.transaction(() => {
-      db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+      const result = db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+      changes = result.changes;
+      if (changes === 0) return;
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
@@ -366,8 +369,12 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
     });
     deactivate();
 
-    req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks');
-    req.flash('success', 'Staff member deactivated and open tickets/tasks unassigned');
+    if (changes === 0) {
+      req.flash('error', 'Staff member not found');
+    } else {
+      req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks');
+      req.flash('success', 'Staff member deactivated and open tickets/tasks unassigned');
+    }
   } catch (err) {
     console.error('Staff deactivate error:', err.message);
     req.flash('error', 'Error deactivating staff');

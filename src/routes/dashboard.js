@@ -12,7 +12,7 @@ router.use(requireAuth, auditMiddleware);
 // cache to O(staff_count) size.
 // ---------------------------------------------------------------------------
 const DASHBOARD_TTL_MS = 30_000;
-let dashboardCache = { ts: 0, data: null };
+let dashboardCache = { ts: 0, data: null, refreshing: false };
 
 function getDashboardData(user) {
   const now = Date.now();
@@ -20,7 +20,12 @@ function getDashboardData(user) {
 
   if (dashboardCache.data && (now - dashboardCache.ts) < DASHBOARD_TTL_MS) {
     shared = dashboardCache.data;
+  } else if (dashboardCache.refreshing) {
+    // Another request is already rebuilding the cache — serve stale data
+    // rather than running the same heavy queries concurrently.
+    shared = dashboardCache.data || {};
   } else {
+    dashboardCache.refreshing = true;
     const ticketStats = db.prepare(`
       SELECT 
         COUNT(*) as total,
@@ -102,7 +107,7 @@ function getDashboardData(user) {
       expiringWarranties, upcomingChanges, ticketsByCategory, staffWorkload, licenseAlerts,
     };
 
-    dashboardCache = { ts: now, data: shared };
+    dashboardCache = { ts: now, data: shared, refreshing: false };
   }
 
   // Per-user tickets — always queried fresh (single indexed query)
