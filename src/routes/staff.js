@@ -234,16 +234,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   // Always keep is_active = 1 on the edit form. Deactivation must go through
   // the dedicated DELETE route which also unassigns tickets/tasks atomically.
   // Prevents bypassing the unassignment logic via the edit form.
-  const safeIsActive = (is_active === '0' || is_active === 0) ? 0 : 1;
-  if (!safeIsActive) {
-    req.flash('error', 'Please use the deactivate button to deactivate accounts');
-    return res.redirect(`/staff/${id}`);
-  }
-  // Prevent admin from deactivating their own account
-  if (id === req.session.user.id && !safeIsActive) {
-    req.flash('error', 'You cannot deactivate your own account');
-    return res.redirect('/staff');
-  }
+  const safeIsActive = 1;
 
   try {
     db.prepare(`

@@ -209,7 +209,9 @@ function initSchema() {
       phone TEXT,
       address TEXT,
       website TEXT,
-      category TEXT,
+      category TEXT CHECK(category IS NULL OR category IN (
+        'hardware','cloud','security','network','maintenance','software','consulting','telecom','other'
+      )),
       contract_start TEXT,
       contract_end TEXT,
       notes TEXT,

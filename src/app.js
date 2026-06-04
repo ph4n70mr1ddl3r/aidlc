@@ -253,7 +253,7 @@ app.get('/health', (req, res) => {
   try {
     const db = require('./models/database');
     db.prepare('SELECT 1 AS ok').get();
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch (err) {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });
   }
@@ -272,7 +272,12 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  // Only log full stack in development to avoid leaking internal details
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(err.stack);
+  } else {
+    console.error('Unhandled error:', err.message || err);
+  }
   if (err.code === 'EBADCSRFTOKEN') {
     req.flash('error', 'Invalid security token. Please try again.');
     const ref = req.get('Referrer');
