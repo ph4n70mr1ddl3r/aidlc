@@ -196,14 +196,20 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
 
   try {
+    let changes = 0;
     const deleteProject = db.transaction(() => {
       db.prepare('DELETE FROM project_tasks WHERE project_id = ?').run(id);
       db.prepare('DELETE FROM project_members WHERE project_id = ?').run(id);
-      db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      changes = result.changes;
     });
     deleteProject();
-    req.audit('delete', 'project', id, 'Deleted project and related tasks/members');
-    req.flash('success', 'Project deleted');
+    if (changes === 0) {
+      req.flash('error', 'Project not found');
+    } else {
+      req.audit('delete', 'project', id, 'Deleted project and related tasks/members');
+      req.flash('success', 'Project deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting project');
   }
@@ -368,10 +374,14 @@ router.delete('/:id/members/:memberId', requireRole('admin', 'manager'), (req, r
   if (!id || !memberId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
 
   try {
-    db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?')
+    const result = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?')
       .run(memberId, id);
-    req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
-    req.flash('success', 'Member removed');
+    if (result.changes === 0) {
+      req.flash('error', 'Member not found');
+    } else {
+      req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
+      req.flash('success', 'Member removed');
+    }
   } catch (err) {
     req.flash('error', 'Error removing member');
   }

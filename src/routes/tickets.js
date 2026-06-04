@@ -391,13 +391,19 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
   try {
+    let changes = 0;
     const deleteStmt = db.transaction(() => {
       db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?').run(id);
-      db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+      const result = db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+      changes = result.changes;
     });
     deleteStmt();
-    req.audit('delete', 'ticket', id, 'Deleted ticket');
-    req.flash('success', 'Ticket deleted');
+    if (changes === 0) {
+      req.flash('error', 'Ticket not found');
+    } else {
+      req.audit('delete', 'ticket', id, 'Deleted ticket');
+      req.flash('success', 'Ticket deleted');
+    }
   } catch (err) {
     req.flash('error', 'Error deleting ticket');
   }

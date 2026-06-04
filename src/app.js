@@ -205,6 +205,9 @@ app.use((req, res, next) => {
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
   res.locals.jsonScriptSafe = require('./utils').jsonScriptSafe;
+  // Expose validation constants to all templates so EJS forms stay in sync
+  // with the single source of truth in constants.js.
+  res.locals.CONSTANTS = require('./constants');
   next();
 });
 

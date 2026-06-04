@@ -22,7 +22,7 @@
 <div class="card mb-3">
   <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
     <span style="font-weight:600;margin-right:8px;">Quick Status:</span>
-    <% ['open','in_progress','waiting','resolved','closed'].forEach(s => { %>
+    <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
       <% if (s !== ticket.status) { %>
         <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"
               onsubmit="return ['resolved','closed'].includes('<%= s %>') ? confirm('Mark this ticket as <%= s %>?') : true">

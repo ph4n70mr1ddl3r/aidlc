@@ -134,9 +134,12 @@ router.get('/:id', (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  // Increment views only for non-authors to avoid inflating counts
-  if (!req.session.user || article.author_id !== req.session.user.id) {
+  // Increment views only once per session per article to prevent refresh inflation
+  const viewedKey = 'kb_viewed';
+  if (!req.session[viewedKey]) req.session[viewedKey] = {};
+  if (!req.session[viewedKey][id] && (!req.session.user || article.author_id !== req.session.user.id)) {
     db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
+    req.session[viewedKey][id] = true;
   }
 
   article.renderedContent = renderMarkdown(article.content);

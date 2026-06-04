@@ -19,11 +19,11 @@
       <div class="form-group"><label>Last Name *</label><input type="text" name="last_name" class="form-control" value="<%= user.last_name || '' %>" maxlength="100" required></div>
       <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" value="<%= user.email || '' %>" maxlength="200" required autocomplete="email"></div>
       <div class="form-group"><label>Role *</label><select name="role" class="form-control" required>
-        <% if (typeof viewerRole === 'undefined' || viewerRole === 'admin') { %>
-        <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
-        <% } %>
-        <option value="manager" <%= user.role === 'manager' ? 'selected' : '' %>>Manager</option>
-        <option value="staff" <%= user.role === 'staff' ? 'selected' : '' %>>Staff</option>
+        <% CONSTANTS.USER_ROLES.forEach(r => { %>
+          <% if (r !== 'admin' || typeof viewerRole === 'undefined' || viewerRole === 'admin') { %>
+          <option value="<%= r %>" <%= user.role === r ? 'selected' : '' %>><%= r.charAt(0).toUpperCase() + r.slice(1) %></option>
+          <% } %>
+        <% }) %>
       </select></div>
       <div class="form-group"><label>Department</label><input type="text" name="department" class="form-control" value="<%= user.department || '' %>" maxlength="100"></div>
       <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control" value="<%= user.phone || '' %>" maxlength="50"></div>

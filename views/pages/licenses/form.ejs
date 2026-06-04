@@ -9,7 +9,7 @@
       <div class="form-group"><label>Vendor</label><input type="text" name="vendor" class="form-control" value="<%= license.vendor || '' %>" maxlength="200"></div>
       <div class="form-group"><label>License Key</label><input type="text" name="license_key" class="form-control" placeholder="<%= isEdit && license.license_key ? 'Enter new key to replace, or leave blank to keep current' : '' %>" maxlength="500" style="font-family:monospace;"></div>
       <div class="form-group"><label>License Type</label><select name="license_type" class="form-control">
-        <% ['perpetual','subscription','volume','oem','academic'].forEach(t => { %><option value="<%= t %>" <%= license.license_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %>
+        <% CONSTANTS.LICENSE_TYPES.forEach(t => { %><option value="<%= t %>" <%= license.license_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %>
       </select></div>
       <div class="form-group"><label>Total Seats</label><input type="number" name="total_seats" class="form-control" value="<%= license.total_seats || 1 %>" min="1"></div>
       <div class="form-group"><label>Used Seats</label><input type="number" name="used_seats" class="form-control" value="<%= license.used_seats || 0 %>" min="0"></div>

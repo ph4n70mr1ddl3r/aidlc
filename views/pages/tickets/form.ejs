@@ -25,7 +25,7 @@
           <label>Category *</label>
           <select name="category" class="form-control" required>
             <option value="">Select category</option>
-            <% ['hardware','software','network','access','email','security','other'].forEach(c => { %>
+            <% CONSTANTS.TICKET_CATEGORIES.forEach(c => { %>
               <option value="<%= c %>" <%= ticket.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
             <% }) %>
           </select>
@@ -33,7 +33,7 @@
         <div class="form-group">
           <label>Priority *</label>
           <select name="priority" class="form-control" required>
-            <% ['critical','high','medium','low'].forEach(p => { %>
+            <% CONSTANTS.TICKET_PRIORITIES.forEach(p => { %>
               <option value="<%= p %>" <%= (ticket.priority || 'medium') === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option>
             <% }) %>
           </select>
@@ -42,7 +42,7 @@
         <div class="form-group">
           <label>Status</label>
           <select name="status" class="form-control">
-            <% ['open','in_progress','waiting','resolved','closed'].forEach(s => { %>
+            <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
               <option value="<%= s %>" <%= ticket.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
             <% }) %>
           </select>
