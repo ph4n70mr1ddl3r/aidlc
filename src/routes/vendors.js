@@ -167,10 +167,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const existing = db.prepare('SELECT id, is_active FROM vendors WHERE id = ?').get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
-    const wasActive = existing.is_active;
     // Disallow deactivation via edit form — use dedicated route instead to ensure
     // any future cleanup logic (unassignment, notifications) runs consistently.
-    const nowActive = 1;
 
     db.prepare(`
       UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
@@ -181,7 +179,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (website || '').substring(0, 500) || null, safeCategory,
       sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
-      nowActive, id);
+      1, id);
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');

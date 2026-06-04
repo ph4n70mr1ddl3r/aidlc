@@ -26,88 +26,95 @@ function getDashboardData(user) {
     shared = dashboardCache.data || {};
   } else {
     dashboardCache.refreshing = true;
-    const ticketStats = db.prepare(`
-      SELECT 
-        COUNT(*) as total,
-        COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) as open,
-        COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
-        COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0) as waiting,
-        COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) as resolved,
-        COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) as closed,
-        COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END), 0) as critical_open
-      FROM tickets
-    `).get();
+    try {
+      const ticketStats = db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) as open,
+          COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+          COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0) as waiting,
+          COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) as resolved,
+          COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) as closed,
+          COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END), 0) as critical_open
+        FROM tickets
+      `).get();
 
-    const assetStats = db.prepare(`
-      SELECT 
-        COUNT(*) as total,
-        COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
-        COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
-        COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair
-      FROM assets
-    `).get();
+      const assetStats = db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
+          COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
+          COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair
+        FROM assets
+      `).get();
 
-    const projectStats = db.prepare(`
-      SELECT 
-        COUNT(*) as total,
-        COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
-        COALESCE(SUM(CASE WHEN status = 'planning' THEN 1 ELSE 0 END), 0) as planning,
-        COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
-        COALESCE(SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END), 0) as on_hold
-      FROM projects
-    `).get();
+      const projectStats = db.prepare(`
+        SELECT
+          COUNT(*) as total,
+          COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+          COALESCE(SUM(CASE WHEN status = 'planning' THEN 1 ELSE 0 END), 0) as planning,
+          COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
+          COALESCE(SUM(CASE WHEN status = 'on_hold' THEN 1 ELSE 0 END), 0) as on_hold
+        FROM projects
+      `).get();
 
-    const staffCount = db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1').get();
+      const staffCount = db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1').get();
 
-    const recentTickets = db.prepare(`
-      SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name
-      FROM tickets t
-      LEFT JOIN users u ON t.assigned_to = u.id
-      WHERE t.status NOT IN ('closed', 'resolved')
-      ORDER BY t.updated_at DESC LIMIT 10
-    `).all();
+      const recentTickets = db.prepare(`
+        SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name
+        FROM tickets t
+        LEFT JOIN users u ON t.assigned_to = u.id
+        WHERE t.status NOT IN ('closed', 'resolved')
+        ORDER BY t.updated_at DESC LIMIT 10
+      `).all();
 
-    const expiringWarranties = db.prepare(`
-      SELECT * FROM assets 
-      WHERE warranty_expiry BETWEEN date('now') AND date('now', '+30 days')
-      ORDER BY warranty_expiry ASC
-    `).all();
+      const expiringWarranties = db.prepare(`
+        SELECT * FROM assets
+        WHERE warranty_expiry BETWEEN date('now') AND date('now', '+30 days')
+        ORDER BY warranty_expiry ASC
+      `).all();
 
-    const upcomingChanges = db.prepare(`
-      SELECT * FROM change_log 
-      WHERE status = 'scheduled' AND scheduled_start >= date('now')
-      ORDER BY scheduled_start ASC LIMIT 5
-    `).all();
+      const upcomingChanges = db.prepare(`
+        SELECT * FROM change_log
+        WHERE status = 'scheduled' AND scheduled_start >= date('now')
+        ORDER BY scheduled_start ASC LIMIT 5
+      `).all();
 
-    const ticketsByCategory = db.prepare(`
-      SELECT category, COUNT(*) as count FROM tickets 
-      WHERE status IN ('open','in_progress','waiting')
-      GROUP BY category ORDER BY count DESC
-    `).all();
+      const ticketsByCategory = db.prepare(`
+        SELECT category, COUNT(*) as count FROM tickets
+        WHERE status IN ('open','in_progress','waiting')
+        GROUP BY category ORDER BY count DESC
+      `).all();
 
-    const staffWorkload = db.prepare(`
-      SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
-        COUNT(t.id) as open_tickets
-      FROM users u
-      LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status IN ('open','in_progress','waiting')
-      WHERE u.is_active = 1
-      GROUP BY u.id
-      ORDER BY open_tickets DESC
-      LIMIT 8
-    `).all();
+      const staffWorkload = db.prepare(`
+        SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
+          COUNT(t.id) as open_tickets
+        FROM users u
+        LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status IN ('open','in_progress','waiting')
+        WHERE u.is_active = 1
+        GROUP BY u.id
+        ORDER BY open_tickets DESC
+        LIMIT 8
+      `).all();
 
-    const licenseAlerts = db.prepare(`
-      SELECT * FROM licenses 
-      WHERE expiry_date BETWEEN date('now') AND date('now', '+30 days')
-      ORDER BY expiry_date ASC
-    `).all();
+      const licenseAlerts = db.prepare(`
+        SELECT * FROM licenses
+        WHERE expiry_date BETWEEN date('now') AND date('now', '+30 days')
+        ORDER BY expiry_date ASC
+      `).all();
 
-    shared = {
-      ticketStats, assetStats, projectStats, staffCount, recentTickets,
-      expiringWarranties, upcomingChanges, ticketsByCategory, staffWorkload, licenseAlerts,
-    };
+      shared = {
+        ticketStats, assetStats, projectStats, staffCount, recentTickets,
+        expiringWarranties, upcomingChanges, ticketsByCategory, staffWorkload, licenseAlerts,
+      };
 
-    dashboardCache = { ts: now, data: shared, refreshing: false };
+      dashboardCache = { ts: now, data: shared, refreshing: false };
+    } catch (err) {
+      // If cache refresh fails, reset the lock so next request retries
+      console.error('Dashboard cache refresh error:', err.message);
+      dashboardCache.refreshing = false;
+      shared = dashboardCache.data || {};
+    }
   }
 
   // Per-user tickets — always queried fresh (single indexed query)

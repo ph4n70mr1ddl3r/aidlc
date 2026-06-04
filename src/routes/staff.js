@@ -197,8 +197,6 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const { role } = req.body;
   const department = trim(req.body.department);
   const phone = trim(req.body.phone);
-  const { is_active } = req.body;
-
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
