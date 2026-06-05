@@ -15,7 +15,7 @@
     <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
     <tbody><% changes.forEach(c => { %><tr>
       <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
-      <td><span class="badge badge-medium"><%= c.change_type %></span></td>
+      <td><span class="badge badge-<%= c.change_type === 'security' ? 'critical' : c.change_type === 'incident' ? 'high' : c.change_type === 'maintenance' ? 'medium' : 'low' %>"><%= c.change_type.charAt(0).toUpperCase() + c.change_type.slice(1) %></span></td>
       <td><span class="badge badge-<%= c.priority %>"><%= c.priority %></span></td>
       <td><span class="badge badge-<%= c.status %>"><%= c.status %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? new Date(c.scheduled_start).toLocaleString() : '-' %></td>

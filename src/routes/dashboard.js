@@ -14,6 +14,21 @@ router.use(requireAuth, auditMiddleware);
 const DASHBOARD_TTL_MS = 30_000;
 let dashboardCache = { ts: 0, data: null, refreshing: false };
 
+// Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
+// so the template doesn't crash on property access like ticketStats.open.
+const EMPTY_DEFAULTS = Object.freeze({
+  ticketStats: { total: 0, open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0 },
+  assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 },
+  projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
+  staffCount: { total: 0 },
+  recentTickets: [],
+  expiringWarranties: [],
+  upcomingChanges: [],
+  ticketsByCategory: [],
+  staffWorkload: [],
+  licenseAlerts: [],
+});
+
 function getDashboardData(user) {
   const now = Date.now();
   let shared;
@@ -120,19 +135,7 @@ function getDashboardData(user) {
   // Defensive defaults — if the shared cache is empty (e.g. first-request DB
   // failure), fill in stub objects so the template doesn't crash on property
   // access like ticketStats.open.
-  const emptyStats = { total: 0, open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0 };
-  const defaults = {
-    ticketStats: emptyStats,
-    assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 },
-    projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
-    staffCount: { total: 0 },
-    recentTickets: [],
-    expiringWarranties: [],
-    upcomingChanges: [],
-    ticketsByCategory: [],
-    staffWorkload: [],
-    licenseAlerts: [],
-  };
+  const defaults = EMPTY_DEFAULTS;
 
   // Per-user tickets — always queried fresh (single indexed query)
   let myTickets = [];
