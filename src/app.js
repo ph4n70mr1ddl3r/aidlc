@@ -252,7 +252,8 @@ app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
     const db = require('./models/database');
-    db.prepare('SELECT 1 AS ok').get();
+    const row = db.prepare('SELECT 1 AS ok').get();
+    if (!row || row.ok !== 1) throw new Error('DB sanity check failed');
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch (err) {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });
