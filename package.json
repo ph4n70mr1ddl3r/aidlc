@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Enterprise IT Department Management Application",
   "main": "src/app.js",
+"engines": {
+  "node": ">=18.0.0"
+},
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",

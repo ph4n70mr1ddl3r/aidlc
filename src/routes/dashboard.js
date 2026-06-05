@@ -10,9 +10,14 @@ router.use(requireAuth, auditMiddleware);
 // Only shared aggregation queries are cached — per-user data ("my tickets")
 // is queried fresh each request so it stays accurate without inflating the
 // cache to O(staff_count) size.
+//
+// NOTE: Because better-sqlite3 is synchronous, there is no opportunity for
+// concurrent requests to hit the cache simultaneously — Node.js processes
+// one request at a time. An async DB driver would need a "refreshing" lock
+// to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
 const DASHBOARD_TTL_MS = 30_000;
-let dashboardCache = { ts: 0, data: null, refreshing: false };
+let dashboardCache = { ts: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
 // so the template doesn't crash on property access like ticketStats.open.
@@ -35,12 +40,7 @@ function getDashboardData(user) {
 
   if (dashboardCache.data && (now - dashboardCache.ts) < DASHBOARD_TTL_MS) {
     shared = dashboardCache.data;
-  } else if (dashboardCache.refreshing) {
-    // Another request is already rebuilding the cache — serve stale data
-    // rather than running the same heavy queries concurrently.
-    shared = dashboardCache.data || {};
   } else {
-    dashboardCache.refreshing = true;
     try {
       const ticketStats = db.prepare(`
         SELECT
@@ -123,11 +123,9 @@ function getDashboardData(user) {
         expiringWarranties, upcomingChanges, ticketsByCategory, staffWorkload, licenseAlerts,
       };
 
-      dashboardCache = { ts: now, data: shared, refreshing: false };
+      dashboardCache = { ts: now, data: shared };
     } catch (err) {
-      // If cache refresh fails, reset the lock so next request retries
       console.error('Dashboard cache refresh error:', err.message);
-      dashboardCache.refreshing = false;
       shared = dashboardCache.data || {};
     }
   }

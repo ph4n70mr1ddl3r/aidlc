@@ -94,7 +94,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 // ---------------------------------------------------------------------------
 // Core middleware
 // ---------------------------------------------------------------------------
-app.use(morgan('dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(methodOverride('_method'));
 // Static assets with cache-control in production
@@ -305,9 +305,17 @@ app.use((err, req, res, next) => {
 // ---------------------------------------------------------------------------
 const PORT = process.env.PORT || 3000;
 
-// Create server and attach error handler BEFORE listening
-// to guarantee we catch EADDRINUSE even in edge cases.
-const server = app.listen(PORT);
+// Create server explicitly so timeouts can be configured BEFORE listen()
+// starts accepting connections. Although listen() is async and timeouts set
+// immediately after app.listen() would also work in practice, this pattern
+// is conventional and eliminates any ambiguity about ordering.
+const http = require('http');
+const server = http.createServer(app);
+
+// Request timeout (prevents hung connections)
+server.requestTimeout = 30_000; // 30 seconds (replaces deprecated server.timeout)
+server.keepAliveTimeout = 5_000;
+server.headersTimeout = 6_000; // Must be > keepAliveTimeout
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
@@ -318,17 +326,12 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
+server.listen(PORT);
+
 server.on('listening', () => {
   console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
 });
-
-// ---------------------------------------------------------------------------
-// Request timeout (prevents hung connections)
-// ---------------------------------------------------------------------------
-server.requestTimeout = 30_000; // 30 seconds (replaces deprecated server.timeout)
-server.keepAliveTimeout = 5_000;
-server.headersTimeout = 6_000; // Must be > keepAliveTimeout
 
 // Graceful shutdown
 // ---------------------------------------------------------------------------

@@ -138,7 +138,10 @@ router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
   }
-  req.session.destroy(() => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destroy error:', err.message);
+    }
     res.clearCookie('connect.sid');
     res.redirect('/login');
   });
