@@ -51,7 +51,7 @@
         <i class="fas fa-calendar"></i> <%= p.start_date ? new Date(p.start_date).toLocaleDateString() : '?' %> — <%= p.end_date ? new Date(p.end_date).toLocaleDateString() : '?' %>
       </div>
       <% } %>
-      <% if (p.budget > 0) { %>
+      <% if (p.budget != null && p.budget > 0) { %>
       <div class="text-sm text-muted mt-1">
         <i class="fas fa-dollar-sign"></i> $<%= Number(p.spent).toLocaleString() %> / $<%= Number(p.budget).toLocaleString() %>
       </div>

@@ -237,12 +237,22 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
   try {
-    const result = db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
-    if (result.changes === 0) {
+    // Check for dependent licenses before deleting
+    const dependentLicenses = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)').all(id);
+    const deleteVendor = db.transaction(() => {
+      // Nullify vendor references on licenses to avoid orphaned references
+      if (dependentLicenses.length > 0) {
+        db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)').run(id);
+      }
+      const result = db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
+      return { changes: result.changes, licenseCount: dependentLicenses.length };
+    });
+    const { changes, licenseCount } = deleteVendor();
+    if (changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {
-      req.audit('delete', 'vendor', id, 'Deleted vendor');
-      req.flash('success', 'Vendor deleted');
+      req.audit('delete', 'vendor', id, `Deleted vendor${licenseCount > 0 ? ` (detached from ${licenseCount} license(s))` : ''}`);
+      req.flash('success', licenseCount > 0 ? `Vendor deleted. ${licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
     }
   } catch (err) {
     console.error('Vendor delete error:', err.message);

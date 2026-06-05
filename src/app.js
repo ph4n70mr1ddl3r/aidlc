@@ -215,15 +215,18 @@ app.use((req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
-// Cache-Control: prevent caching of authenticated pages
+// Cache-Control: prevent caching of all pages (authenticated and
+// unauthenticated). Unauthenticated pages like login/error can contain
+// sensitive flash messages that must not be stored by intermediary caches.
+// For authenticated requests, also refresh the session TTL.
 // Must come BEFORE routes so headers are set on matched routes.
 // ---------------------------------------------------------------------------
 app.use((req, res, next) => {
-  if (req.session.user) {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
 
+  if (req.session.user) {
     // Rolling session: extend cookie expiry on each authenticated request
     // so active users aren't unexpectedly logged out after 24 h of idle.
     // With resave:false, we must call touch() to refresh the store TTL.
@@ -248,11 +251,11 @@ app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 
 // Health check (unauthenticated)
+const healthDb = require('./models/database');
 app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const db = require('./models/database');
-    const row = db.prepare('SELECT 1 AS ok').get();
+    const row = healthDb.prepare('SELECT 1 AS ok').get();
     if (!row || row.ok !== 1) throw new Error('DB sanity check failed');
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch (err) {

@@ -33,7 +33,7 @@
       <div class="progress-bar" style="flex:1;">
         <div class="progress-fill <%= project.progress >= 75 ? 'green' : project.progress >= 50 ? 'blue' : 'orange' %>" style="width:<%= project.progress %>%"></div>
       </div>
-      <% if (project.budget > 0) { %>
+      <% if (project.budget != null && project.budget > 0) { %>
         <span class="text-sm text-muted">$<%= Number(project.spent).toLocaleString() %> / $<%= Number(project.budget).toLocaleString() %></span>
       <% } %>
     </div>

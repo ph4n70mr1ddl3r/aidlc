@@ -11,6 +11,21 @@ document.querySelectorAll('.flash').forEach(function (el) {
   }, 5000);
 });
 
+// Prevent double-submit on all forms that submit via POST/PUT/DELETE
+// (any form with a CSRF token is a mutating form)
+document.addEventListener('submit', function (e) {
+  var form = e.target;
+  if (form.tagName !== 'FORM') return;
+  var btn = form.querySelector('button[type="submit"]');
+  if (btn && !btn.disabled) {
+    // Disable after a tiny delay so the form still submits
+    setTimeout(function () {
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+    }, 10);
+  }
+});
+
 // Close mobile sidebar when clicking outside
 document.addEventListener('click', function (e) {
   var sidebar = document.getElementById('sidebar');
