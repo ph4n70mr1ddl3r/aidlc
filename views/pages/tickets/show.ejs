@@ -18,6 +18,10 @@
   </div>
 </div>
 
+<%
+  const canChangeTicketStatus = user.role === 'admin' || user.role === 'manager' || ticket.assigned_to === user.id;
+%>
+<% if (canChangeTicketStatus) { %>
 <!-- Quick Status Actions -->
 <div class="card mb-3">
   <div class="card-body" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -39,6 +43,16 @@
     </span>
   </div>
 </div>
+<% } else { %>
+<div class="card mb-3">
+  <div class="card-body" style="display:flex;gap:8px;align-items:center;">
+    <span style="font-weight:600;">Status:</span>
+    <span class="badge badge-<%= ticket.status %>" style="font-size:14px;padding:6px 16px;">
+      <%= ticket.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %>
+    </span>
+  </div>
+</div>
+<% } %>
 
 <div class="grid-2-1">
   <!-- Ticket Details -->
@@ -57,7 +71,7 @@
         </div>
         <% } %>
 
-        <% if (ticket.status === 'resolved' || ticket.status === 'closed') { %>
+        <% if ((ticket.status === 'resolved' || ticket.status === 'closed') && (user.role === 'admin' || user.role === 'manager')) { %>
         <form action="/tickets/<%= ticket.id %>/satisfaction?_method=PUT" method="POST" style="margin-top:16px;background:var(--bg);padding:12px;border-radius:8px;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <strong>Satisfaction Rating:</strong>

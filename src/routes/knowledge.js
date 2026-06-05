@@ -53,6 +53,15 @@ router.get('/', (req, res) => {
   const params = [...filters.params];
   addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags']);
 
+  // Visibility: non-privileged users can only see published articles and their own drafts/archived.
+  // The show page already restricts access, but the index was leaking draft metadata
+  // (titles, authors, categories) to all authenticated users.
+  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  if (!isPrivileged) {
+    where.push("(k.status = 'published' OR k.author_id = ?)");
+    params.push(req.session.user.id);
+  }
+
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
   const total = db.prepare(`SELECT COUNT(*) as c FROM knowledge_articles k WHERE ${whereClause}`).get(...params).c;
