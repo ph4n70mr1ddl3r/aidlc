@@ -23,7 +23,13 @@ function renderMarkdown(content) {
       allowedAttributes: {
         ...sanitizeHtml.defaults.allowedAttributes,
         img: ['src', 'alt', 'title'],
+        a: ['href', 'name', 'target', 'rel', 'title'],
         code: ['class'],
+      },
+      // Force rel="noopener noreferrer" on all links for defense-in-depth
+      // against reverse tabnabbing, even though marked doesn't emit target="_blank".
+      transformTags: {
+        a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }),
       },
       allowedSchemes: ['http', 'https', 'mailto'],
       allowedSchemesAppliedToAttributes: ['href', 'src'],

@@ -326,7 +326,8 @@ server.on('listening', () => {
 // ---------------------------------------------------------------------------
 // Request timeout (prevents hung connections)
 // ---------------------------------------------------------------------------
-server.timeout = 30_000; // 30 seconds
+// Request timeout (prevents hung connections)
+server.requestTimeout = 30_000; // 30 seconds (replaces deprecated server.timeout)
 server.keepAliveTimeout = 5_000;
 server.headersTimeout = 6_000; // Must be > keepAliveTimeout
 

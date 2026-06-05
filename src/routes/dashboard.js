@@ -117,6 +117,23 @@ function getDashboardData(user) {
     }
   }
 
+  // Defensive defaults — if the shared cache is empty (e.g. first-request DB
+  // failure), fill in stub objects so the template doesn't crash on property
+  // access like ticketStats.open.
+  const emptyStats = { total: 0, open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0 };
+  const defaults = {
+    ticketStats: emptyStats,
+    assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 },
+    projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
+    staffCount: { total: 0 },
+    recentTickets: [],
+    expiringWarranties: [],
+    upcomingChanges: [],
+    ticketsByCategory: [],
+    staffWorkload: [],
+    licenseAlerts: [],
+  };
+
   // Per-user tickets — always queried fresh (single indexed query)
   let myTickets = [];
   try {
@@ -129,7 +146,7 @@ function getDashboardData(user) {
     console.error('Dashboard myTickets query error:', err.message);
   }
 
-  return { ...shared, myTickets };
+  return { ...defaults, ...shared, myTickets };
 }
 
 router.get('/', (req, res) => {
