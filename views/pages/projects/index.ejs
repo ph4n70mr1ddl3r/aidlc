@@ -16,6 +16,12 @@
       <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>
+  <select name="priority">
+    <option value="">All Priority</option>
+    <% CONSTANTS.PROJECT_PRIORITIES.forEach(p => { %>
+      <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option>
+    <% }) %>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/projects" class="btn btn-sm btn-outline">Clear</a>
 </form>

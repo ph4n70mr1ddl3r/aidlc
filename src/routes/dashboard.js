@@ -118,11 +118,16 @@ function getDashboardData(user) {
   }
 
   // Per-user tickets — always queried fresh (single indexed query)
-  const myTickets = db.prepare(`
-    SELECT * FROM tickets 
-    WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, created_at ASC LIMIT 10
-  `).all(user.id);
+  let myTickets = [];
+  try {
+    myTickets = db.prepare(`
+      SELECT * FROM tickets 
+      WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')
+      ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, created_at ASC LIMIT 10
+    `).all(user.id);
+  } catch (err) {
+    console.error('Dashboard myTickets query error:', err.message);
+  }
 
   return { ...shared, myTickets };
 }

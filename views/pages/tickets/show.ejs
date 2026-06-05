@@ -6,9 +6,13 @@
     <h2><%= ticket.ticket_number %></h2>
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/tickets">Tickets</a> / <%= ticket.ticket_number %></div>
   </div>
+  <%
+    const canEditTicket = user.role === 'admin' || user.role === 'manager' || ticket.assigned_to === user.id;
+    const canDeleteTicket = user.role === 'admin' || user.role === 'manager';
+  %>
   <div class="flex gap-2">
-    <a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <% if (user.role === 'admin' || user.role === 'manager') { %>
+    <% if (canEditTicket) { %><a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
+    <% if (canDeleteTicket) { %>
     <form action="/tickets/<%= ticket.id %>?_method=DELETE" method="POST" style="display:inline;" 
           onsubmit="return confirm('Are you sure you want to delete this ticket?')">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

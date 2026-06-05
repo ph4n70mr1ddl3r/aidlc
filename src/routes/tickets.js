@@ -191,6 +191,14 @@ router.get('/:id/edit', (req, res) => {
     req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
   }
+
+  // Authorization: admin/manager can always edit. Regular staff can only edit tickets assigned to them.
+  const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+    req.flash('error', 'You can only edit tickets assigned to you');
+    return res.redirect(`/tickets/${id}`);
+  }
+
   const staff = getActiveStaff(db);
   const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
   res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff, assets, isEdit: true });
@@ -243,8 +251,15 @@ router.put('/:id', (req, res) => {
 
   try {
     // Fetch current ticket to compare status transitions
-    const ticket = db.prepare('SELECT status FROM tickets WHERE id = ?').get(id);
+    const ticket = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?').get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+
+    // Authorization: admin/manager can always update. Regular staff can only update tickets assigned to them.
+    const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+    if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+      req.flash('error', 'You can only update tickets assigned to you');
+      return res.redirect(`/tickets/${id}`);
+    }
 
     // Validate assignee is an active user
     const updateAssignee = assigned_to ? safeId(assigned_to) : null;

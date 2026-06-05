@@ -43,9 +43,10 @@ function recordLoginFailure(username) {
       const firstKey = loginFailures.keys().next().value;
       if (firstKey !== undefined) loginFailures.delete(firstKey);
     }
-    entry = { count: 0, lockedUntil: null };
+    entry = { count: 0, lockedUntil: null, lastAttempt: null };
   }
   entry.count++;
+  entry.lastAttempt = Date.now();
   if (entry.count >= MAX_LOGIN_FAILURES) {
     entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
     entry.count = 0; // reset count so lockout is fresh on next attempt
@@ -57,12 +58,15 @@ function clearLoginFailure(username) {
   loginFailures.delete(username);
 }
 
-// Purge stale entries every 10 minutes to prevent memory leak
+// Purge stale entries every 10 minutes to prevent memory leak.
+// Only delete entries whose last attempt is older than the lockout window.
+// This prevents resetting partial failure counts that haven't yet triggered lockout.
 const loginFailureCleanup = setInterval(() => {
   const now = Date.now();
+  const staleThreshold = now - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
   for (const [key, entry] of loginFailures) {
     if (entry.lockedUntil && now >= entry.lockedUntil) loginFailures.delete(key);
-    else if (!entry.lockedUntil) loginFailures.delete(key); // shouldn't happen but safety
+    else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) loginFailures.delete(key);
   }
 }, 10 * 60 * 1000);
 // Allow the process to exit cleanly when the server shuts down;
