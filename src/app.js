@@ -95,7 +95,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 // Core middleware
 // ---------------------------------------------------------------------------
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(methodOverride('_method'));
 // Static assets with cache-control in production
 app.use(express.static(path.join(__dirname, '..', 'public'), {

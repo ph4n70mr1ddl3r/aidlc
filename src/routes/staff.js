@@ -79,6 +79,11 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'All required fields must be filled in');
     return res.redirect('/staff/new');
   }
+  // Reject non-string / excessively long passwords early to prevent bcrypt DoS
+  if (typeof password !== 'string' || password.length > 128) {
+    req.flash('error', 'Invalid password');
+    return res.redirect('/staff/new');
+  }
   if (!isValidUsername(username)) {
     req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
     return res.redirect('/staff/new');
@@ -123,13 +128,13 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  const staffUser = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  const staffUser = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?').get(id);
   if (!staffUser) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
 
-  const { password: _, ...safeUser } = staffUser;
+  const safeUser = staffUser;
 
   const assignedTickets = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at

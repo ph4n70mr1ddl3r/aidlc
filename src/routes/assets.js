@@ -78,6 +78,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect('/assets/new');
   }
+  if (name.length > 200) {
+    req.flash('error', 'Asset name must be at most 200 characters');
+    return res.redirect('/assets/new');
+  }
 
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
@@ -182,6 +186,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!asset_tag || !name || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (name.length > 200) {
+    req.flash('error', 'Asset name must be at most 200 characters');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (!VALID_CATEGORIES.includes(category)) {

@@ -60,6 +60,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect('/changes/new');
+  }
 
   if (!VALID_CHANGE_TYPES.includes(change_type)) {
     req.flash('error', 'Invalid change type');
@@ -145,6 +149,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!title) {
     req.flash('error', 'Title is required');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
     return res.redirect(`/changes/${id}/edit`);
   }
   if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {

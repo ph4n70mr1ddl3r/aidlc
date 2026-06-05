@@ -107,6 +107,18 @@ router.post('/', (req, res) => {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
   }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect('/knowledge/new');
+  }
+  if (content.length > 50000) {
+    req.flash('error', 'Content must be at most 50,000 characters');
+    return res.redirect('/knowledge/new');
+  }
+  if (tags.length > 500) {
+    req.flash('error', 'Tags must be at most 500 characters');
+    return res.redirect('/knowledge/new');
+  }
 
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
@@ -229,6 +241,18 @@ router.put('/:id', (req, res) => {
 
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+  if (content.length > 50000) {
+    req.flash('error', 'Content must be at most 50,000 characters');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+  if (tags.length > 500) {
+    req.flash('error', 'Tags must be at most 500 characters');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 

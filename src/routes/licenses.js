@@ -52,6 +52,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Software name is required');
     return res.redirect('/licenses/new');
   }
+  if (software_name.length > 200) {
+    req.flash('error', 'Software name must be at most 200 characters');
+    return res.redirect('/licenses/new');
+  }
 
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
     req.flash('error', 'Invalid license type');
@@ -118,6 +122,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!software_name) {
     req.flash('error', 'Software name is required');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (software_name.length > 200) {
+    req.flash('error', 'Software name must be at most 200 characters');
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {

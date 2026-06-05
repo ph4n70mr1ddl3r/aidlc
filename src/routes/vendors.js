@@ -57,6 +57,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Vendor name is required');
     return res.redirect('/vendors/new');
   }
+  if (name.length > 200) {
+    req.flash('error', 'Vendor name must be at most 200 characters');
+    return res.redirect('/vendors/new');
+  }
 
   if (email && !isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
@@ -143,6 +147,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (name.length > 200) {
+    req.flash('error', 'Vendor name must be at most 200 characters');
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (email && !isValidEmail(email)) {

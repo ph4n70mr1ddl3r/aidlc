@@ -65,6 +65,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
+  if (name.length > 200) {
+    req.flash('error', 'Project name must be at most 200 characters');
+    return res.redirect('/projects/new');
+  }
 
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
@@ -230,6 +234,10 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
 
   if (!title) {
     req.flash('error', 'Task title is required');
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (title.length > 200) {
+    req.flash('error', 'Task title must be at most 200 characters');
     return res.redirect(`/projects/${projectId}`);
   }
 

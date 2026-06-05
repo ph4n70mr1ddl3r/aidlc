@@ -104,7 +104,7 @@ router.post('/login', loginRateLimiter, (req, res) => {
     return res.redirect('/login');
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ? AND is_active = 1').get(safeUsername);
+  const user = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login FROM users WHERE username = ? AND is_active = 1').get(safeUsername);
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     recordLoginFailure(safeUsername);
@@ -149,8 +149,8 @@ router.post('/logout', (req, res) => {
 
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(req.session.user.id);
-  const { password: _, ...profileUser } = row;
+  const row = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?').get(req.session.user.id);
+  const profileUser = row;
   res.render('pages/auth/profile', { title: 'My Profile', profileUser });
 });
 

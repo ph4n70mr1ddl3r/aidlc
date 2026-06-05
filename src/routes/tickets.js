@@ -83,6 +83,10 @@ router.post('/', (req, res) => {
     req.flash('error', 'Title, category, requester name, and requester email are required');
     return res.redirect('/tickets/new');
   }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect('/tickets/new');
+  }
 
   if (!isValidEmail(requester_email)) {
     req.flash('error', 'Please enter a valid requester email address');
@@ -223,6 +227,10 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
   }
+  if (title.length > 200) {
+    req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
   if (!category) {
     req.flash('error', 'Category is required');
     return res.redirect(`/tickets/${id}/edit`);
@@ -314,6 +322,10 @@ router.post('/:id/comments', (req, res) => {
 
   if (!comment || !comment.trim()) {
     req.flash('error', 'Comment cannot be empty');
+    return res.redirect(`/tickets/${id}`);
+  }
+  if (comment.trim().length > 5000) {
+    req.flash('error', 'Comment must be at most 5000 characters');
     return res.redirect(`/tickets/${id}`);
   }
 
