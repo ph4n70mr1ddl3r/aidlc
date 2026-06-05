@@ -30,7 +30,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/licenses/index', {
     title: 'Software Licenses', licenses, filters: req.query,
-    page, totalPages, total,
+    page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req),
   });
 });

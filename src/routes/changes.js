@@ -37,7 +37,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/changes/index', {
     title: 'Change Log', changes, filters: req.query,
-    page, totalPages, total,
+    page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req),
   });
 });

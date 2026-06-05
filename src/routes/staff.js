@@ -54,7 +54,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/staff/index', {
     title: 'Staff', staff, departments, filters: req.query,
-    page, totalPages, total,
+    page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req),
   });
 });

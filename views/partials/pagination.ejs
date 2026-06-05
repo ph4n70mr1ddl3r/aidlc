@@ -1,6 +1,9 @@
 <%
-  // Expected locals: page (numeric), totalPages, baseUrl (path with query params minus page)
+  // Expected locals: page (numeric), totalPages, total (optional record count), limit (optional page size),
+  // baseUrl (path with query params minus page)
   const _page = typeof page !== 'undefined' && typeof page === 'number' ? page : (typeof currentPage !== 'undefined' && typeof currentPage === 'number' ? currentPage : 1);
+  const _total = typeof total !== 'undefined' ? total : null;
+  const _limit = typeof limit !== 'undefined' ? limit : 25;
   const buildUrl = (p) => {
     const sep = baseUrl.includes('?') ? '&' : '?';
     return baseUrl + sep + 'page=' + p;
@@ -8,7 +11,7 @@
 %>
 <% if (totalPages > 1) { %>
   <div class="pagination-info" aria-live="polite">
-    Page <%= _page %> of <%= totalPages %>
+    <% if (_total !== null) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else { %>Page <%= _page %> of <%= totalPages %><% } %>
   </div>
   <nav aria-label="Pagination">
   <div class="pagination">

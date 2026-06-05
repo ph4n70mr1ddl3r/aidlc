@@ -31,7 +31,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/vendors/index', {
     title: 'Vendors', vendors, filters: req.query,
-    page, totalPages, total,
+    page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req),
   });
 });
@@ -172,7 +172,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Verify vendor exists before updating
-    const existing = db.prepare('SELECT id, is_active FROM vendors WHERE id = ?').get(id);
+    const existing = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?').get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
     // Disallow deactivation via edit form — use dedicated route instead to ensure
@@ -188,6 +188,13 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
       1, id);
+
+    // Sync name change to license references (licenses.vendor is a text field
+    // matching the vendor's name — not a foreign key).
+    if (existing.name !== name) {
+      db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE vendor = ?')
+        .run(name, existing.name);
+    }
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
