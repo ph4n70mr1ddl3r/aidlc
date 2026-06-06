@@ -172,7 +172,7 @@ router.get('/assets', (req, res) => {
 router.get('/staff', (req, res) => {
   try {
     const period = Math.max(1, Math.min(365, safeInt(req.query.period, 30)));
-    const performance = stmts.staffPerformance.all(period, period, period);
+    const performance = stmts.staffPerformance.all(period, period);
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {

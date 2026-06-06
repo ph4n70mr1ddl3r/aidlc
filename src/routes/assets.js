@@ -23,6 +23,12 @@ const _editStmt = db.prepare('SELECT * FROM assets WHERE id = ?');
 const _lastTagStmt = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?');
 const _deleteStmt = db.prepare('DELETE FROM assets WHERE id = ?');
+const _insertStmt = db.prepare(`
+    INSERT INTO assets (asset_tag, name, category, manufacturer, model, serial_number,
+      status, condition_rating, purchase_date, purchase_price, warranty_expiry,
+      assigned_to, location, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 const _updateExistCheckStmt = db.prepare('SELECT id FROM assets WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
@@ -123,12 +129,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = db.prepare(`
-      INSERT INTO assets (asset_tag, name, category, manufacturer, model, serial_number,
-        status, condition_rating, purchase_date, purchase_price, warranty_expiry,
-        assigned_to, location, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    const result = _insertStmt.run(
       asset_tag.substring(0, 50), name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
       (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
       safeStatus, safeCondition, safeDate(purchase_date),

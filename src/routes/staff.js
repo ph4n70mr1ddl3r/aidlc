@@ -59,13 +59,16 @@ const _staffUpdateStmt = db.prepare(`
     WHERE id = ?
   `);
 
+// Cached prepared statement for department list in staff index
+const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department');
+
 // List staff (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const validRoles = USER_ROLES;
   // Whitelist known departments from DB
-  const departments = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department').all().map(r => r.department);
+  const departments = _departmentsStmt.all().map(r => r.department);
   const validDepartments = departments;
   const filters = buildFilters({
     'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },

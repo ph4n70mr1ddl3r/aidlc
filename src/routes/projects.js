@@ -80,6 +80,12 @@ const _taskDeleteStmt = db.prepare('DELETE FROM project_tasks WHERE id = ? AND p
 const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
 const _memberDeleteStmt = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?');
 
+// Cached prepared statement for project create (used outside transaction but also inside)
+const _projectInsertStmt = db.prepare(`
+    INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -162,10 +168,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = db.prepare(`
-      INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
+    const result = _projectInsertStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
       sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, safeOwnerId);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);

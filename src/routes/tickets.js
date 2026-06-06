@@ -190,7 +190,7 @@ router.post('/', (req, res) => {
   // Validate linked asset exists
   const safeAssetId = asset_id ? safeId(asset_id) : null;
   if (safeAssetId) {
-    const assetExists = db.prepare('SELECT 1 FROM assets WHERE id = ?').get(safeAssetId);
+    const assetExists = _assetExistsStmt.get(safeAssetId);
     if (!assetExists) {
       req.flash('error', 'Selected asset does not exist');
       return res.redirect('/tickets/new');
