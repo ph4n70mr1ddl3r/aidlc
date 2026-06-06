@@ -233,9 +233,10 @@ function isActiveUser(db, userId) {
  * @param {number} projectId
  */
 function recalcProjectProgress(db, projectId) {
-  const total = db.prepare('SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ?').get(projectId).c;
-  const done = db.prepare("SELECT COUNT(*) as c FROM project_tasks WHERE project_id = ? AND status = 'done'").get(projectId).c;
-  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  const row = db.prepare(
+    "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done FROM project_tasks WHERE project_id = ?"
+  ).get(projectId);
+  const progress = row.total > 0 ? Math.round((row.done / row.total) * 100) : 0;
   db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?").run(progress, projectId);
 }
 
@@ -260,4 +261,18 @@ function getActiveStaff(db) {
   return _getGetActiveStaffStmt(db).all();
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, isActiveUser, recalcProjectProgress, DEFAULT_PAGE_SIZE };
+/**
+ * Prune old audit log entries beyond the retention period.
+ * Call on startup (if PRUNE_AUDIT_DAYS is set) or from a scheduled job.
+ * @param {import('better-sqlite3').Database} db
+ * @param {number} retentionDays — delete entries older than this many days
+ * @returns {number} number of rows deleted
+ */
+function pruneAuditLog(db, retentionDays) {
+  const result = db.prepare(
+    "DELETE FROM audit_log WHERE created_at < datetime('now', '-' || ? || ' days')"
+  ).run(retentionDays);
+  return result.changes;
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };
