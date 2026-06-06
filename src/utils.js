@@ -202,6 +202,17 @@ function jsonScriptSafe(value) {
   return JSON.stringify(value).replace(/<\/script/gi, '<\\/script');
 }
 
+// Cached prepared statement for isActiveUser — called on almost every write route.
+const _isActiveUserStmt = new WeakMap();
+function _getIsActiveUserStmt(db) {
+  let stmt = _isActiveUserStmt.get(db);
+  if (!stmt) {
+    stmt = db.prepare('SELECT 1 FROM users WHERE id = ? AND is_active = 1');
+    _isActiveUserStmt.set(db, stmt);
+  }
+  return stmt;
+}
+
 /**
  * Check that a user ID exists and is active.
  * Used to validate assigned_to / owner_id / user_id before writing.
@@ -211,7 +222,7 @@ function jsonScriptSafe(value) {
  */
 function isActiveUser(db, userId) {
   if (!userId) return false;
-  const row = db.prepare('SELECT 1 FROM users WHERE id = ? AND is_active = 1').get(userId);
+  const row = _getIsActiveUserStmt(db).get(userId);
   return !!row;
 }
 
@@ -228,6 +239,17 @@ function recalcProjectProgress(db, projectId) {
   db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?").run(progress, projectId);
 }
 
+// Cached prepared statement for getActiveStaff — called on every list/form route.
+const _getActiveStaffStmt = new WeakMap();
+function _getGetActiveStaffStmt(db) {
+  let stmt = _getActiveStaffStmt.get(db);
+  if (!stmt) {
+    stmt = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name');
+    _getActiveStaffStmt.set(db, stmt);
+  }
+  return stmt;
+}
+
 /**
  * Fetch active staff list (id, first_name, last_name).
  * Centralized to avoid repeating the same query across routes.
@@ -235,7 +257,7 @@ function recalcProjectProgress(db, projectId) {
  * @returns {Array<{id: number, first_name: string, last_name: string}>}
  */
 function getActiveStaff(db) {
-  return db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name').all();
+  return _getGetActiveStaffStmt(db).all();
 }
 
 module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, isActiveUser, recalcProjectProgress, DEFAULT_PAGE_SIZE };

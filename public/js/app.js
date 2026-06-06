@@ -16,12 +16,16 @@ document.querySelectorAll('.flash').forEach(function (el) {
 document.addEventListener('submit', function (e) {
   var form = e.target;
   if (form.tagName !== 'FORM') return;
-  var btn = form.querySelector('button[type="submit"]');
-  if (btn && !btn.disabled) {
+  // Disable ALL submit buttons in the form, not just the first one.
+  // Some forms have multiple action buttons (e.g. save + status change).
+  var btns = form.querySelectorAll('button[type="submit"]');
+  if (btns.length) {
     // Disable after a tiny delay so the form still submits
     setTimeout(function () {
-      btn.disabled = true;
-      btn.style.opacity = '0.6';
+      btns.forEach(function (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+      });
     }, 10);
   }
 });

@@ -100,7 +100,10 @@ router.post('/login', loginRateLimiter, (req, res) => {
   // Check account-level lockout (prevents brute-force across IP rotation)
   const safeUsername = String(username).substring(0, 50);
   if (checkAccountLockout(safeUsername)) {
-    req.flash('error', `Account temporarily locked due to too many failed attempts. Try again in ${LOGIN_LOCKOUT_MINUTES} minutes.`);
+    // Use the same generic message as normal login failure to prevent
+    // username enumeration (an attacker comparing "locked" vs "invalid"
+    // responses to discover which accounts exist).
+    req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
 
