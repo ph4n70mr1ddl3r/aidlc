@@ -12,6 +12,17 @@ const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
 const _deactivateStmt = db.prepare(`UPDATE vendors SET is_active = 0, updated_at = datetime('now') WHERE id = ?`);
 const _reactivateStmt = db.prepare(`UPDATE vendors SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
+const _updateExistStmt = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?');
+const _updateStmt = db.prepare(`
+    UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
+      website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
+      is_active = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+const _licenseSyncStmt = db.prepare(`UPDATE licenses SET vendor = ?, updated_at = datetime('now') WHERE vendor = ?`);
+const _deleteDependentLicensesStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
+const _deleteDetachLicensesStmt = db.prepare(`UPDATE licenses SET vendor = NULL, updated_at = datetime('now') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)`);
+const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
 // List vendors (paginated)
 router.get('/', (req, res) => {
@@ -178,17 +189,12 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Verify vendor exists before updating
-    const existing = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?').get(id);
+    const existing = _updateExistStmt.get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
     // Preserve existing is_active — use dedicated activate/deactivate routes
     // to change vendor status, ensuring any future cleanup logic runs consistently.
-    db.prepare(`
-      UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
-        website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
-        is_active = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+    _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory,
       sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
@@ -197,8 +203,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     // Sync name change to license references (licenses.vendor is a text field
     // matching the vendor's name — not a foreign key).
     if (existing.name !== name) {
-      db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE vendor = ?')
-        .run(name, existing.name);
+      _licenseSyncStmt.run(name, existing.name);
     }
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
@@ -258,13 +263,13 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Check for dependent licenses before deleting
-    const dependentLicenses = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)').all(id);
+    const dependentLicenses = _deleteDependentLicensesStmt.all(id);
     const deleteVendor = db.transaction(() => {
       // Nullify vendor references on licenses to avoid orphaned references
       if (dependentLicenses.length > 0) {
-        db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)').run(id);
+        _deleteDetachLicensesStmt.run(id);
       }
-      const result = db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
+      const result = _deleteStmt.run(id);
       return { changes: result.changes, licenseCount: dependentLicenses.length };
     });
     const { changes, licenseCount } = deleteVendor();

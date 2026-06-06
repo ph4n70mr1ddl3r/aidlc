@@ -35,6 +35,49 @@ const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteCommentsStmt = db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
+// Cached statements for ticket update route
+const _updateExistStmt = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?');
+const _updateResolveStmt = db.prepare(`
+    UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
+      status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
+      resolved_at = datetime('now'), updated_at = datetime('now')
+    WHERE id = ?
+  `);
+const _updateUnresolveStmt = db.prepare(`
+    UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
+      status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
+      resolved_at = NULL, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+const _updateNeutralStmt = db.prepare(`
+    UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
+      status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
+// Cached statements for status update route
+const _statusResolveStmt = db.prepare(`
+    UPDATE tickets SET status = ?, resolved_at = COALESCE(resolved_at, datetime('now')), updated_at = datetime('now')
+    WHERE id = ?
+  `);
+const _statusUnresolveStmt = db.prepare(`
+    UPDATE tickets SET status = ?, resolved_at = NULL, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+const _statusSameStmt = db.prepare(`
+    UPDATE tickets SET status = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
+// Cached statements for comment route
+const _commentInsertStmt = db.prepare(`
+    INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
+    VALUES (?, ?, ?, ?)
+  `);
+const _commentTouchStmt = db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`);
+const _commentExistStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
+
 const SORT_MAP = {
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
@@ -273,7 +316,7 @@ router.put('/:id', (req, res) => {
   }
 
   try {
-    const ticket = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?').get(id);
+    const ticket = _updateExistStmt.get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
 
     // Authorization: admin/manager can always update. Regular staff can only update tickets assigned to them.
@@ -300,23 +343,22 @@ router.put('/:id', (req, res) => {
       }
     }
 
-    let query = `UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
-        status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
-        updated_at = datetime('now')`;
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), safeCategory, safePriority, safeStatus,
       updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = safeStatus === 'resolved' || safeStatus === 'closed';
-    if (isNowResolved && !wasResolved) {
-      query += `, resolved_at = datetime('now')`;
-    } else if (!isNowResolved && wasResolved) {
-      query += `, resolved_at = NULL`;
-    }
-    query += ` WHERE id = ?`;
-    params.push(id);
 
-    db.prepare(query).run(...params);
+    // Use the appropriate cached statement based on resolved_at transition
+    let stmt;
+    if (isNowResolved && !wasResolved) {
+      stmt = _updateResolveStmt;
+    } else if (!isNowResolved && wasResolved) {
+      stmt = _updateUnresolveStmt;
+    } else {
+      stmt = _updateNeutralStmt;
+    }
+    stmt.run(...params, id);
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${safeStatus})`);
     req.flash('success', 'Ticket updated successfully');
@@ -345,19 +387,16 @@ router.post('/:id/comments', (req, res) => {
 
   try {
     // Verify ticket exists before adding comment
-    const ticket = db.prepare('SELECT id FROM tickets WHERE id = ?').get(id);
+    const ticket = _commentExistStmt.get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
 
     const addComment = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
-        VALUES (?, ?, ?, ?)
-      `).run(id, req.session.user.id, comment.trim().substring(0, 5000),
+      _commentInsertStmt.run(id, req.session.user.id, comment.trim().substring(0, 5000),
         // Only admin/manager can mark comments as internal
         (is_internal && (req.session.user.role === 'admin' || req.session.user.role === 'manager')) ? 1 : 0);
 
       // Refresh ticket updated_at so it sorts as recently active
-      db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`).run(id);
+      _commentTouchStmt.run(id);
     });
     addComment();
 
@@ -393,15 +432,15 @@ router.put('/:id/status', (req, res) => {
       return res.redirect(`/tickets/${id}`);
     }
 
-    let query = `UPDATE tickets SET status = ?, updated_at = datetime('now')`;
+    // Use cached prepared statement based on resolved_at handling
+    const wasResolved = ticket.assigned_to !== null; // not used for resolved check
+    let stmt;
     if (status === 'resolved' || status === 'closed') {
-      query += `, resolved_at = COALESCE(resolved_at, datetime('now'))`;
+      stmt = _statusResolveStmt;
     } else {
-      // Clear resolved_at when reopening a ticket
-      query += `, resolved_at = NULL`;
+      stmt = _statusUnresolveStmt;
     }
-    query += ` WHERE id = ?`;
-    const result = db.prepare(query).run(status, id);
+    const result = stmt.run(status, id);
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {
