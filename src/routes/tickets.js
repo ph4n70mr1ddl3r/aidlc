@@ -7,6 +7,9 @@ const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for frequently-executed queries.
+const _assetListStmt = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name');
+
 const SORT_MAP = {
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
@@ -55,7 +58,7 @@ router.get('/', (req, res) => {
 // New ticket form
 router.get('/new', (req, res) => {
   const staff = getActiveStaff(db);
-  const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
+  const assets = _assetListStmt.all();
   // Pre-fill requester info from logged-in user
   const prefill = {
     requester_name: `${req.session.user.first_name} ${req.session.user.last_name}`,
@@ -204,7 +207,7 @@ router.get('/:id/edit', (req, res) => {
   }
 
   const staff = getActiveStaff(db);
-  const assets = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name').all();
+  const assets = _assetListStmt.all();
   res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff, assets, isEdit: true });
 });
 

@@ -297,13 +297,14 @@ app.use((err, req, res, next) => {
   if (err.code === 'EBADCSRFTOKEN') {
     req.flash('error', 'Invalid security token. Please try again.');
     const ref = req.get('Referrer');
-    // Only redirect to same-origin referrer pathname to prevent open redirect
+    // Only redirect to same-origin referrer pathname to prevent open redirect.
+    // Strip query string to prevent CSRF token from leaking via Referer header.
     try {
       if (ref) {
         const refUrl = new URL(ref);
         const expectedHost = req.get('Host');
         if (refUrl.host === expectedHost && refUrl.protocol === (req.secure ? 'https:' : 'http:')) {
-          return res.redirect(refUrl.pathname + refUrl.search);
+          return res.redirect(refUrl.pathname);
         }
       }
     } catch (_) { /* invalid URL, ignore */ }

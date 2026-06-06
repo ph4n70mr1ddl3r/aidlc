@@ -1,5 +1,12 @@
 const db = require('../models/database');
 
+// Cache the prepared statement — audit() is called on every write route
+// and prepare() is relatively expensive.
+const _auditStmt = db.prepare(`
+  INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
 /**
  * Log an auditable action to the database.
  *
@@ -15,10 +22,7 @@ function audit({ req, userId, action, entity, entityId, details }) {
   try {
     const uid = userId || (req && req.session && req.session.user ? req.session.user.id : null);
     const ip = req && req.ip ? req.ip : null;
-    db.prepare(`
-      INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(uid, action, entity, entityId || null, details || null, ip);
+    _auditStmt.run(uid, action, entity, entityId || null, details || null, ip);
   } catch (err) {
     // Audit logging should never crash the request
     console.error('Audit log error:', err.message);

@@ -68,7 +68,7 @@
       <div class="card-header"><h3>Projects</h3></div>
       <div class="card-body">
         <% projectMemberships.forEach(pm => { %>
-        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>"><%= pm.project_role %></span></div>
+        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= pm.project_status.replace(/_/g, ' ') %></span> <span class="badge badge-medium"><%= pm.project_role %></span></div>
         <% }) %>
         <% if (!projectMemberships.length) { %><p class="text-muted text-sm">Not in any projects</p><% } %>
       </div>

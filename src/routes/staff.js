@@ -33,7 +33,9 @@ router.get('/', (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
 
   const staff = db.prepare(`
-    SELECT u.*,
+    SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role,
+      u.department, u.phone, u.avatar, u.is_active, u.last_login,
+      u.created_at, u.updated_at,
       COALESCE(tCounts.open_tickets, 0) as open_tickets,
       COALESCE(ptCounts.open_tasks, 0) as open_tasks
     FROM users u

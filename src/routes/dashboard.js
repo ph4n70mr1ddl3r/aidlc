@@ -103,7 +103,7 @@ const stmts = {
   `),
   licenseAlerts: db.prepare(`
     SELECT * FROM licenses
-    WHERE expiry_date BETWEEN date('now') AND date('now', '+30 days')
+    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
     ORDER BY expiry_date ASC
   `),
   myTickets: db.prepare(`

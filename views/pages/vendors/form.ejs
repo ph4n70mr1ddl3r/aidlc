@@ -19,7 +19,7 @@
       </select></div>
       <div class="form-group"><label>Contract Start</label><input type="date" name="contract_start" class="form-control" value="<%= vendor.contract_start ? vendor.contract_start.slice(0,10) : '' %>"></div>
       <div class="form-group"><label>Contract End</label><input type="date" name="contract_end" class="form-control" value="<%= vendor.contract_end ? vendor.contract_end.slice(0,10) : '' %>"></div>
-      <div class="form-group"><label>Rating (1-5)</label><input type="number" name="rating" class="form-control" min="1" max="5" value="<%= vendor.rating || '' %>"></div>
+      <div class="form-group"><label>Rating (1-5)</label><input type="number" name="rating" class="form-control" min="1" max="5" value="<%= vendor.rating != null ? vendor.rating : '' %>"></div>
       <% if (isEdit) { %><div class="form-group"><label>Status</label><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Active' : 'Inactive' %></span></div><% } %>
     </div>
     <div class="form-group"><label>Notes</label><textarea name="notes" class="form-control" maxlength="2000"><%= vendor.notes || '' %></textarea></div>
