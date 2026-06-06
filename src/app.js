@@ -264,10 +264,11 @@ app.use('/reports', require('./routes/reports'));
 
 // Health check (unauthenticated)
 const healthDb = require('./models/database');
+const _healthCheckStmt = healthDb.prepare('SELECT 1 AS ok');
 app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    const row = healthDb.prepare('SELECT 1 AS ok').get();
+    const row = _healthCheckStmt.get();
     if (!row || row.ok !== 1) throw new Error('DB sanity check failed');
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch (err) {

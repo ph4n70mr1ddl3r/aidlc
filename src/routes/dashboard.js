@@ -76,9 +76,11 @@ const stmts = {
     WHERE t.status NOT IN ('closed', 'resolved')
     ORDER BY t.updated_at DESC LIMIT 10
   `),
+  // Include already-expired warranties — they are more urgent than expiring-soon.
+  // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
   expiringWarranties: db.prepare(`
     SELECT * FROM assets
-    WHERE warranty_expiry BETWEEN date('now') AND date('now', '+30 days')
+    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
     ORDER BY warranty_expiry ASC
   `),
   upcomingChanges: db.prepare(`

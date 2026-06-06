@@ -18,7 +18,9 @@
       <a href="/changes" class="nav-item <%= currentPage.startsWith('/change') ? 'active' : '' %>"><i class="fas fa-history"></i> Changes</a>
       <div class="nav-section">Resources</div>
       <a href="/knowledge" class="nav-item <%= currentPage.startsWith('/knowledge') ? 'active' : '' %>"><i class="fas fa-book"></i> Knowledge Base</a>
+      <% if (user.role === 'admin' || user.role === 'manager') { %>
       <a href="/reports" class="nav-item <%= currentPage.startsWith('/report') ? 'active' : '' %>"><i class="fas fa-chart-bar"></i> Reports</a>
+      <% } %>
     </div>
   </nav>
   <div class="main-content">

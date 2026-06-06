@@ -226,6 +226,30 @@ function isActiveUser(db, userId) {
   return !!row;
 }
 
+// Cached prepared statements for recalcProjectProgress — called on every task CRUD
+// and staff deactivation. Using WeakMap so the cache doesn't prevent GC if the db
+// instance is ever replaced (unlikely but defensive).
+const _progressSelectStmt = new WeakMap();
+const _progressUpdateStmt = new WeakMap();
+function _getProgressSelectStmt(db) {
+  let stmt = _progressSelectStmt.get(db);
+  if (!stmt) {
+    stmt = db.prepare(
+      "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done FROM project_tasks WHERE project_id = ?"
+    );
+    _progressSelectStmt.set(db, stmt);
+  }
+  return stmt;
+}
+function _getProgressUpdateStmt(db) {
+  let stmt = _progressUpdateStmt.get(db);
+  if (!stmt) {
+    stmt = db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?");
+    _progressUpdateStmt.set(db, stmt);
+  }
+  return stmt;
+}
+
 /**
  * Recalculate and persist project progress from task completion ratio.
  * Shared between projects.js (task CRUD) and staff.js (deactivation unassign).
@@ -233,11 +257,9 @@ function isActiveUser(db, userId) {
  * @param {number} projectId
  */
 function recalcProjectProgress(db, projectId) {
-  const row = db.prepare(
-    "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done FROM project_tasks WHERE project_id = ?"
-  ).get(projectId);
+  const row = _getProgressSelectStmt(db).get(projectId);
   const progress = row.total > 0 ? Math.round((row.done / row.total) * 100) : 0;
-  db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?").run(progress, projectId);
+  _getProgressUpdateStmt(db).run(progress, projectId);
 }
 
 // Cached prepared statement for getActiveStaff — called on every list/form route.

@@ -327,6 +327,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_kb_featured ON knowledge_articles(is_featured) WHERE is_featured = 1;
     CREATE INDEX IF NOT EXISTS idx_changes_assigned ON change_log(assigned_to);
     CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
+    CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
   `);
 }

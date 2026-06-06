@@ -1,5 +1,9 @@
 const db = require('../models/database');
 
+// Cache the prepared statement — requireAuth runs on every authenticated request
+// and db.prepare() is relatively expensive.
+const _authCheckStmt = db.prepare('SELECT id, is_active, role FROM users WHERE id = ?');
+
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     req.flash('error', 'Please log in to access this page');
@@ -10,7 +14,7 @@ function requireAuth(req, res, next) {
   // Without this check, a deactivated (or role-changed) user retains
   // full access until their session cookie expires (up to 24 h).
   try {
-    const row = db.prepare('SELECT id, is_active, role FROM users WHERE id = ?').get(req.session.user.id);
+    const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
       // Destroy session immediately so the user cannot keep browsing
       req.session.destroy(() => {
