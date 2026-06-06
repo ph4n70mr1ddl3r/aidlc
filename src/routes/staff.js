@@ -9,6 +9,45 @@ const rateLimit = require('express-rate-limit');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
+const _assignedTicketsStmt = db.prepare(`
+    SELECT id, ticket_number, title, status, priority, created_at
+    FROM tickets WHERE assigned_to = ?
+    ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC
+    LIMIT 10
+  `);
+const _assignedTasksStmt = db.prepare(`
+    SELECT pt.*, p.name as project_name, p.id as project_id
+    FROM project_tasks pt
+    JOIN projects p ON pt.project_id = p.id
+    WHERE pt.assigned_to = ? AND pt.status != 'done'
+    ORDER BY pt.due_date ASC
+  `);
+const _assignedAssetsStmt = db.prepare(`
+    SELECT id, asset_tag, name, category, status
+    FROM assets WHERE assigned_to = ?
+  `);
+const _projectMembershipsStmt = db.prepare(`
+    SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status
+    FROM project_members pm
+    JOIN projects p ON pm.project_id = p.id
+    WHERE pm.user_id = ?
+  `);
+const _editStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
+const _staffRoleStmt = db.prepare('SELECT role FROM users WHERE id = ?');
+const _reactivateCheckStmt = db.prepare('SELECT role, is_active FROM users WHERE id = ?');
+const _reactivateStmt = db.prepare(`UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
+const _passwordResetStmt = db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`);
+const _deactivateStmt = db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`);
+const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
+    WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);
+const _affectedProjectsStmt = db.prepare(
+    `SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != 'done'`
+  );
+const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
+    WHERE assigned_to = ? AND status != 'done'`);
+
 // List staff (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -130,7 +169,7 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  const staffUser = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?').get(id);
+  const staffUser = _showStaffStmt.get(id);
   if (!staffUser) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -138,32 +177,13 @@ router.get('/:id', (req, res) => {
 
   const safeUser = staffUser;
 
-  const assignedTickets = db.prepare(`
-    SELECT id, ticket_number, title, status, priority, created_at
-    FROM tickets WHERE assigned_to = ?
-    ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC
-    LIMIT 10
-  `).all(id);
+  const assignedTickets = _assignedTicketsStmt.all(id);
 
-  const assignedTasks = db.prepare(`
-    SELECT pt.*, p.name as project_name, p.id as project_id
-    FROM project_tasks pt
-    JOIN projects p ON pt.project_id = p.id
-    WHERE pt.assigned_to = ? AND pt.status != 'done'
-    ORDER BY pt.due_date ASC
-  `).all(id);
+  const assignedTasks = _assignedTasksStmt.all(id);
 
-  const assignedAssets = db.prepare(`
-    SELECT id, asset_tag, name, category, status
-    FROM assets WHERE assigned_to = ?
-  `).all(id);
+  const assignedAssets = _assignedAssetsStmt.all(id);
 
-  const projectMemberships = db.prepare(`
-    SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status
-    FROM project_members pm
-    JOIN projects p ON pm.project_id = p.id
-    WHERE pm.user_id = ?
-  `).all(id);
+  const projectMemberships = _projectMembershipsStmt.all(id);
 
   res.render('pages/staff/show', {
     title: `${safeUser.first_name} ${safeUser.last_name}`,
@@ -180,7 +200,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  const user = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?').get(id);
+  const user = _editStaffStmt.get(id);
   if (!user) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -218,7 +238,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   // Fetch the target user to check their current role
-  const targetUser = db.prepare('SELECT role FROM users WHERE id = ?').get(id);
+  const targetUser = _staffRoleStmt.get(id);
   if (!targetUser) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
 
   // Only admins can assign the admin role
@@ -280,11 +300,11 @@ router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
   try {
-    const target = db.prepare('SELECT role, is_active FROM users WHERE id = ?').get(id);
+    const target = _reactivateCheckStmt.get(id);
     if (!target) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
     if (target.is_active) { req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`); }
 
-    db.prepare(`UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?`).run(id);
+    _reactivateStmt.run(id);
     req.audit('update', 'user', id, 'Reactivated user account');
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
@@ -330,8 +350,7 @@ router.put('/:id/reset-password', requireRole('admin'), resetLimiter, (req, res)
   }
 
   const hashed = bcrypt.hashSync(new_password, 12);
-  db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(hashed, id);
+  _passwordResetStmt.run(hashed, id);
 
   req.audit('update', 'user', id, 'Password reset by admin');
   req.flash('success', 'Password reset successfully');
@@ -352,21 +371,17 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   try {
     let changes = 0;
     const deactivate = db.transaction(() => {
-      const result = db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+      const result = _deactivateStmt.run(id);
       changes = result.changes;
       if (changes === 0) return;
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
-      db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
-        WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`).run(id);
+      _unassignTicketsStmt.run(id);
 
       // Unassign non-done project tasks and recalculate affected project progress
-      const affectedProjects = db.prepare(
-        `SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != 'done'`
-      ).all(id).map(r => r.project_id);
+      const affectedProjects = _affectedProjectsStmt.all(id).map(r => r.project_id);
 
-      db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
-        WHERE assigned_to = ? AND status != 'done'`).run(id);
+      _unassignTasksStmt.run(id);
 
       for (const projectId of affectedProjects) {
         recalcProjectProgress(db, projectId);

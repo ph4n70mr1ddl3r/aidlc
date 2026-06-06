@@ -13,6 +13,31 @@ const {
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showProjectStmt = db.prepare(`
+    SELECT p.*, u.first_name || ' ' || u.last_name as owner_name
+    FROM projects p
+    LEFT JOIN users u ON p.owner_id = u.id
+    WHERE p.id = ?
+  `);
+const _showTasksStmt = db.prepare(`
+    SELECT pt.*, u.first_name || ' ' || u.last_name as assigned_name
+    FROM project_tasks pt
+    LEFT JOIN users u ON pt.assigned_to = u.id
+    WHERE pt.project_id = ?
+    ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
+  `);
+const _showMembersStmt = db.prepare(`
+    SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
+    FROM project_members pm
+    JOIN users u ON pm.user_id = u.id
+    WHERE pm.project_id = ?
+  `);
+const _existsProjectStmt = db.prepare('SELECT spent, progress FROM projects WHERE id = ?');
+const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
+const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
+const _deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
+
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -31,12 +56,19 @@ router.get('/', (req, res) => {
   const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${whereClause}`).get(...params).c;
   const totalPages = Math.ceil(total / limit) || 1;
 
+  // Use LEFT JOIN with conditional aggregation instead of correlated subqueries
+  // for task counts — avoids N+1 query pattern on large project lists.
   const projects = db.prepare(`
     SELECT p.*, u.first_name || ' ' || u.last_name as owner_name,
-      (SELECT COUNT(*) FROM project_tasks WHERE project_id = p.id) as task_count,
-      (SELECT COUNT(*) FROM project_tasks WHERE project_id = p.id AND status = 'done') as done_count
+      COALESCE(tCounts.task_count, 0) as task_count,
+      COALESCE(tCounts.done_count, 0) as done_count
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
+    LEFT JOIN (
+      SELECT project_id, COUNT(*) as task_count,
+        SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done_count
+      FROM project_tasks GROUP BY project_id
+    ) tCounts ON tCounts.project_id = p.id
     WHERE ${whereClause}
     ORDER BY p.updated_at DESC
     LIMIT ? OFFSET ?
@@ -109,32 +141,16 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
 
-  const project = db.prepare(`
-    SELECT p.*, u.first_name || ' ' || u.last_name as owner_name
-    FROM projects p
-    LEFT JOIN users u ON p.owner_id = u.id
-    WHERE p.id = ?
-  `).get(id);
+  const project = _showProjectStmt.get(id);
 
   if (!project) {
     req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
 
-  const tasks = db.prepare(`
-    SELECT pt.*, u.first_name || ' ' || u.last_name as assigned_name
-    FROM project_tasks pt
-    LEFT JOIN users u ON pt.assigned_to = u.id
-    WHERE pt.project_id = ?
-    ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
-  `).all(id);
+  const tasks = _showTasksStmt.all(id);
 
-  const members = db.prepare(`
-    SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
-    FROM project_members pm
-    JOIN users u ON pm.user_id = u.id
-    WHERE pm.project_id = ?
-  `).all(id);
+  const members = _showMembersStmt.all(id);
 
   const staff = getActiveStaff(db);
 
@@ -160,7 +176,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Verify project exists before updating
-    const existingProject = db.prepare('SELECT spent, progress FROM projects WHERE id = ?').get(id);
+    const existingProject = _existsProjectStmt.get(id);
     if (!existingProject) { req.flash('error', 'Project not found'); return res.redirect('/projects'); }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
     const safeProgress = progress !== undefined && progress !== '' ? Math.max(0, Math.min(100, safeInt(progress, 0))) : existingProject.progress;
@@ -204,9 +220,9 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     let changes = 0;
     const deleteProject = db.transaction(() => {
-      db.prepare('DELETE FROM project_tasks WHERE project_id = ?').run(id);
-      db.prepare('DELETE FROM project_members WHERE project_id = ?').run(id);
-      const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      _deleteProjectTasksStmt.run(id);
+      _deleteProjectMembersStmt.run(id);
+      const result = _deleteProjectStmt.run(id);
       changes = result.changes;
     });
     deleteProject();

@@ -7,6 +7,12 @@ const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
+const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
+const _deactivateStmt = db.prepare(`UPDATE vendors SET is_active = 0, updated_at = datetime('now') WHERE id = ?`);
+const _reactivateStmt = db.prepare(`UPDATE vendors SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
+
 // List vendors (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -109,7 +115,7 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
-  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
+  const vendor = _showVendorStmt.get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
     return res.redirect('/vendors');
@@ -122,7 +128,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
-  const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
+  const vendor = _showVendorStmt.get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
     return res.redirect('/vendors');
@@ -211,11 +217,11 @@ router.put('/:id/deactivate', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
   try {
-    const existing = db.prepare('SELECT is_active FROM vendors WHERE id = ?').get(id);
+    const existing = _deactivateCheckStmt.get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
     if (!existing.is_active) { req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`); }
 
-    db.prepare(`UPDATE vendors SET is_active = 0, updated_at = datetime('now') WHERE id = ?`).run(id);
+    _deactivateStmt.run(id);
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
     req.flash('success', 'Vendor deactivated');
   } catch (err) {
@@ -231,11 +237,11 @@ router.put('/:id/reactivate', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
   try {
-    const existing = db.prepare('SELECT is_active FROM vendors WHERE id = ?').get(id);
+    const existing = _deactivateCheckStmt.get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
     if (existing.is_active) { req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`); }
 
-    db.prepare(`UPDATE vendors SET is_active = 1, updated_at = datetime('now') WHERE id = ?`).run(id);
+    _reactivateStmt.run(id);
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
     req.flash('success', 'Vendor reactivated');
   } catch (err) {

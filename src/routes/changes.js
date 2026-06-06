@@ -7,6 +7,17 @@ const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANG
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showChangeStmt = db.prepare(`
+    SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
+    FROM change_log c
+    LEFT JOIN users u ON c.assigned_to = u.id
+    WHERE c.id = ?
+  `);
+const _editChangeStmt = db.prepare('SELECT * FROM change_log WHERE id = ?');
+const _existsChangeStmt = db.prepare('SELECT id FROM change_log WHERE id = ?');
+const _deleteChangeStmt = db.prepare('DELETE FROM change_log WHERE id = ?');
+
 // List changes (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -108,12 +119,7 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
 
-  const change = db.prepare(`
-    SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
-    FROM change_log c
-    LEFT JOIN users u ON c.assigned_to = u.id
-    WHERE c.id = ?
-  `).get(id);
+  const change = _showChangeStmt.get(id);
 
   if (!change) {
     req.flash('error', 'Change not found');
@@ -127,7 +133,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
 
-  const change = db.prepare('SELECT * FROM change_log WHERE id = ?').get(id);
+  const change = _editChangeStmt.get(id);
   if (!change) {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
@@ -182,7 +188,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Verify change exists before updating
-    const existing = db.prepare('SELECT id FROM change_log WHERE id = ?').get(id);
+    const existing = _existsChangeStmt.get(id);
     if (!existing) { req.flash('error', 'Change not found'); return res.redirect('/changes'); }
 
     db.prepare(`
@@ -210,7 +216,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
 
   try {
-    const result = db.prepare('DELETE FROM change_log WHERE id = ?').run(id);
+    const result = _deleteChangeStmt.run(id);
     if (result.changes === 0) {
       req.flash('error', 'Change not found');
     } else {

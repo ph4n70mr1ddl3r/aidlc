@@ -7,6 +7,23 @@ const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSE
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit/delete routes (static SQL).
+// List/index queries build dynamic WHERE clauses so can't be cached.
+const _showStmt = db.prepare(`
+    SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name, u.email as assigned_email
+    FROM assets a
+    LEFT JOIN users u ON a.assigned_to = u.id
+    WHERE a.id = ?
+  `);
+const _relatedTicketsStmt = db.prepare(`
+    SELECT id, ticket_number, title, status, priority, created_at
+    FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
+  `);
+const _editStmt = db.prepare('SELECT * FROM assets WHERE id = ?');
+const _lastTagStmt = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1');
+const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?');
+const _deleteStmt = db.prepare('DELETE FROM assets WHERE id = ?');
+
 // List assets (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -48,7 +65,7 @@ router.get('/', (req, res) => {
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   const staff = getActiveStaff(db);
   // Generate next asset tag server-side (avoid client-side randomness)
-  const last = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1').get();
+  const last = _lastTagStmt.get();
   let nextTag = 'AST-001';
   if (last && last.asset_tag) {
     const num = parseInt(last.asset_tag.replace(/\D/g, ''), 10);
@@ -130,22 +147,14 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
 
-  const asset = db.prepare(`
-    SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name, u.email as assigned_email
-    FROM assets a
-    LEFT JOIN users u ON a.assigned_to = u.id
-    WHERE a.id = ?
-  `).get(id);
+  const asset = _showStmt.get(id);
 
   if (!asset) {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
 
-  const relatedTickets = db.prepare(`
-    SELECT id, ticket_number, title, status, priority, created_at
-    FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
-  `).all(id);
+  const relatedTickets = _relatedTicketsStmt.all(id);
 
   res.render('pages/assets/show', { title: asset.name, asset, relatedTickets });
 });
@@ -155,7 +164,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
 
-  const asset = db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+  const asset = _editStmt.get(id);
   if (!asset) {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
@@ -247,8 +256,8 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     const deleteStmt = db.transaction(() => {
-      db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?').run(id);
-      const result = db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+      _deleteDetachTicketsStmt.run(id);
+      const result = _deleteStmt.run(id);
       return result.changes;
     });
     const changes = deleteStmt();

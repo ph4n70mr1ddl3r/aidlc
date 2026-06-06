@@ -7,6 +7,11 @@ const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
+const _editLicenseStmt = db.prepare('SELECT id, license_key FROM licenses WHERE id = ?');
+const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
+
 // List licenses (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -88,7 +93,7 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
 
-  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(id);
+  const license = _showLicenseStmt.get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
@@ -101,7 +106,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
 
-  const license = db.prepare('SELECT * FROM licenses WHERE id = ?').get(id);
+  const license = _showLicenseStmt.get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
@@ -138,7 +143,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     // Verify license exists before updating; fetch existing key for preservation
-    const existing = db.prepare('SELECT id, license_key FROM licenses WHERE id = ?').get(id);
+    const existing = _editLicenseStmt.get(id);
     if (!existing) { req.flash('error', 'License not found'); return res.redirect('/licenses'); }
 
     // If license_key field was left blank on edit, preserve the existing key
@@ -169,7 +174,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
 
   try {
-    const result = db.prepare('DELETE FROM licenses WHERE id = ?').run(id);
+    const result = _deleteLicenseStmt.run(id);
     if (result.changes === 0) {
       req.flash('error', 'License not found');
     } else {

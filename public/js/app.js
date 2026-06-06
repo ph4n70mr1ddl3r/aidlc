@@ -20,13 +20,17 @@ document.addEventListener('submit', function (e) {
   // Some forms have multiple action buttons (e.g. save + status change).
   var btns = form.querySelectorAll('button[type="submit"]');
   if (btns.length) {
-    // Disable after a tiny delay so the form still submits
-    setTimeout(function () {
+    // Use a microtask (Promise.resolve) to disable buttons. This fires after
+    // the browser has captured the submit button's name/value for form data
+    // (which happens synchronously during the submit event), but before any
+    // subsequent submit events from rapid double-clicks can fire.
+    // This is faster than the previous setTimeout(10) which left a 10ms window.
+    Promise.resolve().then(function () {
       btns.forEach(function (btn) {
         btn.disabled = true;
         btn.style.opacity = '0.6';
       });
-    }, 10);
+    });
   }
 });
 

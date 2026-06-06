@@ -9,6 +9,18 @@ const sanitizeHtml = require('sanitize-html');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showArticleStmt = db.prepare(`
+    SELECT k.*, u.first_name || ' ' || u.last_name as author_name
+    FROM knowledge_articles k
+    LEFT JOIN users u ON k.author_id = u.id
+    WHERE k.id = ?
+  `);
+const _editArticleStmt = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?');
+const _authorIdStmt = db.prepare('SELECT author_id FROM knowledge_articles WHERE id = ?');
+const _viewCountStmt = db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?');
+const _deleteArticleStmt = db.prepare('DELETE FROM knowledge_articles WHERE id = ?');
+
 // Configure marked for safe rendering
 marked.setOptions({
   breaks: true,
@@ -150,12 +162,7 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
-  const article = db.prepare(`
-    SELECT k.*, u.first_name || ' ' || u.last_name as author_name
-    FROM knowledge_articles k
-    LEFT JOIN users u ON k.author_id = u.id
-    WHERE k.id = ?
-  `).get(id);
+  const article = _showArticleStmt.get(id);
 
   if (!article) {
     req.flash('error', 'Article not found');
@@ -180,7 +187,7 @@ router.get('/:id', (req, res) => {
   if (!req.session[VIEWED_KEY]) req.session[VIEWED_KEY] = {};
   const viewed = req.session[VIEWED_KEY];
   if (!viewed[id] && (!req.session.user || article.author_id !== req.session.user.id)) {
-    db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?').run(id);
+    _viewCountStmt.run(id);
     viewed[id] = true;
     // Evict oldest entries if the tracking set exceeds the cap
     const keys = Object.keys(viewed);
@@ -201,7 +208,7 @@ router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
-  const article = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?').get(id);
+  const article = _editArticleStmt.get(id);
   if (!article) {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
@@ -223,7 +230,7 @@ router.put('/:id', (req, res) => {
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
   // Authorization check
-  const existing = db.prepare('SELECT author_id FROM knowledge_articles WHERE id = ?').get(id);
+  const existing = _authorIdStmt.get(id);
   if (!existing) { req.flash('error', 'Article not found'); return res.redirect('/knowledge'); }
   const isOwner = existing.author_id === req.session.user.id;
   const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
@@ -290,7 +297,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
   try {
-    const result = db.prepare('DELETE FROM knowledge_articles WHERE id = ?').run(id);
+    const result = _deleteArticleStmt.run(id);
     if (result.changes === 0) {
       req.flash('error', 'Article not found');
     } else {

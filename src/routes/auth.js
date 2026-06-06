@@ -6,6 +6,10 @@ const { validatePassword, isValidEmail, trim } = require('../utils');
 
 const router = require('express').Router();
 
+// Cached prepared statements — login runs frequently and db.prepare() is expensive.
+const _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login FROM users WHERE username = ? AND is_active = 1');
+const _updateLastLoginStmt = db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`);
+
 // Apply login rate limiter only to POST /login
 const rateLimit = require('express-rate-limit');
 const loginRateLimiter = rateLimit({
@@ -107,7 +111,7 @@ router.post('/login', loginRateLimiter, (req, res) => {
     return res.redirect('/login');
   }
 
-  const user = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login FROM users WHERE username = ? AND is_active = 1').get(safeUsername);
+  const user = _loginStmt.get(safeUsername);
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     recordLoginFailure(safeUsername);
@@ -116,7 +120,7 @@ router.post('/login', loginRateLimiter, (req, res) => {
   }
 
   // Update last login
-  db.prepare(`UPDATE users SET last_login = datetime('now') WHERE id = ?`).run(user.id);
+  _updateLastLoginStmt.run(user.id);
 
   // Clear any login failure tracking for this account
   clearLoginFailure(safeUsername);
@@ -150,9 +154,18 @@ router.post('/logout', (req, res) => {
   });
 });
 
+// Cached prepared statements for profile routes
+const _profileSelectStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
+const _profileUpdateStmt = db.prepare(`
+  UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
+  WHERE id = ?
+`);
+const _passwordSelectStmt = db.prepare('SELECT password FROM users WHERE id = ?');
+const _passwordUpdateStmt = db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`);
+
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
-  const row = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?').get(req.session.user.id);
+  const row = _profileSelectStmt.get(req.session.user.id);
   const profileUser = row;
   res.render('pages/auth/profile', { title: 'My Profile', profileUser });
 });
@@ -175,10 +188,7 @@ router.put('/profile', requireAuth, (req, res) => {
   }
 
   try {
-    db.prepare(`
-      UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(first_name.substring(0, 100), last_name.substring(0, 100), email.substring(0, 200), (phone || '').substring(0, 50), req.session.user.id);
+    _profileUpdateStmt.run(first_name.substring(0, 100), last_name.substring(0, 100), email.substring(0, 200), (phone || '').substring(0, 50), req.session.user.id);
 
     // Update session
     req.session.user.first_name = first_name;
@@ -214,7 +224,7 @@ router.put('/profile/password', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
 
-  const user = db.prepare('SELECT password FROM users WHERE id = ?').get(req.session.user.id);
+  const user = _passwordSelectStmt.get(req.session.user.id);
 
   if (!bcrypt.compareSync(current_password, user.password)) {
     req.flash('error', 'Current password is incorrect');
@@ -233,8 +243,7 @@ router.put('/profile/password', requireAuth, (req, res) => {
   }
 
   const hashed = bcrypt.hashSync(new_password, 12);
-  db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`)
-    .run(hashed, req.session.user.id);
+  _passwordUpdateStmt.run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
 

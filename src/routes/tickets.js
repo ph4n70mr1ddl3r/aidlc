@@ -10,6 +10,31 @@ router.use(requireAuth, auditMiddleware);
 // Cached prepared statements for frequently-executed queries.
 const _assetListStmt = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name');
 
+// Cached prepared statements for show/edit routes (static SQL).
+const _showTicketStmt = db.prepare(`
+    SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name,
+      a.name as asset_name, a.asset_tag
+    FROM tickets t
+    LEFT JOIN users u ON t.assigned_to = u.id
+    LEFT JOIN assets a ON t.asset_id = a.id
+    WHERE t.id = ?
+  `);
+const _showCommentsStmt = db.prepare(`
+    SELECT tc.*, u.first_name || ' ' || u.last_name as author_name, u.role as author_role
+    FROM ticket_comments tc
+    JOIN users u ON tc.user_id = u.id
+    WHERE tc.ticket_id = ?
+    ORDER BY tc.created_at ASC
+  `);
+const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
+const _statusTicketStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
+const _satisfactionUpdateStmt = db.prepare(
+    `UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime('now') WHERE id = ?`
+  );
+const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
+const _deleteCommentsStmt = db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?');
+const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
+
 const SORT_MAP = {
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
@@ -161,27 +186,14 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
-  const ticket = db.prepare(`
-    SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name,
-      a.name as asset_name, a.asset_tag
-    FROM tickets t
-    LEFT JOIN users u ON t.assigned_to = u.id
-    LEFT JOIN assets a ON t.asset_id = a.id
-    WHERE t.id = ?
-  `).get(id);
+  const ticket = _showTicketStmt.get(id);
 
   if (!ticket) {
     req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
   }
 
-  const comments = db.prepare(`
-    SELECT tc.*, u.first_name || ' ' || u.last_name as author_name, u.role as author_role
-    FROM ticket_comments tc
-    JOIN users u ON tc.user_id = u.id
-    WHERE tc.ticket_id = ?
-    ORDER BY tc.created_at ASC
-  `).all(id);
+  const comments = _showCommentsStmt.all(id);
 
   const staff = getActiveStaff(db);
 
@@ -193,7 +205,7 @@ router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
 
-  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(id);
+  const ticket = _editTicketStmt.get(id);
   if (!ticket) {
     req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
@@ -261,7 +273,6 @@ router.put('/:id', (req, res) => {
   }
 
   try {
-    // Fetch current ticket to compare status transitions
     const ticket = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?').get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
 
@@ -282,7 +293,7 @@ router.put('/:id', (req, res) => {
     // Validate linked asset exists
     const updateAssetId = asset_id ? safeId(asset_id) : null;
     if (updateAssetId) {
-      const assetExists = db.prepare('SELECT 1 FROM assets WHERE id = ?').get(updateAssetId);
+      const assetExists = _assetExistsStmt.get(updateAssetId);
       if (!assetExists) {
         req.flash('error', 'Selected asset does not exist');
         return res.redirect(`/tickets/${id}/edit`);
@@ -371,8 +382,7 @@ router.put('/:id/status', (req, res) => {
   }
 
   try {
-    // Fetch current ticket to verify existence and authorize the change
-    const ticket = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?').get(id);
+    const ticket = _statusTicketStmt.get(id);
     if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
 
     // Authorization: admin/manager can always change status.
@@ -412,9 +422,7 @@ router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = db.prepare(
-      `UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime('now') WHERE id = ?`
-    ).run(rating, id);
+    const result = _satisfactionUpdateStmt.run(rating, id);
     if (result.changes === 0) {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
@@ -436,8 +444,8 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     let changes = 0;
     const deleteStmt = db.transaction(() => {
-      db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?').run(id);
-      const result = db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+      _deleteCommentsStmt.run(id);
+      const result = _deleteTicketStmt.run(id);
       changes = result.changes;
     });
     deleteStmt();
