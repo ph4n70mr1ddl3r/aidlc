@@ -65,10 +65,6 @@ const _statusUnresolveStmt = db.prepare(`
     UPDATE tickets SET status = ?, resolved_at = NULL, updated_at = datetime('now')
     WHERE id = ?
   `);
-const _statusSameStmt = db.prepare(`
-    UPDATE tickets SET status = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `);
 
 // Cached statements for comment route
 const _commentInsertStmt = db.prepare(`
@@ -77,6 +73,20 @@ const _commentInsertStmt = db.prepare(`
   `);
 const _commentTouchStmt = db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`);
 const _commentExistStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
+
+// Cached statements for ticket create route (used inside transaction)
+const _ticketCounterStmt = db.prepare(`
+    INSERT INTO ticket_counter (counter_date, next_seq)
+    VALUES (?, 1)
+    ON CONFLICT(counter_date) DO UPDATE SET next_seq = next_seq + 1
+    RETURNING next_seq
+  `);
+const _ticketInsertStmt = db.prepare(`
+    INSERT INTO tickets (ticket_number, title, description, category, priority,
+      requester_name, requester_email, requester_department, requester_phone,
+      assigned_to, asset_id, due_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
 const SORT_MAP = {
   newest: 't.created_at DESC',
@@ -190,22 +200,11 @@ router.post('/', (req, res) => {
   // Generate ticket number atomically using dedicated counter table
   const createTicket = db.transaction(() => {
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    // Atomically increment the counter for today's date
-    const row = db.prepare(`
-      INSERT INTO ticket_counter (counter_date, next_seq)
-      VALUES (?, 1)
-      ON CONFLICT(counter_date) DO UPDATE SET next_seq = next_seq + 1
-      RETURNING next_seq
-    `).get(todayStr);
+    const row = _ticketCounterStmt.get(todayStr);
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
 
-    const result = db.prepare(`
-      INSERT INTO tickets (ticket_number, title, description, category, priority,
-        requester_name, requester_email, requester_department, requester_phone,
-        assigned_to, asset_id, due_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
+    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
       safeAssignee, safeAssetId, safeDate(due_date));
     return { ticket_number, id: result.lastInsertRowid };
@@ -433,9 +432,9 @@ router.put('/:id/status', (req, res) => {
     }
 
     // Use cached prepared statement based on resolved_at handling
-    const wasResolved = ticket.assigned_to !== null; // not used for resolved check
+    const isNowResolved = status === 'resolved' || status === 'closed';
     let stmt;
-    if (status === 'resolved' || status === 'closed') {
+    if (isNowResolved) {
       stmt = _statusResolveStmt;
     } else {
       stmt = _statusUnresolveStmt;

@@ -21,6 +21,17 @@ const _authorIdStmt = db.prepare('SELECT author_id FROM knowledge_articles WHERE
 const _viewCountStmt = db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?');
 const _deleteArticleStmt = db.prepare('DELETE FROM knowledge_articles WHERE id = ?');
 
+// Cached prepared statements for create/update routes
+const _articleInsertStmt = db.prepare(`
+    INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+const _articleUpdateStmt = db.prepare(`
+    UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
+      status = ?, is_featured = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
 // Configure marked for safe rendering
 marked.setOptions({
   breaks: true,
@@ -142,10 +153,7 @@ router.post('/', (req, res) => {
   const safeFeatured = (req.session.user.role === 'admin' || req.session.user.role === 'manager') ? (is_featured ? 1 : 0) : 0;
 
   try {
-    const result = db.prepare(`
-      INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
+    const result = _articleInsertStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');
@@ -275,11 +283,7 @@ router.put('/:id', (req, res) => {
   const safeFeatured = (req.session.user.role === 'admin' || req.session.user.role === 'manager') ? (is_featured ? 1 : 0) : 0;
 
   try {
-    db.prepare(`
-      UPDATE knowledge_articles SET title = ?, content = ?, category = ?, tags = ?,
-        status = ?, is_featured = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, status, safeFeatured, id);
+    _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, status, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');

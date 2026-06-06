@@ -48,6 +48,17 @@ const _affectedProjectsStmt = db.prepare(
 const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status != 'done'`);
 
+// Cached prepared statements for staff create/update routes
+const _staffInsertStmt = db.prepare(`
+    INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+const _staffUpdateStmt = db.prepare(`
+    UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
+      department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
 // List staff (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -145,10 +156,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
   try {
     const hashedPassword = bcrypt.hashSync(password, 12);
-    const result = db.prepare(`
-      INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
+    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
@@ -262,11 +270,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const safeIsActive = 1;
 
   try {
-    db.prepare(`
-      UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
-        department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
+    _staffUpdateStmt.run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
       (department || '').substring(0, 100), (phone || '').substring(0, 50), safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);

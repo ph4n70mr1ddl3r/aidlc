@@ -18,6 +18,18 @@ const _editChangeStmt = db.prepare('SELECT * FROM change_log WHERE id = ?');
 const _existsChangeStmt = db.prepare('SELECT id FROM change_log WHERE id = ?');
 const _deleteChangeStmt = db.prepare('DELETE FROM change_log WHERE id = ?');
 
+// Cached prepared statements for create/update routes
+const _changeInsertStmt = db.prepare(`
+    INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+const _changeUpdateStmt = db.prepare(`
+    UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
+      priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
+      impact = ?, assigned_to = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
 // List changes (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -98,10 +110,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = db.prepare(`
-      INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
+    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
       sStart, sEnd, (impact || '').substring(0, 500) || null, safeAssignee);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
@@ -191,12 +200,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const existing = _existsChangeStmt.get(id);
     if (!existing) { req.flash('error', 'Change not found'); return res.redirect('/changes'); }
 
-    db.prepare(`
-      UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
-        priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
-        impact = ?, assigned_to = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
+    _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
       (impact || '').substring(0, 500) || null, safeAssignee, id);
 

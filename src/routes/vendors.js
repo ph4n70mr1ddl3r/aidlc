@@ -24,6 +24,12 @@ const _deleteDependentLicensesStmt = db.prepare('SELECT id, software_name FROM l
 const _deleteDetachLicensesStmt = db.prepare(`UPDATE licenses SET vendor = NULL, updated_at = datetime('now') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)`);
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
+// Cached prepared statements for vendor create route
+const _vendorInsertStmt = db.prepare(`
+    INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
 // List vendors (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -104,10 +110,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = db.prepare(`
-      INSERT INTO vendors (name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+    const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
       (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
 

@@ -38,6 +38,48 @@ const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE proj
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
 const _deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
 
+// Cached prepared statements for project update
+const _projectUpdateStmt = db.prepare(`
+    UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
+      start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
+// Cached prepared statements for task routes
+const _taskInsertStmt = db.prepare(`
+    INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+const _taskExistStmt = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?');
+const _taskQuickStatusResolveStmt = db.prepare(`
+    UPDATE project_tasks SET status = ?, completed_at = datetime('now'), updated_at = datetime('now')
+    WHERE id = ? AND project_id = ?
+  `);
+const _taskQuickStatusUnresolveStmt = db.prepare(`
+    UPDATE project_tasks SET status = ?, completed_at = NULL, updated_at = datetime('now')
+    WHERE id = ? AND project_id = ?
+  `);
+const _taskFullUpdateResolveStmt = db.prepare(`
+    UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
+      assigned_to = ?, due_date = ?,
+      completed_at = COALESCE(completed_at, datetime('now')),
+      updated_at = datetime('now')
+    WHERE id = ? AND project_id = ?
+  `);
+const _taskFullUpdateUnresolveStmt = db.prepare(`
+    UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
+      assigned_to = ?, due_date = ?,
+      completed_at = NULL,
+      updated_at = datetime('now')
+    WHERE id = ? AND project_id = ?
+  `);
+const _taskDeleteStmt = db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?');
+
+// Cached prepared statements for member routes
+const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
+const _memberDeleteStmt = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?');
+
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -195,12 +237,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       return res.redirect(`/projects/${id}`);
     }
 
-    db.prepare(`
-      UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
-        start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
-        updated_at = datetime('now')
-      WHERE id = ?
-    `).run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,
+    _projectUpdateStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,
       budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, safeOwnerId, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
@@ -264,10 +301,7 @@ router.post('/:id/tasks', requireRole('admin', 'manager'), (req, res) => {
       return res.redirect(`/projects/${projectId}`);
     }
     const addTask = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
+      _taskInsertStmt.run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
 
       recalcProjectProgress(db, projectId);
     });
@@ -296,18 +330,15 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
   if (!rawTitle) {
     // Quick status update only — preserve existing values
     try {
-      const existing = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?').get(taskId, projectId);
+      const existing = _taskExistStmt.get(taskId, projectId);
       if (!existing) { req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`); }
       const updateTask = db.transaction(() => {
-        let q = `UPDATE project_tasks SET status = ?, updated_at = datetime('now')`;
+        const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
         if (status === 'done') {
-          q += `, completed_at = datetime('now')`;
+          _taskQuickStatusResolveStmt.run(safeStatus, taskId, projectId);
         } else {
-          q += `, completed_at = NULL`;
+          _taskQuickStatusUnresolveStmt.run(safeStatus, taskId, projectId);
         }
-        q += ` WHERE id = ? AND project_id = ?`;
-        db.prepare(q)
-          .run(VALID_TASK_STATUSES.includes(status) ? status : existing.status, taskId, projectId);
         recalcProjectProgress(db, projectId);
       });
       updateTask();
@@ -324,18 +355,13 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
       return res.redirect(`/projects/${projectId}`);
     }
     const updateTask = db.transaction(() => {
-      let query = `
-        UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
-          assigned_to = ?, due_date = ?,
-          updated_at = datetime('now')`;
-      if (status === 'done') {
-        query += `, completed_at = COALESCE(completed_at, datetime('now'))`;
+      const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : 'todo';
+      const params = [title.substring(0, 200), description.substring(0, 5000) || null, safeStatus, VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId];
+      if (safeStatus === 'done') {
+        _taskFullUpdateResolveStmt.run(...params);
       } else {
-        query += `, completed_at = NULL`;
+        _taskFullUpdateUnresolveStmt.run(...params);
       }
-      query += ` WHERE id = ? AND project_id = ?`;
-      db.prepare(query).run(title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId);
-
       recalcProjectProgress(db, projectId);
     });
     updateTask();
@@ -358,8 +384,7 @@ router.delete('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req
   try {
     let changes = 0;
     const deleteTask = db.transaction(() => {
-      const result = db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?')
-        .run(taskId, projectId);
+      const result = _taskDeleteStmt.run(taskId, projectId);
       changes = result.changes;
       if (changes > 0) recalcProjectProgress(db, projectId);
     });
@@ -388,8 +413,7 @@ router.post('/:id/members', requireRole('admin', 'manager'), (req, res) => {
     if (!safeUserId) { req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`); }
     if (!isActiveUser(db, safeUserId)) { req.flash('error', 'Selected user is not available'); return res.redirect(`/projects/${id}`); }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
-    const result = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)')
-      .run(id, safeUserId, safeRole);
+    const result = _memberInsertStmt.run(id, safeUserId, safeRole);
     if (result.changes === 0) {
       req.flash('info', 'User is already a member of this project');
     } else {
@@ -410,8 +434,7 @@ router.delete('/:id/members/:memberId', requireRole('admin', 'manager'), (req, r
   if (!id || !memberId) { req.flash('error', 'Invalid ID'); return res.redirect('/projects'); }
 
   try {
-    const result = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?')
-      .run(memberId, id);
+    const result = _memberDeleteStmt.run(memberId, id);
     if (result.changes === 0) {
       req.flash('error', 'Member not found');
     } else {

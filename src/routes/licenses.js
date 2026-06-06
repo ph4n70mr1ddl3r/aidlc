@@ -12,6 +12,18 @@ const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
 const _editLicenseStmt = db.prepare('SELECT id, license_key FROM licenses WHERE id = ?');
 const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
 
+// Cached prepared statements for create/update routes
+const _licenseInsertStmt = db.prepare(`
+    INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+const _licenseUpdateStmt = db.prepare(`
+    UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
+      total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `);
+
 // List licenses (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -71,10 +83,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
 
   try {
-    const result = db.prepare(`
-      INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
+    const result = _licenseInsertStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
 
@@ -149,12 +158,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     // If license_key field was left blank on edit, preserve the existing key
     const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
 
-    db.prepare(`
-      UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
-        total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
-        updated_at = datetime('now')
-      WHERE id = ?
-    `).run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
+    _licenseUpdateStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
       seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
