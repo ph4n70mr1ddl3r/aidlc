@@ -9,10 +9,10 @@
     return baseUrl + sep + 'page=' + p;
   };
 %>
+<div class="pagination-info" aria-live="polite">
+  <% if (_total !== null) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else if (totalPages > 1) { %>Page <%= _page %> of <%= totalPages %><% } %>
+</div>
 <% if (totalPages > 1) { %>
-  <div class="pagination-info" aria-live="polite">
-    <% if (_total !== null) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else { %>Page <%= _page %> of <%= totalPages %><% } %>
-  </div>
   <nav aria-label="Pagination">
   <div class="pagination">
     <% if (_page > 1) { %>

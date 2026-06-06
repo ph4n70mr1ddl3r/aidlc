@@ -175,9 +175,8 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const existing = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?').get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
-    // Disallow deactivation via edit form — use dedicated route instead to ensure
-    // any future cleanup logic (unassignment, notifications) runs consistently.
-
+    // Preserve existing is_active — use dedicated activate/deactivate routes
+    // to change vendor status, ensuring any future cleanup logic runs consistently.
     db.prepare(`
       UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
         website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
@@ -187,7 +186,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       (website || '').substring(0, 500) || null, safeCategory,
       sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
       rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
-      1, id);
+      existing.is_active ? 1 : 0, id);
 
     // Sync name change to license references (licenses.vendor is a text field
     // matching the vendor's name — not a foreign key).

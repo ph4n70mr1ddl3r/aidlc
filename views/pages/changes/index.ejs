@@ -2,7 +2,7 @@
 <%- include('../../partials/nav') %>
 <div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (user.role === 'admin' || user.role === 'manager') { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a><% } %></div>
 <form method="GET" action="/changes" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>">
   <select name="status"><option value="">All Status</option><% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select>
   <select name="change_type"><option value="">All Types</option><% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %></select>
   <select name="priority"><option value="">All Priority</option><% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option><% }) %></select>
@@ -24,8 +24,5 @@
     </tr><% }) %></tbody>
   </table></div><% } %>
 </div></div>
-<% if (typeof total !== 'undefined') { %>
-  <div class="pagination-info"><%= total %> change(s) found</div>
-  <%- include('../../partials/pagination') %>
-<% } %>
+<%- include('../../partials/pagination') %>
 <%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>
