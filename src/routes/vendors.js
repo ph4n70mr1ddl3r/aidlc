@@ -259,7 +259,7 @@ router.put('/:id/reactivate', requireRole('admin', 'manager'), (req, res) => {
   res.redirect(`/vendors/${id}`);
 });
 
-// Delete vendor
+// Delete vendor (must be deactivated first to prevent accidental data loss)
 router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
@@ -269,6 +269,12 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
     // to avoid race conditions between the SELECT and DELETE.
     let licenseCount = 0;
     const deleteVendor = db.transaction(() => {
+      // Prevent deleting active vendors — force deactivation first so the user
+      // consciously acknowledges the action (mirrors the staff deactivation pattern).
+      const vendor = _showVendorStmt.get(id);
+      if (!vendor) return 0;
+      if (vendor.is_active) return -1; // sentinel: still active
+
       // Nullify vendor references on licenses to avoid orphaned references
       const dependentLicenses = _licenseDependentsStmt.all(id);
       licenseCount = dependentLicenses.length;
@@ -279,6 +285,10 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       return result.changes;
     });
     const changes = deleteVendor();
+    if (changes === -1) {
+      req.flash('error', 'Deactivate the vendor before deleting');
+      return res.redirect(`/vendors/${id}`);
+    }
     if (changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {

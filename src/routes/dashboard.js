@@ -139,7 +139,10 @@ function getDashboardData(user) {
       dashboardCache = { ts: now, data: shared };
     } catch (err) {
       console.error('Dashboard cache refresh error:', err.message);
-      shared = dashboardCache.data || {};
+      // On DB error, re-use previous cache if available (stale data is better
+      // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
+      // there is no prior cache at all (first-request failure).
+      shared = dashboardCache.data || EMPTY_DEFAULTS;
     }
   }
 

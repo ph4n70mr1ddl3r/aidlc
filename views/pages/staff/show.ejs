@@ -48,7 +48,7 @@
     <!-- Profile Info -->
     <div class="card mb-2">
       <div class="card-body" style="text-align:center;">
-        <div class="user-avatar" style="width:64px;height:64px;font-size:24px;margin:0 auto 12px;"><%= staffUser.first_name[0] %><%= staffUser.last_name[0] %></div>
+        <div class="user-avatar" style="width:64px;height:64px;font-size:24px;margin:0 auto 12px;"><%= (staffUser.first_name || '?')[0] %><%= (staffUser.last_name || '?')[0] %></div>
         <h3><%= staffUser.first_name %> <%= staffUser.last_name %></h3>
         <span class="badge badge-<%= staffUser.role === 'admin' ? 'critical' : staffUser.role === 'manager' ? 'high' : 'medium' %>" style="margin-top:8px;"><%= staffUser.role %></span>
         <div class="text-sm text-muted mt-2"><%= staffUser.department || '' %></div>

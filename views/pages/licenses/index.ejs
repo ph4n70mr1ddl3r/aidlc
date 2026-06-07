@@ -13,7 +13,7 @@
     <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
     <tbody><% licenses.forEach(l => { 
       const usagePercent = l.total_seats > 0 ? Math.round((l.used_seats / l.total_seats) * 100) : 0;
-      const expiringSoon = l.expiry_date && localDate(l.expiry_date) < new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 30);
+      const expiringSoon = l.expiry_date && localDate(l.expiry_date) <= new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 30);
     %><tr>
       <td><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a></td>
       <td class="text-sm"><%= l.vendor || '-' %></td>

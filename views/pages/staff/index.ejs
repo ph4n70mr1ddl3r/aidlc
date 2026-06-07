@@ -39,7 +39,7 @@
           <tr>
             <td><a href="/staff/<%= s.id %>" style="color:var(--text);text-decoration:none;font-weight:600;">
               <div class="flex items-center gap-2">
-                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= s.first_name[0] %><%= s.last_name[0] %></div>
+                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= (s.first_name || '?')[0] %><%= (s.last_name || '?')[0] %></div>
                 <%= s.first_name %> <%= s.last_name %>
               </div>
             </a></td>

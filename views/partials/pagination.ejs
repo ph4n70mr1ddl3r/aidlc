@@ -10,7 +10,7 @@
   };
 %>
 <div class="pagination-info" aria-live="polite">
-  <% if (_total !== null) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else if (totalPages > 1) { %>Page <%= _page %> of <%= totalPages %><% } %>
+  <% if (_total !== null && _total > 0) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else if (_total === 0) { %>No records found<% } else if (totalPages > 1) { %>Page <%= _page %> of <%= totalPages %><% } %>
 </div>
 <% if (totalPages > 1) { %>
   <nav aria-label="Pagination">
