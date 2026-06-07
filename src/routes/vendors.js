@@ -195,19 +195,22 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const existing = _updateExistStmt.get(id);
     if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
 
-    // Preserve existing is_active — use dedicated activate/deactivate routes
-    // to change vendor status, ensuring any future cleanup logic runs consistently.
-    _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, safeCategory,
-      sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
-      rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
-      existing.is_active ? 1 : 0, id);
+    const updateVendor = db.transaction(() => {
+      // Preserve existing is_active — use dedicated activate/deactivate routes
+      // to change vendor status, ensuring any future cleanup logic runs consistently.
+      _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+        (website || '').substring(0, 500) || null, safeCategory,
+        sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
+        rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
+        existing.is_active ? 1 : 0, id);
 
-    // Sync name change to license references (licenses.vendor is a text field
-    // matching the vendor's name — not a foreign key).
-    if (existing.name !== name) {
-      _licenseSyncStmt.run(name, existing.name);
-    }
+      // Sync name change to license references (licenses.vendor is a text field
+      // matching the vendor's name — not a foreign key).
+      if (existing.name !== name) {
+        _licenseSyncStmt.run(name, existing.name);
+      }
+    });
+    updateVendor();
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');

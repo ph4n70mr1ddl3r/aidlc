@@ -236,7 +236,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const existingProject = _existsProjectStmt.get(id);
     if (!existingProject) { req.flash('error', 'Project not found'); return res.redirect('/projects'); }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
-    const safeProgress = progress !== undefined && progress !== '' ? Math.max(0, Math.min(100, safeInt(progress, 0))) : existingProject.progress;
+    const safeProgress = progress !== undefined && progress !== ''
+      ? Math.max(0, Math.min(100, Number.isFinite(Number(progress)) ? parseInt(progress, 10) : existingProject.progress))
+      : existingProject.progress;
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
