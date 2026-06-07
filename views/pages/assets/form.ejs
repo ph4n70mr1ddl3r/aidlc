@@ -14,64 +14,64 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <div class="form-grid">
         <div class="form-group">
-          <label>Asset Tag *</label>
-          <input type="text" name="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="50" required>
+          <label for="asset_tag">Asset Tag *</label>
+          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="50" required>
         </div>
         <div class="form-group">
-          <label>Name *</label>
-          <input type="text" name="name" class="form-control" value="<%= asset.name || '' %>" maxlength="200" required>
+          <label for="name">Name *</label>
+          <input type="text" name="name" id="name" class="form-control" value="<%= asset.name || '' %>" maxlength="200" required>
         </div>
         <div class="form-group">
-          <label>Category *</label>
-          <select name="category" class="form-control" required>
+          <label for="category">Category *</label>
+          <select name="category" id="category" class="form-control" required>
             <% CONSTANTS.ASSET_CATEGORIES.forEach(c => { %>
               <option value="<%= c %>" <%= asset.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
             <% }) %>
           </select>
         </div>
         <div class="form-group">
-          <label>Manufacturer</label>
-          <input type="text" name="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>" maxlength="100">
+          <label for="manufacturer">Manufacturer</label>
+          <input type="text" name="manufacturer" id="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>" maxlength="100">
         </div>
         <div class="form-group">
-          <label>Model</label>
-          <input type="text" name="model" class="form-control" value="<%= asset.model || '' %>" maxlength="100">
+          <label for="model">Model</label>
+          <input type="text" name="model" id="model" class="form-control" value="<%= asset.model || '' %>" maxlength="100">
         </div>
         <div class="form-group">
-          <label>Serial Number</label>
-          <input type="text" name="serial_number" class="form-control" value="<%= asset.serial_number || '' %>" maxlength="100" autocomplete="off">
+          <label for="serial_number">Serial Number</label>
+          <input type="text" name="serial_number" id="serial_number" class="form-control" value="<%= asset.serial_number || '' %>" maxlength="100" autocomplete="off">
         </div>
         <div class="form-group">
-          <label>Status</label>
-          <select name="status" class="form-control">
+          <label for="status">Status</label>
+          <select name="status" id="status" class="form-control">
             <% CONSTANTS.ASSET_STATUSES.forEach(s => { %>
               <option value="<%= s %>" <%= (asset.status || 'in_storage') === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
             <% }) %>
           </select>
         </div>
         <div class="form-group">
-          <label>Condition</label>
-          <select name="condition_rating" class="form-control">
+          <label for="condition_rating">Condition</label>
+          <select name="condition_rating" id="condition_rating" class="form-control">
             <% CONSTANTS.ASSET_CONDITIONS.forEach(c => { %>
               <option value="<%= c %>" <%= (asset.condition_rating || 'good') === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
             <% }) %>
           </select>
         </div>
         <div class="form-group">
-          <label>Purchase Date</label>
-          <input type="date" name="purchase_date" class="form-control" value="<%= asset.purchase_date ? asset.purchase_date.slice(0,10) : '' %>">
+          <label for="purchase_date">Purchase Date</label>
+          <input type="date" name="purchase_date" id="purchase_date" class="form-control" value="<%= asset.purchase_date ? asset.purchase_date.slice(0,10) : '' %>">
         </div>
         <div class="form-group">
-          <label>Purchase Price ($)</label>
-          <input type="number" name="purchase_price" class="form-control" step="0.01" min="0" max="99999999.99" value="<%= asset.purchase_price != null ? asset.purchase_price : '' %>">
+          <label for="purchase_price">Purchase Price ($)</label>
+          <input type="number" name="purchase_price" id="purchase_price" class="form-control" step="0.01" min="0" max="99999999.99" value="<%= asset.purchase_price != null ? asset.purchase_price : '' %>">
         </div>
         <div class="form-group">
-          <label>Warranty Expiry</label>
-          <input type="date" name="warranty_expiry" class="form-control" value="<%= asset.warranty_expiry ? asset.warranty_expiry.slice(0,10) : '' %>">
+          <label for="warranty_expiry">Warranty Expiry</label>
+          <input type="date" name="warranty_expiry" id="warranty_expiry" class="form-control" value="<%= asset.warranty_expiry ? asset.warranty_expiry.slice(0,10) : '' %>">
         </div>
         <div class="form-group">
-          <label>Assigned To</label>
-          <select name="assigned_to" class="form-control">
+          <label for="assigned_to">Assigned To</label>
+          <select name="assigned_to" id="assigned_to" class="form-control">
             <option value="">Unassigned</option>
             <% staff.forEach(s => { %>
               <option value="<%= s.id %>" <%= asset.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
@@ -79,13 +79,13 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Location</label>
-          <input type="text" name="location" class="form-control" value="<%= asset.location || '' %>" maxlength="100">
+          <label for="location">Location</label>
+          <input type="text" name="location" id="location" class="form-control" value="<%= asset.location || '' %>" maxlength="100">
         </div>
       </div>
       <div class="form-group">
-        <label>Notes</label>
-        <textarea name="notes" class="form-control" maxlength="2000"><%= asset.notes || '' %></textarea>
+        <label for="notes">Notes</label>
+        <textarea name="notes" id="notes" class="form-control" maxlength="2000"><%= asset.notes || '' %></textarea>
       </div>
       <div style="margin-top:20px;display:flex;gap:12px;">
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update Asset' : 'Create Asset' %></button>

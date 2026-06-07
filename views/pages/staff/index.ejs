@@ -50,7 +50,7 @@
             <td class="text-sm"><%= s.open_tasks %></td>
             <td><span class="badge badge-<%= s.is_active ? 'low' : 'critical' %>"><%= s.is_active ? 'Active' : 'Inactive' %></span></td>
             <td class="actions-cell">
-              <a href="/staff/<%= s.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a>
+              <a href="/staff/<%= s.id %>" class="btn btn-sm btn-outline" aria-label="View staff member"><i class="fas fa-eye" aria-hidden="true"></i></a>
             </td>
           </tr>
           <% }) %>

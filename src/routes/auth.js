@@ -202,7 +202,7 @@ router.put('/profile', requireAuth, (req, res) => {
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Email address is already in use');
     } else {
       req.flash('error', 'Error updating profile. Please try again.');
@@ -231,8 +231,16 @@ router.put('/profile/password', requireAuth, async (req, res) => {
     req.flash('error', 'New password is required');
     return res.redirect('/profile');
   }
+  if (new_password.length > 128) {
+    req.flash('error', 'Password must be at most 128 characters');
+    return res.redirect('/profile');
+  }
 
   const user = _passwordSelectStmt.get(req.session.user.id);
+  if (!user) {
+    req.flash('error', 'User not found');
+    return res.redirect('/login');
+  }
 
   if (!(await bcrypt.compare(current_password, user.password))) {
     req.flash('error', 'Current password is incorrect');

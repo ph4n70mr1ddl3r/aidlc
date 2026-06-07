@@ -6,9 +6,7 @@ const DB_PATH = process.env.DB_PATH || './data/itmanager.db';
 
 // Ensure data directory exists
 const dir = path.dirname(DB_PATH);
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
-}
+fs.mkdirSync(dir, { recursive: true });
 
 const db = new Database(DB_PATH);
 

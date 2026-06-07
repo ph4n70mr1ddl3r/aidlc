@@ -34,7 +34,6 @@ const _projectMembershipsStmt = db.prepare(`
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
   `);
-const _editStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
 const _staffRoleStmt = db.prepare('SELECT role FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT role, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare(`UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
@@ -120,7 +119,7 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Create staff
-router.post('/', requireRole('admin', 'manager'), (req, res) => {
+router.post('/', requireRole('admin', 'manager'), async (req, res) => {
   const username = trim(req.body.username);
   const { password } = req.body;
   const email = trim(req.body.email);
@@ -158,14 +157,14 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const hashedPassword = bcrypt.hashSync(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
     const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     res.redirect('/staff');
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Username or email already exists');
     } else {
       console.error('Staff create error:', err.message);
@@ -209,7 +208,7 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  const user = _editStaffStmt.get(id);
+  const user = _showStaffStmt.get(id);
   if (!user) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -256,7 +255,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
-  if (id === req.session.user.id && role !== req.session.user.role) {
+  if (Number(id) === Number(req.session.user.id) && role !== req.session.user.role) {
     req.flash('error', 'You cannot change your own role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -277,7 +276,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
 
     // Keep session in sync if admin is editing their own record
-    if (id === req.session.user.id) {
+    if (Number(id) === Number(req.session.user.id)) {
       req.session.user.first_name = first_name;
       req.session.user.last_name = last_name;
       req.session.user.email = email;
@@ -289,7 +288,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Staff member updated');
     res.redirect(`/staff/${id}`);
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Email address is already in use');
     } else {
       console.error('Staff update error:', err.message);
@@ -329,12 +328,12 @@ const resetLimiter = rateLimit({
 });
 
 // Reset password
-router.put('/:id/reset-password', requireRole('admin'), resetLimiter, (req, res) => {
+router.put('/:id/reset-password', requireRole('admin'), resetLimiter, async (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
   // Prevent admin from resetting own password via this route (use profile instead)
-  if (id === req.session.user.id) {
+  if (Number(id) === Number(req.session.user.id)) {
     req.flash('error', 'Use the profile page to change your own password');
     return res.redirect('/profile');
   }
@@ -354,7 +353,7 @@ router.put('/:id/reset-password', requireRole('admin'), resetLimiter, (req, res)
     return res.redirect(`/staff/${id}`);
   }
 
-  const hashed = bcrypt.hashSync(new_password, 12);
+  const hashed = await bcrypt.hash(new_password, 12);
   _passwordResetStmt.run(hashed, id);
 
   req.audit('update', 'user', id, 'Password reset by admin');
@@ -368,7 +367,7 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
   // Prevent admin from deactivating themselves
-  if (id === req.session.user.id) {
+  if (Number(id) === Number(req.session.user.id)) {
     req.flash('error', 'You cannot deactivate your own account');
     return res.redirect('/staff');
   }

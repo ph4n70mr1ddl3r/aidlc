@@ -30,9 +30,11 @@ function requireAuth(req, res, next) {
       req.session.user.role = row.role;
     }
   } catch (err) {
-    // If the DB check fails, let the request through — failing open is
-    // better than locking everyone out due to a transient SQLite error.
+    // Fail closed — if we can't verify the session, treat it as unauthenticated.
+    // Failing open would bypass auth on DB errors (e.g., corruption, disk full).
     console.error('Auth DB check error:', err.message);
+    req.flash('error', 'Session verification failed. Please log in again.');
+    return res.redirect('/login');
   }
 
   next();

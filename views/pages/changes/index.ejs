@@ -22,7 +22,7 @@
       <td><span class="badge badge-<%= c.status %>"><%= c.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? formatDateTime(c.scheduled_start) : '-' %></td>
       <td class="text-sm"><%= c.assigned_name || '-' %></td>
-      <td class="actions-cell"><a href="/changes/<%= c.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
+      <td class="actions-cell"><a href="/changes/<%= c.id %>" class="btn btn-sm btn-outline" aria-label="View change"><i class="fas fa-eye" aria-hidden="true"></i></a></td>
     </tr><% }) %></tbody>
   </table></div><% } %>
 </div></div>
