@@ -78,19 +78,18 @@ router.get('/', (req, res) => {
 // New asset form
 router.get('/new', requireRole('admin', 'manager'), (req, res) => {
   const staff = getActiveStaff(db);
-  // Generate next asset tag server-side (avoid client-side randomness)
+  // Preview tag only — server generates the actual tag atomically on POST
   const last = _lastTagStmt.get();
-  let nextTag = 'AST-001';
+  let previewTag = 'AST-001';
   if (last && last.asset_tag) {
     const num = parseInt(last.asset_tag.replace(/\D/g, ''), 10);
-    if (num) nextTag = 'AST-' + String(num + 1).padStart(3, '0');
+    if (num) previewTag = 'AST-' + String(num + 1).padStart(3, '0');
   }
-  res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: nextTag }, staff, isEdit: false });
+  res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: previewTag }, staff, isEdit: false });
 });
 
 // Create asset
 router.post('/', requireRole('admin', 'manager'), (req, res) => {
-  const asset_tag = trim(req.body.asset_tag);
   const name = trim(req.body.name);
   const category = req.body.category;
   const manufacturer = trim(req.body.manufacturer);
@@ -105,8 +104,8 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   const location = trim(req.body.location);
   const notes = trim(req.body.notes);
 
-  if (!asset_tag || !name || !category) {
-    req.flash('error', 'Asset tag, name, and category are required');
+  if (!name || !category) {
+    req.flash('error', 'Name and category are required');
     return res.redirect('/assets/new');
   }
   if (name.length > 200) {
@@ -129,20 +128,34 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = _insertStmt.run(
-      asset_tag.substring(0, 50), name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
-      (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
-      safeStatus, safeCondition, safeDate(purchase_date),
-      purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
-      safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
-    );
+    // Generate asset tag server-side inside a transaction to prevent race conditions.
+    // The tag from the form is ignored — the server always generates the next sequential tag.
+    const createAsset = db.transaction(() => {
+      let lastTag = _lastTagStmt.get();
+      let nextNum = 1;
+      if (lastTag && lastTag.asset_tag) {
+        const num = parseInt(lastTag.asset_tag.replace(/\D/g, ''), 10);
+        if (num) nextNum = num + 1;
+      }
+      const asset_tag = 'AST-' + String(nextNum).padStart(3, '0');
 
-    req.audit('create', 'asset', result.lastInsertRowid, `Created asset ${asset_tag}`);
+      const result = _insertStmt.run(
+        asset_tag, name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
+        (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
+        safeStatus, safeCondition, safeDate(purchase_date),
+        purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
+        safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
+      );
+      return { asset_tag, id: result.lastInsertRowid };
+    });
+
+    const { asset_tag, id } = createAsset();
+    req.audit('create', 'asset', id, `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);
     res.redirect('/assets');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Asset tag or serial number already exists');
+      req.flash('error', 'Serial number already exists');
     } else {
       console.error('Asset create error:', err.message);
       req.flash('error', 'Error creating asset. Please check your input and try again.');

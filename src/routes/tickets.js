@@ -293,26 +293,22 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  // Validate enum fields
-  if (!VALID_CATEGORIES.includes(category)) {
+  // Validate enum fields — reject empty/missing values
+  if (!category || !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
+  if (!priority || !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (status && !VALID_STATUSES.includes(status)) {
+  if (!status || !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/tickets/${id}/edit`);
   }
   const safeCategory = category;
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
-  const safeStatus = VALID_STATUSES.includes(status) ? status : null;
-  if (!safeStatus) {
-    req.flash('error', 'Status is required');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
+  const safePriority = priority;
+  const safeStatus = status;
 
   try {
     const ticket = _updateExistStmt.get(id);

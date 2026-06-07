@@ -1,10 +1,9 @@
 const db = require('../models/database');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { auditMiddleware } = require('../middleware/audit');
 const { safeInt } = require('../utils');
 
 const router = require('express').Router();
-router.use(requireAuth, requireRole('admin', 'manager'), auditMiddleware);
+router.use(requireAuth, requireRole('admin', 'manager'));
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for report queries.

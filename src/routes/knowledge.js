@@ -17,7 +17,6 @@ const _showArticleStmt = db.prepare(`
     WHERE k.id = ?
   `);
 const _editArticleStmt = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?');
-const _authorIdStmt = db.prepare('SELECT author_id FROM knowledge_articles WHERE id = ?');
 const _viewCountStmt = db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?');
 const _deleteArticleStmt = db.prepare('DELETE FROM knowledge_articles WHERE id = ?');
 
@@ -240,7 +239,7 @@ router.put('/:id', (req, res) => {
   if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
 
   // Authorization check
-  const existing = _authorIdStmt.get(id);
+  const existing = _editArticleStmt.get(id);
   if (!existing) { req.flash('error', 'Article not found'); return res.redirect('/knowledge'); }
   const isOwner = existing.author_id === req.session.user.id;
   const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
