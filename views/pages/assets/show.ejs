@@ -33,7 +33,7 @@
         <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(asset.purchase_date) %></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price != null ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><% if (asset.warranty_expiry) { %>
-          <% const _wDays = Math.round((localDate(asset.warranty_expiry) - new Date()) / (1000*60*60*24)); %>
+          <% const _wDays = Math.round((localDate(asset.warranty_expiry) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / (1000*60*60*24)); %>
           <%= formatDate(asset.warranty_expiry) %>
           <% if (_wDays < 0) { %><span class="badge badge-critical" style="margin-left:8px;">Expired</span>
           <% } else if (_wDays <= 90) { %><span class="badge badge-high" style="margin-left:8px;"><%= _wDays %> days left</span>

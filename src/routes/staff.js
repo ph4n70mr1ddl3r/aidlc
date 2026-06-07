@@ -186,8 +186,6 @@ router.get('/:id', (req, res) => {
     return res.redirect('/staff');
   }
 
-  const safeUser = staffUser;
-
   const assignedTickets = _assignedTicketsStmt.all(id);
 
   const assignedTasks = _assignedTasksStmt.all(id);
@@ -197,8 +195,8 @@ router.get('/:id', (req, res) => {
   const projectMemberships = _projectMembershipsStmt.all(id);
 
   res.render('pages/staff/show', {
-    title: `${safeUser.first_name} ${safeUser.last_name}`,
-    staffUser: safeUser,
+    title: `${staffUser.first_name} ${staffUser.last_name}`,
+    staffUser,
     assignedTickets,
     assignedTasks,
     assignedAssets,

@@ -25,6 +25,10 @@ document.addEventListener('submit', function (e) {
     // (which happens synchronously during the submit event), but before any
     // subsequent submit events from rapid double-clicks can fire.
     // This is faster than the previous setTimeout(10) which left a 10ms window.
+    //
+    // Skip disabling if an inline onsubmit handler (e.g. confirm() dialog)
+    // has already prevented the default action — the user cancelled.
+    if (e.defaultPrevented) return;
     Promise.resolve().then(function () {
       btns.forEach(function (btn) {
         btn.disabled = true;

@@ -20,7 +20,7 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 const _licenseSyncStmt = db.prepare(`UPDATE licenses SET vendor = ?, updated_at = datetime('now') WHERE vendor = ?`);
-const _deleteDependentLicensesStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
+const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
 const _deleteDetachLicensesStmt = db.prepare(`UPDATE licenses SET vendor = NULL, updated_at = datetime('now') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)`);
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
@@ -270,7 +270,7 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
     let licenseCount = 0;
     const deleteVendor = db.transaction(() => {
       // Nullify vendor references on licenses to avoid orphaned references
-      const dependentLicenses = _deleteDependentLicensesStmt.all(id);
+      const dependentLicenses = _licenseDependentsStmt.all(id);
       licenseCount = dependentLicenses.length;
       if (licenseCount > 0) {
         _deleteDetachLicensesStmt.run(id);

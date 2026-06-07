@@ -48,7 +48,7 @@
   <div class="table-responsive"><table>
     <thead><tr><th>Asset</th><th>Name</th><th>Warranty Expiry</th><th>Days Left</th></tr></thead>
     <tbody><% warrantyExpiring.forEach(a => { 
-      const days = Math.round((localDate(a.warranty_expiry) - new Date()) / (1000*60*60*24));
+      const days = Math.round((localDate(a.warranty_expiry) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / (1000*60*60*24));
     %><tr>
       <td style="font-weight:600;"><%= a.asset_tag %></td>
       <td><%= a.name %></td>

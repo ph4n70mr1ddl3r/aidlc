@@ -37,7 +37,7 @@ if (process.env.NODE_ENV === 'production') {
 // ---------------------------------------------------------------------------
 // Initialize database (schema creation)
 // ---------------------------------------------------------------------------
-require('./models/database');
+const db = require('./models/database');
 
 // Prune stale audit log entries on startup if PRUNE_AUDIT_DAYS is configured.
 // This prevents unbounded audit_log growth which degrades query performance
@@ -45,9 +45,8 @@ require('./models/database');
 // than 1 year on each server start.
 const _pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
 if (Number.isFinite(_pruneDays) && _pruneDays > 0) {
-  const _db = require('./models/database');
   const { pruneAuditLog } = require('./utils');
-  const pruned = pruneAuditLog(_db, _pruneDays);
+  const pruned = pruneAuditLog(db, _pruneDays);
   if (pruned > 0) console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
 }
 
@@ -266,8 +265,7 @@ app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 
 // Health check (unauthenticated)
-const healthDb = require('./models/database');
-const _healthCheckStmt = healthDb.prepare('SELECT 1 AS ok');
+const _healthCheckStmt = db.prepare('SELECT 1 AS ok');
 app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('application/json');
@@ -360,7 +358,6 @@ function shutdown(signal) {
   console.log(`\n${signal} received — shutting down gracefully…`);
   server.close(() => {
     console.log('HTTP server closed.');
-    const db = require('./models/database');
     db.close();
     console.log('Database connection closed.');
     process.exit(0);
