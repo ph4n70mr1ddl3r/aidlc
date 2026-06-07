@@ -91,11 +91,12 @@
     </div>
 
     <!-- Comments -->
+    <% const _isPrivileged = user.role === 'admin' || user.role === 'manager'; %>
+    <% const _visibleComments = comments.filter(c => !c.is_internal || _isPrivileged); %>
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-comments" style="margin-right:8px;color:var(--primary)"></i>Comments (<% const visibleComments = comments.filter(c => !c.is_internal || user.role === 'admin' || user.role === 'manager'); %><%= visibleComments.length %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-comments" style="margin-right:8px;color:var(--primary)"></i>Comments (<%= _visibleComments.length %>)</h3></div>
       <div class="card-body">
-        <% comments.forEach(c => { %>
-        <% if (!c.is_internal || user.role === 'admin' || user.role === 'manager') { %>
+        <% _visibleComments.forEach(c => { %>
         <div class="comment <%= c.is_internal ? 'internal' : '' %>">
           <div class="comment-header">
             <div>
@@ -107,7 +108,6 @@
           </div>
           <div class="comment-body"><%= c.comment %></div>
         </div>
-        <% } %>
         <% }) %>
 
         <!-- Add Comment Form -->

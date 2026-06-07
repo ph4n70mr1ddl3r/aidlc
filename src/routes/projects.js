@@ -81,6 +81,8 @@ const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (pro
 const _memberDeleteStmt = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?');
 
 // Cached prepared statement for project create (used outside transaction but also inside)
+const _editProjectStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
+
 const _projectInsertStmt = db.prepare(`
     INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -206,7 +208,7 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
-  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  const project = _editProjectStmt.get(id);
   if (!project) { req.flash('error', 'Project not found'); return res.redirect('/projects'); }
   const staff = getActiveStaff(db);
   res.render('pages/projects/form', { title: 'Edit Project', project, staff, isEdit: true });
