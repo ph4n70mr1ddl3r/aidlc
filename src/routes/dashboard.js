@@ -82,6 +82,7 @@ const stmts = {
     SELECT * FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
     ORDER BY warranty_expiry ASC
+    LIMIT 20
   `),
   upcomingChanges: db.prepare(`
     SELECT * FROM change_log

@@ -32,7 +32,9 @@ function safeSort(value, allowedMap, defaultKey) {
 }
 
 /**
- * Build WHERE clause safely from whitelisted filters
+ * Build WHERE clause safely from whitelisted filters.
+ * WARNING: Column names are interpolated into SQL — callers MUST pass hardcoded
+ * column strings (e.g. 'a.category'), never user-controlled values.
  * @param {Object} filters - { column: { value, operator? } }
  * @returns {{ where: string[], params: any[] }}
  */
@@ -81,7 +83,9 @@ function isValidEmail(email) {
 }
 
 /**
- * Add LIKE search conditions safely
+ * Add LIKE search conditions safely.
+ * WARNING: Column names are interpolated into SQL — callers MUST pass hardcoded
+ * column arrays (e.g. ['u.first_name', 'u.last_name']), never user-controlled values.
  */
 function addSearch(where, params, search, columns) {
   if (!search) return;

@@ -373,6 +373,17 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
     return res.redirect('/staff');
   }
 
+  // Early check: skip expensive transaction if user is already inactive
+  const targetCheck = _reactivateCheckStmt.get(id);
+  if (!targetCheck) {
+    req.flash('error', 'Staff member not found');
+    return res.redirect('/staff');
+  }
+  if (!targetCheck.is_active) {
+    req.flash('info', 'Account is already inactive');
+    return res.redirect('/staff');
+  }
+
   try {
     let changes = 0;
     const deactivate = db.transaction(() => {

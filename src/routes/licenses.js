@@ -148,7 +148,12 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   }
 
   const seats = Math.max(1, safeInt(total_seats, 1));
-  const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
+  const used = safeInt(used_seats, 0);
+  if (used > seats) {
+    req.flash('error', 'Used seats cannot exceed total seats');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  const clampedUsed = Math.max(0, used);
 
   try {
     // Verify license exists before updating; fetch existing key for preservation
@@ -159,7 +164,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
 
     _licenseUpdateStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
-      seats, used,
+      seats, clampedUsed,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);

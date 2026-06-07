@@ -331,6 +331,9 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
     CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
+    CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_changes_updated ON change_log(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_kb_updated ON knowledge_articles(updated_at);
   `);
 }
 

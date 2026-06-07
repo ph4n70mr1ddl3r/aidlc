@@ -87,7 +87,7 @@ router.get('/login', (req, res) => {
 });
 
 // Login handler
-router.post('/login', loginRateLimiter, (req, res) => {
+router.post('/login', loginRateLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
@@ -113,7 +113,7 @@ router.post('/login', loginRateLimiter, (req, res) => {
 
   const user = _loginStmt.get(safeUsername);
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     recordLoginFailure(safeUsername);
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
@@ -213,7 +213,7 @@ router.put('/profile', requireAuth, (req, res) => {
 });
 
 // Change password
-router.put('/profile/password', requireAuth, (req, res) => {
+router.put('/profile/password', requireAuth, async (req, res) => {
   const { current_password, new_password, confirm_password } = req.body;
 
   if (!current_password) {
@@ -227,9 +227,14 @@ router.put('/profile/password', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
 
+  if (typeof new_password !== 'string') {
+    req.flash('error', 'New password is required');
+    return res.redirect('/profile');
+  }
+
   const user = _passwordSelectStmt.get(req.session.user.id);
 
-  if (!bcrypt.compareSync(current_password, user.password)) {
+  if (!(await bcrypt.compare(current_password, user.password))) {
     req.flash('error', 'Current password is incorrect');
     return res.redirect('/profile');
   }
@@ -245,7 +250,7 @@ router.put('/profile/password', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
 
-  const hashed = bcrypt.hashSync(new_password, 12);
+  const hashed = await bcrypt.hash(new_password, 12);
   _passwordUpdateStmt.run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });

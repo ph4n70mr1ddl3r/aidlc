@@ -117,10 +117,15 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // ---------------------------------------------------------------------------
 // Session configuration
 // ---------------------------------------------------------------------------
-const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? null : 'dev-only-secret');
+const crypto = require('crypto');
+let sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
-  console.error('ERROR: SESSION_SECRET is required in production');
-  process.exit(1);
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ERROR: SESSION_SECRET is required in production');
+    process.exit(1);
+  }
+  sessionSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('WARNING: No SESSION_SECRET set — using random ephemeral secret (sessions will not survive restart)');
 }
 
 // In production, MemoryStore is not suitable — warn if no external store is configured
@@ -150,10 +155,14 @@ app.use(cookieParser());
 // ---------------------------------------------------------------------------
 // CSRF Protection (separate secret from session)
 // ---------------------------------------------------------------------------
-const csrfSecret = process.env.CSRF_SECRET || (process.env.NODE_ENV === 'production' ? null : 'dev-csrf-secret');
+let csrfSecret = process.env.CSRF_SECRET;
 if (!csrfSecret) {
-  console.error('ERROR: CSRF_SECRET is required in production');
-  process.exit(1);
+  if (process.env.NODE_ENV === 'production') {
+    console.error('ERROR: CSRF_SECRET is required in production');
+    process.exit(1);
+  }
+  csrfSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('WARNING: No CSRF_SECRET set — using random ephemeral secret (CSRF tokens will not survive restart)');
 }
 
 const csrfConfig = doubleCsrf({
