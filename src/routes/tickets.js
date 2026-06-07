@@ -288,10 +288,6 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Title must be at most 200 characters');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (!category) {
-    req.flash('error', 'Category is required');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
 
   // Validate enum fields — reject empty/missing values
   if (!category || !VALID_CATEGORIES.includes(category)) {
@@ -436,6 +432,10 @@ router.put('/:id/status', (req, res) => {
       stmt = _statusUnresolveStmt;
     }
     const result = stmt.run(status, id);
+    if (result.changes === 0) {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
   } catch (err) {

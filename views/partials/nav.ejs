@@ -27,7 +27,7 @@
     <header class="header">
       <div class="header-left"><h1><%= typeof title !== 'undefined' ? title : 'Dashboard' %></h1></div>
       <div class="header-right">
-        <button class="btn btn-sm btn-outline mobile-menu-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" title="Menu" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
+        <button class="btn btn-sm btn-outline mobile-menu-toggle" data-toggle="sidebar" title="Menu" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
         <a href="/tickets?status=open&assigned_to=<%= user.id %>" class="btn btn-sm btn-outline" title="My Tickets" aria-label="My Tickets"><i class="fas fa-bell"></i></a>
         <a href="/profile" class="user-menu">
           <div class="user-avatar"><%= (user.first_name || '?').charAt(0) %><%= (user.last_name || '?').charAt(0) %></div>
@@ -38,12 +38,12 @@
     </header>
     <main class="page-content">
       <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
-        <div class="flash success"><i class="fas fa-check-circle"></i> <%= m %></div>
+        <div class="flash success" role="alert"><i class="fas fa-check-circle"></i> <%= m %></div>
       <% }) } %>
       <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
-        <div class="flash error"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
+        <div class="flash error" role="alert"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
       <% }) } %>
       <% if (flash.info && flash.info.length) { flash.info.forEach(m => { %>
-        <div class="flash info"><i class="fas fa-info-circle"></i> <%= m %></div>
+        <div class="flash info" role="status"><i class="fas fa-info-circle"></i> <%= m %></div>
       <% }) } %>
   <% } %>

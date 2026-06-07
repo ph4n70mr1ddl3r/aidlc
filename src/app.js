@@ -67,10 +67,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // 'unsafe-inline' required for inline event handlers (onclick, onchange, onsubmit)
-      // and embedded <script> tags (license key reveal). Refactor to nonce-based CSP
-      // or external scripts with addEventListener for a stricter policy.
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://cdnjs.cloudflare.com'],
       fontSrc: ["'self'", 'https://cdnjs.cloudflare.com'],
       imgSrc: ["'self'", 'data:'],

@@ -5,7 +5,7 @@
   <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/changes/<%= change.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this change?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this change?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
   <% } %>
 </div>

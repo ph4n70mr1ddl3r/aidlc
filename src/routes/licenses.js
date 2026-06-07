@@ -110,6 +110,16 @@ router.get('/:id', (req, res) => {
   res.render('pages/licenses/show', { title: license.software_name, license });
 });
 
+// AJAX endpoint for license key reveal (admin/manager only)
+router.get('/:id/key', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { return res.status(400).json({ error: 'Invalid license ID' }); }
+
+  const license = _editLicenseStmt.get(id);
+  if (!license) { return res.status(404).json({ error: 'License not found' }); }
+  res.json({ key: license.license_key || '' });
+});
+
 // Edit license
 router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);

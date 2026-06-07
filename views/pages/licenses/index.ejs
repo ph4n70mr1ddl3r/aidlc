@@ -19,7 +19,7 @@
       <td class="text-sm"><%= l.vendor || '-' %></td>
       <td><span class="badge badge-medium"><%= l.license_type %></span></td>
       <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
-      <td><div class="progress-bar" style="width:80px;display:inline-block;vertical-align:middle;">
+      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= usagePercent %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= usagePercent %>% seat usage" style="width:80px;display:inline-block;vertical-align:middle;">
         <div class="progress-fill <%= usagePercent > 90 ? 'red' : usagePercent > 70 ? 'orange' : 'green' %>" style="width:<%= usagePercent %>%"></div>
       </div> <span class="text-sm"><%= usagePercent %>%</span></td>
       <td class="text-sm" style="<%= expiringSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? formatDate(l.expiry_date) : 'Perpetual' %></td>

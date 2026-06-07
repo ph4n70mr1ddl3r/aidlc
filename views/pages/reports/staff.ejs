@@ -3,7 +3,7 @@
 <div class="page-header">
   <div><h2>Staff Performance</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Staff</div></div>
   <form method="GET" action="/reports/staff" class="flex items-center gap-2">
-    <select name="period" class="form-control" style="width:160px;" onchange="this.form.submit()" aria-label="Report period">
+    <select name="period" class="form-control" style="width:160px;" data-auto-submit aria-label="Report period">
       <option value="7" <%= String(period) === '7' ? 'selected' : '' %>>Last 7 days</option>
       <option value="30" <%= String(period) === '30' ? 'selected' : '' %>>Last 30 days</option>
       <option value="90" <%= String(period) === '90' ? 'selected' : '' %>>Last 90 days</option>
@@ -22,7 +22,7 @@
       <td class="text-center"><%= p.resolved_tickets || 0 %></td>
       <td class="text-center"><%= p.avg_resolution_days ? Number(p.avg_resolution_days).toFixed(1) + ' days' : 'N/A' %></td>
       <td class="text-center"><%= p.completed_tasks || 0 %></td>
-      <td><div class="progress-bar" style="width:100px;display:inline-block;vertical-align:middle;">
+      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(p.open_tickets * 15, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.open_tickets %> open tickets" style="width:100px;display:inline-block;vertical-align:middle;">
         <div class="progress-fill <%= p.open_tickets > 5 ? 'red' : p.open_tickets > 3 ? 'orange' : 'green' %>" style="width:<%= Math.min(p.open_tickets * 15, 100) %>%"></div>
       </div></td>
     </tr><% }) %></tbody>

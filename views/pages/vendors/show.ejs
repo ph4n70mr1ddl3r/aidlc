@@ -5,7 +5,7 @@
   <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/vendors/<%= vendor.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/vendors/<%= vendor.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this vendor permanently? This cannot be undone.')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <form action="/vendors/<%= vendor.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this vendor permanently? This cannot be undone."><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
   <% } %>
 </div>
@@ -18,7 +18,7 @@
   <div class="detail-row"><div class="detail-label">Website</div><div class="detail-value"><% if (vendor.website && /^https?:\/\//i.test(vendor.website)) { %><a href="<%= vendor.website %>" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><%= vendor.website %></a><% } else if (vendor.website) { %><%= vendor.website %><% } else { %>-<% } %></div></div>
   <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= vendor.category ? vendor.category.charAt(0).toUpperCase() + vendor.category.slice(1) : '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Contract</div><div class="detail-value"><%= vendor.contract_start ? formatDate(vendor.contract_start) : '?' %> — <%= vendor.contract_end ? formatDate(vendor.contract_end) : '?' %></div></div>
-  <div class="detail-row"><div class="detail-label">Rating</div><div class="detail-value"><% if (vendor.rating) { for (let i=0;i<vendor.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } } else { %>-<% } %></div></div>
+  <div class="detail-row"><div class="detail-label">Rating</div><div class="detail-value" <% if (vendor.rating) { %>role="img" aria-label="<%= vendor.rating %> out of 5 stars"<% } %>><% if (vendor.rating) { for (let i=0;i<vendor.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);" aria-hidden="true"></i><% } } else { %>-<% } %></div></div>
   <div class="detail-row"><div class="detail-label">Active</div><div class="detail-value"><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Active' : 'Inactive' %></span></div></div>
   <% if (vendor.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= vendor.notes %></div></div><% } %>
 </div></div>
@@ -28,12 +28,12 @@
   <div class="card-header"><h3><i class="fas fa-cog" style="margin-right:8px;color:var(--text-light)"></i>Actions</h3></div>
   <div class="card-body">
     <% if (vendor.is_active) { %>
-    <form action="/vendors/<%= vendor.id %>/deactivate?_method=PUT" method="POST" onsubmit="return confirm('Deactivate this vendor?')">
+    <form action="/vendors/<%= vendor.id %>/deactivate?_method=PUT" method="POST" data-confirm="Deactivate this vendor?">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"><i class="fas fa-ban"></i> Deactivate Vendor</button>
     </form>
     <% } else { %>
-    <form action="/vendors/<%= vendor.id %>/reactivate?_method=PUT" method="POST" onsubmit="return confirm('Reactivate this vendor?')">
+    <form action="/vendors/<%= vendor.id %>/reactivate?_method=PUT" method="POST" data-confirm="Reactivate this vendor?">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-circle"></i> Reactivate Vendor</button>
     </form>

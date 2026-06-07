@@ -13,8 +13,8 @@
   <div class="flex gap-2">
     <% if (canEditTicket) { %><a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
     <% if (canDeleteTicket) { %>
-    <form action="/tickets/<%= ticket.id %>?_method=DELETE" method="POST" style="display:inline;" 
-          onsubmit="return confirm('Are you sure you want to delete this ticket?')">
+    <form action="/tickets/<%= ticket.id %>?_method=DELETE" method="POST" style="display:inline;"
+          data-confirm="Are you sure you want to delete this ticket?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
     </form>
@@ -33,7 +33,7 @@
     <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
       <% if (s !== ticket.status) { %>
         <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"
-              onsubmit="return ['resolved','closed'].includes('<%= s %>') ? confirm('Mark this ticket as <%= s %>?') : true">
+              data-confirm="<%= ['resolved','closed'].includes(s) ? 'Mark this ticket as ' + s + '?' : '' %>" aria-label="Set status to <%= s.replace(/_/g, ' ') %>">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
           <button type="submit" class="btn btn-sm btn-outline"><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></button>

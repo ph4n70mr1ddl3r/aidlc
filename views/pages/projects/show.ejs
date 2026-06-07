@@ -6,7 +6,7 @@
   <% if (user.role === 'admin' || user.role === 'manager') { %>
   <div class="flex gap-2">
     <a href="/projects/<%= project.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this project and all tasks?')">
+    <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this project and all tasks?">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
     </form>
@@ -30,7 +30,7 @@
     <% if (project.description) { %><p class="text-sm" style="margin-bottom:16px;"><%= project.description %></p><% } %>
     <div class="flex items-center gap-2">
       <span class="text-sm"><strong>Progress: <%= project.progress %>%</strong></span>
-      <div class="progress-bar" style="flex:1;">
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= project.progress %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= project.progress %>%" style="flex:1;">
         <div class="progress-fill <%= project.progress >= 75 ? 'green' : project.progress >= 50 ? 'blue' : 'orange' %>" style="width:<%= project.progress %>%"></div>
       </div>
       <% if (project.budget != null && project.budget > 0) { %>
@@ -68,7 +68,7 @@
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;" class="flex items-center gap-2">
         <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" style="display:flex;align-items:center;gap:8px;flex:1;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" onchange="this.form.submit()" <% if (user.role !== 'admin' && user.role !== 'manager') { %>disabled<% } %>>
+          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" data-auto-submit <% if (user.role !== 'admin' && user.role !== 'manager') { %>disabled<% } %>>
             <% CONSTANTS.TASK_STATUSES.forEach(s => { %>
             <option value="<%= s %>" <%= t.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
             <% }) %>
@@ -85,7 +85,7 @@
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= formatDate(t.due_date) %></span><% } %>
         </form>
-        <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete task?')">
+        <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);" aria-label="Delete task <%= t.title %>"><i class="fas fa-times"></i></button>
         </form><% } %>
@@ -119,7 +119,7 @@
             <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
             <div class="text-sm text-muted"><%= m.project_role %></div>
           </div>
-          <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Remove this member from the project?')">
+          <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;" aria-label="Remove <%= m.member_name %>"><i class="fas fa-times"></i></button>
           </form><% } %>

@@ -9,7 +9,7 @@
   <% if (canEditArticle || canDeleteArticle) { %>
   <div class="flex gap-2">
     <% if (canEditArticle) { %><a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
-    <% if (canDeleteArticle) { %><form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" onsubmit="return confirm('Delete this article?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form><% } %>
+    <% if (canDeleteArticle) { %><form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this article?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form><% } %>
   </div>
   <% } %>
 </div>

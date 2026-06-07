@@ -14,7 +14,7 @@
     <% byCategory.forEach(c => { const pct = assetTotal > 0 ? Math.round(c.count/assetTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= c.category %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '$0' %></span></div>
-      <div class="progress-bar"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= c.category %>: <%= c.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>
   <div class="card"><div class="card-header"><h3>By Status</h3></div><div class="card-body">
@@ -22,7 +22,7 @@
     <% byStatus.forEach(s => { const pct = statusTotal > 0 ? Math.round(s.count/statusTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= s.status.replace(/_/g, ' ') %></span><span><%= s.count %> (<%= pct %>%)</span></div>
-      <div class="progress-bar"><div class="progress-fill green" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.status.replace(/_/g, ' ') %>: <%= s.count %> assets"><div class="progress-fill green" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>
   <div class="card"><div class="card-header"><h3>By Condition</h3></div><div class="card-body">
@@ -30,7 +30,7 @@
     <% byCondition.forEach(c => { const pct = condTotal > 0 ? Math.round(c.count/condTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= c.condition_rating %></span><span><%= c.count %> (<%= pct %>%)</span></div>
-      <div class="progress-bar"><div class="progress-fill <%= c.condition_rating === 'new' || c.condition_rating === 'good' ? 'green' : 'orange' %>" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= c.condition_rating %>: <%= c.count %> assets"><div class="progress-fill <%= c.condition_rating === 'new' || c.condition_rating === 'good' ? 'green' : 'orange' %>" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>
   <div class="card"><div class="card-header"><h3>Age Distribution</h3></div><div class="card-body">
@@ -38,7 +38,7 @@
     <% ageDistribution.forEach(a => { const pct = ageTotal > 0 ? Math.round(a.count/ageTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= a.age_group %></span><span><%= a.count %> (<%= pct %>%)</span></div>
-      <div class="progress-bar"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= a.age_group %>: <%= a.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>
 </div>

@@ -3,7 +3,7 @@
 <div class="page-header">
   <div><h2>Ticket Analytics</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Tickets</div></div>
   <form method="GET" action="/reports/tickets" class="flex items-center gap-2">
-    <select name="period" class="form-control" style="width:160px;" onchange="this.form.submit()" aria-label="Report period">
+    <select name="period" class="form-control" style="width:160px;" data-auto-submit aria-label="Report period">
       <option value="7" <%= String(period) === '7' ? 'selected' : '' %>>Last 7 days</option>
       <option value="30" <%= String(period) === '30' ? 'selected' : '' %>>Last 30 days</option>
       <option value="90" <%= String(period) === '90' ? 'selected' : '' %>>Last 90 days</option>
@@ -28,7 +28,7 @@
       <% ticketsByDay.forEach(d => { const pct = maxDay > 0 ? Math.round(d.count / maxDay * 100) : 0; %>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
         <span class="text-sm" style="width:80px;flex-shrink:0;text-align:right;"><%= formatDate(d.date) %></span>
-        <div class="progress-bar" style="flex:1;"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= d.count %> tickets on <%= formatDate(d.date) %>" style="flex:1;"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
         <span class="text-sm text-muted" style="width:24px;"><%= d.count %></span>
       </div><% }) %>
       <% } else { %><p class="text-muted text-sm">No data for this period</p><% } %>
@@ -40,7 +40,7 @@
       <% byCategory.forEach(c => { const pct = ticketTotal > 0 ? Math.round(c.count/ticketTotal*100) : 0; %>
       <div style="margin-bottom:12px;">
         <div class="flex justify-between text-sm mb-1"><span><%= c.category %></span><span><%= c.count %> (<%= pct %>%)</span></div>
-        <div class="progress-bar"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= c.category %>: <%= c.count %> tickets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
       </div><% }) %>
       <% if (!byCategory.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
     </div>
@@ -52,7 +52,7 @@
       <% byPriority.forEach(p => { const pct = priorityTotal > 0 ? Math.round(p.count/priorityTotal*100) : 0; %>
       <div style="margin-bottom:12px;">
         <div class="flex justify-between text-sm mb-1"><span><%= p.priority %></span><span><%= p.count %> (<%= pct %>%)</span></div>
-        <div class="progress-bar"><div class="progress-fill <%= p.priority === 'critical' ? 'red' : p.priority === 'high' ? 'orange' : 'blue' %>" style="width:<%= pct %>%"></div></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.priority %>: <%= p.count %> tickets"><div class="progress-fill <%= p.priority === 'critical' ? 'red' : p.priority === 'high' ? 'orange' : 'blue' %>" style="width:<%= pct %>%"></div></div>
       </div><% }) %>
     </div>
   </div>
@@ -66,7 +66,7 @@
       <tbody><% const maxResolved = Math.max(...topResolvers.map(x => x.resolved || 0), 1); topResolvers.forEach(r => { %><tr>
         <td style="font-weight:600;"><%= r.name %></td>
         <td><%= r.resolved %></td>
-        <td><div class="progress-bar" style="width:150px;display:inline-block;vertical-align:middle;"><div class="progress-fill green" style="width:<%= Math.round(r.resolved/maxResolved*100) %>%"></div></div></td>
+        <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.round(r.resolved/maxResolved*100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= r.resolved %> tickets resolved" style="width:150px;display:inline-block;vertical-align:middle;"><div class="progress-fill green" style="width:<%= Math.round(r.resolved/maxResolved*100) %>%"></div></div></td>
       </tr><% }) %></tbody>
     </table></div>
   </div>
