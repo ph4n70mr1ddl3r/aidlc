@@ -120,43 +120,43 @@ router.get('/new', requireRole('admin', 'manager'), (req, res) => {
 
 // Create staff
 router.post('/', requireRole('admin', 'manager'), async (req, res) => {
-  const username = trim(req.body.username);
-  const { password } = req.body;
-  const email = trim(req.body.email);
-  const first_name = trim(req.body.first_name);
-  const last_name = trim(req.body.last_name);
-  const { role } = req.body;
-  const department = trim(req.body.department);
-  const phone = trim(req.body.phone);
-
-  if (!username || !password || !email || !first_name || !last_name) {
-    req.flash('error', 'All required fields must be filled in');
-    return res.redirect('/staff/new');
-  }
-  // Reject non-string / excessively long passwords early to prevent bcrypt DoS
-  if (typeof password !== 'string' || password.length > 128) {
-    req.flash('error', 'Invalid password');
-    return res.redirect('/staff/new');
-  }
-  if (!isValidUsername(username)) {
-    req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
-    return res.redirect('/staff/new');
-  }
-  if (!isValidEmail(email)) {
-    req.flash('error', 'Please enter a valid email address');
-    return res.redirect('/staff/new');
-  }
-  const pwError = validatePassword(password);
-  if (pwError) {
-    req.flash('error', pwError);
-    return res.redirect('/staff/new');
-  }
-  if (!USER_ROLES.includes(role)) {
-    req.flash('error', 'Invalid role');
-    return res.redirect('/staff/new');
-  }
-
   try {
+    const username = trim(req.body.username);
+    const { password } = req.body;
+    const email = trim(req.body.email);
+    const first_name = trim(req.body.first_name);
+    const last_name = trim(req.body.last_name);
+    const { role } = req.body;
+    const department = trim(req.body.department);
+    const phone = trim(req.body.phone);
+
+    if (!username || !password || !email || !first_name || !last_name) {
+      req.flash('error', 'All required fields must be filled in');
+      return res.redirect('/staff/new');
+    }
+    // Reject non-string / excessively long passwords early to prevent bcrypt DoS
+    if (typeof password !== 'string' || password.length > 128) {
+      req.flash('error', 'Invalid password');
+      return res.redirect('/staff/new');
+    }
+    if (!isValidUsername(username)) {
+      req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
+      return res.redirect('/staff/new');
+    }
+    if (!isValidEmail(email)) {
+      req.flash('error', 'Please enter a valid email address');
+      return res.redirect('/staff/new');
+    }
+    const pwError = validatePassword(password);
+    if (pwError) {
+      req.flash('error', pwError);
+      return res.redirect('/staff/new');
+    }
+    if (!USER_ROLES.includes(role)) {
+      req.flash('error', 'Invalid role');
+      return res.redirect('/staff/new');
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
     const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
 
@@ -329,36 +329,42 @@ const resetLimiter = rateLimit({
 
 // Reset password
 router.put('/:id/reset-password', requireRole('admin'), resetLimiter, async (req, res) => {
-  const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  try {
+    const id = safeId(req.params.id);
+    if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
 
-  // Prevent admin from resetting own password via this route (use profile instead)
-  if (Number(id) === Number(req.session.user.id)) {
-    req.flash('error', 'Use the profile page to change your own password');
-    return res.redirect('/profile');
-  }
+    // Prevent admin from resetting own password via this route (use profile instead)
+    if (Number(id) === Number(req.session.user.id)) {
+      req.flash('error', 'Use the profile page to change your own password');
+      return res.redirect('/profile');
+    }
 
-  const { new_password } = req.body;
-  if (!new_password || typeof new_password !== 'string') {
-    req.flash('error', 'Password is required');
-    return res.redirect(`/staff/${id}`);
-  }
-  if (new_password.length > 128) {
-    req.flash('error', 'Password must be at most 128 characters');
-    return res.redirect(`/staff/${id}`);
-  }
-  const pwErr = validatePassword(new_password);
-  if (pwErr) {
-    req.flash('error', pwErr);
-    return res.redirect(`/staff/${id}`);
-  }
+    const { new_password } = req.body;
+    if (!new_password || typeof new_password !== 'string') {
+      req.flash('error', 'Password is required');
+      return res.redirect(`/staff/${id}`);
+    }
+    if (new_password.length > 128) {
+      req.flash('error', 'Password must be at most 128 characters');
+      return res.redirect(`/staff/${id}`);
+    }
+    const pwErr = validatePassword(new_password);
+    if (pwErr) {
+      req.flash('error', pwErr);
+      return res.redirect(`/staff/${id}`);
+    }
 
-  const hashed = await bcrypt.hash(new_password, 12);
-  _passwordResetStmt.run(hashed, id);
+    const hashed = await bcrypt.hash(new_password, 12);
+    _passwordResetStmt.run(hashed, id);
 
-  req.audit('update', 'user', id, 'Password reset by admin');
-  req.flash('success', 'Password reset successfully');
-  res.redirect(`/staff/${id}`);
+    req.audit('update', 'user', id, 'Password reset by admin');
+    req.flash('success', 'Password reset successfully');
+    res.redirect(`/staff/${id}`);
+  } catch (err) {
+    console.error('Password reset error:', err.message);
+    req.flash('error', 'Error resetting password. Please try again.');
+    return res.redirect(`/staff/${req.params.id}`);
+  }
 });
 
 // Delete staff (soft delete — deactivate)

@@ -28,7 +28,7 @@ function paginationBaseUrl(req) {
  * Whitelisted sort options to prevent SQL injection
  */
 function safeSort(value, allowedMap, defaultKey) {
-  return allowedMap[value] || allowedMap[defaultKey];
+  return Object.prototype.hasOwnProperty.call(allowedMap, value) ? allowedMap[value] : allowedMap[defaultKey];
 }
 
 /**

@@ -349,9 +349,13 @@ router.put('/:projectId/tasks/:taskId', requireRole('admin', 'manager'), (req, r
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
       if (!existing) { req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`); }
+      const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
+      if (safeStatus === existing.status) {
+        req.flash('info', 'Status unchanged');
+        return res.redirect(`/projects/${projectId}`);
+      }
       const updateTask = db.transaction(() => {
-        const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
-        if (status === 'done') {
+        if (safeStatus === 'done') {
           _taskQuickStatusResolveStmt.run(safeStatus, taskId, projectId);
         } else {
           _taskQuickStatusUnresolveStmt.run(safeStatus, taskId, projectId);

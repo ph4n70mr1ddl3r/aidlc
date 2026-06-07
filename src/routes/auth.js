@@ -88,56 +88,62 @@ router.get('/login', (req, res) => {
 
 // Login handler
 router.post('/login', loginRateLimiter, async (req, res) => {
-  const { username, password } = req.body;
+  try {
+    const { username, password } = req.body;
 
-  if (!username || !password) {
-    req.flash('error', 'Please enter username and password');
-    return res.redirect('/login');
-  }
-
-  // Reject excessively long passwords early to prevent wasted bcrypt CPU
-  if (typeof password !== 'string' || password.length > 128) {
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
-  // Check account-level lockout (prevents brute-force across IP rotation)
-  const safeUsername = String(username).substring(0, 50);
-  if (checkAccountLockout(safeUsername)) {
-    // Use the same generic message as normal login failure to prevent
-    // username enumeration (an attacker comparing "locked" vs "invalid"
-    // responses to discover which accounts exist).
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
-  const user = _loginStmt.get(safeUsername);
-
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    recordLoginFailure(safeUsername);
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
-  // Update last login
-  _updateLastLoginStmt.run(user.id);
-
-  // Clear any login failure tracking for this account
-  clearLoginFailure(safeUsername);
-
-  // Store user in session (without password) — regenerate session to prevent fixation
-  const { password: _, ...sessionUser } = user;
-
-  req.session.regenerate((err) => {
-    if (err) {
-      req.flash('error', 'Login failed. Please try again.');
+    if (!username || !password) {
+      req.flash('error', 'Please enter username and password');
       return res.redirect('/login');
     }
-    req.session.user = sessionUser;
-    audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
-    req.flash('success', `Welcome back, ${user.first_name}!`);
-    res.redirect('/dashboard');
-  });
+
+    // Reject excessively long passwords early to prevent wasted bcrypt CPU
+    if (typeof password !== 'string' || password.length > 128) {
+      req.flash('error', 'Invalid username or password');
+      return res.redirect('/login');
+    }
+
+    // Check account-level lockout (prevents brute-force across IP rotation)
+    const safeUsername = String(username).substring(0, 50);
+    if (checkAccountLockout(safeUsername)) {
+      // Use the same generic message as normal login failure to prevent
+      // username enumeration (an attacker comparing "locked" vs "invalid"
+      // responses to discover which accounts exist).
+      req.flash('error', 'Invalid username or password');
+      return res.redirect('/login');
+    }
+
+    const user = _loginStmt.get(safeUsername);
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      recordLoginFailure(safeUsername);
+      req.flash('error', 'Invalid username or password');
+      return res.redirect('/login');
+    }
+
+    // Update last login
+    _updateLastLoginStmt.run(user.id);
+
+    // Clear any login failure tracking for this account
+    clearLoginFailure(safeUsername);
+
+    // Store user in session (without password) — regenerate session to prevent fixation
+    const { password: _, ...sessionUser } = user;
+
+    req.session.regenerate((err) => {
+      if (err) {
+        req.flash('error', 'Login failed. Please try again.');
+        return res.redirect('/login');
+      }
+      req.session.user = sessionUser;
+      audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
+      req.flash('success', `Welcome back, ${user.first_name}!`);
+      res.redirect('/dashboard');
+    });
+  } catch (err) {
+    console.error('Login error:', err.message);
+    req.flash('error', 'Login failed. Please try again.');
+    return res.redirect('/login');
+  }
 });
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
@@ -214,66 +220,72 @@ router.put('/profile', requireAuth, (req, res) => {
 
 // Change password
 router.put('/profile/password', requireAuth, async (req, res) => {
-  const { current_password, new_password, confirm_password } = req.body;
+  try {
+    const { current_password, new_password, confirm_password } = req.body;
 
-  if (!current_password) {
-    req.flash('error', 'Current password is required');
-    return res.redirect('/profile');
-  }
-
-  // Reject excessively long / non-string current password to prevent bcrypt DoS
-  if (typeof current_password !== 'string' || current_password.length > 128) {
-    req.flash('error', 'Invalid current password');
-    return res.redirect('/profile');
-  }
-
-  if (typeof new_password !== 'string') {
-    req.flash('error', 'New password is required');
-    return res.redirect('/profile');
-  }
-  if (new_password.length > 128) {
-    req.flash('error', 'Password must be at most 128 characters');
-    return res.redirect('/profile');
-  }
-
-  const user = _passwordSelectStmt.get(req.session.user.id);
-  if (!user) {
-    req.flash('error', 'User not found');
-    return res.redirect('/login');
-  }
-
-  if (!(await bcrypt.compare(current_password, user.password))) {
-    req.flash('error', 'Current password is incorrect');
-    return res.redirect('/profile');
-  }
-
-  if (new_password !== confirm_password) {
-    req.flash('error', 'New passwords do not match');
-    return res.redirect('/profile');
-  }
-
-  const pwError = validatePassword(new_password);
-  if (pwError) {
-    req.flash('error', pwError);
-    return res.redirect('/profile');
-  }
-
-  const hashed = await bcrypt.hash(new_password, 12);
-  _passwordUpdateStmt.run(hashed, req.session.user.id);
-
-  audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
-
-  // Regenerate session to invalidate old session
-  const sessionUser = req.session.user;
-  req.session.regenerate((err) => {
-    if (err) {
-      req.flash('error', 'Error updating session');
+    if (!current_password) {
+      req.flash('error', 'Current password is required');
       return res.redirect('/profile');
     }
-    req.session.user = sessionUser;
-    req.flash('success', 'Password changed successfully');
-    res.redirect('/profile');
-  });
+
+    // Reject excessively long / non-string current password to prevent bcrypt DoS
+    if (typeof current_password !== 'string' || current_password.length > 128) {
+      req.flash('error', 'Invalid current password');
+      return res.redirect('/profile');
+    }
+
+    if (typeof new_password !== 'string') {
+      req.flash('error', 'New password is required');
+      return res.redirect('/profile');
+    }
+    if (new_password.length > 128) {
+      req.flash('error', 'Password must be at most 128 characters');
+      return res.redirect('/profile');
+    }
+
+    const user = _passwordSelectStmt.get(req.session.user.id);
+    if (!user) {
+      req.flash('error', 'User not found');
+      return res.redirect('/login');
+    }
+
+    if (!(await bcrypt.compare(current_password, user.password))) {
+      req.flash('error', 'Current password is incorrect');
+      return res.redirect('/profile');
+    }
+
+    if (new_password !== confirm_password) {
+      req.flash('error', 'New passwords do not match');
+      return res.redirect('/profile');
+    }
+
+    const pwError = validatePassword(new_password);
+    if (pwError) {
+      req.flash('error', pwError);
+      return res.redirect('/profile');
+    }
+
+    const hashed = await bcrypt.hash(new_password, 12);
+    _passwordUpdateStmt.run(hashed, req.session.user.id);
+
+    audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
+
+    // Regenerate session to invalidate old session
+    const sessionUser = req.session.user;
+    req.session.regenerate((err) => {
+      if (err) {
+        req.flash('error', 'Error updating session');
+        return res.redirect('/profile');
+      }
+      req.session.user = sessionUser;
+      req.flash('success', 'Password changed successfully');
+      res.redirect('/profile');
+    });
+  } catch (err) {
+    console.error('Password change error:', err.message);
+    req.flash('error', 'Error changing password. Please try again.');
+    return res.redirect('/profile');
+  }
 });
 
 module.exports = router;

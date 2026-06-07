@@ -148,9 +148,11 @@ router.post('/', (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const safeStatus = VALID_STATUSES.includes(status) ? status : 'draft';
+  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  const safeStatus = isPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
+  // Non-privileged users can only create drafts — publishing requires admin/manager
 
-  const safeFeatured = (req.session.user.role === 'admin' || req.session.user.role === 'manager') ? (is_featured ? 1 : 0) : 0;
+  const safeFeatured = isPrivileged ? (is_featured ? 1 : 0) : 0;
 
   try {
     const result = _articleInsertStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
@@ -271,10 +273,9 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  if (!VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
-    return res.redirect(`/knowledge/${id}/edit`);
-  }
+  // Non-privileged users cannot publish — force to draft
+  const updateIsPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  const safeUpdateStatus = updateIsPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/knowledge/${id}/edit`);
@@ -283,7 +284,7 @@ router.put('/:id', (req, res) => {
   const safeFeatured = (req.session.user.role === 'admin' || req.session.user.role === 'manager') ? (is_featured ? 1 : 0) : 0;
 
   try {
-    _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, status, safeFeatured, id);
+    _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, safeUpdateStatus, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');
