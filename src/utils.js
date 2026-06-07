@@ -195,11 +195,55 @@ function trim(value) {
 }
 
 /**
+ * Format a date-only string ("YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS") for display.
+ * For date-only strings, uses the localDate() helper to avoid the UTC timezone
+ * offset bug where `new Date("2024-01-15")` shows Jan 14 in negative-UTC-offset
+ * timezones. For datetime strings (containing 'T'), delegates to `new Date()`
+ * which handles them correctly.
+ * Returns '-' for null/undefined input.
+ */
+function formatDate(value) {
+  if (!value) return '-';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10)) && value.length <= 10) {
+    const d = localDate(value);
+    return d ? d.toLocaleDateString() : '-';
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
+}
+
+/**
+ * Format a datetime string for display.
+ * Returns '-' for null/undefined input.
+ */
+function formatDateTime(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+}
+
+/**
  * Safely encode a value for embedding in a <script> tag as JSON.
  * JSON.stringify handles quotes/escapes but does NOT escape </script>.
  */
 function jsonScriptSafe(value) {
   return JSON.stringify(value).replace(/<\/script/gi, '<\\/script');
+}
+
+/**
+ * Parse a date-only string ("YYYY-MM-DD") as a local-date midnight Date.
+ * Using `new Date("YYYY-MM-DD")` treats it as UTC midnight, which causes
+ * toLocaleDateString() to display the previous calendar day in negative-UTC
+ * timezones (e.g. US/Eastern shows Jan 14 for "2024-01-15").
+ * Splitting and using the Date(year, month, day) constructor avoids this.
+ * Returns null for invalid/non-string input.
+ */
+function localDate(value) {
+  if (!value || typeof value !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) return null;
+  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  return isNaN(d.getTime()) ? null : d;
 }
 
 // Cached prepared statement for isActiveUser — called on almost every write route.
@@ -297,4 +341,4 @@ function pruneAuditLog(db, retentionDays) {
   return result.changes;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };

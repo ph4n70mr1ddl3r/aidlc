@@ -265,17 +265,20 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
   if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
 
   try {
-    // Check for dependent licenses before deleting
-    const dependentLicenses = _deleteDependentLicensesStmt.all(id);
+    // Check for dependent licenses and delete everything in a single transaction
+    // to avoid race conditions between the SELECT and DELETE.
+    let licenseCount = 0;
     const deleteVendor = db.transaction(() => {
       // Nullify vendor references on licenses to avoid orphaned references
-      if (dependentLicenses.length > 0) {
+      const dependentLicenses = _deleteDependentLicensesStmt.all(id);
+      licenseCount = dependentLicenses.length;
+      if (licenseCount > 0) {
         _deleteDetachLicensesStmt.run(id);
       }
       const result = _deleteStmt.run(id);
-      return { changes: result.changes, licenseCount: dependentLicenses.length };
+      return result.changes;
     });
-    const { changes, licenseCount } = deleteVendor();
+    const changes = deleteVendor();
     if (changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {

@@ -143,11 +143,6 @@ function getDashboardData(user) {
     }
   }
 
-  // Defensive defaults — if the shared cache is empty (e.g. first-request DB
-  // failure), fill in stub objects so the template doesn't crash on property
-  // access like ticketStats.open.
-  const defaults = EMPTY_DEFAULTS;
-
   // Per-user tickets — always queried fresh (single indexed query)
   let myTickets = [];
   try {
@@ -156,7 +151,10 @@ function getDashboardData(user) {
     console.error('Dashboard myTickets query error:', err.message);
   }
 
-  return { ...defaults, ...shared, myTickets };
+  // Merge defaults only once (Object.assign mutates and returns the target)
+  const result = Object.assign({}, EMPTY_DEFAULTS, shared);
+  result.myTickets = myTickets;
+  return result;
 }
 
 router.get('/', (req, res) => {

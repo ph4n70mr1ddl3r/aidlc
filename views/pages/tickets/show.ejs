@@ -103,7 +103,7 @@
               <span class="text-sm text-muted">(<%= c.author_role %>)</span>
               <% if (c.is_internal) { %><span class="badge badge-warning" style="margin-left:8px;">Internal</span><% } %>
             </div>
-            <span class="comment-time"><%= new Date(c.created_at).toLocaleString() %></span>
+            <span class="comment-time"><%= formatDateTime(c.created_at) %></span>
           </div>
           <div class="comment-body"><%= c.comment %></div>
         </div>
@@ -140,12 +140,12 @@
         <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= ticket.category %></div></div>
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= ticket.status %>"><%= ticket.status.replace(/_/g, ' ') %></span></div></div>
         <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><% if (ticket.assigned_name) { %><%= ticket.assigned_name %><% } else { %><span class="text-muted">Unassigned</span><% } %></div></div>
-        <div class="detail-row"><div class="detail-label">Due Date</div><div class="detail-value"><% if (ticket.due_date) { %><%= new Date(ticket.due_date).toLocaleDateString() %><% } else { %><span class="text-muted">Not set</span><% } %></div></div>
+        <div class="detail-row"><div class="detail-label">Due Date</div><div class="detail-value"><% if (ticket.due_date) { %><%= formatDate(ticket.due_date) %><% } else { %><span class="text-muted">Not set</span><% } %></div></div>
         <div class="detail-row"><div class="detail-label">Asset</div><div class="detail-value"><% if (ticket.asset_name && ticket.asset_tag) { %><a href="/assets?search=<%= encodeURIComponent(ticket.asset_tag) %>" style="color:var(--primary);text-decoration:none;"><%= ticket.asset_tag %> - <%= ticket.asset_name %></a><% } else { %><span class="text-muted">None</span><% } %></div></div>
-        <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value"><%= new Date(ticket.created_at).toLocaleString() %></div></div>
-        <div class="detail-row"><div class="detail-label">Updated</div><div class="detail-value"><%= new Date(ticket.updated_at).toLocaleString() %></div></div>
+        <div class="detail-row"><div class="detail-label">Created</div><div class="detail-value"><%= formatDateTime(ticket.created_at) %></div></div>
+        <div class="detail-row"><div class="detail-label">Updated</div><div class="detail-value"><%= formatDateTime(ticket.updated_at) %></div></div>
         <% if (ticket.resolved_at) { %>
-        <div class="detail-row"><div class="detail-label">Resolved</div><div class="detail-value"><%= new Date(ticket.resolved_at).toLocaleString() %></div></div>
+        <div class="detail-row"><div class="detail-label">Resolved</div><div class="detail-value"><%= formatDateTime(ticket.resolved_at) %></div></div>
         <% } %>
         <% if (ticket.satisfaction_rating) { %>
         <div class="detail-row"><div class="detail-label">Satisfaction</div><div class="detail-value"><% for (let i = 0; i < ticket.satisfaction_rating; i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } %><% for (let i = ticket.satisfaction_rating; i < 5; i++) { %><i class="far fa-star" style="color:var(--text-light);"></i><% } %> <span class="text-sm text-muted"><%= ticket.satisfaction_rating %>/5</span></div></div>

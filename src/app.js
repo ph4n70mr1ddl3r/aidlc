@@ -220,6 +220,9 @@ app.use((req, res, next) => {
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
   res.locals.jsonScriptSafe = utilsModule.jsonScriptSafe;
+  res.locals.localDate = utilsModule.localDate;
+  res.locals.formatDate = utilsModule.formatDate;
+  res.locals.formatDateTime = utilsModule.formatDateTime;
   // Expose validation constants to all templates so EJS forms stay in sync
   // with the single source of truth in constants.js.
   res.locals.CONSTANTS = constantsModule;
@@ -267,6 +270,7 @@ const healthDb = require('./models/database');
 const _healthCheckStmt = healthDb.prepare('SELECT 1 AS ok');
 app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
+  res.type('application/json');
   try {
     const row = _healthCheckStmt.get();
     if (!row || row.ok !== 1) throw new Error('DB sanity check failed');

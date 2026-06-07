@@ -3,13 +3,13 @@
 <div class="page-header"><div><h2>Knowledge Base <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Knowledge Base</div></div><a href="/knowledge/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Article</a></div>
 <form method="GET" action="/knowledge" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search articles..." aria-label="Search articles" value="<%= filters.search || '' %>">
-  <select name="category">
+  <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.KB_CATEGORIES.forEach(c => { %>
       <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>
-  <select name="status">
+  <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <option value="published" <%= filters.status === 'published' ? 'selected' : '' %>>Published</option>
     <% if (typeof user !== 'undefined' && (user.role === 'admin' || user.role === 'manager')) { %>
@@ -34,7 +34,7 @@
       <td><span class="badge badge-<%= a.status %>"><%= a.status %></span></td>
       <td class="text-sm"><%= a.views %></td>
       <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)"></i><% } else { %>-<% } %></td>
-      <td class="text-sm"><%= new Date(a.updated_at).toLocaleDateString() %></td>
+      <td class="text-sm"><%= formatDateTime(a.updated_at) %></td>
       <td class="actions-cell"><a href="/knowledge/<%= a.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>
     </tr><% }) %></tbody>
   </table></div><% } %>

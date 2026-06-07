@@ -3,13 +3,13 @@
 <div class="page-header"><div><h2>Vendors <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Vendors</div></div><% if (user.role === 'admin' || user.role === 'manager') { %><a href="/vendors/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Vendor</a><% } %></div>
 <form method="GET" action="/vendors" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search vendors..." aria-label="Search vendors" value="<%= filters.search || '' %>">
-  <select name="category">
+  <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.VENDOR_CATEGORIES.forEach(c => { %>
       <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
     <% }) %>
   </select>
-  <select name="is_active">
+  <select name="is_active" aria-label="Filter by status">
     <option value="">All Status</option>
     <option value="1" <%= filters.is_active === '1' ? 'selected' : '' %>>Active</option>
     <option value="0" <%= filters.is_active === '0' ? 'selected' : '' %>>Inactive</option>
@@ -26,7 +26,7 @@
       <td class="text-sm"><%= v.contact_person || '-' %></td>
       <td class="text-sm"><%= v.email || '-' %></td>
       <td class="text-sm"><%= v.category ? v.category.charAt(0).toUpperCase() + v.category.slice(1) : '-' %></td>
-      <td class="text-sm"><%= v.contract_end ? new Date(v.contract_end).toLocaleDateString() : '-' %></td>
+      <td class="text-sm"><%= v.contract_end ? formatDate(v.contract_end) : '-' %></td>
       <td><% if (v.rating) { for (let i=0;i<v.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);font-size:12px;"></i><% } for (let i=v.rating;i<5;i++) { %><i class="far fa-star" style="color:var(--border);font-size:12px;"></i><% } } else { %>-<% } %></td>
       <td><span class="badge badge-<%= v.is_active ? 'low' : 'critical' %>"><%= v.is_active ? 'Active' : 'Inactive' %></span></td>
       <td class="actions-cell"><a href="/vendors/<%= v.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>

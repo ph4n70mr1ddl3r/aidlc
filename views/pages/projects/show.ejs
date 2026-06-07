@@ -24,7 +24,7 @@
       </div>
       <div class="text-sm text-muted">
         Owner: <strong><%= project.owner_name || 'Unassigned' %></strong> | 
-        <%= project.start_date ? new Date(project.start_date).toLocaleDateString() : 'TBD' %> — <%= project.end_date ? new Date(project.end_date).toLocaleDateString() : 'TBD' %>
+        <%= project.start_date ? formatDate(project.start_date) : 'TBD' %> — <%= project.end_date ? formatDate(project.end_date) : 'TBD' %>
       </div>
     </div>
     <% if (project.description) { %><p class="text-sm" style="margin-bottom:16px;"><%= project.description %></p><% } %>
@@ -77,13 +77,13 @@
             <strong><%= t.title %></strong>
             <span class="text-sm text-muted"> — <%= t.assigned_name || 'Unassigned' %></span>
             <% if (t.due_date && t.status !== 'done') { %>
-              <% const _tDays = Math.round((new Date(t.due_date) - new Date()) / (1000*60*60*24)); %>
+              <% const _tDays = Math.round((localDate(t.due_date) - new Date()) / (1000*60*60*24)); %>
               <% if (_tDays < 0) { %><span class="badge badge-critical" style="margin-left:4px;">Overdue</span>
               <% } else if (_tDays <= 3) { %><span class="badge badge-high" style="margin-left:4px;">Due soon</span><% } %>
             <% } %>
           </span>
           <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
-          <% if (t.due_date) { %><span class="text-sm text-muted"><%= new Date(t.due_date).toLocaleDateString() %></span><% } %>
+          <% if (t.due_date) { %><span class="text-sm text-muted"><%= formatDate(t.due_date) %></span><% } %>
         </form>
         <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete task?')">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

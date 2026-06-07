@@ -10,13 +10,13 @@
 
 <form method="GET" action="/projects" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search projects..." aria-label="Search projects" value="<%= filters.search || '' %>">
-  <select name="status">
+  <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.PROJECT_STATUSES.forEach(s => { %>
       <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
     <% }) %>
   </select>
-  <select name="priority">
+  <select name="priority" aria-label="Filter by priority">
     <option value="">All Priority</option>
     <% CONSTANTS.PROJECT_PRIORITIES.forEach(p => { %>
       <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option>
@@ -48,7 +48,7 @@
       </div>
       <% if (p.start_date || p.end_date) { %>
       <div class="text-sm text-muted mt-1">
-        <i class="fas fa-calendar"></i> <%= p.start_date ? new Date(p.start_date).toLocaleDateString() : '?' %> — <%= p.end_date ? new Date(p.end_date).toLocaleDateString() : '?' %>
+        <i class="fas fa-calendar"></i> <%= p.start_date ? formatDate(p.start_date) : '?' %> — <%= p.end_date ? formatDate(p.end_date) : '?' %>
       </div>
       <% } %>
       <% if (p.budget != null && p.budget > 0) { %>

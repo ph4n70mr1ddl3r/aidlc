@@ -36,7 +36,7 @@
         <% assignedTasks.forEach(t => { %>
         <div style="padding:8px 0;border-bottom:1px solid var(--border);">
           <div class="text-sm" style="font-weight:600;"><%= t.title %></div>
-          <div class="text-sm text-muted"><a href="/projects/<%= t.project_id %>" style="color:var(--primary);text-decoration:none;"><%= t.project_name %></a> · Due: <%= t.due_date ? new Date(t.due_date).toLocaleDateString() : 'Not set' %></div>
+          <div class="text-sm text-muted"><a href="/projects/<%= t.project_id %>" style="color:var(--primary);text-decoration:none;"><%= t.project_name %></a> · Due: <%= t.due_date ? formatDate(t.due_date) : 'Not set' %></div>
         </div>
         <% }) %>
         <% if (!assignedTasks.length) { %><p class="text-muted text-sm">No active tasks</p><% } %>
@@ -59,7 +59,7 @@
         <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><a href="mailto:<%= encodeURIComponent(staffUser.email) %>"><%= staffUser.email %></a></div></div>
         <div class="detail-row"><div class="detail-label">Phone</div><div class="detail-value"><%= staffUser.phone || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= staffUser.is_active ? 'low' : 'critical' %>"><%= staffUser.is_active ? 'Active' : 'Inactive' %></span></div></div>
-        <div class="detail-row"><div class="detail-label">Last Login</div><div class="detail-value"><%= staffUser.last_login ? new Date(staffUser.last_login).toLocaleString() : 'Never' %></div></div>
+        <div class="detail-row"><div class="detail-label">Last Login</div><div class="detail-value"><%= staffUser.last_login ? formatDateTime(staffUser.last_login) : 'Never' %></div></div>
       </div>
     </div>
 

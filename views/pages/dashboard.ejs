@@ -94,7 +94,7 @@
                 <td><%= t.title %></td>
                 <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
                 <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
-                <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
+                <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
               </tr>
               <% }) %>
             </tbody>
@@ -133,7 +133,7 @@
         <% upcomingChanges.forEach(c => { %>
           <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
             <div class="text-sm" style="font-weight:600;"><%= c.title %></div>
-            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= new Date(c.scheduled_start).toLocaleDateString() %></div>
+            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= formatDate(c.scheduled_start) %></div>
           </div>
         <% }) %>
       </div>
@@ -161,7 +161,7 @@
             <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
             <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
             <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
-            <td class="text-sm"><%= new Date(t.created_at).toLocaleDateString() %></td>
+            <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
           </tr>
           <% }) %>
         </tbody>
