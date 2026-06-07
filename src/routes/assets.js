@@ -141,7 +141,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', `Asset ${asset_tag} created successfully`);
     res.redirect('/assets');
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {
       console.error('Asset create error:', err.message);
@@ -242,7 +242,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('success', 'Asset updated successfully');
     res.redirect(`/assets/${id}`);
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {
       console.error('Asset update error:', err.message);
