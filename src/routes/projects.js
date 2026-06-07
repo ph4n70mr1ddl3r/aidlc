@@ -202,6 +202,16 @@ router.get('/:id', (req, res) => {
   res.render('pages/projects/show', { title: project.name, project, tasks, members, staff });
 });
 
+// Edit project form
+router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) { req.flash('error', 'Invalid project ID'); return res.redirect('/projects'); }
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  if (!project) { req.flash('error', 'Project not found'); return res.redirect('/projects'); }
+  const staff = getActiveStaff(db);
+  res.render('pages/projects/form', { title: 'Edit Project', project, staff, isEdit: true });
+});
+
 // Update project
 router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
@@ -216,7 +226,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   if (!name || !safeStatus || !safePriority) {
     req.flash('error', 'Valid name, status, and priority are required');
-    return res.redirect(`/projects/${id}`);
+    return res.redirect(`/projects/${id}/edit`);
   }
 
   try {
@@ -230,14 +240,14 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     const sEnd = safeDate(end_date);
     if (sStart && sEnd && sEnd < sStart) {
       req.flash('error', 'End date must be on or after start date');
-      return res.redirect(`/projects/${id}`);
+      return res.redirect(`/projects/${id}/edit`);
     }
 
     // Validate owner is an active user
     const safeOwnerId = owner_id ? safeId(owner_id) : null;
     if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
       req.flash('error', 'Selected owner is not available');
-      return res.redirect(`/projects/${id}`);
+      return res.redirect(`/projects/${id}/edit`);
     }
 
     _projectUpdateStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,

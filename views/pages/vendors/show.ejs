@@ -19,7 +19,7 @@
   <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= vendor.category ? vendor.category.charAt(0).toUpperCase() + vendor.category.slice(1) : '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Contract</div><div class="detail-value"><%= vendor.contract_start ? formatDate(vendor.contract_start) : '?' %> — <%= vendor.contract_end ? formatDate(vendor.contract_end) : '?' %></div></div>
   <div class="detail-row"><div class="detail-label">Rating</div><div class="detail-value"><% if (vendor.rating) { for (let i=0;i<vendor.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } } else { %>-<% } %></div></div>
-  <div class="detail-row"><div class="detail-label">Active</div><div class="detail-value"><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Yes' : 'No' %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Active</div><div class="detail-value"><span class="badge badge-<%= vendor.is_active ? 'low' : 'critical' %>"><%= vendor.is_active ? 'Active' : 'Inactive' %></span></div></div>
   <% if (vendor.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= vendor.notes %></div></div><% } %>
 </div></div>
 
@@ -33,7 +33,7 @@
       <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);"><i class="fas fa-ban"></i> Deactivate Vendor</button>
     </form>
     <% } else { %>
-    <form action="/vendors/<%= vendor.id %>/reactivate?_method=PUT" method="POST">
+    <form action="/vendors/<%= vendor.id %>/reactivate?_method=PUT" method="POST" onsubmit="return confirm('Reactivate this vendor?')">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check-circle"></i> Reactivate Vendor</button>
     </form>

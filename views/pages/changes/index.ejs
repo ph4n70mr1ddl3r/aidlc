@@ -5,7 +5,7 @@
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>">
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
-    <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option><% }) %></select>
+    <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option><% }) %></select>
   <select name="change_type" aria-label="Filter by type"><option value="">All Types</option><% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %></select>
   <select name="priority" aria-label="Filter by priority"><option value="">All Priority</option><% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option><% }) %></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
@@ -19,7 +19,7 @@
       <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
       <td><span class="badge badge-<%= c.change_type === 'security' ? 'critical' : c.change_type === 'incident' ? 'high' : c.change_type === 'maintenance' ? 'medium' : 'low' %>"><%= c.change_type.charAt(0).toUpperCase() + c.change_type.slice(1) %></span></td>
       <td><span class="badge badge-<%= c.priority %>"><%= c.priority %></span></td>
-      <td><span class="badge badge-<%= c.status %>"><%= c.status %></span></td>
+      <td><span class="badge badge-<%= c.status %>"><%= c.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? formatDateTime(c.scheduled_start) : '-' %></td>
       <td class="text-sm"><%= c.assigned_name || '-' %></td>
       <td class="actions-cell"><a href="/changes/<%= c.id %>" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i></a></td>

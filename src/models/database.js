@@ -330,6 +330,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
+    CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
   `);
 }
 

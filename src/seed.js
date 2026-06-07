@@ -21,7 +21,7 @@ const seed = db.transaction(() => {
     DELETE FROM audit_log;
     DELETE FROM users;
     DELETE FROM ticket_counter;
-    DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log','audit_log','ticket_counter');
+    DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log','audit_log');
   `);
 
   // ========================
@@ -124,6 +124,7 @@ const seed = db.transaction(() => {
   `);
 
   const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?)');
   tickets.forEach((t, i) => {
     const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
     const resolvedAt = t.status === 'resolved' || t.status === 'closed'
@@ -133,6 +134,7 @@ const seed = db.transaction(() => {
       t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
       t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);
   });
+  insertCounter.run(today, tickets.length + 1);
   console.log(`✅ Created ${tickets.length} tickets`);
 
   // ========================

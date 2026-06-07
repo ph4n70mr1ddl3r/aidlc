@@ -81,7 +81,7 @@
           <strong>Satisfaction Rating:</strong>
           <span style="display:inline-flex;gap:4px;margin-left:8px;">
             <% [1,2,3,4,5].forEach(r => { %>
-              <button type="submit" name="satisfaction_rating" value="<%= r %>" class="btn btn-sm <%= ticket.satisfaction_rating >= r ? 'btn-warning' : 'btn-outline' %>" title="<%= r %> star<%= r > 1 ? 's' : '' %>" style="padding:4px 8px;"><i class="fas fa-star"></i></button>
+              <button type="submit" name="satisfaction_rating" value="<%= r %>" class="btn btn-sm <%= ticket.satisfaction_rating >= r ? 'btn-warning' : 'btn-outline' %>" title="<%= r %> star<%= r > 1 ? 's' : '' %>" aria-label="<%= r %> star<%= r > 1 ? 's' : '' %>" style="padding:4px 8px;"><i class="fas fa-star"></i></button>
             <% }) %>
           </span>
           <% if (ticket.satisfaction_rating) { %><span class="text-sm text-muted" style="margin-left:8px;"><%= ticket.satisfaction_rating %>/5</span><% } %>
@@ -114,8 +114,8 @@
         <form action="/tickets/<%= ticket.id %>/comments" method="POST" style="margin-top:20px;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div class="form-group">
-            <label>Add Comment</label>
-            <textarea name="comment" class="form-control" rows="3" placeholder="Type your comment..." maxlength="5000" required></textarea>
+            <label for="comment">Add Comment</label>
+            <textarea id="comment" name="comment" class="form-control" rows="3" placeholder="Type your comment..." maxlength="5000" required></textarea>
           </div>
           <div class="flex items-center gap-2">
             <% if (user.role === 'admin' || user.role === 'manager') { %>

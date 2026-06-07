@@ -165,8 +165,11 @@ const _passwordUpdateStmt = db.prepare(`UPDATE users SET password = ?, updated_a
 
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
-  const row = _profileSelectStmt.get(req.session.user.id);
-  const profileUser = row;
+  const profileUser = _profileSelectStmt.get(req.session.user.id);
+  if (!profileUser) {
+    req.flash('error', 'Profile not found');
+    return res.redirect('/login');
+  }
   res.render('pages/auth/profile', { title: 'My Profile', profileUser });
 });
 
@@ -194,7 +197,7 @@ router.put('/profile', requireAuth, (req, res) => {
     req.session.user.first_name = first_name;
     req.session.user.last_name = last_name;
     req.session.user.email = email;
-    req.session.user.phone = phone;
+    req.session.user.phone = (phone || '').substring(0, 50);
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');
