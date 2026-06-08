@@ -37,11 +37,11 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'v.category': { value: VALID_CATEGORIES_VENDOR.includes(req.query.category) ? req.query.category : '' },
     'v.is_active': { value: req.query.is_active === '1' ? 1 : req.query.is_active === '0' ? 0 : '' }
-  });
+  }, ['v.category', 'v.is_active']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['v.name', 'v.contact_person', 'v.email']);
+  addSearch(where, params, req.query.search, ['v.name', 'v.contact_person', 'v.email'], ['v.name', 'v.contact_person', 'v.email']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 

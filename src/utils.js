@@ -33,19 +33,26 @@ function safeSort(value, allowedMap, defaultKey) {
 
 /**
  * Build WHERE clause safely from whitelisted filters.
- * WARNING: Column names are interpolated into SQL — callers MUST pass hardcoded
- * column strings (e.g. 'a.category'), never user-controlled values.
+ * Column names and operators are validated against allowlists to prevent SQL injection.
  * @param {Object} filters - { column: { value, operator? } }
+ * @param {string[]} allowedColumns - List of allowed column names (e.g. ['a.category', 't.status'])
+ * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=', 'LIKE']] - Allowed SQL operators
  * @returns {{ where: string[], params: any[] }}
  */
-function buildFilters(filters) {
+function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=', 'LIKE']) {
   const where = [];
   const params = [];
   for (const [column, config] of Object.entries(filters)) {
     if (config.value === undefined || config.value === null || config.value === '') {
 continue;
 }
+    if (!allowedColumns.includes(column)) {
+      throw new Error(`Invalid filter column: ${column}`);
+    }
     const op = config.operator || '=';
+    if (!allowedOperators.includes(op)) {
+      throw new Error(`Invalid filter operator: ${op}`);
+    }
     where.push(`${column} ${op} ?`);
     params.push(config.value);
   }
@@ -86,13 +93,21 @@ function isValidEmail(email) {
 
 /**
  * Add LIKE search conditions safely.
- * WARNING: Column names are interpolated into SQL — callers MUST pass hardcoded
- * column arrays (e.g. ['u.first_name', 'u.last_name']), never user-controlled values.
+ * Column names are validated against an allowlist to prevent SQL injection.
+ * @param {string[]} allowedColumns - List of allowed column names for search
  */
-function addSearch(where, params, search, columns) {
+function addSearch(where, params, search, columns, allowedColumns) {
   if (!search) {
 return;
 }
+  if (!allowedColumns || !Array.isArray(allowedColumns) || allowedColumns.length === 0) {
+    throw new Error('allowedColumns is required for addSearch');
+  }
+  for (const col of columns) {
+    if (!allowedColumns.includes(col)) {
+      throw new Error(`Invalid search column: ${col}`);
+    }
+  }
   const raw = String(search);
   // Escape SQL LIKE wildcards
   const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');

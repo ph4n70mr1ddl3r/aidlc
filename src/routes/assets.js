@@ -1,7 +1,7 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 
 const router = require('express').Router();
@@ -20,7 +20,6 @@ const _relatedTicketsStmt = db.prepare(`
     FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
   `);
 const _editStmt = db.prepare('SELECT * FROM assets WHERE id = ?');
-const _lastTagStmt = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?');
 const _deleteStmt = db.prepare('DELETE FROM assets WHERE id = ?');
 const _insertStmt = db.prepare(`
@@ -38,6 +37,21 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 
+// Asset counter table for atomic tag generation (prevents race conditions)
+const _assetCounterStmt = db.prepare(`
+    CREATE TABLE IF NOT EXISTS asset_counter (
+      counter_key TEXT PRIMARY KEY,
+      next_seq INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+_assetCounterStmt.run();
+const _assetCounterGetStmt = db.prepare(`
+    INSERT INTO asset_counter (counter_key, next_seq)
+    VALUES ('asset_tag', 1)
+    ON CONFLICT(counter_key) DO UPDATE SET next_seq = next_seq + 1
+    RETURNING next_seq
+  `);
+
 // List assets (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -45,12 +59,12 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'a.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
     'a.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-    'a.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' },
-  });
+    'a.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' }
+  }, ['a.category', 'a.status', 'a.assigned_to']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer'], ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -71,25 +85,21 @@ router.get('/', (req, res) => {
   res.render('pages/assets/index', {
     title: 'Assets', assets, staff, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
 // New asset form
-router.get('/new', requireRole('admin', 'manager'), (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   const staff = getActiveStaff(db);
   // Preview tag only — server generates the actual tag atomically on POST
-  const last = _lastTagStmt.get();
-  let previewTag = 'AST-001';
-  if (last && last.asset_tag) {
-    const num = parseInt(last.asset_tag.replace(/\D/g, ''), 10);
-    if (num) previewTag = 'AST-' + String(num + 1).padStart(3, '0');
-  }
+  const counterRow = _assetCounterGetStmt.get();
+  const previewTag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
   res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: previewTag }, staff, isEdit: false });
 });
 
 // Create asset
-router.post('/', requireRole('admin', 'manager'), (req, res) => {
+router.post('/', requireAdminOrManager, (req, res) => {
   const name = trim(req.body.name);
   const category = req.body.category;
   const manufacturer = trim(req.body.manufacturer);
@@ -128,16 +138,10 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    // Generate asset tag server-side inside a transaction to prevent race conditions.
-    // The tag from the form is ignored — the server always generates the next sequential tag.
+    // Generate asset tag atomically using dedicated counter table
     const createAsset = db.transaction(() => {
-      let lastTag = _lastTagStmt.get();
-      let nextNum = 1;
-      if (lastTag && lastTag.asset_tag) {
-        const num = parseInt(lastTag.asset_tag.replace(/\D/g, ''), 10);
-        if (num) nextNum = num + 1;
-      }
-      const asset_tag = 'AST-' + String(nextNum).padStart(3, '0');
+      const counterRow = _assetCounterGetStmt.get();
+      const asset_tag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
 
       const result = _insertStmt.run(
         asset_tag, name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
@@ -167,7 +171,9 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 // Show asset
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+  if (!id) {
+ req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
+}
 
   const asset = _showStmt.get(id);
 
@@ -182,9 +188,11 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit asset form
-router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+  if (!id) {
+ req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
+}
 
   const asset = _editStmt.get(id);
   if (!asset) {
@@ -196,9 +204,11 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Update asset
-router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+  if (!id) {
+ req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
+}
 
   const asset_tag = trim(req.body.asset_tag);
   const name = trim(req.body.name);
@@ -240,7 +250,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     // Verify asset exists before updating
     const existing = _updateExistCheckStmt.get(id);
-    if (!existing) { req.flash('error', 'Asset not found'); return res.redirect('/assets'); }
+    if (!existing) {
+ req.flash('error', 'Asset not found'); return res.redirect('/assets');
+}
 
     _updateStmt.run(
       asset_tag.substring(0, 50), name.substring(0, 200), category,
@@ -266,9 +278,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Delete asset
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid asset ID'); return res.redirect('/assets'); }
+  if (!id) {
+ req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
+}
 
   try {
     const deleteStmt = db.transaction(() => {

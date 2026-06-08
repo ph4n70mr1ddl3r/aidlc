@@ -103,11 +103,11 @@ router.get('/', (req, res) => {
     't.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
     't.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
     't.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' }
-  });
+  }, ['t.status', 't.priority', 't.category', 't.assigned_to']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
+  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number'], ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');

@@ -1,7 +1,7 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDate, safeDateTimeLocal, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 
 const router = require('express').Router();
@@ -37,12 +37,12 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'c.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
     'c.change_type': { value: VALID_CHANGE_TYPES.includes(req.query.change_type) ? req.query.change_type : '' },
-    'c.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
-  });
+    'c.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' }
+  }, ['c.status', 'c.change_type', 'c.priority']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['c.title', 'c.description']);
+  addSearch(where, params, req.query.search, ['c.title', 'c.description'], ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -61,18 +61,18 @@ router.get('/', (req, res) => {
   res.render('pages/changes/index', {
     title: 'Change Log', changes, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
 // New change
-router.get('/new', requireRole('admin', 'manager'), (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   const staff = getActiveStaff(db);
   res.render('pages/changes/form', { title: 'New Change', change: {}, staff, isEdit: false });
 });
 
 // Create change
-router.post('/', requireRole('admin', 'manager'), (req, res) => {
+router.post('/', requireAdminOrManager, (req, res) => {
   const title = trim(req.body.title);
   const description = trim(req.body.description);
   const { change_type, status, priority, scheduled_start, scheduled_end } = req.body;
@@ -126,7 +126,9 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 // Show change
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+  if (!id) {
+ req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+}
 
   const change = _showChangeStmt.get(id);
 
@@ -138,9 +140,11 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit change
-router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+  if (!id) {
+ req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+}
 
   const change = _editChangeStmt.get(id);
   if (!change) {
@@ -152,9 +156,11 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Update change
-router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+  if (!id) {
+ req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+}
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
@@ -198,7 +204,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     // Verify change exists before updating
     const existing = _existsChangeStmt.get(id);
-    if (!existing) { req.flash('error', 'Change not found'); return res.redirect('/changes'); }
+    if (!existing) {
+ req.flash('error', 'Change not found'); return res.redirect('/changes');
+}
 
     _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
@@ -215,9 +223,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Delete change
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid change ID'); return res.redirect('/changes'); }
+  if (!id) {
+ req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+}
 
   try {
     const result = _deleteChangeStmt.run(id);

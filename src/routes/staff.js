@@ -73,11 +73,11 @@ router.get('/', (req, res) => {
     'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
     'u.department': { value: validDepartments.includes(req.query.department) ? req.query.department : '' },
     'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' }
-  });
+  }, ['u.role', 'u.department', 'u.is_active']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username'], ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 

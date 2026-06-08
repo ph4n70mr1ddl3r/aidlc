@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
@@ -34,7 +34,7 @@ const _articleUpdateStmt = db.prepare(`
 // Configure marked for safe rendering
 marked.setOptions({
   breaks: true,
-  gfm: true,
+  gfm: true
 });
 
 function renderMarkdown(content) {
@@ -46,16 +46,16 @@ function renderMarkdown(content) {
         ...sanitizeHtml.defaults.allowedAttributes,
         img: ['src', 'alt', 'title'],
         a: ['href', 'name', 'target', 'rel', 'title'],
-        code: ['class'],
+        code: ['class']
       },
       // Force rel="noopener noreferrer" on all links for defense-in-depth
       // against reverse tabnabbing, even though marked doesn't emit target="_blank".
       transformTags: {
-        a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }),
+        a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' })
       },
       allowedSchemes: ['http', 'https', 'mailto'],
       allowedSchemesAppliedToAttributes: ['href', 'src'],
-      allowProtocolRelative: false,
+      allowProtocolRelative: false
     });
   } catch (err) {
     // If markdown/sanitization fails, escape and return as plain text
@@ -63,7 +63,7 @@ function renderMarkdown(content) {
     return sanitizeHtml(content, {
       allowedTags: [],
       allowedAttributes: {},
-      allowedSchemes: ['http', 'https', 'mailto'],
+      allowedSchemes: ['http', 'https', 'mailto']
     });
   }
 }
@@ -74,12 +74,12 @@ router.get('/', (req, res) => {
 
   const filters = buildFilters({
     'k.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
-    'k.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-  });
+    'k.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' }
+  }, ['k.category', 'k.status']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags']);
+  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags'], ['k.title', 'k.content', 'k.tags']);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -107,7 +107,7 @@ router.get('/', (req, res) => {
   res.render('pages/knowledge/index', {
     title: 'Knowledge Base', articles, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
@@ -169,7 +169,9 @@ router.post('/', (req, res) => {
 // Show article
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+  if (!id) {
+ req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+}
 
   const article = _showArticleStmt.get(id);
 
@@ -193,7 +195,9 @@ router.get('/:id', (req, res) => {
   // Cap the tracked set to prevent unbounded session growth.
   const VIEWED_KEY = 'kb_viewed';
   const MAX_VIEWED_ARTICLES = 200;
-  if (!req.session[VIEWED_KEY]) req.session[VIEWED_KEY] = {};
+  if (!req.session[VIEWED_KEY]) {
+req.session[VIEWED_KEY] = {};
+}
   const viewed = req.session[VIEWED_KEY];
   if (!viewed[id] && (!req.session.user || article.author_id !== req.session.user.id)) {
     _viewCountStmt.run(id);
@@ -215,7 +219,9 @@ router.get('/:id', (req, res) => {
 // Edit article (author or admin/manager only)
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+  if (!id) {
+ req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+}
 
   const article = _editArticleStmt.get(id);
   if (!article) {
@@ -236,11 +242,15 @@ router.get('/:id/edit', (req, res) => {
 // Update article (author or admin/manager only)
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+  if (!id) {
+ req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+}
 
   // Authorization check
   const existing = _editArticleStmt.get(id);
-  if (!existing) { req.flash('error', 'Article not found'); return res.redirect('/knowledge'); }
+  if (!existing) {
+ req.flash('error', 'Article not found'); return res.redirect('/knowledge');
+}
   const isOwner = existing.author_id === req.session.user.id;
   const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
   if (!isOwner && !isPrivileged) {
@@ -296,9 +306,11 @@ router.put('/:id', (req, res) => {
 });
 
 // Delete article
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge'); }
+  if (!id) {
+ req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+}
 
   try {
     const result = _deleteArticleStmt.run(id);

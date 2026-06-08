@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
@@ -29,12 +29,12 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'license_type': { value: VALID_LICENSE_TYPES.includes(req.query.license_type) ? req.query.license_type : '' },
-  });
+    'license_type': { value: VALID_LICENSE_TYPES.includes(req.query.license_type) ? req.query.license_type : '' }
+  }, ['license_type']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['software_name', 'vendor']);
+  addSearch(where, params, req.query.search, ['software_name', 'vendor'], ['software_name', 'vendor']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -48,17 +48,17 @@ router.get('/', (req, res) => {
   res.render('pages/licenses/index', {
     title: 'Software Licenses', licenses, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
 // New license
-router.get('/new', requireRole('admin', 'manager'), (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/licenses/form', { title: 'New License', license: {}, isEdit: false });
 });
 
 // Create license
-router.post('/', requireRole('admin', 'manager'), (req, res) => {
+router.post('/', requireAdminOrManager, (req, res) => {
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
@@ -105,7 +105,9 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 // Show license
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+  if (!id) {
+ req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+}
 
   const license = _showLicenseStmt.get(id);
   if (!license) {
@@ -116,19 +118,25 @@ router.get('/:id', (req, res) => {
 });
 
 // AJAX endpoint for license key reveal (admin/manager only)
-router.get('/:id/key', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/key', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { return res.status(400).json({ error: 'Invalid license ID' }); }
+  if (!id) {
+ return res.status(400).json({ error: 'Invalid license ID' });
+}
 
   const license = _editLicenseStmt.get(id);
-  if (!license) { return res.status(404).json({ error: 'License not found' }); }
+  if (!license) {
+ return res.status(404).json({ error: 'License not found' });
+}
   res.json({ key: license.license_key || '' });
 });
 
 // Edit license
-router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+  if (!id) {
+ req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+}
 
   const license = _showLicenseStmt.get(id);
   if (!license) {
@@ -139,9 +147,11 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Update license
-router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+  if (!id) {
+ req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+}
 
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
@@ -173,7 +183,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     // Verify license exists before updating; fetch existing key for preservation
     const existing = _editLicenseStmt.get(id);
-    if (!existing) { req.flash('error', 'License not found'); return res.redirect('/licenses'); }
+    if (!existing) {
+ req.flash('error', 'License not found'); return res.redirect('/licenses');
+}
 
     // If license_key field was left blank on edit, preserve the existing key
     const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
@@ -193,9 +205,11 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Delete license
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid license ID'); return res.redirect('/licenses'); }
+  if (!id) {
+ req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+}
 
   try {
     const result = _deleteLicenseStmt.run(id);
