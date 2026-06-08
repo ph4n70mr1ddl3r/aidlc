@@ -13,7 +13,7 @@
   <select name="role" aria-label="Filter by role">
     <option value="">All Roles</option>
     <% CONSTANTS.USER_ROLES.forEach(r => { %>
-    <option value="<%= r %>" <%= filters.role === r ? 'selected' : '' %>><%= r.charAt(0).toUpperCase() + r.slice(1) %></option>
+    <option value="<%= r %>" <%= filters.role === r ? 'selected' : '' %>><%= titleCase(r) %></option>
     <% }) %>
   </select>
   <select name="department" aria-label="Filter by department">
@@ -44,7 +44,7 @@
               </div>
             </a></td>
             <td class="text-sm"><%= s.email %></td>
-            <td><span class="badge badge-<%= s.role === 'admin' ? 'critical' : s.role === 'manager' ? 'high' : 'medium' %>"><%= s.role %></span></td>
+            <td><span class="badge badge-<%= s.role === 'admin' ? 'critical' : s.role === 'manager' ? 'high' : 'medium' %>"><%= titleCase(s.role) %></span></td>
             <td class="text-sm"><%= s.department || '-' %></td>
             <td class="text-sm"><%= s.open_tickets %></td>
             <td class="text-sm"><%= s.open_tasks %></td>

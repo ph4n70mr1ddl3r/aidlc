@@ -33,16 +33,16 @@
     <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
       <% if (s !== ticket.status) { %>
         <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"
-              data-confirm="<%= ['resolved','closed'].includes(s) ? 'Mark this ticket as ' + s + '?' : '' %>" aria-label="Set status to <%= s.replace(/_/g, ' ') %>">
+              data-confirm="<%= ['resolved','closed'].includes(s) ? 'Mark this ticket as ' + s + '?' : '' %>" aria-label="Set status to <%= titleCase(s) %>">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
-          <button type="submit" class="btn btn-sm btn-outline"><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></button>
+          <button type="submit" class="btn btn-sm btn-outline"><%= s %></button>
         </form>
       <% } %>
     <% }) %>
     <span style="margin-left:auto;">
       <span class="badge badge-<%= ticket.status %>" style="font-size:14px;padding:6px 16px;">
-        <%= ticket.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %>
+        <%= titleCase(ticket.status) %>
       </span>
     </span>
   </div>
@@ -52,7 +52,7 @@
   <div class="card-body" style="display:flex;gap:8px;align-items:center;">
     <span style="font-weight:600;">Status:</span>
     <span class="badge badge-<%= ticket.status %>" style="font-size:14px;padding:6px 16px;">
-      <%= ticket.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %>
+      <%= titleCase(ticket.status) %>
     </span>
   </div>
 </div>
@@ -136,9 +136,9 @@
       <div class="card-header"><h3><i class="fas fa-clipboard-list" style="margin-right:8px;color:var(--primary)"></i>Properties</h3></div>
       <div class="card-body" style="padding:0;">
         <div class="detail-row"><div class="detail-label">Ticket #</div><div class="detail-value" style="font-weight:600;"><%= ticket.ticket_number %></div></div>
-        <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= ticket.priority %>"><%= ticket.priority %></span></div></div>
-        <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= ticket.category %></div></div>
-        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= ticket.status %>"><%= ticket.status.replace(/_/g, ' ') %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= ticket.priority %>"><%= titleCase(ticket.priority) %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= titleCase(ticket.category) %></div></div>
+        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= ticket.status %>"><%= titleCase(ticket.status) %></span></div></div>
         <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><% if (ticket.assigned_name) { %><%= ticket.assigned_name %><% } else { %><span class="text-muted">Unassigned</span><% } %></div></div>
         <div class="detail-row"><div class="detail-label">Due Date</div><div class="detail-value"><% if (ticket.due_date) { %><%= formatDate(ticket.due_date) %><% } else { %><span class="text-muted">Not set</span><% } %></div></div>
         <div class="detail-row"><div class="detail-label">Asset</div><div class="detail-value"><% if (ticket.asset_name && ticket.asset_tag) { %><a href="/assets?search=<%= encodeURIComponent(ticket.asset_tag) %>" style="color:var(--primary);text-decoration:none;"><%= ticket.asset_tag %> - <%= ticket.asset_name %></a><% } else { %><span class="text-muted">None</span><% } %></div></div>

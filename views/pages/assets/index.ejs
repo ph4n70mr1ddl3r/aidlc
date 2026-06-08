@@ -16,13 +16,13 @@
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.ASSET_CATEGORIES.forEach(c => { %>
-      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
     <% }) %>
   </select>
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.ASSET_STATUSES.forEach(s => { %>
-      <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
+      <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>
     <% }) %>
   </select>
   <% if (typeof staff !== 'undefined') { %>
@@ -50,9 +50,9 @@
           <tr>
             <td><a href="/assets/<%= a.id %>" style="color:var(--primary);font-weight:600;text-decoration:none;"><%= a.asset_tag %></a></td>
             <td><%= a.manufacturer %> <%= a.name %></td>
-            <td class="text-sm"><%= a.category %></td>
-            <td><span class="badge badge-<%= a.status %>"><%= a.status.replace(/_/g, ' ') %></span></td>
-            <td><span class="badge badge-<%= a.condition_rating === 'new' ? 'low' : a.condition_rating === 'good' ? 'low' : a.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= a.condition_rating %></span></td>
+            <td class="text-sm"><%= titleCase(a.category) %></td>
+            <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
+            <td><span class="badge badge-<%= a.condition_rating === 'new' ? 'low' : a.condition_rating === 'good' ? 'low' : a.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= titleCase(a.condition_rating) %></span></td>
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
             <td class="actions-cell">

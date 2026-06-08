@@ -6,7 +6,7 @@
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.VENDOR_CATEGORIES.forEach(c => { %>
-      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
     <% }) %>
   </select>
   <select name="is_active" aria-label="Filter by status">
@@ -25,7 +25,7 @@
       <td><a href="/vendors/<%= v.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= v.name %></a></td>
       <td class="text-sm"><%= v.contact_person || '-' %></td>
       <td class="text-sm"><%= v.email || '-' %></td>
-      <td class="text-sm"><%= v.category ? v.category.charAt(0).toUpperCase() + v.category.slice(1) : '-' %></td>
+      <td class="text-sm"><%= v.category ? titleCase(v.category) : '-' %></td>
       <td class="text-sm"><%= v.contract_end ? formatDate(v.contract_end) : '-' %></td>
       <td><% if (v.rating) { for (let i=0;i<v.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);font-size:12px;"></i><% } for (let i=v.rating;i<5;i++) { %><i class="far fa-star" style="color:var(--border);font-size:12px;"></i><% } } else { %>-<% } %></td>
       <td><span class="badge badge-<%= v.is_active ? 'low' : 'critical' %>"><%= v.is_active ? 'Active' : 'Inactive' %></span></td>

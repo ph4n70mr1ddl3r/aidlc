@@ -228,6 +228,7 @@ app.use((req, res, next) => {
   res.locals.localDate = utilsModule.localDate;
   res.locals.formatDate = utilsModule.formatDate;
   res.locals.formatDateTime = utilsModule.formatDateTime;
+  res.locals.titleCase = utilsModule.titleCase;
   // Expose validation constants to all templates so EJS forms stay in sync
   // with the single source of truth in constants.js.
   res.locals.CONSTANTS = constantsModule;

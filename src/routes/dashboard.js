@@ -108,6 +108,7 @@ const stmts = {
     SELECT * FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
     ORDER BY expiry_date ASC
+    LIMIT 20
   `),
   myTickets: db.prepare(`
     SELECT * FROM tickets 

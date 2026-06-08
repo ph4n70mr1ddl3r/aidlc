@@ -92,8 +92,8 @@
               <tr>
                 <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
                 <td><%= t.title %></td>
-                <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
-                <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+                <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
+                <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
                 <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
               </tr>
               <% }) %>
@@ -157,9 +157,9 @@
           <tr>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><%= t.title %></td>
-            <td class="text-sm"><%= t.category %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+            <td class="text-sm"><%= titleCase(t.category) %></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
+            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
             <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
           </tr>
@@ -180,7 +180,7 @@
       <% ticketsByCategory.forEach(c => { const pct = catTotal > 0 ? Math.round(c.count / catTotal * 100) : 0; %>
       <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center;">
         <div style="font-size:24px;font-weight:700;color:var(--primary);"><%= c.count %></div>
-        <div class="text-sm text-muted" style="text-transform:capitalize;"><%= c.category.replace(/_/g, ' ') %></div>
+        <div class="text-sm text-muted" style="text-transform:capitalize;"><%= titleCase(c.category) %></div>
         <div class="text-sm text-muted"><%= pct %>%</div>
       </div>
       <% }) %>

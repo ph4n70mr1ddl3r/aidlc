@@ -445,7 +445,7 @@ router.put('/:id/status', (req, res) => {
   res.redirect(`/tickets/${id}`);
 });
 
-// Satisfaction rating (admin/manager only)
+// Satisfaction rating (admin/manager only, resolved/closed tickets only)
 router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
   const id = safeId(req.params.id);
   if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
@@ -456,6 +456,19 @@ router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
+    // Only allow rating on resolved/closed tickets — prevents rating open tickets
+    // via direct API call even though the template hides the form.
+    const ticket = _statusTicketStmt.get(id);
+    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+
+    // Fetch full status from the existing-ticket query
+    const fullTicket = _updateExistStmt.get(id);
+    if (!fullTicket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (fullTicket.status !== 'resolved' && fullTicket.status !== 'closed') {
+      req.flash('error', 'Can only rate resolved or closed tickets');
+      return res.redirect(`/tickets/${id}`);
+    }
+
     const result = _satisfactionUpdateStmt.run(rating, id);
     if (result.changes === 0) {
       req.flash('error', 'Ticket not found');

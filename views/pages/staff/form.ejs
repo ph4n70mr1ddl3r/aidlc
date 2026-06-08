@@ -21,7 +21,7 @@
       <div class="form-group"><label for="role">Role *</label><select name="role" id="role" class="form-control" required>
         <% CONSTANTS.USER_ROLES.forEach(r => { %>
           <% if (r !== 'admin' || typeof viewerRole === 'undefined' || viewerRole === 'admin') { %>
-          <option value="<%= r %>" <%= user.role === r ? 'selected' : '' %>><%= r.charAt(0).toUpperCase() + r.slice(1) %></option>
+          <option value="<%= r %>" <%= user.role === r ? 'selected' : '' %>><%= titleCase(r) %></option>
           <% } %>
         <% }) %>
       </select></div>

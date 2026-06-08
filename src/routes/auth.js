@@ -114,7 +114,14 @@ router.post('/login', loginRateLimiter, async (req, res) => {
 
     const user = _loginStmt.get(safeUsername);
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    // Always perform a bcrypt comparison to prevent username enumeration via timing
+    // side-channel. If the user doesn't exist, compare against a dummy hash so the
+    // CPU cost is identical whether the username is valid or not.
+    const dummyHash = '$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const hashToCompare = user ? user.password : dummyHash;
+    const passwordMatch = await bcrypt.compare(password, hashToCompare);
+
+    if (!user || !passwordMatch) {
       recordLoginFailure(safeUsername);
       req.flash('error', 'Invalid username or password');
       return res.redirect('/login');

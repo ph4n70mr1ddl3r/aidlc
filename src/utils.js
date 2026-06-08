@@ -345,4 +345,16 @@ function pruneAuditLog(db, retentionDays) {
   return result.changes;
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };
+/**
+ * Title-case a string: replace underscores with spaces and capitalize each word.
+ * Centralized helper to avoid repeating the regex pattern across templates.
+ * Handles null/undefined gracefully.
+ * @param {*} value
+ * @returns {string}
+ */
+function titleCase(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };

@@ -24,12 +24,12 @@
       <div class="card-body">
         <div class="detail-row"><div class="detail-label">Asset Tag</div><div class="detail-value" style="font-weight:600;"><%= asset.asset_tag %></div></div>
         <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><%= asset.name %></div></div>
-        <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= asset.category %></div></div>
+        <div class="detail-row"><div class="detail-label">Category</div><div class="detail-value"><%= titleCase(asset.category) %></div></div>
         <div class="detail-row"><div class="detail-label">Manufacturer</div><div class="detail-value"><%= asset.manufacturer || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Model</div><div class="detail-value"><%= asset.model || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Serial Number</div><div class="detail-value" style="font-family:monospace;"><%= asset.serial_number || '-' %></div></div>
-        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= asset.status.replace(/_/g, ' ') %></span></div></div>
-        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= asset.condition_rating === 'new' || asset.condition_rating === 'good' ? 'low' : 'medium' %>"><%= asset.condition_rating %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= titleCase(asset.status) %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= asset.condition_rating === 'new' || asset.condition_rating === 'good' ? 'low' : 'medium' %>"><%= titleCase(asset.condition_rating) %></span></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(asset.purchase_date) %></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price != null ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><% if (asset.warranty_expiry) { %>
@@ -60,8 +60,8 @@
             <a href="/tickets/<%= t.id %>" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;"><%= t.ticket_number %></a>
             <div class="text-sm"><%= t.title %></div>
             <div class="flex gap-2" style="margin-top:4px;">
-              <span class="badge badge-<%= t.priority %>"><%= t.priority %></span>
-              <span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span>
+              <span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span>
+              <span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span>
             </div>
           </div>
         <% }) %>

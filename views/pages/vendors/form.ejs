@@ -14,7 +14,7 @@
       <div class="form-group"><label for="category">Category</label><select name="category" id="category" class="form-control">
         <option value="">Select category</option>
         <% CONSTANTS.VENDOR_CATEGORIES.forEach(c => { %>
-          <option value="<%= c %>" <%= vendor.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+          <option value="<%= c %>" <%= vendor.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
         <% }) %>
       </select></div>
       <div class="form-group"><label for="contract_start">Contract Start</label><input type="date" name="contract_start" id="contract_start" class="form-control" value="<%= vendor.contract_start ? vendor.contract_start.slice(0,10) : '' %>"></div>

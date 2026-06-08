@@ -6,7 +6,7 @@
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.KB_CATEGORIES.forEach(c => { %>
-      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
+      <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c %></option>
     <% }) %>
   </select>
   <select name="status" aria-label="Filter by status">
@@ -29,9 +29,9 @@
         <% if (a.is_featured) { %><i class="fas fa-star" style="color:var(--warning);margin-right:4px;font-size:12px;"></i><% } %>
         <%= a.title %>
       </a></td>
-      <td><span class="badge badge-medium"><%= a.category.replace(/_/g, ' ') %></span></td>
+      <td><span class="badge badge-medium"><%= titleCase(a.category) %></span></td>
       <td class="text-sm"><%= a.author_name || '-' %></td>
-      <td><span class="badge badge-<%= a.status %>"><%= a.status %></span></td>
+      <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
       <td class="text-sm"><%= a.views %></td>
       <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)"></i><% } else { %>-<% } %></td>
       <td class="text-sm"><%= formatDateTime(a.updated_at) %></td>

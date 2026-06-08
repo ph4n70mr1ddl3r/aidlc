@@ -39,8 +39,8 @@
     <div class="card-body">
       <% byCategory.forEach(c => { const pct = ticketTotal > 0 ? Math.round(c.count/ticketTotal*100) : 0; %>
       <div style="margin-bottom:12px;">
-        <div class="flex justify-between text-sm mb-1"><span><%= c.category %></span><span><%= c.count %> (<%= pct %>%)</span></div>
-        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= c.category %>: <%= c.count %> tickets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
+        <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category) %></span><span><%= c.count %> (<%= pct %>%)</span></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.category) %>: <%= c.count %> tickets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
       </div><% }) %>
       <% if (!byCategory.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
     </div>
@@ -51,8 +51,8 @@
       <% const priorityTotal = byPriority.reduce((a,b) => a + b.count, 0); %>
       <% byPriority.forEach(p => { const pct = priorityTotal > 0 ? Math.round(p.count/priorityTotal*100) : 0; %>
       <div style="margin-bottom:12px;">
-        <div class="flex justify-between text-sm mb-1"><span><%= p.priority %></span><span><%= p.count %> (<%= pct %>%)</span></div>
-        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.priority %>: <%= p.count %> tickets"><div class="progress-fill <%= p.priority === 'critical' ? 'red' : p.priority === 'high' ? 'orange' : 'blue' %>" style="width:<%= pct %>%"></div></div>
+        <div class="flex justify-between text-sm mb-1"><span><%= titleCase(p.priority) %></span><span><%= p.count %> (<%= pct %>%)</span></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(p.priority) %>: <%= p.count %> tickets"><div class="progress-fill <%= p.priority === 'critical' ? 'red' : p.priority === 'high' ? 'orange' : 'blue' %>" style="width:<%= pct %>%"></div></div>
       </div><% }) %>
     </div>
   </div>

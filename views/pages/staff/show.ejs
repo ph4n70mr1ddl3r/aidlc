@@ -22,8 +22,8 @@
           <tbody><% assignedTickets.forEach(t => { %><tr>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><%= t.title %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
+            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
           </tr><% }) %></tbody>
         </table></div><% } else { %><p class="text-muted text-sm" style="padding:16px;">No active tickets</p><% } %>
       </div>
@@ -50,7 +50,7 @@
       <div class="card-body" style="text-align:center;">
         <div class="user-avatar" style="width:64px;height:64px;font-size:24px;margin:0 auto 12px;"><%= (staffUser.first_name || '?')[0] %><%= (staffUser.last_name || '?')[0] %></div>
         <h3><%= staffUser.first_name %> <%= staffUser.last_name %></h3>
-        <span class="badge badge-<%= staffUser.role === 'admin' ? 'critical' : staffUser.role === 'manager' ? 'high' : 'medium' %>" style="margin-top:8px;"><%= staffUser.role %></span>
+        <span class="badge badge-<%= staffUser.role === 'admin' ? 'critical' : staffUser.role === 'manager' ? 'high' : 'medium' %>" style="margin-top:8px;"><%= titleCase(staffUser.role) %></span>
         <div class="text-sm text-muted mt-2"><%= staffUser.department || '' %></div>
       </div>
     </div>
@@ -68,7 +68,7 @@
       <div class="card-header"><h3>Projects</h3></div>
       <div class="card-body">
         <% projectMemberships.forEach(pm => { %>
-        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= pm.project_status.replace(/_/g, ' ') %></span> <span class="badge badge-medium"><%= pm.project_role %></span></div>
+        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= titleCase(pm.project_status) %></span> <span class="badge badge-medium"><%= pm.project_role %></span></div>
         <% }) %>
         <% if (!projectMemberships.length) { %><p class="text-muted text-sm">Not in any projects</p><% } %>
       </div>
@@ -79,7 +79,7 @@
       <div class="card-header"><h3>Assets</h3></div>
       <div class="card-body">
         <% assignedAssets.forEach(a => { %>
-        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= a.status %>"><%= a.status.replace(/_/g, ' ') %></span></div>
+        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></div>
         <% }) %>
         <% if (!assignedAssets.length) { %><p class="text-muted text-sm">No assets assigned</p><% } %>
       </div>

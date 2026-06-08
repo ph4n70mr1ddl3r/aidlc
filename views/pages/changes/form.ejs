@@ -8,13 +8,13 @@
       <div class="form-group" style="grid-column:1/-1;"><label for="title">Title *</label><input type="text" name="title" id="title" class="form-control" value="<%= change.title || '' %>" maxlength="200" required></div>
       <div class="form-group" style="grid-column:1/-1;"><label for="description">Description</label><textarea name="description" id="description" class="form-control" maxlength="5000"><%= change.description || '' %></textarea></div>
       <div class="form-group"><label for="change_type">Type *</label><select name="change_type" id="change_type" class="form-control" required>
-        <% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= change.change_type === t ? 'selected' : '' %>><%= t.charAt(0).toUpperCase() + t.slice(1) %></option><% }) %>
+        <% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= change.change_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %>
       </select></div>
       <div class="form-group"><label for="status">Status</label><select name="status" id="status" class="form-control" required>
-        <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= (change.status || 'scheduled') === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option><% }) %>
+        <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= (change.status || 'scheduled') === s ? 'selected' : '' %>><%= titleCase(s) %></option><% }) %>
       </select></div>
       <div class="form-group"><label for="priority">Priority</label><select name="priority" id="priority" class="form-control" required>
-        <% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= (change.priority || 'medium') === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option><% }) %>
+        <% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= (change.priority || 'medium') === p ? 'selected' : '' %>><%= titleCase(p) %></option><% }) %>
       </select></div>
       <div class="form-group"><label for="assigned_to">Assigned To</label><select name="assigned_to" id="assigned_to" class="form-control">
         <option value="">Unassigned</option><% staff.forEach(s => { %><option value="<%= s.id %>" <%= change.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }) %>

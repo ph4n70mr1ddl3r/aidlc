@@ -13,13 +13,13 @@
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.PROJECT_STATUSES.forEach(s => { %>
-      <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
+      <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>
     <% }) %>
   </select>
   <select name="priority" aria-label="Filter by priority">
     <option value="">All Priority</option>
     <% CONSTANTS.PROJECT_PRIORITIES.forEach(p => { %>
-      <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option>
+      <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option>
     <% }) %>
   </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
@@ -32,7 +32,7 @@
     <div class="card-body">
       <div class="flex justify-between items-center mb-1">
         <a href="/projects/<%= p.id %>" style="font-size:16px;font-weight:600;color:var(--text);text-decoration:none;"><%= p.name %></a>
-        <span class="badge badge-<%= p.status %>"><%= p.status.replace(/_/g, ' ') %></span>
+        <span class="badge badge-<%= p.status %>"><%= titleCase(p.status) %></span>
       </div>
       <p class="text-sm text-muted mb-2"><%= (p.description || '').substring(0, 120) %><%= (p.description || '').length > 120 ? '...' : '' %></p>
       <div class="flex justify-between items-center mb-1">

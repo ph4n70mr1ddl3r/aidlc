@@ -15,19 +15,19 @@
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
-    <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= s.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></option>
+    <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>
     <% }) %>
   </select>
   <select name="priority" aria-label="Filter by priority">
     <option value="">All Priority</option>
     <% CONSTANTS.TICKET_PRIORITIES.forEach(p => { %>
-    <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= p.charAt(0).toUpperCase() + p.slice(1) %></option>
+    <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option>
     <% }) %>
   </select>
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.TICKET_CATEGORIES.forEach(c => { %>
-    <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+    <option value="<%= c %>" <%= filters.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
     <% }) %>
   </select>
   <select name="assigned_to" aria-label="Filter by assignee">
@@ -63,9 +63,9 @@
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a></td>
             <td class="text-sm"><%= t.requester_name %></td>
-            <td class="text-sm"><%= t.category %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= t.status.replace(/_/g, ' ') %></span></td>
+            <td class="text-sm"><%= titleCase(t.category) %></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
+            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
             <td class="text-sm"><% if (t.assigned_name) { %><%= t.assigned_name %><% } else { %><span class="text-muted">Unassigned</span><% } %></td>
             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
             <td class="actions-cell">
