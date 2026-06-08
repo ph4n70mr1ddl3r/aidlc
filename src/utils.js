@@ -42,7 +42,9 @@ function buildFilters(filters) {
   const where = [];
   const params = [];
   for (const [column, config] of Object.entries(filters)) {
-    if (config.value === undefined || config.value === null || config.value === '') continue;
+    if (config.value === undefined || config.value === null || config.value === '') {
+continue;
+}
     const op = config.operator || '=';
     where.push(`${column} ${op} ?`);
     params.push(config.value);
@@ -88,7 +90,9 @@ function isValidEmail(email) {
  * column arrays (e.g. ['u.first_name', 'u.last_name']), never user-controlled values.
  */
 function addSearch(where, params, search, columns) {
-  if (!search) return;
+  if (!search) {
+return;
+}
   const raw = String(search);
   // Escape SQL LIKE wildcards
   const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -114,7 +118,9 @@ function safeId(value) {
  * @returns {number}
  */
 function safeFloat(value, fallback = 0) {
-  if (value === undefined || value === null || value === '') return fallback;
+  if (value === undefined || value === null || value === '') {
+return fallback;
+}
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -127,9 +133,13 @@ function safeFloat(value, fallback = 0) {
  * @returns {number|null}
  */
 function safePositiveFloat(value, fallback = null) {
-  if (value === undefined || value === null || value === '') return fallback;
+  if (value === undefined || value === null || value === '') {
+return fallback;
+}
   const n = parseFloat(value);
-  if (!Number.isFinite(n) || n < 0) return fallback;
+  if (!Number.isFinite(n) || n < 0) {
+return fallback;
+}
   return n;
 }
 
@@ -137,7 +147,9 @@ function safePositiveFloat(value, fallback = null) {
  * Safely parse an integer form field, returning `fallback` for NaN.
  */
 function safeInt(value, fallback = 0) {
-  if (value === undefined || value === null || value === '') return fallback;
+  if (value === undefined || value === null || value === '') {
+return fallback;
+}
   const n = parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -146,7 +158,9 @@ function safeInt(value, fallback = 0) {
  * Validate a URL (http/https only). Returns true if valid.
  */
 function isValidUrl(url) {
-  if (!url || typeof url !== 'string') return false;
+  if (!url || typeof url !== 'string') {
+return false;
+}
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -156,12 +170,63 @@ function isValidUrl(url) {
 }
 
 /**
+ * Validate an IP address (IPv4 or IPv6). Returns true if valid.
+ */
+function isValidIp(ip) {
+  if (!ip || typeof ip !== 'string') {
+return false;
+}
+  // IPv4
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+    const parts = ip.split('.');
+    return parts.every(p => parseInt(p, 10) <= 255);
+  }
+  // IPv6 (basic check)
+  if (/^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/.test(ip) ||
+      /^::([0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$/.test(ip) ||
+      /^([0-9a-fA-F]{1,4}:){1,7}:$/.test(ip)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Sanitize a phone number: keep only digits, +, -, (, ), spaces.
+ * Returns sanitized string or null if input is empty.
+ */
+function sanitizePhone(phone) {
+  if (!phone || typeof phone !== 'string') {
+return null;
+}
+  const sanitized = phone.replace(/[^\d+\-()\s]/g, '').trim();
+  return sanitized || null;
+}
+
+/**
+ * Validate a phone number format (basic).
+ * Allows common formats: +1-555-123-4567, (555) 123-4567, 555-123-4567, etc.
+ * Returns true if valid.
+ */
+function isValidPhone(phone) {
+  if (!phone || typeof phone !== 'string') {
+return false;
+}
+  // Must have at least 7 digits
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+/**
  * Validate a date string in YYYY-MM-DD format.
  * Returns true if valid.
  */
 function isValidDate(value) {
-  if (!value || typeof value !== 'string') return false;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  if (!value || typeof value !== 'string') {
+return false;
+}
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+return false;
+}
   const d = new Date(value + 'T00:00:00');
   return !isNaN(d.getTime());
 }
@@ -171,8 +236,12 @@ function isValidDate(value) {
  * Returns true if valid.
  */
 function isValidDateTimeLocal(value) {
-  if (!value || typeof value !== 'string') return false;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return false;
+  if (!value || typeof value !== 'string') {
+return false;
+}
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+return false;
+}
   const d = new Date(value);
   return !isNaN(d.getTime());
 }
@@ -207,7 +276,9 @@ function trim(value) {
  * Returns '-' for null/undefined input.
  */
 function formatDate(value) {
-  if (!value) return '-';
+  if (!value) {
+return '-';
+}
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10)) && value.length <= 10) {
     const d = localDate(value);
     return d ? d.toLocaleDateString() : '-';
@@ -221,7 +292,9 @@ function formatDate(value) {
  * Returns '-' for null/undefined input.
  */
 function formatDateTime(value) {
-  if (!value) return '-';
+  if (!value) {
+return '-';
+}
   const d = new Date(value);
   return isNaN(d.getTime()) ? '-' : d.toLocaleString();
 }
@@ -243,9 +316,13 @@ function jsonScriptSafe(value) {
  * Returns null for invalid/non-string input.
  */
 function localDate(value) {
-  if (!value || typeof value !== 'string') return null;
+  if (!value || typeof value !== 'string') {
+return null;
+}
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!m) return null;
+  if (!m) {
+return null;
+}
   const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
   return isNaN(d.getTime()) ? null : d;
 }
@@ -269,7 +346,9 @@ function _getIsActiveUserStmt(db) {
  * @returns {boolean}
  */
 function isActiveUser(db, userId) {
-  if (!userId) return false;
+  if (!userId) {
+return false;
+}
   const row = _getIsActiveUserStmt(db).get(userId);
   return !!row;
 }
@@ -353,8 +432,22 @@ function pruneAuditLog(db, retentionDays) {
  * @returns {string}
  */
 function titleCase(value) {
-  if (!value || typeof value !== 'string') return '';
+  if (!value || typeof value !== 'string') {
+return '';
+}
   return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, DEFAULT_PAGE_SIZE };
+/**
+ * Async route handler wrapper to automatically catch errors and pass to Express error handler.
+ * Eliminates try/catch boilerplate in route handlers.
+ * @param {Function} fn - Async route handler function
+ * @returns {Function} Express middleware function
+ */
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidIp, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, DEFAULT_PAGE_SIZE };

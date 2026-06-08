@@ -22,7 +22,7 @@ if (process.env.NODE_ENV === 'production') {
     'dev-session-secret-change-for-production',
     'dev-csrf-secret-change-for-production',
     'generate-a-random-string-here',
-    'generate-another-random-string-here',
+    'generate-another-random-string-here'
   ];
   if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET) || process.env.SESSION_SECRET.length < 32) {
     console.error('ERROR: SESSION_SECRET must be set to a strong random value (>= 32 chars) in production');
@@ -47,7 +47,9 @@ const _pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
 if (Number.isFinite(_pruneDays) && _pruneDays > 0) {
   const { pruneAuditLog } = require('./utils');
   const pruned = pruneAuditLog(db, _pruneDays);
-  if (pruned > 0) console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
+  if (pruned > 0) {
+console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
+}
 }
 
 const app = express();
@@ -75,8 +77,8 @@ app.use(helmet({
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"],
-    },
+      formAction: ["'self'"]
+    }
   },
   crossOriginEmbedderPolicy: false,
   crossOriginOpenerPolicy: { policy: 'same-origin' },
@@ -89,8 +91,8 @@ app.use(helmet({
   hsts: process.env.NODE_ENV === 'production' ? {
     maxAge: 365 * 24 * 60 * 60,
     includeSubDomains: true,
-    preload: true,
-  } : false,
+    preload: true
+  } : false
 }));
 
 // ---------------------------------------------------------------------------
@@ -108,7 +110,7 @@ app.use(methodOverride('_method'));
 // Static assets with cache-control in production
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
-  etag: true,
+  etag: true
 }));
 
 // ---------------------------------------------------------------------------
@@ -138,8 +140,8 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    sameSite: 'lax',
-  },
+    sameSite: 'lax'
+  }
 }));
 
 app.use(flash());
@@ -170,10 +172,10 @@ const csrfConfig = doubleCsrf({
     sameSite: 'lax',
     path: '/',
     secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
+    httpOnly: true
   },
   getCsrfTokenFromRequest: (req) => req.body._csrf || req.headers['x-csrf-token'],
-  size: 64,
+  size: 64
 });
 app.use(csrfConfig.doubleCsrfProtection);
 
@@ -187,7 +189,7 @@ const passwordLimiter = rateLimit({
   max: 10,
   message: 'Too many password attempts. Please try again later.',
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders: false
   // Count all requests — password routes return 302 redirects for both
   // success and failure, so skipSuccessfulRequests would never count anything.
 });
@@ -200,7 +202,7 @@ const writeLimiter = rateLimit({
   message: 'Too many requests. Please slow down.',
   skipSuccessfulRequests: false,
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders: false
 });
 app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors'], (req, res, next) => {
   if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
@@ -220,7 +222,7 @@ app.use((req, res, next) => {
   res.locals.flash = {
     success: req.flash('success'),
     error: req.flash('error'),
-    info: req.flash('info'),
+    info: req.flash('info')
   };
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
@@ -272,22 +274,26 @@ app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 
 // Health check (unauthenticated)
-const _healthCheckStmt = db.prepare('SELECT 1 AS ok');
+const healthCheckStmt = db.prepare('SELECT 1 AS ok');
 app.get('/health', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('application/json');
   try {
-    const row = _healthCheckStmt.get();
-    if (!row || row.ok !== 1) throw new Error('DB sanity check failed');
+    const row = healthCheckStmt.get();
+    if (!row || row.ok !== 1) {
+      throw new Error('DB sanity check failed');
+    }
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
-  } catch (err) {
+  } catch {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });
   }
 });
 
 // Home redirect
 app.get('/', (req, res) => {
-  if (req.session.user) return res.redirect('/dashboard');
+  if (req.session.user) {
+return res.redirect('/dashboard');
+}
   res.redirect('/login');
 });
 
@@ -297,7 +303,7 @@ app.use((req, res) => {
 });
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   // Only log full stack in development to avoid leaking internal details
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);
@@ -317,7 +323,7 @@ app.use((err, req, res, next) => {
           return res.redirect(refUrl.pathname);
         }
       }
-    } catch (_) { /* invalid URL, ignore */ }
+    } catch { /* invalid URL, ignore */ }
     return res.redirect('/');
   }
   const detail = process.env.NODE_ENV === 'production'

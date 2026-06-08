@@ -1,7 +1,7 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, recalcProjectProgress } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler } = require('../utils');
 const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -36,13 +36,13 @@ const _projectMembershipsStmt = db.prepare(`
   `);
 const _staffRoleStmt = db.prepare('SELECT role FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT role, is_active FROM users WHERE id = ?');
-const _reactivateStmt = db.prepare(`UPDATE users SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
-const _passwordResetStmt = db.prepare(`UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?`);
-const _deactivateStmt = db.prepare(`UPDATE users SET is_active = 0, updated_at = datetime('now') WHERE id = ?`);
+const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
+const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, updated_at = datetime(\'now\') WHERE id = ?');
+const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);
 const _affectedProjectsStmt = db.prepare(
-    `SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != 'done'`
+    'SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != \'done\''
   );
 const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status != 'done'`);
@@ -72,7 +72,7 @@ router.get('/', (req, res) => {
   const filters = buildFilters({
     'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
     'u.department': { value: validDepartments.includes(req.query.department) ? req.query.department : '' },
-    'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' },
+    'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' }
   });
 
   const where = [...filters.where];
@@ -109,75 +109,71 @@ router.get('/', (req, res) => {
   res.render('pages/staff/index', {
     title: 'Staff', staff, departments, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
 // New staff form
-router.get('/new', requireRole('admin', 'manager'), (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/staff/form', { title: 'New Staff Member', user: {}, isEdit: false, viewerRole: req.session.user.role });
 });
 
 // Create staff
-router.post('/', requireRole('admin', 'manager'), async (req, res) => {
-  try {
-    const username = trim(req.body.username);
-    const { password } = req.body;
-    const email = trim(req.body.email);
-    const first_name = trim(req.body.first_name);
-    const last_name = trim(req.body.last_name);
-    const { role } = req.body;
-    const department = trim(req.body.department);
-    const phone = trim(req.body.phone);
+router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
+  const username = trim(req.body.username);
+  const { password } = req.body;
+  const email = trim(req.body.email);
+  const first_name = trim(req.body.first_name);
+  const last_name = trim(req.body.last_name);
+  const { role } = req.body;
+  const department = trim(req.body.department);
+  const phone = sanitizePhone(req.body.phone);
 
-    if (!username || !password || !email || !first_name || !last_name) {
-      req.flash('error', 'All required fields must be filled in');
-      return res.redirect('/staff/new');
-    }
-    // Reject non-string / excessively long passwords early to prevent bcrypt DoS
-    if (typeof password !== 'string' || password.length > 128) {
-      req.flash('error', 'Invalid password');
-      return res.redirect('/staff/new');
-    }
-    if (!isValidUsername(username)) {
-      req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
-      return res.redirect('/staff/new');
-    }
-    if (!isValidEmail(email)) {
-      req.flash('error', 'Please enter a valid email address');
-      return res.redirect('/staff/new');
-    }
-    const pwError = validatePassword(password);
-    if (pwError) {
-      req.flash('error', pwError);
-      return res.redirect('/staff/new');
-    }
-    if (!USER_ROLES.includes(role)) {
-      req.flash('error', 'Invalid role');
-      return res.redirect('/staff/new');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), (phone || '').substring(0, 50));
-
-    req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
-    req.flash('success', `Staff member ${first_name} ${last_name} created`);
-    res.redirect('/staff');
-  } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Username or email already exists');
-    } else {
-      console.error('Staff create error:', err.message);
-      req.flash('error', 'Error creating staff member. Please try again.');
-    }
-    res.redirect('/staff/new');
+  if (!username || !password || !email || !first_name || !last_name) {
+    req.flash('error', 'All required fields must be filled in');
+    return res.redirect('/staff/new');
   }
-});
+  // Reject non-string / excessively long passwords early to prevent bcrypt DoS
+  if (typeof password !== 'string' || password.length > 128) {
+    req.flash('error', 'Invalid password');
+    return res.redirect('/staff/new');
+  }
+  if (!isValidUsername(username)) {
+    req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
+    return res.redirect('/staff/new');
+  }
+  if (!isValidEmail(email)) {
+    req.flash('error', 'Please enter a valid email address');
+    return res.redirect('/staff/new');
+  }
+  if (phone && !isValidPhone(phone)) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/staff/new');
+  }
+  const pwError = validatePassword(password);
+  if (pwError) {
+    req.flash('error', pwError);
+    return res.redirect('/staff/new');
+  }
+  if (!USER_ROLES.includes(role)) {
+    req.flash('error', 'Invalid role');
+    return res.redirect('/staff/new');
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null);
+
+  req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
+  req.flash('success', `Staff member ${first_name} ${last_name} created`);
+  res.redirect('/staff');
+}));
 
 // Show staff member
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
   const staffUser = _showStaffStmt.get(id);
   if (!staffUser) {
@@ -199,14 +195,16 @@ router.get('/:id', (req, res) => {
     assignedTickets,
     assignedTasks,
     assignedAssets,
-    projectMemberships,
+    projectMemberships
   });
 });
 
 // Edit staff form
-router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
   const user = _showStaffStmt.get(id);
   if (!user) {
@@ -222,22 +220,28 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Update staff
-router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
   const email = trim(req.body.email);
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
   const { role } = req.body;
   const department = trim(req.body.department);
-  const phone = trim(req.body.phone);
+  const phone = sanitizePhone(req.body.phone);
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
   }
   if (!isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (phone && !isValidPhone(phone)) {
+    req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/staff/${id}/edit`);
   }
   if (!USER_ROLES.includes(role)) {
@@ -247,7 +251,9 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 
   // Fetch the target user to check their current role
   const targetUser = _staffRoleStmt.get(id);
-  if (!targetUser) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
+  if (!targetUser) {
+ req.flash('error', 'Staff member not found'); return res.redirect('/staff');
+}
 
   // Only admins can assign the admin role
   if (role === 'admin' && req.session.user.role !== 'admin') {
@@ -282,7 +288,7 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
       req.session.user.email = email;
       req.session.user.role = role;
       req.session.user.department = department;
-      req.session.user.phone = phone;
+      req.session.user.phone = phone ? phone.substring(0, 50) : null;
     }
 
     req.flash('success', 'Staff member updated');
@@ -299,14 +305,20 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Reactivate staff (dedicated route — no hidden-field tampering risk)
-router.put('/:id/reactivate', requireRole('admin'), (req, res) => {
+router.put('/:id/reactivate', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
   try {
     const target = _reactivateCheckStmt.get(id);
-    if (!target) { req.flash('error', 'Staff member not found'); return res.redirect('/staff'); }
-    if (target.is_active) { req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`); }
+    if (!target) {
+ req.flash('error', 'Staff member not found'); return res.redirect('/staff');
+}
+    if (target.is_active) {
+ req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`);
+}
 
     _reactivateStmt.run(id);
     req.audit('update', 'user', id, 'Reactivated user account');
@@ -324,53 +336,51 @@ const resetLimiter = rateLimit({
   max: 20,
   message: 'Too many password resets. Please try again later.',
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders: false
 });
 
 // Reset password
-router.put('/:id/reset-password', requireRole('admin'), resetLimiter, async (req, res) => {
-  try {
-    const id = safeId(req.params.id);
-    if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async (req, res) => {
+  const id = safeId(req.params.id);
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
-    // Prevent admin from resetting own password via this route (use profile instead)
-    if (Number(id) === Number(req.session.user.id)) {
-      req.flash('error', 'Use the profile page to change your own password');
-      return res.redirect('/profile');
-    }
-
-    const { new_password } = req.body;
-    if (!new_password || typeof new_password !== 'string') {
-      req.flash('error', 'Password is required');
-      return res.redirect(`/staff/${id}`);
-    }
-    if (new_password.length > 128) {
-      req.flash('error', 'Password must be at most 128 characters');
-      return res.redirect(`/staff/${id}`);
-    }
-    const pwErr = validatePassword(new_password);
-    if (pwErr) {
-      req.flash('error', pwErr);
-      return res.redirect(`/staff/${id}`);
-    }
-
-    const hashed = await bcrypt.hash(new_password, 12);
-    _passwordResetStmt.run(hashed, id);
-
-    req.audit('update', 'user', id, 'Password reset by admin');
-    req.flash('success', 'Password reset successfully');
-    res.redirect(`/staff/${id}`);
-  } catch (err) {
-    console.error('Password reset error:', err.message);
-    req.flash('error', 'Error resetting password. Please try again.');
-    return res.redirect(`/staff/${req.params.id}`);
+  // Prevent admin from resetting own password via this route (use profile instead)
+  if (Number(id) === Number(req.session.user.id)) {
+    req.flash('error', 'Use the profile page to change your own password');
+    return res.redirect('/profile');
   }
-});
+
+  const { new_password } = req.body;
+  if (!new_password || typeof new_password !== 'string') {
+    req.flash('error', 'Password is required');
+    return res.redirect(`/staff/${id}`);
+  }
+  if (new_password.length > 128) {
+    req.flash('error', 'Password must be at most 128 characters');
+    return res.redirect(`/staff/${id}`);
+  }
+  const pwErr = validatePassword(new_password);
+  if (pwErr) {
+    req.flash('error', pwErr);
+    return res.redirect(`/staff/${id}`);
+  }
+
+  const hashed = await bcrypt.hash(new_password, 12);
+  _passwordResetStmt.run(hashed, id);
+
+  req.audit('update', 'user', id, 'Password reset by admin');
+  req.flash('success', 'Password reset successfully');
+  res.redirect(`/staff/${id}`);
+}));
 
 // Delete staff (soft delete — deactivate)
-router.delete('/:id', requireRole('admin'), (req, res) => {
+router.delete('/:id', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid staff ID'); return res.redirect('/staff'); }
+  if (!id) {
+ req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+}
 
   // Prevent admin from deactivating themselves
   if (Number(id) === Number(req.session.user.id)) {
@@ -394,7 +404,9 @@ router.delete('/:id', requireRole('admin'), (req, res) => {
     const deactivate = db.transaction(() => {
       const result = _deactivateStmt.run(id);
       changes = result.changes;
-      if (changes === 0) return;
+      if (changes === 0) {
+return;
+}
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       _unassignTicketsStmt.run(id);

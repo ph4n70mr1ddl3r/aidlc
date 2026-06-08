@@ -1,7 +1,7 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -10,8 +10,8 @@ router.use(requireAuth, auditMiddleware);
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
-const _deactivateStmt = db.prepare(`UPDATE vendors SET is_active = 0, updated_at = datetime('now') WHERE id = ?`);
-const _reactivateStmt = db.prepare(`UPDATE vendors SET is_active = 1, updated_at = datetime('now') WHERE id = ?`);
+const _deactivateStmt = db.prepare('UPDATE vendors SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
+const _reactivateStmt = db.prepare('UPDATE vendors SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _updateExistStmt = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
@@ -19,9 +19,9 @@ const _updateStmt = db.prepare(`
       is_active = ?, updated_at = datetime('now')
     WHERE id = ?
   `);
-const _licenseSyncStmt = db.prepare(`UPDATE licenses SET vendor = ?, updated_at = datetime('now') WHERE vendor = ?`);
+const _licenseSyncStmt = db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE vendor = ?');
 const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
-const _deleteDetachLicensesStmt = db.prepare(`UPDATE licenses SET vendor = NULL, updated_at = datetime('now') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)`);
+const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
 // Cached prepared statements for vendor create route
@@ -36,7 +36,7 @@ router.get('/', (req, res) => {
 
   const filters = buildFilters({
     'v.category': { value: VALID_CATEGORIES_VENDOR.includes(req.query.category) ? req.query.category : '' },
-    'v.is_active': { value: req.query.is_active === '1' ? 1 : req.query.is_active === '0' ? 0 : '' },
+    'v.is_active': { value: req.query.is_active === '1' ? 1 : req.query.is_active === '0' ? 0 : '' }
   });
 
   const where = [...filters.where];
@@ -55,21 +55,21 @@ router.get('/', (req, res) => {
   res.render('pages/vendors/index', {
     title: 'Vendors', vendors, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
 // New vendor
-router.get('/new', requireRole('admin', 'manager'), (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/vendors/form', { title: 'New Vendor', vendor: {}, isEdit: false });
 });
 
 // Create vendor
-router.post('/', requireRole('admin', 'manager'), (req, res) => {
+router.post('/', requireAdminOrManager, (req, res) => {
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
   const email = trim(req.body.email);
-  const phone = trim(req.body.phone);
+  const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
   const { category, contract_start, contract_end } = req.body;
@@ -92,6 +92,11 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 
   if (website && !isValidUrl(website)) {
     req.flash('error', 'Website must be a valid http/https URL');
+    return res.redirect('/vendors/new');
+  }
+
+  if (phone && !isValidPhone(phone)) {
+    req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/vendors/new');
   }
 
@@ -110,7 +115,7 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   try {
-    const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+    const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
       (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
 
@@ -127,7 +132,9 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
 // Show vendor
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
@@ -138,9 +145,11 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit vendor
-router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
+router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
@@ -151,14 +160,16 @@ router.get('/:id/edit', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Update vendor
-router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
   const email = trim(req.body.email);
-  const phone = trim(req.body.phone);
+  const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
   const { category, contract_start, contract_end } = req.body;
@@ -181,6 +192,10 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
     req.flash('error', 'Website must be a valid http/https URL');
     return res.redirect(`/vendors/${id}/edit`);
   }
+  if (phone && !isValidPhone(phone)) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   const sContractStart = safeDate(contract_start);
@@ -193,12 +208,14 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
   try {
     // Verify vendor exists before updating
     const existing = _updateExistStmt.get(id);
-    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
+    if (!existing) {
+ req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+}
 
     const updateVendor = db.transaction(() => {
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, (phone || '').substring(0, 50) || null, (address || '').substring(0, 500) || null,
+      _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
         (website || '').substring(0, 500) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
         rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
@@ -223,14 +240,20 @@ router.put('/:id', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Deactivate vendor (dedicated route — mirrors staff pattern)
-router.put('/:id/deactivate', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   try {
     const existing = _deactivateCheckStmt.get(id);
-    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
-    if (!existing.is_active) { req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`); }
+    if (!existing) {
+ req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+}
+    if (!existing.is_active) {
+ req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`);
+}
 
     _deactivateStmt.run(id);
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
@@ -243,14 +266,20 @@ router.put('/:id/deactivate', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Reactivate vendor
-router.put('/:id/reactivate', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   try {
     const existing = _deactivateCheckStmt.get(id);
-    if (!existing) { req.flash('error', 'Vendor not found'); return res.redirect('/vendors'); }
-    if (existing.is_active) { req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`); }
+    if (!existing) {
+ req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+}
+    if (existing.is_active) {
+ req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`);
+}
 
     _reactivateStmt.run(id);
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
@@ -263,9 +292,11 @@ router.put('/:id/reactivate', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Delete vendor (must be deactivated first to prevent accidental data loss)
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors'); }
+  if (!id) {
+ req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+}
 
   try {
     // Check for dependent licenses and delete everything in a single transaction
@@ -275,8 +306,12 @@ router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
       // Prevent deleting active vendors — force deactivation first so the user
       // consciously acknowledges the action (mirrors the staff deactivation pattern).
       const vendor = _showVendorStmt.get(id);
-      if (!vendor) return 0;
-      if (vendor.is_active) return -1; // sentinel: still active
+      if (!vendor) {
+return 0;
+}
+      if (vendor.is_active) {
+return -1;
+} // sentinel: still active
 
       // Nullify vendor references on licenses to avoid orphaned references
       const dependentLicenses = _licenseDependentsStmt.all(id);

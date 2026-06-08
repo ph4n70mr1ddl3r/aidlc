@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
@@ -29,7 +29,7 @@ const _showCommentsStmt = db.prepare(`
 const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
 const _statusTicketStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(
-    `UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime('now') WHERE id = ?`
+    'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
   );
 const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteCommentsStmt = db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?');
@@ -71,7 +71,7 @@ const _commentInsertStmt = db.prepare(`
     INSERT INTO ticket_comments (ticket_id, user_id, comment, is_internal)
     VALUES (?, ?, ?, ?)
   `);
-const _commentTouchStmt = db.prepare(`UPDATE tickets SET updated_at = datetime('now') WHERE id = ?`);
+const _commentTouchStmt = db.prepare('UPDATE tickets SET updated_at = datetime(\'now\') WHERE id = ?');
 const _commentExistStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
 
 // Cached statements for ticket create route (used inside transaction)
@@ -91,7 +91,7 @@ const _ticketInsertStmt = db.prepare(`
 const SORT_MAP = {
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
-  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC",
+  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC"
 };
 
 // List tickets (paginated)
@@ -102,7 +102,7 @@ router.get('/', (req, res) => {
     't.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
     't.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
     't.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
-    't.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' },
+    't.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' }
   });
 
   const where = [...filters.where];
@@ -129,7 +129,7 @@ router.get('/', (req, res) => {
   res.render('pages/tickets/index', {
     title: 'Tickets', tickets, staff, filters: req.query,
     page, limit, totalPages, total,
-    baseUrl: paginationBaseUrl(req),
+    baseUrl: paginationBaseUrl(req)
   });
 });
 
@@ -141,7 +141,7 @@ router.get('/new', (req, res) => {
   const prefill = {
     requester_name: `${req.session.user.first_name} ${req.session.user.last_name}`,
     requester_email: req.session.user.email,
-    requester_department: req.session.user.department || '',
+    requester_department: req.session.user.department || ''
   };
   res.render('pages/tickets/form', { title: 'New Ticket', ticket: prefill, staff, assets, isEdit: false });
 });
@@ -226,7 +226,9 @@ router.post('/', (req, res) => {
 // Show ticket
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
 
   const ticket = _showTicketStmt.get(id);
 
@@ -245,7 +247,9 @@ router.get('/:id', (req, res) => {
 // Edit ticket form
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
 
   const ticket = _editTicketStmt.get(id);
   if (!ticket) {
@@ -253,9 +257,7 @@ router.get('/:id/edit', (req, res) => {
     return res.redirect('/tickets');
   }
 
-  // Authorization: admin/manager can always edit. Regular staff can only edit tickets assigned to them.
-  const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+  if (!canAccessResource(req, ticket)) {
     req.flash('error', 'You can only edit tickets assigned to you');
     return res.redirect(`/tickets/${id}`);
   }
@@ -268,7 +270,9 @@ router.get('/:id/edit', (req, res) => {
 // Update ticket
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
@@ -308,11 +312,11 @@ router.put('/:id', (req, res) => {
 
   try {
     const ticket = _updateExistStmt.get(id);
-    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (!ticket) {
+ req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+}
 
-    // Authorization: admin/manager can always update. Regular staff can only update tickets assigned to them.
-    const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-    if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+    if (!canAccessResource(req, ticket)) {
       req.flash('error', 'You can only update tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
     }
@@ -364,7 +368,9 @@ router.put('/:id', (req, res) => {
 // Add comment
 router.post('/:id/comments', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
   const { comment, is_internal } = req.body;
 
   if (!comment || !comment.trim()) {
@@ -379,7 +385,9 @@ router.post('/:id/comments', (req, res) => {
   try {
     // Verify ticket exists before adding comment
     const ticket = _commentExistStmt.get(id);
-    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (!ticket) {
+ req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+}
 
     const addComment = db.transaction(() => {
       _commentInsertStmt.run(id, req.session.user.id, comment.trim().substring(0, 5000),
@@ -403,7 +411,9 @@ router.post('/:id/comments', (req, res) => {
 // Quick status update
 router.put('/:id/status', (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
   const { status } = req.body;
 
   if (!VALID_STATUSES.includes(status)) {
@@ -413,12 +423,11 @@ router.put('/:id/status', (req, res) => {
 
   try {
     const ticket = _statusTicketStmt.get(id);
-    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (!ticket) {
+ req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+}
 
-    // Authorization: admin/manager can always change status.
-    // Regular staff can only change status of tickets assigned to them.
-    const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-    if (!isAdminOrManager && ticket.assigned_to !== req.session.user.id) {
+    if (!canAccessResource(req, ticket)) {
       req.flash('error', 'You can only update status of tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
     }
@@ -446,9 +455,11 @@ router.put('/:id/status', (req, res) => {
 });
 
 // Satisfaction rating (admin/manager only, resolved/closed tickets only)
-router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
+router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
   const rating = safeInt(req.body.satisfaction_rating, 0);
   if (rating < 1 || rating > 5) {
     req.flash('error', 'Invalid satisfaction rating');
@@ -459,11 +470,15 @@ router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
     // Only allow rating on resolved/closed tickets — prevents rating open tickets
     // via direct API call even though the template hides the form.
     const ticket = _statusTicketStmt.get(id);
-    if (!ticket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (!ticket) {
+ req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+}
 
     // Fetch full status from the existing-ticket query
     const fullTicket = _updateExistStmt.get(id);
-    if (!fullTicket) { req.flash('error', 'Ticket not found'); return res.redirect('/tickets'); }
+    if (!fullTicket) {
+ req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+}
     if (fullTicket.status !== 'resolved' && fullTicket.status !== 'closed') {
       req.flash('error', 'Can only rate resolved or closed tickets');
       return res.redirect(`/tickets/${id}`);
@@ -484,9 +499,11 @@ router.put('/:id/satisfaction', requireRole('admin', 'manager'), (req, res) => {
 });
 
 // Delete ticket
-router.delete('/:id', requireRole('admin', 'manager'), (req, res) => {
+router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
-  if (!id) { req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets'); }
+  if (!id) {
+ req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+}
 
   try {
     let changes = 0;
