@@ -362,6 +362,11 @@ server.on('listening', () => {
 // ---------------------------------------------------------------------------
 function shutdown(signal) {
   console.log(`\n${signal} received — shutting down gracefully…`);
+  // Immediately close idle keep-alive connections so server.close()
+  // doesn't hang waiting for them to time out.
+  if (typeof server.closeAllConnections === 'function') {
+    server.closeAllConnections();
+  }
   server.close(() => {
     console.log('HTTP server closed.');
     db.close();

@@ -80,11 +80,16 @@ router.post('/', requireRole('admin', 'manager'), (req, res) => {
   }
 
   const seats = Math.max(1, safeInt(total_seats, 1));
-  const used = Math.max(0, Math.min(seats, safeInt(used_seats, 0)));
+  const used = safeInt(used_seats, 0);
+  if (used > seats) {
+    req.flash('error', 'Used seats cannot exceed total seats');
+    return res.redirect('/licenses/new');
+  }
+  const clampedUsed = Math.max(0, used);
 
   try {
     const result = _licenseInsertStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      seats, used,
+      seats, clampedUsed,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);

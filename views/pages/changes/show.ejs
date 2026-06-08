@@ -12,7 +12,7 @@
 <div class="card"><div class="card-body">
   <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= change.change_type === 'security' ? 'critical' : change.change_type === 'incident' ? 'high' : change.change_type === 'maintenance' ? 'medium' : 'low' %>"><%= change.change_type.charAt(0).toUpperCase() + change.change_type.slice(1) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= change.status %>"><%= change.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) %></span></div></div>
-  <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= change.priority %>"><%= change.priority %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= change.priority %>"><%= change.priority.charAt(0).toUpperCase() + change.priority.slice(1) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= change.assigned_name || '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Scheduled</div><div class="detail-value"><%= change.scheduled_start ? formatDateTime(change.scheduled_start) : '-' %> — <%= change.scheduled_end ? formatDateTime(change.scheduled_end) : '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Actual</div><div class="detail-value"><%= change.actual_start ? formatDateTime(change.actual_start) : '-' %> — <%= change.actual_end ? formatDateTime(change.actual_end) : '-' %></div></div>
