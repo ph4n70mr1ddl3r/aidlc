@@ -1,9 +1,9 @@
 const db = require('../models/database');
-const { requireAuth, requireRole } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { safeInt } = require('../utils');
 
 const router = require('express').Router();
-router.use(requireAuth, requireRole('admin', 'manager'));
+router.use(requireAuth, requireAdminOrManager);
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for report queries.
@@ -109,7 +109,7 @@ const stmts = {
     ) ptDone ON ptDone.assigned_to = u.id
     WHERE u.is_active = 1
     ORDER BY resolved_tickets DESC
-  `),
+  `)
 };
 
 // Reports dashboard

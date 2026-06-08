@@ -56,4 +56,39 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+/**
+ * Middleware to check if user is admin or manager.
+ * Convenience wrapper for requireRole('admin', 'manager').
+ */
+function requireAdminOrManager(req, res, next) {
+  return requireRole('admin', 'manager')(req, res, next);
+}
+
+/**
+ * Middleware to check if user is admin.
+ * Convenience wrapper for requireRole('admin').
+ */
+function requireAdmin(req, res, next) {
+  return requireRole('admin')(req, res, next);
+}
+
+/**
+ * Check if the current user can access a resource based on ownership/assignment.
+ * Admin/manager can access everything. Regular staff can only access their own.
+ * @param {Object} resource - The resource object with assigned_to or owner_id or user_id
+ * @returns {boolean}
+ */
+function canAccessResource(req, resource) {
+  if (!req.session.user) {
+return false;
+}
+  const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  if (isAdminOrManager) {
+return true;
+}
+  // Check various ownership fields
+  const ownerId = resource.assigned_to || resource.owner_id || resource.user_id || resource.author_id;
+  return ownerId && Number(ownerId) === Number(req.session.user.id);
+}
+
+module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource };

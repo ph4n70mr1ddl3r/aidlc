@@ -33,7 +33,7 @@ const seed = db.transaction(() => {
     { username: 'mpatel', password: 'Staff@2026!', email: 'm.patel@company.com', first_name: 'Maya', last_name: 'Patel', role: 'staff', department: 'IT', phone: '555-0103' },
     { username: 'trodriguez', password: 'Staff@2026!', email: 't.rodriguez@company.com', first_name: 'Tomás', last_name: 'Rodriguez', role: 'staff', department: 'IT', phone: '555-0104' },
     { username: 'akimura', password: 'Staff@2026!', email: 'a.kimura@company.com', first_name: 'Aiko', last_name: 'Kimura', role: 'staff', department: 'IT', phone: '555-0105' },
-    { username: 'dmuller', password: 'Staff@2026!', email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' },
+    { username: 'dmuller', password: 'Staff@2026!', email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' }
   ];
 
   const insertUser = db.prepare(`
@@ -62,7 +62,7 @@ const seed = db.transaction(() => {
     { asset_tag: 'AST-009', name: 'iPhone 15 Pro', category: 'phone', manufacturer: 'Apple', model: 'A2848', serial_number: 'SN-APL-009', status: 'in_use', condition_rating: 'good', purchase_date: '2024-09-22', purchase_price: 1199, warranty_expiry: '2026-09-22', assigned_to: 1, location: 'HQ Office' },
     { asset_tag: 'AST-010', name: 'Surface Pro 9', category: 'tablet', manufacturer: 'Microsoft', model: 'QEZ-00001', serial_number: 'SN-MSF-010', status: 'in_repair', condition_rating: 'fair', purchase_date: '2023-04-18', purchase_price: 1599, warranty_expiry: '2025-04-18', assigned_to: 5, location: 'Repair Shop' },
     { asset_tag: 'AST-011', name: 'MacBook Air M2', category: 'laptop', manufacturer: 'Apple', model: 'MLY33LL/A', serial_number: 'SN-APL-011', status: 'in_use', condition_rating: 'good', purchase_date: '2024-01-08', purchase_price: 1299, warranty_expiry: '2027-01-08', assigned_to: 5, location: 'HQ Office' },
-    { asset_tag: 'AST-012', name: 'Logitech MX Keys', category: 'peripheral', manufacturer: 'Logitech', model: 'MX Keys Advanced', serial_number: 'SN-LOG-012', status: 'in_storage', condition_rating: 'new', purchase_date: '2025-02-01', purchase_price: 119, warranty_expiry: '2027-02-01', assigned_to: null, location: 'Storage Room A' },
+    { asset_tag: 'AST-012', name: 'Logitech MX Keys', category: 'peripheral', manufacturer: 'Logitech', model: 'MX Keys Advanced', serial_number: 'SN-LOG-012', status: 'in_storage', condition_rating: 'new', purchase_date: '2025-02-01', purchase_price: 119, warranty_expiry: '2027-02-01', assigned_to: null, location: 'Storage Room A' }
   ];
 
   const insertAsset = db.prepare(`
@@ -87,7 +87,7 @@ const seed = db.transaction(() => {
     { software_name: 'Windows Server 2022', vendor: 'Microsoft', license_key: 'MS-WS2022-DATA', license_type: 'perpetual', total_seats: 10, used_seats: 8, purchase_date: '2022-05-15', expiry_date: null, cost: 6200 },
     { software_name: 'VMware vSphere', vendor: 'Broadcom', license_key: 'VMW-VSP-ENT-020', license_type: 'perpetual', total_seats: 3, used_seats: 3, purchase_date: '2023-11-01', expiry_date: null, cost: 12500 },
     { software_name: 'CrowdStrike Falcon', vendor: 'CrowdStrike', license_key: 'CS-FALC-EP-500', license_type: 'subscription', total_seats: 500, used_seats: 480, purchase_date: '2025-01-15', expiry_date: '2026-01-15', cost: 35000 },
-    { software_name: 'Slack Business+', vendor: 'Salesforce', license_key: 'SLK-BIZ-0300', license_type: 'subscription', total_seats: 300, used_seats: 287, purchase_date: '2025-02-01', expiry_date: '2026-02-01', cost: 10800 },
+    { software_name: 'Slack Business+', vendor: 'Salesforce', license_key: 'SLK-BIZ-0300', license_type: 'subscription', total_seats: 300, used_seats: 287, purchase_date: '2025-02-01', expiry_date: '2026-02-01', cost: 10800 }
   ];
 
   const insertLicense = db.prepare(`
@@ -114,7 +114,7 @@ const seed = db.transaction(() => {
     { title: 'Suspicious email reported', description: 'Phishing email received by multiple staff. Sender pretending to be CEO requesting wire transfer.', category: 'security', priority: 'critical', status: 'in_progress', requester_name: 'Sarah Chen', requester_email: 'admin@company.com', requester_department: 'IT', assigned_to: 2 },
     { title: 'SAP GUI installation request', description: 'Need SAP GUI installed on my workstation for the new accounting module access.', category: 'software', priority: 'medium', status: 'resolved', requester_name: 'Robert Chen', requester_email: 'r.chen@company.com', requester_department: 'Finance', assigned_to: 3, resolution_notes: 'SAP GUI 7.70 installed and configured. Connection profiles set up.' },
     { title: 'WiFi slow in conference room B', description: 'Video calls keep freezing in Conference Room B. Other rooms seem fine.', category: 'network', priority: 'medium', status: 'open', requester_name: 'Emily Davis', requester_email: 'e.davis@company.com', requester_department: 'Operations', assigned_to: 3 },
-    { title: 'Password reset for service account', description: 'Service account svc_backup has password expiring. Need coordinated rotation.', category: 'access', priority: 'high', status: 'resolved', requester_name: 'Tomás Rodriguez', requester_email: 't.rodriguez@company.com', requester_department: 'IT', assigned_to: 6, resolution_notes: 'Password rotated during maintenance window. All dependent services updated.' },
+    { title: 'Password reset for service account', description: 'Service account svc_backup has password expiring. Need coordinated rotation.', category: 'access', priority: 'high', status: 'resolved', requester_name: 'Tomás Rodriguez', requester_email: 't.rodriguez@company.com', requester_department: 'IT', assigned_to: 6, resolution_notes: 'Password rotated during maintenance window. All dependent services updated.' }
   ];
 
   const insertTicket = db.prepare(`
@@ -145,7 +145,7 @@ const seed = db.transaction(() => {
     { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: '2026-06-01', end_date: '2026-12-31', budget: 200000, spent: 5000, progress: 5, owner_id: 2 },
     { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: '2026-03-01', end_date: '2026-07-31', budget: 50000, spent: 32000, progress: 65, owner_id: 3 },
     { name: 'Office 365 Copilot Rollout', description: 'Deploy Microsoft Copilot to all departments with training and governance policies.', status: 'planning', priority: 'high', start_date: '2026-07-01', end_date: '2026-09-30', budget: 75000, spent: 0, progress: 0, owner_id: 1 },
-    { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: '2026-02-01', end_date: '2026-04-30', budget: 85000, spent: 82000, progress: 100, owner_id: 6 },
+    { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: '2026-02-01', end_date: '2026-04-30', budget: 85000, spent: 82000, progress: 100, owner_id: 6 }
   ];
 
   const insertProject = db.prepare(`
@@ -169,7 +169,7 @@ const seed = db.transaction(() => {
     { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-03-15', completed_at: '2026-03-14' },
     { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: '2026-04-30', completed_at: '2026-04-29' },
     { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: '2026-06-15' },
-    { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' },
+    { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' }
   ];
 
   const insertTask = db.prepare(`
@@ -194,7 +194,7 @@ const seed = db.transaction(() => {
     { project_id: 3, user_id: 5, role: 'member' },
     { project_id: 4, user_id: 1, role: 'lead' },
     { project_id: 5, user_id: 6, role: 'lead' },
-    { project_id: 5, user_id: 4, role: 'member' },
+    { project_id: 5, user_id: 4, role: 'member' }
   ];
 
   const insertMember = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
@@ -211,7 +211,7 @@ const seed = db.transaction(() => {
     { name: 'Amazon Web Services', contact_person: 'Jennifer Liu', email: 'j.liu@aws.amazon.com', phone: '800-555-2345', category: 'cloud', contract_start: '2025-01-01', contract_end: '2027-12-31', rating: 5 },
     { name: 'CrowdStrike', contact_person: 'Alex Rivera', email: 'a.rivera@crowdstrike.com', phone: '800-555-3456', category: 'security', contract_start: '2025-01-15', contract_end: '2026-01-15', rating: 4 },
     { name: 'Cisco Systems', contact_person: 'Patricia Nguyen', email: 'p.nguyen@cisco.com', phone: '800-555-4567', category: 'network', contract_start: '2023-06-01', contract_end: '2026-06-01', rating: 5 },
-    { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'maintenance', contract_start: '2024-03-01', contract_end: '2025-03-01', rating: 3 },
+    { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'maintenance', contract_start: '2024-03-01', contract_end: '2025-03-01', rating: 3 }
   ];
 
   const insertVendor = db.prepare(`
@@ -234,7 +234,7 @@ const seed = db.transaction(() => {
     { title: 'Password Policy Requirements', content: '# Corporate Password Policy\n\n## Requirements\n- Minimum 12 characters\n- Must include: uppercase, lowercase, number, special character\n- Cannot reuse last 10 passwords\n- Must be changed every 90 days\n\n## MFA\n- All accounts require MFA\n- Use Microsoft Authenticator app\n- Backup codes should be stored securely', category: 'policy', tags: 'security,password,policy', status: 'published', is_featured: 1, author_id: 1 },
     { title: 'Troubleshooting Network Connectivity', content: '# Network Troubleshooting SOP\n\n## Quick Checks\n1. Check cable connections\n2. Restart computer\n3. Try a different network port\n\n## Diagnostics\n```bash\nping 8.8.8.8\ntracert google.com\nipconfig /all\n```\n\n## Common Issues\n- IP conflict: Release/renew IP\n- DNS issues: Flush DNS cache\n- Proxy issues: Check proxy settings', category: 'troubleshooting', tags: 'network,troubleshooting', status: 'published', is_featured: 0, author_id: 3 },
     { title: 'New Employee IT Onboarding Checklist', content: '# IT Onboarding Checklist\n\n## Day Before\n- [ ] Create AD account\n- [ ] Create email account\n- [ ] Assign licenses (M365, etc.)\n- [ ] Prepare laptop with standard image\n- [ ] Configure VPN access\n- [ ] Add to relevant distribution lists\n\n## Day 1\n- [ ] Issue laptop and peripherals\n- [ ] Set up accounts with employee\n- [ ] Configure email on mobile\n- [ ] Brief on security policies\n- [ ] Provide IT support contact info', category: 'sop', tags: 'onboarding,hr,process', status: 'published', is_featured: 1, author_id: 2 },
-    { title: 'Incident Response Procedure', content: '# Security Incident Response\n\n## Severity Levels\n- **Critical**: Active breach, data exfiltration\n- **High**: Vulnerability being exploited\n- **Medium**: Suspicious activity detected\n- **Low**: Potential risk identified\n\n## Steps\n1. Identify and contain\n2. Assess impact\n3. Notify security team lead\n4. Eradicate threat\n5. Recover systems\n6. Post-incident review', category: 'sop', tags: 'security,incident,response', status: 'draft', is_featured: 0, author_id: 1 },
+    { title: 'Incident Response Procedure', content: '# Security Incident Response\n\n## Severity Levels\n- **Critical**: Active breach, data exfiltration\n- **High**: Vulnerability being exploited\n- **Medium**: Suspicious activity detected\n- **Low**: Potential risk identified\n\n## Steps\n1. Identify and contain\n2. Assess impact\n3. Notify security team lead\n4. Eradicate threat\n5. Recover systems\n6. Post-incident review', category: 'sop', tags: 'security,incident,response', status: 'draft', is_featured: 0, author_id: 1 }
   ];
 
   const insertArticle = db.prepare(`
@@ -255,7 +255,7 @@ const seed = db.transaction(() => {
     { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: '2026-05-25 22:00:00', scheduled_end: '2026-05-26 02:00:00', impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
     { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: '2026-06-01 06:00:00', scheduled_end: '2026-06-01 08:00:00', impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
     { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: '2026-06-05 21:00:00', scheduled_end: '2026-06-05 22:00:00', impact: 'AD replication delay possible', assigned_to: 2 },
-    { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00:00', scheduled_end: '2026-05-19 01:00:00', actual_start: '2026-05-18 23:00:00', actual_end: '2026-05-18 23:45:00', impact: 'No impact - hot spare active', assigned_to: 6 },
+    { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00:00', scheduled_end: '2026-05-19 01:00:00', actual_start: '2026-05-18 23:00:00', actual_end: '2026-05-18 23:45:00', impact: 'No impact - hot spare active', assigned_to: 6 }
   ];
 
   const insertChange = db.prepare(`
@@ -276,7 +276,7 @@ const seed = db.transaction(() => {
     { ticket_id: 1, user_id: 2, comment: 'May need to schedule a capacity upgrade. Check with vendor about licensing for additional tunnels.', is_internal: 1 },
     { ticket_id: 4, user_id: 6, comment: 'HVAC technician dispatched. ETA 1 hour. Monitoring temperature in the meantime.', is_internal: 0 },
     { ticket_id: 7, user_id: 2, comment: 'Email samples forwarded to security team. Blocking sender domain at gateway.', is_internal: 1 },
-    { ticket_id: 7, user_id: 1, comment: 'Company-wide alert sent. All staff advised to not click any suspicious links.', is_internal: 0 },
+    { ticket_id: 7, user_id: 1, comment: 'Company-wide alert sent. All staff advised to not click any suspicious links.', is_internal: 0 }
   ];
 
   const insertComment = db.prepare(`

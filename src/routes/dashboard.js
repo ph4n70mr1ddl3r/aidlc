@@ -31,7 +31,7 @@ const EMPTY_DEFAULTS = Object.freeze({
   upcomingChanges: [],
   ticketsByCategory: [],
   staffWorkload: [],
-  licenseAlerts: [],
+  licenseAlerts: []
 });
 
 // ---------------------------------------------------------------------------
@@ -114,7 +114,7 @@ const stmts = {
     SELECT * FROM tickets 
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')
     ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, created_at ASC LIMIT 10
-  `),
+  `)
 };
 
 function getDashboardData(user) {
@@ -135,7 +135,7 @@ function getDashboardData(user) {
         upcomingChanges: stmts.upcomingChanges.all(),
         ticketsByCategory: stmts.ticketsByCategory.all(),
         staffWorkload: stmts.staffWorkload.all(),
-        licenseAlerts: stmts.licenseAlerts.all(),
+        licenseAlerts: stmts.licenseAlerts.all()
       };
 
       dashboardCache = { ts: now, data: shared };
@@ -177,7 +177,7 @@ router.get('/', (req, res) => {
     upcomingChanges: data.upcomingChanges,
     ticketsByCategory: data.ticketsByCategory,
     staffWorkload: data.staffWorkload,
-    licenseAlerts: data.licenseAlerts,
+    licenseAlerts: data.licenseAlerts
   });
 });
 
