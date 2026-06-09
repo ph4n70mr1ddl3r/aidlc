@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const { doubleCsrf } = require('csrf-csrf');
+const http = require('http');
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -341,7 +342,6 @@ const PORT = process.env.PORT || 3000;
 // starts accepting connections. Although listen() is async and timeouts set
 // immediately after app.listen() would also work in practice, this pattern
 // is conventional and eliminates any ambiguity about ordering.
-const http = require('http');
 const server = http.createServer(app);
 
 // Request timeout (prevents hung connections)

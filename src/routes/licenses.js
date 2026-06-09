@@ -9,7 +9,6 @@ router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
-const _editLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
 const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
 
 // Cached prepared statements for create/update routes
@@ -124,7 +123,7 @@ router.get('/:id/key', requireAdminOrManager, (req, res) => {
     return res.status(400).json({ error: 'Invalid license ID' });
   }
 
-  const license = _editLicenseStmt.get(id);
+  const license = _showLicenseStmt.get(id);
   if (!license) {
     return res.status(404).json({ error: 'License not found' });
   }
@@ -184,7 +183,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   try {
     // Verify license exists before updating; fetch existing key for preservation
-    const existing = _editLicenseStmt.get(id);
+    const existing = _showLicenseStmt.get(id);
     if (!existing) {
       req.flash('error', 'License not found');
       return res.redirect('/licenses');

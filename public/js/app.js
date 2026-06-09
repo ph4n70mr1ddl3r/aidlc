@@ -97,7 +97,12 @@ document.addEventListener('click', function (e) {
           display.dataset.shown = '1';
           btn.querySelector('i').className = 'fas fa-eye-slash';
         } catch (_) {}
+      } else {
+        display.textContent = 'Error loading key';
       }
+    };
+    xhr.onerror = function () {
+      display.textContent = 'Error loading key';
     };
     xhr.send();
   }
