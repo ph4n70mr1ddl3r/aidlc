@@ -10,6 +10,7 @@ const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
+const crypto = require('crypto');
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -117,7 +118,6 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // ---------------------------------------------------------------------------
 // Session configuration
 // ---------------------------------------------------------------------------
-const crypto = require('crypto');
 let sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
   if (process.env.NODE_ENV === 'production') {

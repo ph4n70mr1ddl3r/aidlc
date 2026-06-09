@@ -287,14 +287,13 @@ router.put('/:id', (req, res) => {
   }
 
   // Non-privileged users cannot publish — force to draft
-  const updateIsPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  const safeUpdateStatus = updateIsPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
+  const safeUpdateStatus = isPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeFeatured = (req.session.user.role === 'admin' || req.session.user.role === 'manager') ? (is_featured ? 1 : 0) : 0;
+  const safeFeatured = isPrivileged ? (is_featured ? 1 : 0) : 0;
 
   try {
     _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, safeUpdateStatus, safeFeatured, id);

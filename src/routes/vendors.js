@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeInt, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 
 const router = require('express').Router();
@@ -100,12 +100,11 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
-  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
+  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
+  if (category && !safeCategory) {
     req.flash('error', 'Invalid category');
     return res.redirect('/vendors/new');
   }
-
-  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
@@ -117,7 +116,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   try {
     const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null);
+      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, parseInt(rating, 10) || 0)) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -222,7 +221,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
         (website || '').substring(0, 500) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
-        rating ? Math.max(1, Math.min(5, safeInt(rating, 0))) : null,
+        rating ? Math.max(1, Math.min(5, parseInt(rating, 10) || 0)) : null,
         existing.is_active ? 1 : 0, id);
 
       // Sync name change to license references (licenses.vendor is a text field
