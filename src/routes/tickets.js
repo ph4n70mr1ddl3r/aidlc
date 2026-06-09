@@ -310,9 +310,6 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Invalid status');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  const safeCategory = category;
-  const safePriority = priority;
-  const safeStatus = status;
 
   try {
     const ticket = _updateExistStmt.get(id);
@@ -343,11 +340,11 @@ router.put('/:id', (req, res) => {
       }
     }
 
-    const params = [title.substring(0, 200), (description || '').substring(0, 5000), safeCategory, safePriority, safeStatus,
+    const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
       updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-    const isNowResolved = safeStatus === 'resolved' || safeStatus === 'closed';
+    const isNowResolved = status === 'resolved' || status === 'closed';
 
     // Use the appropriate cached statement based on resolved_at transition
     let stmt;
@@ -360,7 +357,7 @@ router.put('/:id', (req, res) => {
     }
     stmt.run(...params, id);
 
-    req.audit('update', 'ticket', id, `Updated ticket (status: ${safeStatus})`);
+    req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
     res.redirect(`/tickets/${id}`);
   } catch (err) {

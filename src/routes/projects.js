@@ -214,11 +214,11 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid project ID');
     return res.redirect('/projects');
   }
-    const project = _selectProjectByIdStmt.get(id);
-    if (!project) {
-      req.flash('error', 'Project not found');
-      return res.redirect('/projects');
-    }
+  const project = _selectProjectByIdStmt.get(id);
+  if (!project) {
+    req.flash('error', 'Project not found');
+    return res.redirect('/projects');
+  }
   const staff = getActiveStaff(db);
   res.render('pages/projects/form', { title: 'Edit Project', project, staff, isEdit: true });
 });
@@ -393,7 +393,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
       updateTask();
       req.flash('success', 'Task updated');
     } catch (err) {
-      console.error('Project task quick-status error:', err.message); req.flash('error', 'Error updating task');
+      console.error('Project task quick-status error:', err.message);
+      req.flash('error', 'Error updating task');
     }
     return res.redirect(`/projects/${projectId}`);
   }

@@ -9,7 +9,7 @@ router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
-const _editLicenseStmt = db.prepare('SELECT id, license_key FROM licenses WHERE id = ?');
+const _editLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
 const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
 
 // Cached prepared statements for create/update routes
