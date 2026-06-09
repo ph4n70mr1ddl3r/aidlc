@@ -80,12 +80,12 @@ function requireAdmin(req, res, next) {
  */
 function canAccessResource(req, resource) {
   if (!req.session.user) {
-return false;
-}
+    return false;
+  }
   const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
   if (isAdminOrManager) {
-return true;
-}
+    return true;
+  }
   // Check various ownership fields
   const ownerId = resource.assigned_to || resource.owner_id || resource.user_id || resource.author_id;
   return ownerId && Number(ownerId) === Number(req.session.user.id);

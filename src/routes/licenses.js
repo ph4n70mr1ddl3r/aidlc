@@ -34,7 +34,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['software_name', 'vendor'], ['software_name', 'vendor']);
+  addSearch(where, params, req.query.search, ['software_name', 'vendor']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -106,8 +106,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
-}
+    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+  }
 
   const license = _showLicenseStmt.get(id);
   if (!license) {
@@ -121,13 +121,13 @@ router.get('/:id', (req, res) => {
 router.get('/:id/key', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- return res.status(400).json({ error: 'Invalid license ID' });
-}
+    return res.status(400).json({ error: 'Invalid license ID' });
+  }
 
   const license = _editLicenseStmt.get(id);
   if (!license) {
- return res.status(404).json({ error: 'License not found' });
-}
+    return res.status(404).json({ error: 'License not found' });
+  }
   res.json({ key: license.license_key || '' });
 });
 
@@ -135,8 +135,8 @@ router.get('/:id/key', requireAdminOrManager, (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
-}
+    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+  }
 
   const license = _showLicenseStmt.get(id);
   if (!license) {
@@ -150,8 +150,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
-}
+    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+  }
 
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
@@ -184,8 +184,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify license exists before updating; fetch existing key for preservation
     const existing = _editLicenseStmt.get(id);
     if (!existing) {
- req.flash('error', 'License not found'); return res.redirect('/licenses');
-}
+      req.flash('error', 'License not found'); return res.redirect('/licenses');
+    }
 
     // If license_key field was left blank on edit, preserve the existing key
     const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
@@ -208,8 +208,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
-}
+    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+  }
 
   try {
     const result = _deleteLicenseStmt.run(id);

@@ -48,8 +48,8 @@ if (Number.isFinite(_pruneDays) && _pruneDays > 0) {
   const { pruneAuditLog } = require('./utils');
   const pruned = pruneAuditLog(db, _pruneDays);
   if (pruned > 0) {
-console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
-}
+    console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
+  }
 }
 
 const app = express();
@@ -292,8 +292,8 @@ app.get('/health', (req, res) => {
 // Home redirect
 app.get('/', (req, res) => {
   if (req.session.user) {
-return res.redirect('/dashboard');
-}
+    return res.redirect('/dashboard');
+  }
   res.redirect('/login');
 });
 

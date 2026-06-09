@@ -37,14 +37,7 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 
-// Asset counter table for atomic tag generation (prevents race conditions)
-const _assetCounterStmt = db.prepare(`
-    CREATE TABLE IF NOT EXISTS asset_counter (
-      counter_key TEXT PRIMARY KEY,
-      next_seq INTEGER NOT NULL DEFAULT 1
-    )
-  `);
-_assetCounterStmt.run();
+// Asset counter for atomic tag generation (prevents race conditions)
 const _assetCounterGetStmt = db.prepare(`
     INSERT INTO asset_counter (counter_key, next_seq)
     VALUES ('asset_tag', 1)
@@ -64,7 +57,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer'], ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 

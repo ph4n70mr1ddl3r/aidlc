@@ -107,7 +107,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number'], ['t.title', 't.description', 't.ticket_number']);
+  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
@@ -227,8 +227,8 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
 
   const ticket = _showTicketStmt.get(id);
 
@@ -248,8 +248,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
 
   const ticket = _editTicketStmt.get(id);
   if (!ticket) {
@@ -271,8 +271,8 @@ router.get('/:id/edit', (req, res) => {
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
@@ -313,8 +313,8 @@ router.put('/:id', (req, res) => {
   try {
     const ticket = _updateExistStmt.get(id);
     if (!ticket) {
- req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-}
+      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+    }
 
     if (!canAccessResource(req, ticket)) {
       req.flash('error', 'You can only update tickets assigned to you');
@@ -369,8 +369,8 @@ router.put('/:id', (req, res) => {
 router.post('/:id/comments', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
   const { comment, is_internal } = req.body;
 
   if (!comment || !comment.trim()) {
@@ -386,8 +386,8 @@ router.post('/:id/comments', (req, res) => {
     // Verify ticket exists before adding comment
     const ticket = _commentExistStmt.get(id);
     if (!ticket) {
- req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-}
+      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+    }
 
     const addComment = db.transaction(() => {
       _commentInsertStmt.run(id, req.session.user.id, comment.trim().substring(0, 5000),
@@ -412,8 +412,8 @@ router.post('/:id/comments', (req, res) => {
 router.put('/:id/status', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
   const { status } = req.body;
 
   if (!VALID_STATUSES.includes(status)) {
@@ -424,8 +424,8 @@ router.put('/:id/status', (req, res) => {
   try {
     const ticket = _statusTicketStmt.get(id);
     if (!ticket) {
- req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-}
+      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+    }
 
     if (!canAccessResource(req, ticket)) {
       req.flash('error', 'You can only update status of tickets assigned to you');
@@ -458,8 +458,8 @@ router.put('/:id/status', (req, res) => {
 router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
   const rating = safeInt(req.body.satisfaction_rating, 0);
   if (rating < 1 || rating > 5) {
     req.flash('error', 'Invalid satisfaction rating');
@@ -471,14 +471,14 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
     // via direct API call even though the template hides the form.
     const ticket = _statusTicketStmt.get(id);
     if (!ticket) {
- req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-}
+      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+    }
 
     // Fetch full status from the existing-ticket query
     const fullTicket = _updateExistStmt.get(id);
     if (!fullTicket) {
- req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-}
+      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+    }
     if (fullTicket.status !== 'resolved' && fullTicket.status !== 'closed') {
       req.flash('error', 'Can only rate resolved or closed tickets');
       return res.redirect(`/tickets/${id}`);
@@ -502,8 +502,8 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
-}
+    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+  }
 
   try {
     let changes = 0;

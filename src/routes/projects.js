@@ -99,7 +99,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['p.name', 'p.description'], ['p.name', 'p.description']);
+  addSearch(where, params, req.query.search, ['p.name', 'p.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -187,8 +187,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
 
   const project = _showProjectStmt.get(id);
 
@@ -210,12 +210,12 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
   const project = _selectProjectByIdStmt.get(id);
   if (!project) {
- req.flash('error', 'Project not found'); return res.redirect('/projects');
-}
+    req.flash('error', 'Project not found'); return res.redirect('/projects');
+  }
   const staff = getActiveStaff(db);
   res.render('pages/projects/form', { title: 'Edit Project', project, staff, isEdit: true });
 });
@@ -224,8 +224,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
 
   const name = trim(req.body.name);
   const description = trim(req.body.description);
@@ -243,8 +243,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify project exists before updating
     const existingProject = _existsProjectStmt.get(id);
     if (!existingProject) {
- req.flash('error', 'Project not found'); return res.redirect('/projects');
-}
+      req.flash('error', 'Project not found'); return res.redirect('/projects');
+    }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
     const safeProgress = progress !== undefined && progress !== ''
       ? Math.max(0, Math.min(100, Number.isFinite(Number(progress)) ? parseInt(progress, 10) : existingProject.progress))
@@ -280,8 +280,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
 
   try {
     let changes = 0;
@@ -309,8 +309,8 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
 router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
   const projectId = safeId(req.params.id);
   if (!projectId) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
@@ -352,8 +352,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
- req.flash('error', 'Invalid ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid ID'); return res.redirect('/projects');
+  }
 
   const rawTitle = req.body.title;
   const description = trim(req.body.description);
@@ -365,8 +365,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
       if (!existing) {
- req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`);
-}
+        req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`);
+      }
       const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
       if (safeStatus === existing.status) {
         req.flash('info', 'Status unchanged');
@@ -383,8 +383,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
       updateTask();
       req.flash('success', 'Task updated');
     } catch (err) {
- console.error('Project task quick-status error:', err.message); req.flash('error', 'Error updating task');
-}
+      console.error('Project task quick-status error:', err.message); req.flash('error', 'Error updating task');
+    }
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -421,8 +421,8 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
- req.flash('error', 'Invalid ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid ID'); return res.redirect('/projects');
+  }
 
   try {
     let changes = 0;
@@ -430,8 +430,8 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
       const result = _taskDeleteStmt.run(taskId, projectId);
       changes = result.changes;
       if (changes > 0) {
-recalcProjectProgress(db, projectId);
-}
+        recalcProjectProgress(db, projectId);
+      }
     });
     deleteTask();
 
@@ -452,17 +452,17 @@ recalcProjectProgress(db, projectId);
 router.post('/:id/members', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+  }
   const { user_id, role } = req.body;
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) {
- req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`);
-}
+      req.flash('error', 'Invalid user'); return res.redirect(`/projects/${id}`);
+    }
     if (!isActiveUser(db, safeUserId)) {
- req.flash('error', 'Selected user is not available'); return res.redirect(`/projects/${id}`);
-}
+      req.flash('error', 'Selected user is not available'); return res.redirect(`/projects/${id}`);
+    }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
     const result = _memberInsertStmt.run(id, safeUserId, safeRole);
     if (result.changes === 0) {
@@ -483,8 +483,8 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   const memberId = safeId(req.params.memberId);
   if (!id || !memberId) {
- req.flash('error', 'Invalid ID'); return res.redirect('/projects');
-}
+    req.flash('error', 'Invalid ID'); return res.redirect('/projects');
+  }
 
   try {
     const result = _memberDeleteStmt.run(memberId, id);

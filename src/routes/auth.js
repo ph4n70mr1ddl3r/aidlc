@@ -34,11 +34,11 @@ const DUMMY_BCRYPT_HASH = '$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 function checkAccountLockout(username) {
   const entry = loginFailures.get(username);
   if (!entry) {
-return false;
-}
+    return false;
+  }
   if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
-return true;
-}
+    return true;
+  }
   if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
     loginFailures.delete(username);
     return false;
@@ -49,11 +49,11 @@ return true;
 function checkIpLockout(ip) {
   const entry = ipLoginFailures.get(ip);
   if (!entry) {
-return false;
-}
+    return false;
+  }
   if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
-return true;
-}
+    return true;
+  }
   if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
     ipLoginFailures.delete(ip);
     return false;
@@ -68,8 +68,8 @@ function recordLoginFailure(username, ip) {
     if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
       const firstKey = loginFailures.keys().next().value;
       if (firstKey !== undefined) {
-loginFailures.delete(firstKey);
-}
+        loginFailures.delete(firstKey);
+      }
     }
     entry = { count: 0, lockedUntil: null, lastAttempt: null };
   }
@@ -88,8 +88,8 @@ loginFailures.delete(firstKey);
       if (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
         const firstKey = ipLoginFailures.keys().next().value;
         if (firstKey !== undefined) {
-ipLoginFailures.delete(firstKey);
-}
+          ipLoginFailures.delete(firstKey);
+        }
       }
       ipEntry = { count: 0, lockedUntil: null, lastAttempt: null };
     }
@@ -113,28 +113,28 @@ const loginFailureCleanup = setInterval(() => {
   const staleThreshold = now - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
   for (const [key, entry] of loginFailures) {
     if (entry.lockedUntil && now >= entry.lockedUntil) {
-loginFailures.delete(key);
-} else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
-loginFailures.delete(key);
-}
+      loginFailures.delete(key);
+    } else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
+      loginFailures.delete(key);
+    }
   }
   for (const [key, entry] of ipLoginFailures) {
     if (entry.lockedUntil && now >= entry.lockedUntil) {
-ipLoginFailures.delete(key);
-} else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
-ipLoginFailures.delete(key);
-}
+      ipLoginFailures.delete(key);
+    } else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
+      ipLoginFailures.delete(key);
+    }
   }
 }, 10 * 60 * 1000);
 if (loginFailureCleanup.unref) {
-loginFailureCleanup.unref();
+  loginFailureCleanup.unref();
 }
 
 // Login page
 router.get('/login', (req, res) => {
   if (req.session.user) {
-return res.redirect('/dashboard');
-}
+    return res.redirect('/dashboard');
+  }
   // Only allow known reason values to prevent arbitrary message injection via crafted URLs
   const allowedReasons = ['deactivated'];
   const reason = allowedReasons.includes(req.query.reason) ? req.query.reason : '';
@@ -197,10 +197,10 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   await new Promise((resolve, reject) => {
     req.session.regenerate((err) => {
       if (err) {
-reject(err);
-} else {
-resolve();
-}
+        reject(err);
+      } else {
+        resolve();
+      }
     });
   });
   req.session.user = sessionUser;
@@ -342,10 +342,10 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   await new Promise((resolve, reject) => {
     req.session.regenerate((err) => {
       if (err) {
-reject(err);
-} else {
-resolve();
-}
+        reject(err);
+      } else {
+        resolve();
+      }
     });
   });
   req.session.user = sessionUser;

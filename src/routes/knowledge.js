@@ -79,7 +79,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags'], ['k.title', 'k.content', 'k.tags']);
+  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags']);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -170,8 +170,8 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
-}
+    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+  }
 
   const article = _showArticleStmt.get(id);
 
@@ -196,8 +196,8 @@ router.get('/:id', (req, res) => {
   const VIEWED_KEY = 'kb_viewed';
   const MAX_VIEWED_ARTICLES = 200;
   if (!req.session[VIEWED_KEY]) {
-req.session[VIEWED_KEY] = {};
-}
+    req.session[VIEWED_KEY] = {};
+  }
   const viewed = req.session[VIEWED_KEY];
   if (!viewed[id] && (!req.session.user || article.author_id !== req.session.user.id)) {
     _viewCountStmt.run(id);
@@ -220,8 +220,8 @@ req.session[VIEWED_KEY] = {};
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
-}
+    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+  }
 
   const article = _editArticleStmt.get(id);
   if (!article) {
@@ -243,14 +243,14 @@ router.get('/:id/edit', (req, res) => {
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
-}
+    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+  }
 
   // Authorization check
   const existing = _editArticleStmt.get(id);
   if (!existing) {
- req.flash('error', 'Article not found'); return res.redirect('/knowledge');
-}
+    req.flash('error', 'Article not found'); return res.redirect('/knowledge');
+  }
   const isOwner = existing.author_id === req.session.user.id;
   const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
   if (!isOwner && !isPrivileged) {
@@ -309,8 +309,8 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
-}
+    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+  }
 
   try {
     const result = _deleteArticleStmt.run(id);

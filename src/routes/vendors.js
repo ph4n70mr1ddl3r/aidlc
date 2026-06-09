@@ -41,7 +41,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['v.name', 'v.contact_person', 'v.email'], ['v.name', 'v.contact_person', 'v.email']);
+  addSearch(where, params, req.query.search, ['v.name', 'v.contact_person', 'v.email']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -133,8 +133,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
@@ -148,8 +148,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
@@ -163,8 +163,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
@@ -209,8 +209,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify vendor exists before updating
     const existing = _updateExistStmt.get(id);
     if (!existing) {
- req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
-}
+      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+    }
 
     const updateVendor = db.transaction(() => {
       // Preserve existing is_active — use dedicated activate/deactivate routes
@@ -243,17 +243,17 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   try {
     const existing = _deactivateCheckStmt.get(id);
     if (!existing) {
- req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
-}
+      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+    }
     if (!existing.is_active) {
- req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`);
-}
+      req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`);
+    }
 
     _deactivateStmt.run(id);
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
@@ -269,17 +269,17 @@ router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
 router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   try {
     const existing = _deactivateCheckStmt.get(id);
     if (!existing) {
- req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
-}
+      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+    }
     if (existing.is_active) {
- req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`);
-}
+      req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`);
+    }
 
     _reactivateStmt.run(id);
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
@@ -295,8 +295,8 @@ router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
-}
+    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+  }
 
   try {
     // Check for dependent licenses and delete everything in a single transaction
@@ -307,11 +307,11 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
       // consciously acknowledges the action (mirrors the staff deactivation pattern).
       const vendor = _showVendorStmt.get(id);
       if (!vendor) {
-return 0;
-}
+        return 0;
+      }
       if (vendor.is_active) {
-return -1;
-} // sentinel: still active
+        return -1;
+      } // sentinel: still active
 
       // Nullify vendor references on licenses to avoid orphaned references
       const dependentLicenses = _licenseDependentsStmt.all(id);

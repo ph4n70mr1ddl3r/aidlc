@@ -290,6 +290,14 @@ return;
     );
 
     -- ========================
+    -- ASSET COUNTER (for atomic asset tag generation)
+    -- ========================
+    CREATE TABLE IF NOT EXISTS asset_counter (
+      counter_key TEXT PRIMARY KEY,
+      next_seq INTEGER NOT NULL DEFAULT 1
+    );
+
+    -- ========================
     -- SCHEMA MIGRATIONS
     -- ========================
     CREATE TABLE IF NOT EXISTS schema_migrations (

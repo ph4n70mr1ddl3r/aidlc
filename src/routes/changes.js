@@ -42,7 +42,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['c.title', 'c.description'], ['c.title', 'c.description']);
+  addSearch(where, params, req.query.search, ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -127,8 +127,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
-}
+    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+  }
 
   const change = _showChangeStmt.get(id);
 
@@ -143,8 +143,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
-}
+    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+  }
 
   const change = _editChangeStmt.get(id);
   if (!change) {
@@ -159,8 +159,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
-}
+    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+  }
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
@@ -205,8 +205,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify change exists before updating
     const existing = _existsChangeStmt.get(id);
     if (!existing) {
- req.flash('error', 'Change not found'); return res.redirect('/changes');
-}
+      req.flash('error', 'Change not found'); return res.redirect('/changes');
+    }
 
     _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
@@ -226,8 +226,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
-}
+    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+  }
 
   try {
     const result = _deleteChangeStmt.run(id);

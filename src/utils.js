@@ -44,8 +44,8 @@ function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<
   const params = [];
   for (const [column, config] of Object.entries(filters)) {
     if (config.value === undefined || config.value === null || config.value === '') {
-continue;
-}
+      continue;
+    }
     if (!allowedColumns.includes(column)) {
       throw new Error(`Invalid filter column: ${column}`);
     }
@@ -94,19 +94,14 @@ function isValidEmail(email) {
 /**
  * Add LIKE search conditions safely.
  * Column names are validated against an allowlist to prevent SQL injection.
- * @param {string[]} allowedColumns - List of allowed column names for search
+ * @param {string[]} columns - List of allowed column names to search
  */
-function addSearch(where, params, search, columns, allowedColumns) {
+function addSearch(where, params, search, columns) {
   if (!search) {
-return;
-}
-  if (!allowedColumns || !Array.isArray(allowedColumns) || allowedColumns.length === 0) {
-    throw new Error('allowedColumns is required for addSearch');
+    return;
   }
-  for (const col of columns) {
-    if (!allowedColumns.includes(col)) {
-      throw new Error(`Invalid search column: ${col}`);
-    }
+  if (!columns || !Array.isArray(columns) || columns.length === 0) {
+    throw new Error('columns is required for addSearch');
   }
   const raw = String(search);
   // Escape SQL LIKE wildcards
@@ -134,8 +129,8 @@ function safeId(value) {
  */
 function safeFloat(value, fallback = 0) {
   if (value === undefined || value === null || value === '') {
-return fallback;
-}
+    return fallback;
+  }
   const n = parseFloat(value);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -149,12 +144,12 @@ return fallback;
  */
 function safePositiveFloat(value, fallback = null) {
   if (value === undefined || value === null || value === '') {
-return fallback;
-}
+    return fallback;
+  }
   const n = parseFloat(value);
   if (!Number.isFinite(n) || n < 0) {
-return fallback;
-}
+    return fallback;
+  }
   return n;
 }
 
@@ -163,8 +158,8 @@ return fallback;
  */
 function safeInt(value, fallback = 0) {
   if (value === undefined || value === null || value === '') {
-return fallback;
-}
+    return fallback;
+  }
   const n = parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -174,8 +169,8 @@ return fallback;
  */
 function isValidUrl(url) {
   if (!url || typeof url !== 'string') {
-return false;
-}
+    return false;
+  }
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -189,8 +184,8 @@ return false;
  */
 function isValidIp(ip) {
   if (!ip || typeof ip !== 'string') {
-return false;
-}
+    return false;
+  }
   // IPv4
   if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
     const parts = ip.split('.');
@@ -211,8 +206,8 @@ return false;
  */
 function sanitizePhone(phone) {
   if (!phone || typeof phone !== 'string') {
-return null;
-}
+    return null;
+  }
   const sanitized = phone.replace(/[^\d+\-()\s]/g, '').trim();
   return sanitized || null;
 }
@@ -224,8 +219,8 @@ return null;
  */
 function isValidPhone(phone) {
   if (!phone || typeof phone !== 'string') {
-return false;
-}
+    return false;
+  }
   // Must have at least 7 digits
   const digits = phone.replace(/\D/g, '');
   return digits.length >= 7 && digits.length <= 15;
@@ -237,11 +232,11 @@ return false;
  */
 function isValidDate(value) {
   if (!value || typeof value !== 'string') {
-return false;
-}
+    return false;
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-return false;
-}
+    return false;
+  }
   const d = new Date(value + 'T00:00:00');
   return !isNaN(d.getTime());
 }
@@ -252,11 +247,11 @@ return false;
  */
 function isValidDateTimeLocal(value) {
   if (!value || typeof value !== 'string') {
-return false;
-}
+    return false;
+  }
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-return false;
-}
+    return false;
+  }
   const d = new Date(value);
   return !isNaN(d.getTime());
 }
@@ -292,8 +287,8 @@ function trim(value) {
  */
 function formatDate(value) {
   if (!value) {
-return '-';
-}
+    return '-';
+  }
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.slice(0, 10)) && value.length <= 10) {
     const d = localDate(value);
     return d ? d.toLocaleDateString() : '-';
@@ -308,8 +303,8 @@ return '-';
  */
 function formatDateTime(value) {
   if (!value) {
-return '-';
-}
+    return '-';
+  }
   const d = new Date(value);
   return isNaN(d.getTime()) ? '-' : d.toLocaleString();
 }
@@ -332,12 +327,12 @@ function jsonScriptSafe(value) {
  */
 function localDate(value) {
   if (!value || typeof value !== 'string') {
-return null;
-}
+    return null;
+  }
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!m) {
-return null;
-}
+    return null;
+  }
   const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
   return isNaN(d.getTime()) ? null : d;
 }
@@ -362,8 +357,8 @@ function _getIsActiveUserStmt(db) {
  */
 function isActiveUser(db, userId) {
   if (!userId) {
-return false;
-}
+    return false;
+  }
   const row = _getIsActiveUserStmt(db).get(userId);
   return !!row;
 }
@@ -448,8 +443,8 @@ function pruneAuditLog(db, retentionDays) {
  */
 function titleCase(value) {
   if (!value || typeof value !== 'string') {
-return '';
-}
+    return '';
+  }
   return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 

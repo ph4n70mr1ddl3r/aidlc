@@ -77,7 +77,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username'], ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -172,8 +172,8 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   const staffUser = _showStaffStmt.get(id);
   if (!staffUser) {
@@ -203,8 +203,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   const user = _showStaffStmt.get(id);
   if (!user) {
@@ -223,8 +223,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   const email = trim(req.body.email);
   const first_name = trim(req.body.first_name);
@@ -252,8 +252,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   // Fetch the target user to check their current role
   const targetUser = _staffRoleStmt.get(id);
   if (!targetUser) {
- req.flash('error', 'Staff member not found'); return res.redirect('/staff');
-}
+    req.flash('error', 'Staff member not found'); return res.redirect('/staff');
+  }
 
   // Only admins can assign the admin role
   if (role === 'admin' && req.session.user.role !== 'admin') {
@@ -308,17 +308,17 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.put('/:id/reactivate', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   try {
     const target = _reactivateCheckStmt.get(id);
     if (!target) {
- req.flash('error', 'Staff member not found'); return res.redirect('/staff');
-}
+      req.flash('error', 'Staff member not found'); return res.redirect('/staff');
+    }
     if (target.is_active) {
- req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`);
-}
+      req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`);
+    }
 
     _reactivateStmt.run(id);
     req.audit('update', 'user', id, 'Reactivated user account');
@@ -343,8 +343,8 @@ const resetLimiter = rateLimit({
 router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   // Prevent admin from resetting own password via this route (use profile instead)
   if (Number(id) === Number(req.session.user.id)) {
@@ -379,8 +379,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 router.delete('/:id', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
-}
+    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+  }
 
   // Prevent admin from deactivating themselves
   if (Number(id) === Number(req.session.user.id)) {
@@ -405,8 +405,8 @@ router.delete('/:id', requireAdmin, (req, res) => {
       const result = _deactivateStmt.run(id);
       changes = result.changes;
       if (changes === 0) {
-return;
-}
+        return;
+      }
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       _unassignTicketsStmt.run(id);
