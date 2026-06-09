@@ -317,10 +317,12 @@ router.put('/:id/reactivate', requireAdmin, (req, res) => {
   try {
     const target = _reactivateCheckStmt.get(id);
     if (!target) {
-      req.flash('error', 'Staff member not found'); return res.redirect('/staff');
+      req.flash('error', 'Staff member not found');
+      return res.redirect('/staff');
     }
     if (target.is_active) {
-      req.flash('info', 'Account is already active'); return res.redirect(`/staff/${id}`);
+      req.flash('info', 'Account is already active');
+      return res.redirect(`/staff/${id}`);
     }
 
     _reactivateStmt.run(id);

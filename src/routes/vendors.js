@@ -253,10 +253,12 @@ router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
   try {
     const existing = _deactivateCheckStmt.get(id);
     if (!existing) {
-      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+      req.flash('error', 'Vendor not found');
+      return res.redirect('/vendors');
     }
     if (!existing.is_active) {
-      req.flash('info', 'Vendor is already inactive'); return res.redirect(`/vendors/${id}`);
+      req.flash('info', 'Vendor is already inactive');
+      return res.redirect(`/vendors/${id}`);
     }
 
     _deactivateStmt.run(id);
@@ -302,7 +304,8 @@ router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   try {
@@ -314,11 +317,11 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
       // consciously acknowledges the action (mirrors the staff deactivation pattern).
       const vendor = _showVendorStmt.get(id);
       if (!vendor) {
-        return 0;
+        return { changes: 0, active: false };
       }
       if (vendor.is_active) {
-        return -1;
-      } // sentinel: still active
+        return { changes: 0, active: true };
+      }
 
       // Nullify vendor references on licenses to avoid orphaned references
       const dependentLicenses = _licenseDependentsStmt.all(id);
@@ -329,12 +332,12 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
       const result = _deleteStmt.run(id);
       return result.changes;
     });
-    const changes = deleteVendor();
-    if (changes === -1) {
+    const result = deleteVendor();
+    if (result.active) {
       req.flash('error', 'Deactivate the vendor before deleting');
       return res.redirect(`/vendors/${id}`);
     }
-    if (changes === 0) {
+    if (result.changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {
       req.audit('delete', 'vendor', id, `Deleted vendor${licenseCount > 0 ? ` (detached from ${licenseCount} license(s))` : ''}`);

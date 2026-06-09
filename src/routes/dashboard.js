@@ -156,9 +156,22 @@ function getDashboardData(user) {
     console.error('Dashboard myTickets query error:', err.message);
   }
 
-  // Merge defaults only once (Object.assign mutates and returns the target)
-  const result = Object.assign({}, EMPTY_DEFAULTS, shared);
-  result.myTickets = myTickets;
+  // Deep-merge defaults to avoid shared nested object references between cache
+  // and rendered data.  Object.assign only copies one level deep, so mutating a
+  // nested object in a template (e.g. ticketStats.open) would corrupt the cache.
+  const result = {
+    ticketStats: { ...EMPTY_DEFAULTS.ticketStats, ...(shared.ticketStats || {}) },
+    assetStats: { ...EMPTY_DEFAULTS.assetStats, ...(shared.assetStats || {}) },
+    projectStats: { ...EMPTY_DEFAULTS.projectStats, ...(shared.projectStats || {}) },
+    staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
+    recentTickets: shared.recentTickets || EMPTY_DEFAULTS.recentTickets,
+    expiringWarranties: shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties,
+    upcomingChanges: shared.upcomingChanges || EMPTY_DEFAULTS.upcomingChanges,
+    ticketsByCategory: shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory,
+    staffWorkload: shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload,
+    licenseAlerts: shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts,
+    myTickets
+  };
   return result;
 }
 
