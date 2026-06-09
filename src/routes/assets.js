@@ -44,6 +44,10 @@ const _assetCounterGetStmt = db.prepare(`
     ON CONFLICT(counter_key) DO UPDATE SET next_seq = next_seq + 1
     RETURNING next_seq
   `);
+// Read-only preview of next tag (does NOT increment the counter)
+const _assetCounterPreviewStmt = db.prepare(`
+    SELECT COALESCE(MAX(next_seq), 0) + 1 as next_seq FROM asset_counter WHERE counter_key = 'asset_tag'
+  `);
 
 // List assets (paginated)
 router.get('/', (req, res) => {
@@ -85,9 +89,9 @@ router.get('/', (req, res) => {
 // New asset form
 router.get('/new', requireAdminOrManager, (req, res) => {
   const staff = getActiveStaff(db);
-  // Preview tag only — server generates the actual tag atomically on POST
-  const counterRow = _assetCounterGetStmt.get();
-  const previewTag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
+  // Preview tag only — use read-only SELECT to avoid incrementing the counter
+  const previewRow = _assetCounterPreviewStmt.get();
+  const previewTag = 'AST-' + String(previewRow.next_seq).padStart(3, '0');
   res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: previewTag }, staff, isEdit: false });
 });
 
@@ -220,6 +224,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   if (!asset_tag || !name || !category) {
     req.flash('error', 'Asset tag, name, and category are required');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (!/^AST-\d{3,}$/.test(asset_tag) || asset_tag.length > 50) {
+    req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (name.length > 200) {

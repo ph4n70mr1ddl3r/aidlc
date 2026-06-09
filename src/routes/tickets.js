@@ -28,6 +28,7 @@ const _showCommentsStmt = db.prepare(`
   `);
 const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
 const _statusTicketStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
+const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(
     'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
   );
@@ -469,17 +470,11 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
   try {
     // Only allow rating on resolved/closed tickets — prevents rating open tickets
     // via direct API call even though the template hides the form.
-    const ticket = _statusTicketStmt.get(id);
+    const ticket = _satisfactionCheckStmt.get(id);
     if (!ticket) {
       req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
     }
-
-    // Fetch full status from the existing-ticket query
-    const fullTicket = _updateExistStmt.get(id);
-    if (!fullTicket) {
-      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
-    }
-    if (fullTicket.status !== 'resolved' && fullTicket.status !== 'closed') {
+    if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
       req.flash('error', 'Can only rate resolved or closed tickets');
       return res.redirect(`/tickets/${id}`);
     }
