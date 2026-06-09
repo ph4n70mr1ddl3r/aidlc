@@ -36,10 +36,10 @@ function safeSort(value, allowedMap, defaultKey) {
  * Column names and operators are validated against allowlists to prevent SQL injection.
  * @param {Object} filters - { column: { value, operator? } }
  * @param {string[]} allowedColumns - List of allowed column names (e.g. ['a.category', 't.status'])
- * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=', 'LIKE']] - Allowed SQL operators
+ * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=']] - Allowed SQL operators
  * @returns {{ where: string[], params: any[] }}
  */
-function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=', 'LIKE']) {
+function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=']) {
   const where = [];
   const params = [];
   for (const [column, config] of Object.entries(filters)) {

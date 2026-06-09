@@ -65,13 +65,11 @@ const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
-  const validRoles = USER_ROLES;
   // Whitelist known departments from DB
   const departments = _departmentsStmt.all().map(r => r.department);
-  const validDepartments = departments;
   const filters = buildFilters({
-    'u.role': { value: validRoles.includes(req.query.role) ? req.query.role : '' },
-    'u.department': { value: validDepartments.includes(req.query.department) ? req.query.department : '' },
+    'u.role': { value: USER_ROLES.includes(req.query.role) ? req.query.role : '' },
+    'u.department': { value: departments.includes(req.query.department) ? req.query.department : '' },
     'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' }
   }, ['u.role', 'u.department', 'u.is_active']);
 
@@ -253,11 +251,11 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   // Fetch the target user to check their current role
-    const targetUser = _staffRoleStmt.get(id);
-    if (!targetUser) {
-      req.flash('error', 'Staff member not found');
-      return res.redirect('/staff');
-    }
+  const targetUser = _staffRoleStmt.get(id);
+  if (!targetUser) {
+    req.flash('error', 'Staff member not found');
+    return res.redirect('/staff');
+  }
 
   // Only admins can assign the admin role
   if (role === 'admin' && req.session.user.role !== 'admin') {
