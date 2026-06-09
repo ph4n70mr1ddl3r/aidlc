@@ -169,8 +169,9 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
-}
+    req.flash('error', 'Invalid asset ID');
+    return res.redirect('/assets');
+  }
 
   const asset = _showStmt.get(id);
 
@@ -188,8 +189,9 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
-}
+    req.flash('error', 'Invalid asset ID');
+    return res.redirect('/assets');
+  }
 
   const asset = _editStmt.get(id);
   if (!asset) {
@@ -204,8 +206,9 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
-}
+    req.flash('error', 'Invalid asset ID');
+    return res.redirect('/assets');
+  }
 
   const asset_tag = trim(req.body.asset_tag);
   const name = trim(req.body.name);
@@ -252,8 +255,9 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify asset exists before updating
     const existing = _updateExistCheckStmt.get(id);
     if (!existing) {
- req.flash('error', 'Asset not found'); return res.redirect('/assets');
-}
+      req.flash('error', 'Asset not found');
+      return res.redirect('/assets');
+    }
 
     _updateStmt.run(
       asset_tag.substring(0, 50), name.substring(0, 200), category,
@@ -282,8 +286,9 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
- req.flash('error', 'Invalid asset ID'); return res.redirect('/assets');
-}
+    req.flash('error', 'Invalid asset ID');
+    return res.redirect('/assets');
+  }
 
   try {
     const deleteStmt = db.transaction(() => {

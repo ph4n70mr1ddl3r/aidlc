@@ -228,7 +228,8 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
 
   const ticket = _showTicketStmt.get(id);
@@ -249,7 +250,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
 
   const ticket = _editTicketStmt.get(id);
@@ -272,7 +274,8 @@ router.get('/:id/edit', (req, res) => {
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
 
   const title = trim(req.body.title);
@@ -314,7 +317,8 @@ router.put('/:id', (req, res) => {
   try {
     const ticket = _updateExistStmt.get(id);
     if (!ticket) {
-      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
     }
 
     if (!canAccessResource(req, ticket)) {
@@ -370,7 +374,8 @@ router.put('/:id', (req, res) => {
 router.post('/:id/comments', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
   const { comment, is_internal } = req.body;
 
@@ -387,7 +392,8 @@ router.post('/:id/comments', (req, res) => {
     // Verify ticket exists before adding comment
     const ticket = _commentExistStmt.get(id);
     if (!ticket) {
-      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
     }
 
     const addComment = db.transaction(() => {
@@ -413,7 +419,8 @@ router.post('/:id/comments', (req, res) => {
 router.put('/:id/status', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
   const { status } = req.body;
 
@@ -425,7 +432,8 @@ router.put('/:id/status', (req, res) => {
   try {
     const ticket = _statusTicketStmt.get(id);
     if (!ticket) {
-      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
     }
 
     if (!canAccessResource(req, ticket)) {
@@ -459,7 +467,8 @@ router.put('/:id/status', (req, res) => {
 router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
   const rating = safeInt(req.body.satisfaction_rating, 0);
   if (rating < 1 || rating > 5) {
@@ -472,7 +481,8 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
     // via direct API call even though the template hides the form.
     const ticket = _satisfactionCheckStmt.get(id);
     if (!ticket) {
-      req.flash('error', 'Ticket not found'); return res.redirect('/tickets');
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
     }
     if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
       req.flash('error', 'Can only rate resolved or closed tickets');
@@ -497,7 +507,8 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID'); return res.redirect('/tickets');
+    req.flash('error', 'Invalid ticket ID');
+    return res.redirect('/tickets');
   }
 
   try {

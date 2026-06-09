@@ -187,7 +187,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
 
   const project = _showProjectStmt.get(id);
@@ -210,7 +211,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
   const project = _selectProjectByIdStmt.get(id);
   if (!project) {
@@ -224,7 +226,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
 
   const name = trim(req.body.name);
@@ -243,7 +246,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify project exists before updating
     const existingProject = _existsProjectStmt.get(id);
     if (!existingProject) {
-      req.flash('error', 'Project not found'); return res.redirect('/projects');
+      req.flash('error', 'Project not found');
+      return res.redirect('/projects');
     }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
     const safeProgress = progress !== undefined && progress !== ''
@@ -280,7 +284,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
 
   try {
@@ -309,7 +314,8 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
 router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
   const projectId = safeId(req.params.id);
   if (!projectId) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
 
   const title = trim(req.body.title);
@@ -352,7 +358,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
-    req.flash('error', 'Invalid ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid ID');
+    return res.redirect('/projects');
   }
 
   const rawTitle = req.body.title;
@@ -365,7 +372,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
       if (!existing) {
-        req.flash('error', 'Task not found'); return res.redirect(`/projects/${projectId}`);
+        req.flash('error', 'Task not found');
+        return res.redirect(`/projects/${projectId}`);
       }
       const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
       if (safeStatus === existing.status) {
@@ -421,7 +429,8 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
-    req.flash('error', 'Invalid ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid ID');
+    return res.redirect('/projects');
   }
 
   try {
@@ -452,7 +461,8 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
 router.post('/:id/members', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid project ID'); return res.redirect('/projects');
+    req.flash('error', 'Invalid project ID');
+    return res.redirect('/projects');
   }
   const { user_id, role } = req.body;
   try {

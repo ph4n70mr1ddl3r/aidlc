@@ -127,7 +127,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+    req.flash('error', 'Invalid change ID');
+    return res.redirect('/changes');
   }
 
   const change = _showChangeStmt.get(id);
@@ -143,7 +144,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+    req.flash('error', 'Invalid change ID');
+    return res.redirect('/changes');
   }
 
   const change = _editChangeStmt.get(id);
@@ -159,7 +161,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+    req.flash('error', 'Invalid change ID');
+    return res.redirect('/changes');
   }
 
   const title = trim(req.body.title);
@@ -205,7 +208,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify change exists before updating
     const existing = _existsChangeStmt.get(id);
     if (!existing) {
-      req.flash('error', 'Change not found'); return res.redirect('/changes');
+      req.flash('error', 'Change not found');
+      return res.redirect('/changes');
     }
 
     _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
@@ -226,7 +230,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid change ID'); return res.redirect('/changes');
+    req.flash('error', 'Invalid change ID');
+    return res.redirect('/changes');
   }
 
   try {

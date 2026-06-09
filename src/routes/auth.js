@@ -31,34 +31,25 @@ const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
 const DUMMY_BCRYPT_HASH = '$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
-function checkAccountLockout(username) {
-  const entry = loginFailures.get(username);
+function checkLockout(map, key) {
+  const entry = map.get(key);
   if (!entry) {
     return false;
   }
   if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
     return true;
   }
-  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
-    loginFailures.delete(username);
-    return false;
-  }
+  // Lockout expired or never set — clean up
+  map.delete(key);
   return false;
 }
 
+function checkAccountLockout(username) {
+  return checkLockout(loginFailures, username);
+}
+
 function checkIpLockout(ip) {
-  const entry = ipLoginFailures.get(ip);
-  if (!entry) {
-    return false;
-  }
-  if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
-    return true;
-  }
-  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
-    ipLoginFailures.delete(ip);
-    return false;
-  }
-  return false;
+  return checkLockout(ipLoginFailures, ip);
 }
 
 function recordLoginFailure(username, ip) {

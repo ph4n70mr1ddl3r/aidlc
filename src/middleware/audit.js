@@ -30,7 +30,10 @@ function audit({ req, userId, action, entity, entityId, details }) {
 }
 
 /**
- * Express middleware that attaches `audit` to `req` for convenience
+ * Express middleware that attaches `audit` to `req` for convenience.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
  */
 function auditMiddleware(req, res, next) {
   req.audit = (action, entity, entityId, details) =>

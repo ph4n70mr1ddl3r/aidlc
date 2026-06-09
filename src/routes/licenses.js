@@ -135,7 +135,8 @@ router.get('/:id/key', requireAdminOrManager, (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+    req.flash('error', 'Invalid license ID');
+    return res.redirect('/licenses');
   }
 
   const license = _showLicenseStmt.get(id);
@@ -150,7 +151,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+    req.flash('error', 'Invalid license ID');
+    return res.redirect('/licenses');
   }
 
   const software_name = trim(req.body.software_name);
@@ -184,7 +186,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify license exists before updating; fetch existing key for preservation
     const existing = _editLicenseStmt.get(id);
     if (!existing) {
-      req.flash('error', 'License not found'); return res.redirect('/licenses');
+      req.flash('error', 'License not found');
+      return res.redirect('/licenses');
     }
 
     // If license_key field was left blank on edit, preserve the existing key
@@ -208,7 +211,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+    req.flash('error', 'Invalid license ID');
+    return res.redirect('/licenses');
   }
 
   try {

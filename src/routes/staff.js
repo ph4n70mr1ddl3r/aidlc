@@ -172,7 +172,8 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   const staffUser = _showStaffStmt.get(id);
@@ -203,7 +204,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   const user = _showStaffStmt.get(id);
@@ -223,7 +225,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   const email = trim(req.body.email);
@@ -250,10 +253,11 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   // Fetch the target user to check their current role
-  const targetUser = _staffRoleStmt.get(id);
-  if (!targetUser) {
-    req.flash('error', 'Staff member not found'); return res.redirect('/staff');
-  }
+    const targetUser = _staffRoleStmt.get(id);
+    if (!targetUser) {
+      req.flash('error', 'Staff member not found');
+      return res.redirect('/staff');
+    }
 
   // Only admins can assign the admin role
   if (role === 'admin' && req.session.user.role !== 'admin') {
@@ -308,7 +312,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.put('/:id/reactivate', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   try {

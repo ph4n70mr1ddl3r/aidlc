@@ -25,8 +25,8 @@ let schemaInitialized = false;
 
 function initSchema() {
   if (schemaInitialized) {
-return;
-}
+    return;
+  }
   schemaInitialized = true;
 
   db.exec(`

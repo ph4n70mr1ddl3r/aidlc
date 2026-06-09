@@ -4,6 +4,14 @@ const db = require('../models/database');
 // and db.prepare() is relatively expensive.
 const _authCheckStmt = db.prepare('SELECT id, is_active, role FROM users WHERE id = ?');
 
+/**
+ * Express middleware that verifies the user has an active session.
+ * Checks session existence, database activity status, and role sync.
+ * Redirects to /login if unauthenticated or deactivated.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     req.flash('error', 'Please log in to access this page');
@@ -40,6 +48,11 @@ function requireAuth(req, res, next) {
   next();
 }
 
+/**
+ * Express middleware factory that restricts access to specific user roles.
+ * @param {...string} roles - Allowed roles (e.g. 'admin', 'manager')
+ * @returns {import('express').RequestHandler}
+ */
 function requireRole(...roles) {
   return (req, res, next) => {
     // requireAuth must run first — this middleware assumes req.session.user exists.

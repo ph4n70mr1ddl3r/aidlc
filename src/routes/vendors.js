@@ -133,7 +133,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   const vendor = _showVendorStmt.get(id);
@@ -148,7 +149,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   const vendor = _showVendorStmt.get(id);
@@ -163,7 +165,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 router.put('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   const name = trim(req.body.name);
@@ -209,7 +212,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     // Verify vendor exists before updating
     const existing = _updateExistStmt.get(id);
     if (!existing) {
-      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+      req.flash('error', 'Vendor not found');
+      return res.redirect('/vendors');
     }
 
     const updateVendor = db.transaction(() => {
@@ -269,16 +273,19 @@ router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
 router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   try {
     const existing = _deactivateCheckStmt.get(id);
     if (!existing) {
-      req.flash('error', 'Vendor not found'); return res.redirect('/vendors');
+      req.flash('error', 'Vendor not found');
+      return res.redirect('/vendors');
     }
     if (existing.is_active) {
-      req.flash('info', 'Vendor is already active'); return res.redirect(`/vendors/${id}`);
+      req.flash('info', 'Vendor is already active');
+      return res.redirect(`/vendors/${id}`);
     }
 
     _reactivateStmt.run(id);

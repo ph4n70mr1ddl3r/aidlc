@@ -170,7 +170,8 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+    req.flash('error', 'Invalid article ID');
+    return res.redirect('/knowledge');
   }
 
   const article = _showArticleStmt.get(id);
@@ -220,7 +221,8 @@ router.get('/:id', (req, res) => {
 router.get('/:id/edit', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+    req.flash('error', 'Invalid article ID');
+    return res.redirect('/knowledge');
   }
 
   const article = _editArticleStmt.get(id);
@@ -243,13 +245,15 @@ router.get('/:id/edit', (req, res) => {
 router.put('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+    req.flash('error', 'Invalid article ID');
+    return res.redirect('/knowledge');
   }
 
   // Authorization check
   const existing = _editArticleStmt.get(id);
   if (!existing) {
-    req.flash('error', 'Article not found'); return res.redirect('/knowledge');
+    req.flash('error', 'Article not found');
+    return res.redirect('/knowledge');
   }
   const isOwner = existing.author_id === req.session.user.id;
   const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
@@ -309,7 +313,8 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid article ID'); return res.redirect('/knowledge');
+    req.flash('error', 'Invalid article ID');
+    return res.redirect('/knowledge');
   }
 
   try {
