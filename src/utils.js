@@ -93,22 +93,15 @@ function isValidEmail(email) {
 
 /**
  * Add LIKE search conditions safely.
- * Column names are validated against an allowlist to prevent SQL injection.
- * @param {string[]} columns - List of allowed column names to search
+ * Column names are validated to prevent SQL injection.
+ * @param {string[]} columns - List of column names to search (must be non-empty)
  */
-function addSearch(where, params, search, columns, allowedColumns) {
+function addSearch(where, params, search, columns) {
   if (!search) {
     return;
   }
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
     throw new Error('columns is required for addSearch');
-  }
-  // Validate columns against allowlist for defense-in-depth
-  const validColumns = allowedColumns || columns;
-  for (const c of columns) {
-    if (!validColumns.includes(c)) {
-      throw new Error(`Invalid search column: ${c}`);
-    }
   }
   const raw = String(search);
   // Escape SQL LIKE wildcards

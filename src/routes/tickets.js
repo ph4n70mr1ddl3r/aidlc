@@ -109,7 +109,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number'], ['t.title', 't.description', 't.ticket_number']);
+  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');

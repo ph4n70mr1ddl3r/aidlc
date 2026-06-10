@@ -62,7 +62,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer'], ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
