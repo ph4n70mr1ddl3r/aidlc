@@ -79,7 +79,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags']);
+  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags'], ['k.title', 'k.content', 'k.tags']);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata

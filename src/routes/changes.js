@@ -3,6 +3,7 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -42,7 +43,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['c.title', 'c.description']);
+  addSearch(where, params, req.query.search, ['c.title', 'c.description'], ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -115,6 +116,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
+    invalidateDashboardCache();
     res.redirect('/changes');
   } catch (err) {
     console.error('Change create error:', err.message);
@@ -218,6 +220,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
+    invalidateDashboardCache();
     res.redirect(`/changes/${id}`);
   } catch (err) {
     console.error('Change update error:', err.message);
@@ -241,6 +244,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'change', id, 'Deleted change record');
       req.flash('success', 'Change deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Change delete error:', err.message);

@@ -5,6 +5,7 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePa
 const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -75,7 +76,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username'], ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -163,6 +164,7 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
 
   req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
   req.flash('success', `Staff member ${first_name} ${last_name} created`);
+  invalidateDashboardCache();
   res.redirect('/staff');
 }));
 
@@ -282,6 +284,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       (department || '').substring(0, 100), (phone || '').substring(0, 50), safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
+    invalidateDashboardCache();
 
     // Keep session in sync if admin is editing their own record
     if (Number(id) === Number(req.session.user.id)) {
@@ -432,6 +435,7 @@ router.delete('/:id', requireAdmin, (req, res) => {
     } else {
       req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks');
       req.flash('success', 'Staff member deactivated and open tickets/tasks unassigned');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Staff deactivate error:', err.message);

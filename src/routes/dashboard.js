@@ -175,6 +175,14 @@ function getDashboardData(user) {
   return result;
 }
 
+/**
+ * Invalidate the dashboard cache so the next request refreshes data.
+ * Called after ticket/asset/project/staff writes to avoid stale dashboard stats.
+ */
+function invalidateDashboardCache() {
+  dashboardCache = { ts: 0, data: null };
+}
+
 router.get('/', (req, res) => {
   const data = getDashboardData(req.session.user);
 
@@ -195,3 +203,4 @@ router.get('/', (req, res) => {
 });
 
 module.exports = router;
+module.exports.invalidateDashboardCache = invalidateDashboardCache;

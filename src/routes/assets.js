@@ -3,6 +3,7 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -61,7 +62,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer'], ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -153,6 +154,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
     const { asset_tag, id } = createAsset();
     req.audit('create', 'asset', id, `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);
+    invalidateDashboardCache();
     res.redirect('/assets');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -270,6 +272,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');
+    invalidateDashboardCache();
     res.redirect(`/assets/${id}`);
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -302,6 +305,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'asset', id, 'Deleted asset');
       req.flash('success', 'Asset deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Asset delete error:', err.message);

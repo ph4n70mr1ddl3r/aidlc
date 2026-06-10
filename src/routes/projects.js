@@ -9,6 +9,7 @@ const {
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
   MEMBER_ROLES: VALID_MEMBER_ROLES
 } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -99,7 +100,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['p.name', 'p.description']);
+  addSearch(where, params, req.query.search, ['p.name', 'p.description'], ['p.name', 'p.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -175,6 +176,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
+    invalidateDashboardCache();
     res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
     console.error('Project create error:', err.message);
@@ -274,6 +276,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
@@ -303,6 +306,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'project', id, 'Deleted project and related tasks/members');
       req.flash('success', 'Project deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Project delete error:', err.message);
@@ -348,6 +352,7 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
 
     req.audit('create', 'project_task', taskId, `Added task "${title}" to project #${projectId}`);
     req.flash('success', 'Task added');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Project task add error:', err.message);
     req.flash('error', 'Error adding task. Please try again.');
@@ -420,6 +425,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
     req.flash('success', 'Task updated');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Project task update error:', err.message);
     req.flash('error', 'Error updating task');
@@ -452,6 +458,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
     } else {
       req.audit('delete', 'project_task', taskId, 'Deleted task');
       req.flash('success', 'Task deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Project task delete error:', err.message);

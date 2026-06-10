@@ -33,7 +33,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['software_name', 'vendor']);
+  addSearch(where, params, req.query.search, ['software_name', 'vendor'], ['software_name', 'vendor']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 

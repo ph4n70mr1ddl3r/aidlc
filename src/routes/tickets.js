@@ -3,6 +3,7 @@ const { requireAuth, requireAdminOrManager, canAccessResource } = require('../mi
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -108,7 +109,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
+  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number'], ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
@@ -216,6 +217,7 @@ router.post('/', (req, res) => {
 
     req.audit('create', 'ticket', id, `Created ticket ${ticket_number}`);
     req.flash('success', `Ticket ${ticket_number} created successfully`);
+    invalidateDashboardCache();
     res.redirect('/tickets');
   } catch (err) {
     console.error('Ticket create error:', err.message);
@@ -359,6 +361,7 @@ router.put('/:id', (req, res) => {
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
+    invalidateDashboardCache();
     res.redirect(`/tickets/${id}`);
   } catch (err) {
     console.error('Ticket update error:', err.message);
@@ -453,6 +456,7 @@ router.put('/:id/status', (req, res) => {
     }
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Ticket status update error:', err.message);
     req.flash('error', 'Error updating status');
@@ -493,6 +497,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
     }
     req.audit('update', 'ticket', id, `Satisfaction rated ${rating}/5`);
     req.flash('success', 'Thank you for your feedback!');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Ticket satisfaction error:', err.message);
     req.flash('error', 'Error submitting rating');
@@ -521,6 +526,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'ticket', id, 'Deleted ticket');
       req.flash('success', 'Ticket deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Ticket delete error:', err.message);
