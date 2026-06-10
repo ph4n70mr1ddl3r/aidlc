@@ -53,7 +53,7 @@ function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<
     if (!allowedOperators.includes(op)) {
       throw new Error(`Invalid filter operator: ${op}`);
     }
-    where.push(`${column} ${op} ?`);
+    where.push(`"${column}" ${op} ?`);
     params.push(config.value);
   }
   return { where, params };
@@ -96,18 +96,25 @@ function isValidEmail(email) {
  * Column names are validated against an allowlist to prevent SQL injection.
  * @param {string[]} columns - List of allowed column names to search
  */
-function addSearch(where, params, search, columns) {
+function addSearch(where, params, search, columns, allowedColumns) {
   if (!search) {
     return;
   }
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
     throw new Error('columns is required for addSearch');
   }
+  // Validate columns against allowlist for defense-in-depth
+  const validColumns = allowedColumns || columns;
+  for (const c of columns) {
+    if (!validColumns.includes(c)) {
+      throw new Error(`Invalid search column: ${c}`);
+    }
+  }
   const raw = String(search);
   // Escape SQL LIKE wildcards
   const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
-  const conditions = columns.map(c => `${c} LIKE ? ESCAPE '\\'`);
+  const conditions = columns.map(c => `"${c}" LIKE ? ESCAPE '\\'`);
   where.push(`(${conditions.join(' OR ')})`);
   columns.forEach(() => params.push(term));
 }

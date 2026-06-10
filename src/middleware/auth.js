@@ -50,15 +50,36 @@ function requireAuth(req, res, next) {
 
 /**
  * Express middleware factory that restricts access to specific user roles.
+ * Also verifies the user is still active in the database, preventing
+ * deactivated users with valid sessions from accessing role-restricted routes.
  * @param {...string} roles - Allowed roles (e.g. 'admin', 'manager')
  * @returns {import('express').RequestHandler}
  */
 function requireRole(...roles) {
   return (req, res, next) => {
-    // requireAuth must run first — this middleware assumes req.session.user exists.
     // Defensive: redirect to login if session is missing rather than crashing.
     if (!req.session.user) {
       req.flash('error', 'Please log in to access this page');
+      return res.redirect('/login');
+    }
+    // Verify user is still active in DB (same check as requireAuth).
+    // Without this, a deactivated user retains access until session expiry.
+    try {
+      const row = _authCheckStmt.get(req.session.user.id);
+      if (!row || !row.is_active) {
+        req.session.destroy(() => {
+          res.clearCookie('connect.sid');
+          res.redirect('/login?reason=deactivated');
+        });
+        return;
+      }
+      // Keep session role in sync
+      if (row.role !== req.session.user.role) {
+        req.session.user.role = row.role;
+      }
+    } catch (err) {
+      console.error('requireRole DB check error:', err.message);
+      req.flash('error', 'Session verification failed. Please log in again.');
       return res.redirect('/login');
     }
     if (!roles.includes(req.session.user.role)) {

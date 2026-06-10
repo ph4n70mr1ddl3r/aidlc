@@ -177,7 +177,7 @@
       font-size: 14px; font-family: inherit; color: var(--text); transition: border-color 0.2s; background: var(--surface);
     }
     .form-control:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-    select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 8px center; background-repeat: no-repeat; background-size: 20px; padding-right: 32px; }
+    select.form-control { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 8px center; background-repeat: no-repeat; background-size: 20px; padding-right: 32px; }
     textarea.form-control { resize: vertical; min-height: 100px; }
     .filter-bar {
       display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px;
@@ -191,7 +191,7 @@
     .filter-bar .search-input:focus { outline: none; border-color: var(--primary); }
     .filter-bar select {
       padding: 8px 32px 8px 10px; border: 1px solid var(--border); border-radius: 8px;
-      font-size: 13px; background: var(--bg); appearance: none;
+      font-size: 13px; background: var(--bg); -webkit-appearance: none; appearance: none;
       background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
       background-position: right 6px center; background-repeat: no-repeat; background-size: 18px;
     }
@@ -296,3 +296,12 @@
 .article-content img { max-width: 100%; }
 .article-content table { width: 100%; border-collapse: collapse; margin: 0.5em 0; }
 .article-content th, .article-content td { border: 1px solid var(--border); padding: 6px 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

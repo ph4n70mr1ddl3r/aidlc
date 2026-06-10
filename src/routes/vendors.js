@@ -199,6 +199,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     return res.redirect(`/vendors/${id}/edit`);
   }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
+  if (category && !safeCategory) {
+    req.flash('error', 'Invalid category');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
@@ -329,7 +333,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
         _deleteDetachLicensesStmt.run(id);
       }
       const result = _deleteStmt.run(id);
-      return result.changes;
+      return { changes: result.changes, active: false };
     });
     const result = deleteVendor();
     if (result.active) {

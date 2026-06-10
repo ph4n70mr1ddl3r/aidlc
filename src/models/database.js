@@ -363,7 +363,7 @@ initSchema();
  */
 function getSchemaVersion() {
   const row = db.prepare('SELECT MAX(version) as version FROM schema_migrations').get();
-  return row?.version || 0;
+  return row?.version ?? 0;
 }
 
 /**

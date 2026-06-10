@@ -70,8 +70,9 @@ document.addEventListener('change', function (e) {
 
 // License key reveal: <button data-license-reveal="id"> toggles key display
 // The full key is NEVER embedded in the initial HTML — it is fetched via
-// AJAX on first reveal and stored in memory only. Toggling back shows the
-// masked preview (last 4 chars) without re-fetching.
+// AJAX on first reveal and stored in a closure variable only (not in the DOM).
+// Toggling back shows the masked preview (last 4 chars) without re-fetching.
+var _licenseKeys = {};
 document.addEventListener('click', function (e) {
   var btn = e.target.closest('[data-license-reveal]');
   if (!btn) return;
@@ -79,7 +80,7 @@ document.addEventListener('click', function (e) {
   var display = document.getElementById('license-key-display');
   if (!display) return;
   if (display.dataset.shown === '1') {
-    var storedKey = display.dataset.key || '';
+    var storedKey = _licenseKeys[licenseId] || '';
     display.textContent = storedKey ? '****' + storedKey.slice(-4) : '****';
     display.dataset.shown = '';
     btn.querySelector('i').className = 'fas fa-eye';
@@ -92,8 +93,8 @@ document.addEventListener('click', function (e) {
       if (xhr.status === 200) {
         try {
           var data = JSON.parse(xhr.responseText);
+          _licenseKeys[licenseId] = data.key;
           display.textContent = data.key;
-          display.dataset.key = data.key;
           display.dataset.shown = '1';
           btn.querySelector('i').className = 'fas fa-eye-slash';
         } catch (_) {}

@@ -112,7 +112,7 @@ router.get('/', (req, res) => {
 });
 
 // New article
-router.get('/new', (req, res) => {
+router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/knowledge/form', { title: 'New Article', article: {}, isEdit: false });
 });
 

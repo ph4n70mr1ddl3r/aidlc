@@ -22,7 +22,10 @@ function audit({ req, userId, action, entity, entityId, details }) {
   try {
     const uid = userId || (req && req.session && req.session.user ? req.session.user.id : null);
     const ip = req && req.ip ? req.ip : null;
-    _auditStmt.run(uid, action, entity, entityId || null, details || null, ip);
+    // Truncate details to prevent unbounded row growth
+    const MAX_DETAILS_LENGTH = 4000;
+    const safeDetails = details && details.length > MAX_DETAILS_LENGTH ? details.substring(0, MAX_DETAILS_LENGTH) : (details || null);
+    _auditStmt.run(uid, action, entity, entityId || null, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request
     console.error('Audit log error:', err.message);
