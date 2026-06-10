@@ -182,8 +182,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   clearLoginFailure(safeUsername);
 
   // Store user in session (without password) — regenerate session to prevent fixation
-  const sessionUser = { ...user };
-  delete sessionUser.password;
+  const { password: _pw, ...sessionUser } = user;
 
   await new Promise((resolve, reject) => {
     req.session.regenerate((err) => {
@@ -209,7 +208,8 @@ router.post('/logout', (req, res) => {
     if (err) {
       console.error('Session destroy error:', err.message);
     }
-    res.clearCookie('connect.sid');
+    const cookieName = (req.session.cookie && req.session.cookie.name) || 'connect.sid';
+    res.clearCookie(cookieName);
     res.redirect('/login');
   });
 });

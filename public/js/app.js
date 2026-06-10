@@ -86,25 +86,21 @@ document.addEventListener('click', function (e) {
     btn.querySelector('i').className = 'fas fa-eye';
   } else {
     // Fetch key via AJAX on first reveal
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', '/licenses/' + licenseId + '/key', true);
-    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-    xhr.onload = function () {
-      if (xhr.status === 200) {
-        try {
-          var data = JSON.parse(xhr.responseText);
-          _licenseKeys[licenseId] = data.key;
-          display.textContent = data.key;
-          display.dataset.shown = '1';
-          btn.querySelector('i').className = 'fas fa-eye-slash';
-        } catch (_) {}
-      } else {
+    fetch('/licenses/' + licenseId + '/key', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        _licenseKeys[licenseId] = data.key;
+        display.textContent = data.key;
+        display.dataset.shown = '1';
+        btn.querySelector('i').className = 'fas fa-eye-slash';
+      })
+      .catch(function () {
         display.textContent = 'Error loading key';
-      }
-    };
-    xhr.onerror = function () {
-      display.textContent = 'Error loading key';
-    };
-    xhr.send();
+      });
   }
 });

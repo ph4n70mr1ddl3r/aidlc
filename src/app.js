@@ -206,7 +206,7 @@ const writeLimiter = rateLimit({
   legacyHeaders: false
 });
 app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors'], (req, res, next) => {
-  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     return writeLimiter(req, res, next);
   }
   next();

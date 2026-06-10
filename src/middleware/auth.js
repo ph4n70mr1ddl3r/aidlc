@@ -23,7 +23,8 @@ function _verifySessionUser(req, res) {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
       req.session.destroy(() => {
-        res.clearCookie('connect.sid');
+        const cookieName = (req.session.cookie && req.session.cookie.name) || 'connect.sid';
+        res.clearCookie(cookieName);
         res.redirect('/login?reason=deactivated');
       });
       return false;

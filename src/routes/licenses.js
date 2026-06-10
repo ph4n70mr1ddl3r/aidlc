@@ -3,9 +3,19 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
+const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
+
+// Rate limit license key reveal to prevent bulk exfiltration
+const licenseKeyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: 'Too many key reveal requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
@@ -117,7 +127,7 @@ router.get('/:id', (req, res) => {
 });
 
 // AJAX endpoint for license key reveal (admin/manager only)
-router.get('/:id/key', requireAdminOrManager, (req, res) => {
+router.get('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     return res.status(400).json({ error: 'Invalid license ID' });
@@ -127,6 +137,7 @@ router.get('/:id/key', requireAdminOrManager, (req, res) => {
   if (!license) {
     return res.status(404).json({ error: 'License not found' });
   }
+  req.audit('read', 'license', id, `Revealed license key for ${license.software_name}`);
   res.json({ key: license.license_key || '' });
 });
 
