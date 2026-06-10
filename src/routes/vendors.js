@@ -3,6 +3,7 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -120,6 +121,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
+    invalidateDashboardCache();
     res.redirect('/vendors');
   } catch (err) {
     console.error('Vendor create error:', err.message);
@@ -238,6 +240,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
+    invalidateDashboardCache();
     res.redirect(`/vendors/${id}`);
   } catch (err) {
     console.error('Vendor update error:', err.message);
@@ -267,6 +270,7 @@ router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
     _deactivateStmt.run(id);
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
     req.flash('success', 'Vendor deactivated');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor deactivate error:', err.message);
     req.flash('error', 'Error deactivating vendor');
@@ -296,6 +300,7 @@ router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
     _reactivateStmt.run(id);
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
     req.flash('success', 'Vendor reactivated');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor reactivate error:', err.message);
     req.flash('error', 'Error reactivating vendor');
@@ -345,6 +350,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'vendor', id, `Deleted vendor${licenseCount > 0 ? ` (detached from ${licenseCount} license(s))` : ''}`);
       req.flash('success', licenseCount > 0 ? `Vendor deleted. ${licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Vendor delete error:', err.message);
