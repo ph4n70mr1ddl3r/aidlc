@@ -369,6 +369,9 @@ server.on('listening', () => {
 // ---------------------------------------------------------------------------
 function shutdown(signal) {
   console.log(`\n${signal} received — shutting down gracefully…`);
+  // Stop login failure cleanup interval before closing DB
+  const { stopLoginFailureCleanup } = require('./routes/auth');
+  stopLoginFailureCleanup();
   // Immediately close idle keep-alive connections so server.close()
   // doesn't hang waiting for them to time out.
   if (typeof server.closeAllConnections === 'function') {

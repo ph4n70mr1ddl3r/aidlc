@@ -99,7 +99,11 @@ function clearLoginFailure(username) {
 }
 
 // Purge stale entries every 10 minutes to prevent memory leak.
+let _shuttingDown = false;
 const loginFailureCleanup = setInterval(() => {
+  if (_shuttingDown) {
+    return;
+  }
   const now = Date.now();
   const staleThreshold = now - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
   for (const [key, entry] of loginFailures) {
@@ -119,6 +123,15 @@ const loginFailureCleanup = setInterval(() => {
 }, 10 * 60 * 1000);
 if (loginFailureCleanup.unref) {
   loginFailureCleanup.unref();
+}
+
+/**
+ * Mark auth module as shutting down to stop the cleanup interval
+ * from firing after db.close() has been called.
+ */
+function stopLoginFailureCleanup() {
+  _shuttingDown = true;
+  clearInterval(loginFailureCleanup);
 }
 
 // Login page
@@ -346,3 +359,4 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
+module.exports.stopLoginFailureCleanup = stopLoginFailureCleanup;

@@ -114,13 +114,7 @@ const stmts = {
 
 // Reports dashboard
 router.get('/', (req, res) => {
-  try {
-    res.render('pages/reports/index', { title: 'Reports' });
-  } catch (err) {
-    console.error('Reports index error:', err.message);
-    req.flash('error', 'Error loading reports');
-    res.redirect('/dashboard');
-  }
+  res.render('pages/reports/index', { title: 'Reports' });
 });
 
 // Ticket Analytics
