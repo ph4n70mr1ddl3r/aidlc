@@ -3,6 +3,7 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
@@ -103,6 +104,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
+    invalidateDashboardCache();
     res.redirect('/licenses');
   } catch (err) {
     console.error('License create error:', err.message);
@@ -209,6 +211,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');
+    invalidateDashboardCache();
     res.redirect(`/licenses/${id}`);
   } catch (err) {
     console.error('License update error:', err.message);
@@ -232,6 +235,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'license', id, 'Deleted license');
       req.flash('success', 'License deleted');
+      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('License delete error:', err.message);
