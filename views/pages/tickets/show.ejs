@@ -36,7 +36,7 @@
               data-confirm="<%= ['resolved','closed'].includes(s) ? 'Mark this ticket as ' + s + '?' : '' %>" aria-label="Set status to <%= titleCase(s) %>">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
-          <button type="submit" class="btn btn-sm btn-outline"><%= s %></button>
+          <button type="submit" class="btn btn-sm btn-outline"><%= titleCase(s) %></button>
         </form>
       <% } %>
     <% }) %>

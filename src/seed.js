@@ -6,7 +6,7 @@ console.log('🌱 Seeding database...\n');
 
 // Wrap entire seed in a transaction
 const seed = db.transaction(() => {
-  // Clear existing data
+  // Clear existing data (children first, parents last — respects foreign keys)
   db.exec(`
     DELETE FROM ticket_comments;
     DELETE FROM project_tasks;
@@ -14,10 +14,10 @@ const seed = db.transaction(() => {
     DELETE FROM tickets;
     DELETE FROM assets;
     DELETE FROM licenses;
-    DELETE FROM projects;
-    DELETE FROM vendors;
     DELETE FROM knowledge_articles;
     DELETE FROM change_log;
+    DELETE FROM projects;
+    DELETE FROM vendors;
     DELETE FROM audit_log;
     DELETE FROM users;
     DELETE FROM ticket_counter;
@@ -123,7 +123,8 @@ const seed = db.transaction(() => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const now = new Date();
+  const today = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?)');
   tickets.forEach((t, i) => {
     const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;

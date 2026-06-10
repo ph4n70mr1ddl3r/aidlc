@@ -106,9 +106,10 @@ function canAccessResource(req, resource) {
   if (isAdminOrManager) {
     return true;
   }
-  // Check various ownership fields
-  const ownerId = resource.assigned_to || resource.owner_id || resource.user_id || resource.author_id;
-  return ownerId && Number(ownerId) === Number(req.session.user.id);
+  // Check all ownership fields — a resource may have multiple populated
+  // and we must return true if any of them match the current user.
+  const fields = ['assigned_to', 'owner_id', 'user_id', 'author_id'];
+  return fields.some(f => resource[f] && Number(resource[f]) === Number(req.session.user.id));
 }
 
 module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource };

@@ -2,6 +2,7 @@
   // Expected locals: page (numeric), totalPages, total (optional record count), limit (optional page size),
   // baseUrl (path with query params minus page)
   const _page = typeof page !== 'undefined' && typeof page === 'number' ? page : (typeof currentPage !== 'undefined' && typeof currentPage === 'number' ? currentPage : 1);
+  const _totalPages = typeof totalPages !== 'undefined' ? totalPages : 1;
   const _total = typeof total !== 'undefined' ? total : null;
   const _limit = typeof limit !== 'undefined' ? limit : 25;
   const buildUrl = (p) => {
@@ -10,9 +11,9 @@
   };
 %>
 <div class="pagination-info" aria-live="polite">
-  <% if (_total !== null && _total > 0) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else if (_total === 0) { %>No records found<% } else if (totalPages > 1) { %>Page <%= _page %> of <%= totalPages %><% } %>
+  <% if (_total !== null && _total > 0) { %>Showing <%= (_page - 1) * _limit + 1 %>–<%= Math.min(_page * _limit, _total) %> of <%= _total %> records<% } else if (_total === 0) { %>No records found<% } else if (_totalPages > 1) { %>Page <%= _page %> of <%= _totalPages %><% } %>
 </div>
-<% if (totalPages > 1) { %>
+<% if (_totalPages > 1) { %>
   <nav aria-label="Pagination">
   <div class="pagination">
     <% if (_page > 1) { %>
@@ -22,7 +23,7 @@
     <% } %>
 
     <% const start = Math.max(1, _page - 2); %>
-    <% const end = Math.min(totalPages, _page + 2); %>
+    <% const end = Math.min(_totalPages, _page + 2); %>
     <% if (start > 1) { %>
       <a href="<%= buildUrl(1) %>" aria-label="Page 1">1</a>
       <% if (start > 2) { %><span aria-hidden="true">…</span><% } %>
@@ -34,12 +35,12 @@
         <a href="<%= buildUrl(p) %>" aria-label="Page <%= p %>"><%= p %></a>
       <% } %>
     <% } %>
-    <% if (end < totalPages) { %>
-      <% if (end < totalPages - 1) { %><span aria-hidden="true">…</span><% } %>
-      <a href="<%= buildUrl(totalPages) %>" aria-label="Page <%= totalPages %>"><%= totalPages %></a>
+    <% if (end < _totalPages) { %>
+      <% if (end < _totalPages - 1) { %><span aria-hidden="true">…</span><% } %>
+      <a href="<%= buildUrl(_totalPages) %>" aria-label="Page <%= _totalPages %>"><%= _totalPages %></a>
     <% } %>
 
-    <% if (_page < totalPages) { %>
+    <% if (_page < _totalPages) { %>
       <a href="<%= buildUrl(_page + 1) %>" aria-label="Next page"><i class="fas fa-chevron-right"></i></a>
     <% } else { %>
       <span class="disabled" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>

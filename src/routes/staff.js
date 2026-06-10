@@ -114,7 +114,7 @@ router.get('/', (req, res) => {
 
 // New staff form
 router.get('/new', requireAdminOrManager, (req, res) => {
-  res.render('pages/staff/form', { title: 'New Staff Member', user: {}, isEdit: false, viewerRole: req.session.user.role });
+  res.render('pages/staff/form', { title: 'New Staff Member', staffMember: {}, isEdit: false, viewerRole: req.session.user.role });
 });
 
 // Create staff
@@ -218,7 +218,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'You cannot modify administrator accounts');
     return res.redirect('/staff');
   }
-  res.render('pages/staff/form', { title: 'Edit Staff Member', user, isEdit: true, viewerRole: req.session.user.role });
+  res.render('pages/staff/form', { title: 'Edit Staff Member', staffMember: user, isEdit: true, viewerRole: req.session.user.role });
 });
 
 // Update staff
@@ -281,7 +281,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   try {
     _staffUpdateStmt.run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
-      (department || '').substring(0, 100), (phone || '').substring(0, 50), safeIsActive, id);
+      (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null, safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();

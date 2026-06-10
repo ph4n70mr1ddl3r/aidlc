@@ -167,7 +167,7 @@ if (!csrfSecret) {
 
 const csrfConfig = doubleCsrf({
   getSecret: () => csrfSecret,
-  getSessionIdentifier: (req) => req.sessionID || 'anonymous',
+  getSessionIdentifier: (req) => req.sessionID,
   cookieName: 'csrf-token',
   cookieOptions: {
     sameSite: 'lax',
@@ -381,7 +381,8 @@ function shutdown(signal) {
     process.exit(0);
   });
   // Force exit after 10 s if connections don't drain
-  setTimeout(() => process.exit(1), 10000);
+  const forceExitTimer = setTimeout(() => process.exit(1), 10000);
+  forceExitTimer.unref();
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

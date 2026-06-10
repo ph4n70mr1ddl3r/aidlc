@@ -100,11 +100,11 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
-  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
-  if (category && !safeCategory) {
+  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect('/vendors/new');
   }
+  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
@@ -198,11 +198,11 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
-  if (category && !safeCategory) {
+  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/vendors/${id}/edit`);
   }
+  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);

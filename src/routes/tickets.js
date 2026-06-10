@@ -201,7 +201,8 @@ router.post('/', (req, res) => {
 
   // Generate ticket number atomically using dedicated counter table
   const createTicket = db.transaction(() => {
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const row = _ticketCounterStmt.get(todayStr);
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
