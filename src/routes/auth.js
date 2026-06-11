@@ -98,6 +98,10 @@ function clearLoginFailure(username) {
   loginFailures.delete(username);
 }
 
+function clearIpLoginFailure(ip) {
+  ipLoginFailures.delete(ip);
+}
+
 // Purge stale entries every 10 minutes to prevent memory leak.
 let _shuttingDown = false;
 const loginFailureCleanup = setInterval(() => {
@@ -361,3 +365,4 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 module.exports = router;
 module.exports.stopLoginFailureCleanup = stopLoginFailureCleanup;
 module.exports.clearLoginFailure = clearLoginFailure;
+module.exports.clearIpLoginFailure = clearIpLoginFailure;

@@ -3,7 +3,6 @@ const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
-const { invalidateDashboardCache } = require('./dashboard');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 
@@ -159,7 +158,6 @@ router.post('/', (req, res) => {
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
     req.flash('success', 'Article created');
-    invalidateDashboardCache();
     res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
     console.error('Article create error:', err.message);
@@ -302,7 +300,6 @@ router.put('/:id', (req, res) => {
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');
-    invalidateDashboardCache();
     res.redirect(`/knowledge/${id}`);
   } catch (err) {
     console.error('Article update error:', err.message);
@@ -326,7 +323,6 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
     } else {
       req.audit('delete', 'knowledge_article', id, 'Deleted article');
       req.flash('success', 'Article deleted');
-      invalidateDashboardCache();
     }
   } catch (err) {
     console.error('Article delete error:', err.message);

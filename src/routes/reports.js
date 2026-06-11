@@ -1,10 +1,11 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
 const { safeInt } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
-router.use(requireAuth, requireAdminOrManager);
+router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
 // Rate limit report endpoints — aggregation queries are expensive and could
 // be abused for DoS even behind admin/manager auth.
