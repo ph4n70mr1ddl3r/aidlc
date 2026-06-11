@@ -202,7 +202,7 @@ router.get('/:id', (req, res) => {
     req.session[VIEWED_KEY] = {};
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed[id] && (!req.session.user || article.author_id !== req.session.user.id)) {
+  if (!viewed[id] && article.author_id !== req.session.user.id) {
     _viewCountStmt.run(id);
     viewed[id] = true;
     // Evict oldest entries if the tracking set exceeds the cap

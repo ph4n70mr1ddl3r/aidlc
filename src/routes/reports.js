@@ -1,9 +1,21 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { safeInt } = require('../utils');
+const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager);
+
+// Rate limit report endpoints — aggregation queries are expensive and could
+// be abused for DoS even behind admin/manager auth.
+const reportLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 30,
+  message: 'Too many report requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+router.use(reportLimiter);
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for report queries.
