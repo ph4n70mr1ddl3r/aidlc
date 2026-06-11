@@ -6,6 +6,7 @@ const { USER_ROLES } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
+const { clearLoginFailure } = require('./auth');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -375,8 +376,19 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect(`/staff/${id}`);
   }
 
+  // Fetch the target user to get their username for login failure cleanup
+  const targetUser = _staffRoleStmt.get(id);
+  if (!targetUser) {
+    req.flash('error', 'Staff member not found');
+    return res.redirect('/staff');
+  }
+
   const hashed = await bcrypt.hash(new_password, 12);
   _passwordResetStmt.run(hashed, id);
+
+  // Clear any login failure lockout for this user so the password reset
+  // takes effect immediately instead of waiting for lockout expiry.
+  clearLoginFailure(targetUser.username || '');
 
   req.audit('update', 'user', id, 'Password reset by admin');
   req.flash('success', 'Password reset successfully');

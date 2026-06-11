@@ -32,15 +32,15 @@ const _articleUpdateStmt = db.prepare(`
     WHERE id = ?
   `);
 
-// Configure marked for safe rendering
-marked.setOptions({
+// Configure marked options (passed per-call to avoid mutating global state)
+const MARKED_OPTIONS = {
   breaks: true,
   gfm: true
-});
+};
 
 function renderMarkdown(content) {
   try {
-    const html = marked.parse(content);
+    const html = marked.parse(content, MARKED_OPTIONS);
     return sanitizeHtml(html, {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary']),
       allowedAttributes: {

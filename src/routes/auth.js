@@ -360,3 +360,4 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 
 module.exports = router;
 module.exports.stopLoginFailureCleanup = stopLoginFailureCleanup;
+module.exports.clearLoginFailure = clearLoginFailure;

@@ -391,6 +391,11 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
+  // In production, exit after an unhandled rejection to prevent undefined state.
+  // The process is in an indeterminate state and continuing may cause silent data corruption.
+  if (process.env.NODE_ENV === 'production') {
+    setTimeout(() => process.exit(1), 1000);
+  }
 });
 
 module.exports = app;
