@@ -195,8 +195,9 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Update last login
   _updateLastLoginStmt.run(user.id);
 
-  // Clear any login failure tracking for this account
+  // Clear any login failure tracking for this account and IP
   clearLoginFailure(safeUsername);
+  clearIpLoginFailure(clientIp);
 
   // Store user in session (without password) — regenerate session to prevent fixation
   // eslint-disable-next-line no-unused-vars -- password excluded from session via rest destructuring

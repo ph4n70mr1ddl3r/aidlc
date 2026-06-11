@@ -12,15 +12,14 @@ const _auditStmt = db.prepare(`
  *
  * @param {Object} opts
  * @param {Object} [opts.req]  - Express request (used to extract user_id, ip)
- * @param {number} [opts.userId]
  * @param {string} opts.action - e.g. 'create', 'update', 'delete', 'login'
  * @param {string} opts.entity - e.g. 'ticket', 'asset', 'user'
  * @param {number} [opts.entityId]
  * @param {string} [opts.details] - Free-text description
  */
-function audit({ req, userId, action, entity, entityId, details }) {
+function audit({ req, action, entity, entityId, details }) {
   try {
-    const uid = userId || (req && req.session && req.session.user ? req.session.user.id : null);
+    const uid = req && req.session && req.session.user ? req.session.user.id : null;
     const ip = req && req.ip ? req.ip : null;
     // Truncate details to prevent unbounded row growth
     const MAX_DETAILS_LENGTH = 4000;
