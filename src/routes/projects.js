@@ -152,6 +152,10 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Project name must be at most 200 characters');
     return res.redirect('/projects/new');
   }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
+    return res.redirect('/projects/new');
+  }
 
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
@@ -242,6 +246,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   if (!name || !safeStatus || !safePriority) {
     req.flash('error', 'Valid name, status, and priority are required');
+    return res.redirect(`/projects/${id}/edit`);
+  }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
     return res.redirect(`/projects/${id}/edit`);
   }
 

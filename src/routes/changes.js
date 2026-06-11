@@ -88,6 +88,10 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Title must be at most 200 characters');
     return res.redirect('/changes/new');
   }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
+    return res.redirect('/changes/new');
+  }
 
   if (!VALID_CHANGE_TYPES.includes(change_type)) {
     req.flash('error', 'Invalid change type');
@@ -179,6 +183,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
   if (title.length > 200) {
     req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
     return res.redirect(`/changes/${id}/edit`);
   }
   if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {

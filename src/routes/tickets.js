@@ -170,6 +170,10 @@ router.post('/', (req, res) => {
     req.flash('error', 'Title must be at most 200 characters');
     return res.redirect('/tickets/new');
   }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
+    return res.redirect('/tickets/new');
+  }
 
   if (!isValidEmail(requester_email)) {
     req.flash('error', 'Please enter a valid requester email address');
@@ -297,6 +301,10 @@ router.put('/:id', (req, res) => {
   }
   if (title.length > 200) {
     req.flash('error', 'Title must be at most 200 characters');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (description && description.length > 5000) {
+    req.flash('error', 'Description must be at most 5,000 characters');
     return res.redirect(`/tickets/${id}/edit`);
   }
 
