@@ -352,7 +352,8 @@ const resetLimiter = rateLimit({
 router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   // Prevent admin from resetting own password via this route (use profile instead)
@@ -399,7 +400,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 router.delete('/:id', requireAdmin, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid staff ID'); return res.redirect('/staff');
+    req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
   }
 
   // Prevent admin from deactivating themselves

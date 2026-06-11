@@ -117,7 +117,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
 router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid license ID'); return res.redirect('/licenses');
+    req.flash('error', 'Invalid license ID');
+    return res.redirect('/licenses');
   }
 
   const license = _showLicenseStmt.get(id);

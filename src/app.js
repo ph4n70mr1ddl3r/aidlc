@@ -11,6 +11,8 @@ const helmet = require('helmet');
 const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
 const crypto = require('crypto');
+const utilsModule = require('./utils');
+const constantsModule = require('./constants');
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -215,9 +217,6 @@ app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff',
 // ---------------------------------------------------------------------------
 // Global template variables
 // ---------------------------------------------------------------------------
-const utilsModule = require('./utils');
-const constantsModule = require('./constants');
-
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = {

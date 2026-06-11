@@ -253,7 +253,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid vendor ID'); return res.redirect('/vendors');
+    req.flash('error', 'Invalid vendor ID');
+    return res.redirect('/vendors');
   }
 
   try {
