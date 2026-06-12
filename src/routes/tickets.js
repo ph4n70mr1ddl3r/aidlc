@@ -379,7 +379,11 @@ router.put('/:id', (req, res) => {
   }
 });
 
-// Add comment
+// Add comment — any authenticated user can comment on any ticket.
+// This is intentional: IT staff need to collaborate across tickets even if
+// they are not the assignee (e.g. second opinions, status updates from other teams).
+// The show page already enforces visibility, so users can only reach this route
+// if they can view the ticket.
 router.post('/:id/comments', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {

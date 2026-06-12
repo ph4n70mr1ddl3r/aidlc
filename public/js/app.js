@@ -14,15 +14,15 @@ document.querySelectorAll('.flash').forEach(function (el) {
 // Prevent double-submit on all forms that submit via POST/PUT/DELETE
 // (any form with a CSRF token is a mutating form)
 document.addEventListener('submit', function (e) {
-  var form = e.target;
-  if (form.tagName !== 'FORM') return;
+  const form = e.target;
+  if (form.tagName !== 'FORM') { return; }
   // Disable ALL submit buttons in the form, not just the first one.
   // Some forms have multiple action buttons (e.g. save + status change).
-  var btns = form.querySelectorAll('button[type="submit"]');
+  const btns = form.querySelectorAll('button[type="submit"]');
   if (btns.length) {
     // Skip disabling if an onsubmit handler (e.g. confirm() dialog)
     // has already prevented the default action — the user cancelled.
-    if (e.defaultPrevented) return;
+    if (e.defaultPrevented) { return; }
     Promise.resolve().then(function () {
       btns.forEach(function (btn) {
         btn.disabled = true;
@@ -34,7 +34,7 @@ document.addEventListener('submit', function (e) {
 
 // Close mobile sidebar when clicking outside
 document.addEventListener('click', function (e) {
-  var sidebar = document.getElementById('sidebar');
+  const sidebar = document.getElementById('sidebar');
   if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !e.target.closest('.mobile-menu-toggle')) {
     sidebar.classList.remove('open');
   }
@@ -44,18 +44,18 @@ document.addEventListener('click', function (e) {
 
 // Mobile menu toggle: <button data-toggle="sidebar">
 document.addEventListener('click', function (e) {
-  var toggle = e.target.closest('[data-toggle="sidebar"]');
+  const toggle = e.target.closest('[data-toggle="sidebar"]');
   if (toggle) {
-    var sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.classList.toggle('open');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) { sidebar.classList.toggle('open'); }
   }
 });
 
 // Confirmation dialogs: <form data-confirm="message">
 document.addEventListener('submit', function (e) {
-  var form = e.target;
-  if (form.tagName !== 'FORM') return;
-  var msg = form.getAttribute('data-confirm');
+  const form = e.target;
+  if (form.tagName !== 'FORM') { return; }
+  const msg = form.getAttribute('data-confirm');
   if (msg && !confirm(msg)) {
     e.preventDefault();
   }
@@ -72,15 +72,15 @@ document.addEventListener('change', function (e) {
 // The full key is NEVER embedded in the initial HTML — it is fetched via
 // AJAX on first reveal and stored in a closure variable only (not in the DOM).
 // Toggling back shows the masked preview (last 4 chars) without re-fetching.
-var _licenseKeys = {};
+const _licenseKeys = {};
 document.addEventListener('click', function (e) {
-  var btn = e.target.closest('[data-license-reveal]');
-  if (!btn) return;
-  var licenseId = btn.getAttribute('data-license-reveal');
-  var display = document.getElementById('license-key-display');
-  if (!display) return;
+  const btn = e.target.closest('[data-license-reveal]');
+  if (!btn) { return; }
+  const licenseId = btn.getAttribute('data-license-reveal');
+  const display = document.getElementById('license-key-display');
+  if (!display) { return; }
   if (display.dataset.shown === '1') {
-    var storedKey = _licenseKeys[licenseId] || '';
+    const storedKey = _licenseKeys[licenseId] || '';
     display.textContent = storedKey ? '****' + storedKey.slice(-4) : '****';
     display.dataset.shown = '';
     btn.querySelector('i').className = 'fas fa-eye';
@@ -90,7 +90,7 @@ document.addEventListener('click', function (e) {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
       .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (!res.ok) { throw new Error('HTTP ' + res.status); }
         return res.json();
       })
       .then(function (data) {

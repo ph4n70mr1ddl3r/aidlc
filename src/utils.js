@@ -93,7 +93,7 @@ function isValidEmail(email) {
 
 /**
  * Add LIKE search conditions safely.
- * Column names are validated to prevent SQL injection.
+ * Column names are validated against a safe pattern to prevent SQL injection.
  * @param {string[]} columns - List of column names to search (must be non-empty)
  */
 function addSearch(where, params, search, columns) {
@@ -102,6 +102,13 @@ function addSearch(where, params, search, columns) {
   }
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
     throw new Error('columns is required for addSearch');
+  }
+  // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
+  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+  for (const c of columns) {
+    if (!SAFE_COLUMN_RE.test(c)) {
+      throw new Error(`Invalid column name in addSearch: ${c}`);
+    }
   }
   const raw = String(search);
   // Escape SQL LIKE wildcards
@@ -317,14 +324,13 @@ function localDate(value) {
 }
 
 // Cached prepared statement for isActiveUser — called on almost every write route.
-const _isActiveUserStmt = new WeakMap();
+// Module-level cache (safe because the app uses a single db instance).
+let _isActiveUserStmt = null;
 function _getIsActiveUserStmt(db) {
-  let stmt = _isActiveUserStmt.get(db);
-  if (!stmt) {
-    stmt = db.prepare('SELECT 1 FROM users WHERE id = ? AND is_active = 1');
-    _isActiveUserStmt.set(db, stmt);
+  if (!_isActiveUserStmt) {
+    _isActiveUserStmt = db.prepare('SELECT 1 FROM users WHERE id = ? AND is_active = 1');
   }
-  return stmt;
+  return _isActiveUserStmt;
 }
 
 /**
@@ -343,27 +349,22 @@ function isActiveUser(db, userId) {
 }
 
 // Cached prepared statements for recalcProjectProgress — called on every task CRUD
-// and staff deactivation. Using WeakMap so the cache doesn't prevent GC if the db
-// instance is ever replaced (unlikely but defensive).
-const _progressSelectStmt = new WeakMap();
-const _progressUpdateStmt = new WeakMap();
+// and staff deactivation. Module-level cache (safe because the app uses a single db instance).
+let _progressSelectStmt = null;
+let _progressUpdateStmt = null;
 function _getProgressSelectStmt(db) {
-  let stmt = _progressSelectStmt.get(db);
-  if (!stmt) {
-    stmt = db.prepare(
+  if (!_progressSelectStmt) {
+    _progressSelectStmt = db.prepare(
       "SELECT COUNT(*) as total, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) as done FROM project_tasks WHERE project_id = ?"
     );
-    _progressSelectStmt.set(db, stmt);
   }
-  return stmt;
+  return _progressSelectStmt;
 }
 function _getProgressUpdateStmt(db) {
-  let stmt = _progressUpdateStmt.get(db);
-  if (!stmt) {
-    stmt = db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?");
-    _progressUpdateStmt.set(db, stmt);
+  if (!_progressUpdateStmt) {
+    _progressUpdateStmt = db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?");
   }
-  return stmt;
+  return _progressUpdateStmt;
 }
 
 /**
@@ -379,14 +380,13 @@ function recalcProjectProgress(db, projectId) {
 }
 
 // Cached prepared statement for getActiveStaff — called on every list/form route.
-const _getActiveStaffStmt = new WeakMap();
+// Module-level cache (safe because the app uses a single db instance).
+let _getActiveStaffStmt = null;
 function _getGetActiveStaffStmt(db) {
-  let stmt = _getActiveStaffStmt.get(db);
-  if (!stmt) {
-    stmt = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name');
-    _getActiveStaffStmt.set(db, stmt);
+  if (!_getActiveStaffStmt) {
+    _getActiveStaffStmt = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name');
   }
-  return stmt;
+  return _getActiveStaffStmt;
 }
 
 /**
