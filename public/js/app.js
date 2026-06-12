@@ -40,14 +40,18 @@ document.addEventListener('submit', function (e) {
       });
     });
   }
-  // Also re-enable on error responses after the page stays on the same form
-  window.addEventListener('error', function reenable() {
-    btns.forEach(function (btn) {
-      btn.disabled = false;
-      btn.style.opacity = '';
+  // Also re-enable buttons if the page stays on the same form (e.g. network
+  // error or validation redirect). Track the pending re-enable via a module-
+  // level flag so only one global error listener is ever registered.
+  if (!window._formReenableAttached) {
+    window._formReenableAttached = true;
+    window.addEventListener('error', function () {
+      document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      });
     });
-    window.removeEventListener('error', reenable);
-  });
+  }
 });
 
 // Close mobile sidebar when clicking outside
