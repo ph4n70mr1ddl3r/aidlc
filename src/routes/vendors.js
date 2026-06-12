@@ -117,7 +117,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   try {
     const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, 2000) || null, rating ? Math.max(1, Math.min(5, parseInt(rating, 10) || 0)) : null);
+      (notes || '').substring(0, 2000) || null, rating !== undefined && rating !== '' ? Math.max(1, Math.min(5, parseInt(rating, 10) || 1)) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -227,7 +227,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
         (website || '').substring(0, 500) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
-        rating ? Math.max(1, Math.min(5, parseInt(rating, 10) || 0)) : null,
+        rating !== undefined && rating !== '' ? Math.max(1, Math.min(5, parseInt(rating, 10) || 1)) : null,
         existing.is_active ? 1 : 0, id);
 
       // Sync name change to license references (licenses.vendor is a text field

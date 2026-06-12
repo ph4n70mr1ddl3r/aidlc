@@ -48,12 +48,16 @@ const db = require('./models/database');
 // This prevents unbounded audit_log growth which degrades query performance
 // over time. Set PRUNE_AUDIT_DAYS=365 in .env to auto-delete entries older
 // than 1 year on each server start.
-const _pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
-if (Number.isFinite(_pruneDays) && _pruneDays > 0) {
+if (process.env.NODE_ENV) {
+  process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
+}
+
+const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
+if (Number.isFinite(pruneDays) && pruneDays > 0) {
   const { pruneAuditLog } = require('./utils');
-  const pruned = pruneAuditLog(db, _pruneDays);
+  const pruned = pruneAuditLog(db, pruneDays);
   if (pruned > 0) {
-    console.log(`Pruned ${pruned} audit log entries older than ${_pruneDays} days`);
+    console.log(`Pruned ${pruned} audit log entries older than ${pruneDays} days`);
   }
 }
 
@@ -80,6 +84,7 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:'],
       connectSrc: ["'self'"],
       frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"]

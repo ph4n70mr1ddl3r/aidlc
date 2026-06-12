@@ -57,9 +57,23 @@ function recordLoginFailure(username, ip) {
   let entry = loginFailures.get(username);
   if (!entry) {
     if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-      const firstKey = loginFailures.keys().next().value;
-      if (firstKey !== undefined) {
-        loginFailures.delete(firstKey);
+      const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+      for (const [key, val] of loginFailures) {
+        if (loginFailures.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
+          break;
+        }
+        if (val.lastAttempt < staleThreshold) {
+          loginFailures.delete(key);
+        }
+      }
+      // If still over limit after purging stale entries, remove oldest entries
+      while (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+        const oldest = loginFailures.keys().next().value;
+        if (oldest !== undefined) {
+          loginFailures.delete(oldest);
+        } else {
+          break;
+        }
       }
     }
     entry = { count: 0, lockedUntil: null, lastAttempt: null };
@@ -77,9 +91,22 @@ function recordLoginFailure(username, ip) {
     let ipEntry = ipLoginFailures.get(ip);
     if (!ipEntry) {
       if (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-        const firstKey = ipLoginFailures.keys().next().value;
-        if (firstKey !== undefined) {
-          ipLoginFailures.delete(firstKey);
+        const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+        for (const [key, val] of ipLoginFailures) {
+          if (ipLoginFailures.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
+            break;
+          }
+          if (val.lastAttempt < staleThreshold) {
+            ipLoginFailures.delete(key);
+          }
+        }
+        while (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+          const oldest = ipLoginFailures.keys().next().value;
+          if (oldest !== undefined) {
+            ipLoginFailures.delete(oldest);
+          } else {
+            break;
+          }
         }
       }
       ipEntry = { count: 0, lockedUntil: null, lastAttempt: null };

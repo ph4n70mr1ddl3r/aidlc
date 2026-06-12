@@ -158,7 +158,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
     res.redirect('/assets');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Serial number already exists');
+      req.flash('error', 'Asset tag or serial number already exists');
     } else {
       console.error('Asset create error:', err.message);
       req.flash('error', 'Error creating asset. Please check your input and try again.');

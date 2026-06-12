@@ -16,20 +16,38 @@ document.querySelectorAll('.flash').forEach(function (el) {
 document.addEventListener('submit', function (e) {
   const form = e.target;
   if (form.tagName !== 'FORM') { return; }
+  // Skip disabling if an onsubmit handler (e.g. confirm() dialog)
+  // has already prevented the default action — the user cancelled.
+  if (e.defaultPrevented) { return; }
   // Disable ALL submit buttons in the form, not just the first one.
   // Some forms have multiple action buttons (e.g. save + status change).
   const btns = form.querySelectorAll('button[type="submit"]');
   if (btns.length) {
-    // Skip disabling if an onsubmit handler (e.g. confirm() dialog)
-    // has already prevented the default action — the user cancelled.
-    if (e.defaultPrevented) { return; }
+    btns.forEach(function (btn) {
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+    });
+    // Re-enable buttons on fetch/network errors so the user can retry
     Promise.resolve().then(function () {
-      btns.forEach(function (btn) {
-        btn.disabled = true;
-        btn.style.opacity = '0.6';
+      var firstBtn = btns[0];
+      if (!firstBtn) return;
+      var formEl = firstBtn.form || form;
+      formEl.addEventListener('reset', function () {
+        btns.forEach(function (btn) {
+          btn.disabled = false;
+          btn.style.opacity = '';
+        });
       });
     });
   }
+  // Also re-enable on error responses after the page stays on the same form
+  window.addEventListener('error', function reenable() {
+    btns.forEach(function (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '';
+    });
+    window.removeEventListener('error', reenable);
+  });
 });
 
 // Close mobile sidebar when clicking outside

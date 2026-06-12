@@ -111,8 +111,9 @@ function addSearch(where, params, search, columns) {
     }
   }
   const raw = String(search);
-  // Escape SQL LIKE wildcards
-  const escaped = raw.replace(/%/g, '\\%').replace(/_/g, '\\_');
+  // Escape SQL LIKE wildcards — backslash must be escaped first to avoid
+  // interfering with the ESCAPE clause
+  const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
   const conditions = columns.map(c => `"${c}" LIKE ? ESCAPE '\\'`);
   where.push(`(${conditions.join(' OR ')})`);
@@ -407,9 +408,10 @@ function getActiveStaff(db) {
  * @returns {number} number of rows deleted
  */
 function pruneAuditLog(db, retentionDays) {
+  const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString();
   const result = db.prepare(
-    "DELETE FROM audit_log WHERE created_at < datetime('now', '-' || ? || ' days')"
-  ).run(retentionDays);
+    'DELETE FROM audit_log WHERE created_at < ?'
+  ).run(cutoff);
   return result.changes;
 }
 

@@ -99,7 +99,7 @@ function requireAdmin(req, res, next) {
  * @returns {boolean}
  */
 function canAccessResource(req, resource) {
-  if (!req.session.user) {
+  if (!req.session.user || !resource) {
     return false;
   }
   const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';

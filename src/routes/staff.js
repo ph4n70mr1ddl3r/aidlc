@@ -161,12 +161,22 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
   }
 
   const hashedPassword = await bcrypt.hash(password, 12);
-  const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null);
+  try {
+    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null);
 
-  req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
-  req.flash('success', `Staff member ${first_name} ${last_name} created`);
-  invalidateDashboardCache();
-  res.redirect('/staff');
+    req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
+    req.flash('success', `Staff member ${first_name} ${last_name} created`);
+    invalidateDashboardCache();
+    res.redirect('/staff');
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      req.flash('error', 'Username or email address is already in use');
+    } else {
+      console.error('Staff create error:', err.message);
+      req.flash('error', 'Error creating staff member. Please try again.');
+    }
+    res.redirect('/staff/new');
+  }
 }));
 
 // Show staff member

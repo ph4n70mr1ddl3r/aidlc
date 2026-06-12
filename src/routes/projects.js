@@ -261,8 +261,9 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       return res.redirect('/projects');
     }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
+    const parsedProgress = parseInt(progress, 10);
     const safeProgress = progress !== undefined && progress !== ''
-      ? Math.max(0, Math.min(100, Number.isFinite(Number(progress)) ? parseInt(progress, 10) : existingProject.progress))
+      ? (Number.isFinite(parsedProgress) ? Math.max(0, Math.min(100, parsedProgress)) : existingProject.progress)
       : existingProject.progress;
 
     const sStart = safeDate(start_date);
@@ -351,7 +352,7 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${projectId}`);
     }
     const addTask = db.transaction(() => {
-      const result = _taskInsertStmt.run(projectId, title.substring(0, 200), description.substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
+      const result = _taskInsertStmt.run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
 
       recalcProjectProgress(db, projectId);
       return result.lastInsertRowid;

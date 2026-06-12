@@ -67,7 +67,7 @@ function renderMarkdown(content) {
       allowedTags: [],
       allowedAttributes: {},
       allowedSchemes: ['http', 'https', 'mailto']
-    }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    });
     return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
   }
 }
