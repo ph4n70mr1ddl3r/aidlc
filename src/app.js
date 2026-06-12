@@ -16,6 +16,14 @@ const constantsModule = require('./constants');
 const { stopLoginFailureCleanup } = require('./routes/auth');
 
 // ---------------------------------------------------------------------------
+// Normalize NODE_ENV early (before production checks) so that
+// values like 'Production' or 'PRODUCTION' are caught by validation.
+// ---------------------------------------------------------------------------
+if (process.env.NODE_ENV) {
+  process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
 // Validate critical env vars in production
 // ---------------------------------------------------------------------------
 if (process.env.NODE_ENV === 'production') {
@@ -48,10 +56,6 @@ const db = require('./models/database');
 // This prevents unbounded audit_log growth which degrades query performance
 // over time. Set PRUNE_AUDIT_DAYS=365 in .env to auto-delete entries older
 // than 1 year on each server start.
-if (process.env.NODE_ENV) {
-  process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
-}
-
 const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
 if (Number.isFinite(pruneDays) && pruneDays > 0) {
   const { pruneAuditLog } = require('./utils');
@@ -115,6 +119,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 // Core middleware
 // ---------------------------------------------------------------------------
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 app.use(methodOverride('_method'));
 // Static assets with cache-control in production

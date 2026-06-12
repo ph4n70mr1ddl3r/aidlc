@@ -85,6 +85,18 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Vendor name must be at most 200 characters');
     return res.redirect('/vendors/new');
   }
+  if (contact_person && contact_person.length > 100) {
+    req.flash('error', 'Contact person must be at most 100 characters');
+    return res.redirect('/vendors/new');
+  }
+  if (address && address.length > 500) {
+    req.flash('error', 'Address must be at most 500 characters');
+    return res.redirect('/vendors/new');
+  }
+  if (notes && notes.length > 2000) {
+    req.flash('error', 'Notes must be at most 2,000 characters');
+    return res.redirect('/vendors/new');
+  }
 
   if (email && !isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
@@ -186,6 +198,18 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
   if (name.length > 200) {
     req.flash('error', 'Vendor name must be at most 200 characters');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (contact_person && contact_person.length > 100) {
+    req.flash('error', 'Contact person must be at most 100 characters');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (address && address.length > 500) {
+    req.flash('error', 'Address must be at most 500 characters');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (notes && notes.length > 2000) {
+    req.flash('error', 'Notes must be at most 2,000 characters');
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (email && !isValidEmail(email)) {
