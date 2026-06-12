@@ -52,30 +52,44 @@ function checkIpLockout(ip) {
   return checkLockout(ipLoginFailures, ip);
 }
 
+/**
+ * Purge stale entries from a login-failure map to bound memory usage.
+ * When the map exceeds MAX_LOGIN_FAILURES_MAP_SIZE, removes entries whose
+ * lastAttempt is older than the lockout window, then evicts oldest entries
+ * as a fallback.
+ */
+function purgeStaleEntries(map) {
+  if (map.size < MAX_LOGIN_FAILURES_MAP_SIZE) {
+    return;
+  }
+  const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+  for (const [key, val] of map) {
+    if (map.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
+      break;
+    }
+    if (val.lastAttempt < staleThreshold) {
+      map.delete(key);
+    }
+  }
+  while (map.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) {
+      map.delete(oldest);
+    } else {
+      break;
+    }
+  }
+}
+
+/**
+ * Record a failed login attempt for the given username and IP.
+ * Increments failure counts and locks the account/IP after MAX_LOGIN_FAILURES.
+ */
 function recordLoginFailure(username, ip) {
   // Record per-username failure
   let entry = loginFailures.get(username);
   if (!entry) {
-    if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-      const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
-      for (const [key, val] of loginFailures) {
-        if (loginFailures.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
-          break;
-        }
-        if (val.lastAttempt < staleThreshold) {
-          loginFailures.delete(key);
-        }
-      }
-      // If still over limit after purging stale entries, remove oldest entries
-      while (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-        const oldest = loginFailures.keys().next().value;
-        if (oldest !== undefined) {
-          loginFailures.delete(oldest);
-        } else {
-          break;
-        }
-      }
-    }
+    purgeStaleEntries(loginFailures);
     entry = { count: 0, lockedUntil: null, lastAttempt: null };
   }
   entry.count++;
@@ -90,25 +104,7 @@ function recordLoginFailure(username, ip) {
   if (ip) {
     let ipEntry = ipLoginFailures.get(ip);
     if (!ipEntry) {
-      if (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-        const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
-        for (const [key, val] of ipLoginFailures) {
-          if (ipLoginFailures.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
-            break;
-          }
-          if (val.lastAttempt < staleThreshold) {
-            ipLoginFailures.delete(key);
-          }
-        }
-        while (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-          const oldest = ipLoginFailures.keys().next().value;
-          if (oldest !== undefined) {
-            ipLoginFailures.delete(oldest);
-          } else {
-            break;
-          }
-        }
-      }
+      purgeStaleEntries(ipLoginFailures);
       ipEntry = { count: 0, lockedUntil: null, lastAttempt: null };
     }
     ipEntry.count++;

@@ -17,7 +17,7 @@ router.use(requireAuth, auditMiddleware);
 // to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
 const DASHBOARD_TTL_MS = 30_000;
-let dashboardCache = { ts: 0, data: null };
+let dashboardCache = { timestamp: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
 // so the template doesn't crash on property access like ticketStats.open.
@@ -121,7 +121,7 @@ function getDashboardData(user) {
   const now = Date.now();
   let shared;
 
-  if (dashboardCache.data && (now - dashboardCache.ts) < DASHBOARD_TTL_MS) {
+  if (dashboardCache.data && (now - dashboardCache.timestamp) < DASHBOARD_TTL_MS) {
     shared = dashboardCache.data;
   } else {
     try {
@@ -138,7 +138,7 @@ function getDashboardData(user) {
         licenseAlerts: stmts.licenseAlerts.all()
       };
 
-      dashboardCache = { ts: now, data: shared };
+      dashboardCache = { timestamp: now, data: shared };
     } catch (err) {
       console.error('Dashboard cache refresh error:', err.message);
       // On DB error, re-use previous cache if available (stale data is better
@@ -180,7 +180,7 @@ function getDashboardData(user) {
  * Called after ticket/asset/project/staff writes to avoid stale dashboard stats.
  */
 function invalidateDashboardCache() {
-  dashboardCache = { ts: 0, data: null };
+  dashboardCache = { timestamp: 0, data: null };
 }
 
 router.get('/', (req, res) => {
