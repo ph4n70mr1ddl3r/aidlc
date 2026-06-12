@@ -59,13 +59,16 @@ function renderMarkdown(content) {
       allowProtocolRelative: false
     });
   } catch (err) {
-    // If markdown/sanitization fails, escape and return as plain text
+    // If markdown/sanitization fails, escape the raw content and wrap in a
+    // visible error notice so the user knows rendering failed instead of
+    // seeing a blank page.
     console.error('Markdown render error:', err.message);
-    return sanitizeHtml(content, {
+    const escaped = sanitizeHtml(content, {
       allowedTags: [],
       allowedAttributes: {},
       allowedSchemes: ['http', 'https', 'mailto']
-    });
+    }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
   }
 }
 

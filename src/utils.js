@@ -180,36 +180,6 @@ function isValidUrl(url) {
 }
 
 /**
- * Validate an IP address (IPv4 or IPv6). Returns true if valid.
- * Handles full IPv6, compressed (::) forms, and IPv4-mapped addresses.
- */
-function isValidIp(ip) {
-  if (!ip || typeof ip !== 'string') {
-    return false;
-  }
-  // IPv4
-  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
-    const parts = ip.split('.');
-    return parts.every(p => parseInt(p, 10) <= 255);
-  }
-  // IPv6: validate by splitting on ':' and checking group structure
-  const groups = ip.split(':');
-  const doubleColonCount = (ip.match(/::/g) || []).length;
-
-  if (doubleColonCount > 1) {
-    return false; // at most one :: allowed
-  }
-  if (doubleColonCount === 0) {
-    // No compression — must have exactly 8 groups of 1-4 hex digits
-    return groups.length === 8 && groups.every(g => /^[0-9a-fA-F]{1,4}$/.test(g));
-  }
-  // With ::, count non-empty groups (empty strings around :: are expected)
-  const nonEmpty = groups.filter(g => g !== '');
-  // The compressed groups fill 8 total; each non-empty group is 1-4 hex digits
-  return nonEmpty.length <= 7 && nonEmpty.every(g => /^[0-9a-fA-F]{1,4}$/.test(g));
-}
-
-/**
  * Sanitize a phone number: keep only digits, +, -, (, ), spaces.
  * Returns sanitized string or null if input is empty.
  */
@@ -469,4 +439,4 @@ function asyncHandler(fn) {
   };
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, isValidIp, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, DEFAULT_PAGE_SIZE };

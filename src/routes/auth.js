@@ -95,7 +95,7 @@ function recordLoginFailure(username, ip) {
 }
 
 function clearLoginFailure(username) {
-  loginFailures.delete(username);
+  loginFailures.delete(String(username).toLowerCase());
 }
 
 function clearIpLoginFailure(ip) {
@@ -165,7 +165,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   // Check account-level lockout (prevents brute-force across IP rotation)
-  const safeUsername = String(username).substring(0, 50);
+  const safeUsername = String(username).substring(0, 50).toLowerCase();
   const clientIp = req.ip || 'unknown';
   if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
     // Use the same generic message as normal login failure to prevent

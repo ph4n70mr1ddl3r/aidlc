@@ -274,9 +274,15 @@ app.use('/changes', require('./routes/changes'));
 app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 
-// Health check (unauthenticated)
+// Health check (unauthenticated) — rate-limited to prevent abuse
 const healthCheckStmt = db.prepare('SELECT 1 AS ok');
-app.get('/health', (req, res) => {
+const healthLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.get('/health', healthLimiter, (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('application/json');
   try {
