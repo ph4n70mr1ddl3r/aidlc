@@ -38,6 +38,10 @@ const LICENSE_TYPES = ['perpetual','subscription','volume','oem','academic'];
 // Users / Staff
 const USER_ROLES = ['admin','manager','staff'];
 
+// Session cookie name — single source of truth so auth middleware and routes
+// stay in sync if the name ever changes.
+const SESSION_COOKIE = 'connect.sid';
+
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
   TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES,
@@ -46,5 +50,6 @@ module.exports = {
   KB_CATEGORIES, KB_STATUSES,
   CHANGE_TYPES, CHANGE_STATUSES, CHANGE_PRIORITIES,
   LICENSE_TYPES,
-  USER_ROLES
+  USER_ROLES,
+  SESSION_COOKIE
 };

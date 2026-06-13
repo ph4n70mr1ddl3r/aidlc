@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
+const { SESSION_COOKIE } = require('../constants');
 
 const router = require('express').Router();
 
@@ -122,15 +123,11 @@ function clearLoginFailure(username) {
 }
 
 function clearIpLoginFailure(ip) {
-  ipLoginFailures.delete(ip);
+  ipLoginFailures.delete(String(ip).substring(0, 64).toLowerCase());
 }
 
 // Purge stale entries every 10 minutes to prevent memory leak.
-let _shuttingDown = false;
 const loginFailureCleanup = setInterval(() => {
-  if (_shuttingDown) {
-    return;
-  }
   const now = Date.now();
   const staleThreshold = now - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
   for (const [key, entry] of loginFailures) {
@@ -157,7 +154,6 @@ if (loginFailureCleanup.unref) {
  * from firing after db.close() has been called.
  */
 function stopLoginFailureCleanup() {
-  _shuttingDown = true;
   clearInterval(loginFailureCleanup);
 }
 
@@ -242,7 +238,6 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 }));
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
-const SESSION_COOKIE = 'connect.sid';
 router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });

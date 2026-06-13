@@ -456,11 +456,16 @@ function asyncHandler(fn) {
 // overhead of string-concatenating the SQL and calling prepare() on every request.
 const _countQueryCache = new Map();
 const _COUNT_CACHE_MAX = 500;
+const _SAFE_TABLE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 function countQuery(db, baseTable, alias, whereClause, params) {
+  if (!_SAFE_TABLE_RE.test(baseTable)) {
+    throw new Error(`Invalid table name: ${baseTable}`);
+  }
+  const safeAlias = alias ? ` ${quoteColumn(alias)}` : '';
   const key = `${baseTable}|${alias}|${whereClause}`;
   let stmt = _countQueryCache.get(key);
   if (!stmt) {
-    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable} ${alias} WHERE ${whereClause}`);
+    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
     if (_countQueryCache.size > _COUNT_CACHE_MAX) {
       const iter = _countQueryCache.keys();

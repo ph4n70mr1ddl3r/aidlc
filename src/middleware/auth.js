@@ -1,7 +1,6 @@
 const db = require('../models/database');
 const { isPrivileged } = require('../utils');
-
-const SESSION_COOKIE = 'connect.sid';
+const { SESSION_COOKIE } = require('../constants');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
