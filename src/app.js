@@ -152,6 +152,7 @@ app.use(session({
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   cookie: {
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     secure: process.env.NODE_ENV === 'production',
@@ -254,20 +255,14 @@ app.use((req, res, next) => {
 // Cache-Control: prevent caching of all pages (authenticated and
 // unauthenticated). Unauthenticated pages like login/error can contain
 // sensitive flash messages that must not be stored by intermediary caches.
-// For authenticated requests, also refresh the session TTL.
 // Must come BEFORE routes so headers are set on matched routes.
+// Note: rolling:true in the session config above refreshes the cookie maxAge
+// (and touches the store) on every authenticated response automatically.
 // ---------------------------------------------------------------------------
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
-
-  if (req.session.user) {
-    // Rolling session: extend cookie expiry on each authenticated request
-    // so active users aren't unexpectedly logged out after 24 h of idle.
-    // With resave:false, we must call touch() to refresh the store TTL.
-    req.session.touch();
-  }
   next();
 });
 

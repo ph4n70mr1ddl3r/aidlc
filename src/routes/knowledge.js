@@ -206,20 +206,21 @@ router.get('/:id', (req, res) => {
 
   // Increment views only once per session per article to prevent refresh inflation.
   // Cap the tracked set to prevent unbounded session growth.
+  // Use an array (not an object) so eviction removes the oldest-viewed article —
+  // Object.keys() on integer-like keys returns numeric order, which would evict
+  // the lowest-ID article instead of the oldest viewed.
   const VIEWED_KEY = 'kb_viewed';
   const MAX_VIEWED_ARTICLES = 200;
   if (!req.session[VIEWED_KEY]) {
-    req.session[VIEWED_KEY] = {};
+    req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed[id] && article.author_id !== req.session.user.id) {
+  if (!viewed.includes(id) && article.author_id !== req.session.user.id) {
     _viewCountStmt.run(id);
-    viewed[id] = true;
-    // Evict oldest entries if the tracking set exceeds the cap
-    const keys = Object.keys(viewed);
-    const toEvict = keys.length - MAX_VIEWED_ARTICLES;
-    if (toEvict > 0) {
-      keys.slice(0, toEvict).forEach(k => delete viewed[k]);
+    viewed.push(id);
+    // Evict oldest entries (front of array) if the tracking set exceeds the cap
+    if (viewed.length > MAX_VIEWED_ARTICLES) {
+      viewed.splice(0, viewed.length - MAX_VIEWED_ARTICLES);
     }
   }
 
