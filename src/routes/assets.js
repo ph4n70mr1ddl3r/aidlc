@@ -145,7 +145,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
         asset_tag, name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
         (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
         safeStatus, safeCondition, safeDate(purchase_date),
-        purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
+        safePositiveFloat(purchase_price),
         safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
       );
       return { asset_tag, id: result.lastInsertRowid };
@@ -265,7 +265,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       asset_tag.substring(0, 50), name.substring(0, 200), category,
       (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
       (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
-      safeDate(purchase_date), purchase_price !== undefined && purchase_price !== '' ? safePositiveFloat(purchase_price) : null,
+      safeDate(purchase_date), safePositiveFloat(purchase_price),
       safeDate(warranty_expiry), updateAssignee,
       (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
     );
