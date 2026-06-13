@@ -140,20 +140,6 @@ function safeId(value) {
 }
 
 /**
- * Safely parse a numeric form field, returning `fallback` for NaN / non-finite.
- * @param {*} value
- * @param {number} [fallback=0]
- * @returns {number}
- */
-function safeFloat(value, fallback = 0) {
-  if (value === undefined || value === null || value === '') {
-    return fallback;
-  }
-  const n = parseFloat(value);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-/**
  * Safely parse a numeric form field, returning `fallback` for NaN / non-finite / negative.
  * Use for monetary values that should be non-negative.
  * @param {*} value
@@ -488,4 +474,4 @@ function isPrivileged(user) {
   return user && (user.role === 'admin' || user.role === 'manager');
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, DEFAULT_PAGE_SIZE };

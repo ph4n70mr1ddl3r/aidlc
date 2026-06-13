@@ -357,36 +357,4 @@ function initSchema() {
 
 initSchema();
 
-/**
- * Get the current schema version from the migrations table.
- * @returns {number} Current schema version (0 if no migrations applied)
- */
-function getSchemaVersion() {
-  const row = db.prepare('SELECT MAX(version) as version FROM schema_migrations').get();
-  return row?.version ?? 0;
-}
-
-/**
- * Apply pending migrations.
- * Migrations are defined as an array of { version, name, up } objects.
- * The `up` function receives the db instance and should execute the migration SQL.
- * @param {Array<{version: number, name: string, up: (db: any) => void}>} migrations
- */
-function runMigrations(migrations) {
-  const currentVersion = getSchemaVersion();
-  const pending = migrations.filter(m => m.version > currentVersion).sort((a, b) => a.version - b.version);
-
-  for (const migration of pending) {
-    console.log(`Applying migration ${migration.version}: ${migration.name}`);
-    const tx = db.transaction(() => {
-      migration.up(db);
-      db.prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)').run(migration.version, migration.name);
-    });
-    tx();
-    console.log(`Applied migration ${migration.version}: ${migration.name}`);
-  }
-}
-
 module.exports = db;
-module.exports.getSchemaVersion = getSchemaVersion;
-module.exports.runMigrations = runMigrations;

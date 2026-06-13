@@ -86,7 +86,7 @@ const stmts = {
   `),
   upcomingChanges: db.prepare(`
     SELECT * FROM change_log
-    WHERE status = 'scheduled' AND scheduled_start >= date('now')
+    WHERE status = 'scheduled' AND scheduled_start >= datetime('now')
     ORDER BY scheduled_start ASC LIMIT 5
   `),
   ticketsByCategory: db.prepare(`

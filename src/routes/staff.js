@@ -160,6 +160,12 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
     return res.redirect('/staff/new');
   }
 
+  // Only admins can create admin accounts (managers must not escalate privileges)
+  if (role === 'admin' && req.session.user.role !== 'admin') {
+    req.flash('error', 'Only administrators can create admin accounts');
+    return res.redirect('/staff/new');
+  }
+
   const hashedPassword = await bcrypt.hash(password, 12);
   try {
     const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null);
@@ -399,7 +405,9 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   // Clear any login failure lockout for this user so the password reset
   // takes effect immediately instead of waiting for lockout expiry.
-  clearLoginFailure(targetUser.username || '');
+  if (targetUser.username) {
+    clearLoginFailure(targetUser.username);
+  }
 
   req.audit('update', 'user', id, 'Password reset by admin');
   req.flash('success', 'Password reset successfully');

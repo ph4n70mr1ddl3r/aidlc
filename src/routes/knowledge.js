@@ -32,6 +32,14 @@ const _articleUpdateStmt = db.prepare(`
     WHERE id = ?
   `);
 
+function resolveSafeStatus(user, status) {
+  return isPrivileged(user) && VALID_STATUSES.includes(status) ? status : 'draft';
+}
+
+function resolveSafeFeatured(user, is_featured) {
+  return isPrivileged(user) ? (is_featured ? 1 : 0) : 0;
+}
+
 // Configure marked options (passed per-call to avoid mutating global state)
 const MARKED_OPTIONS = {
   breaks: true,
@@ -154,10 +162,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const safeStatus = isPrivileged(req.session.user) && VALID_STATUSES.includes(status) ? status : 'draft';
-  // Non-privileged users can only create drafts — publishing requires admin/manager
-
-  const safeFeatured = isPrivileged(req.session.user) ? (is_featured ? 1 : 0) : 0;
+  const safeStatus = resolveSafeStatus(req.session.user, status);
+  const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   try {
     const result = _articleInsertStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
@@ -289,17 +295,16 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  // Non-privileged users cannot publish — force to draft
-  const safeUpdateStatus = isPrivileged(req.session.user) && VALID_STATUSES.includes(status) ? status : 'draft';
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeFeatured = isPrivileged(req.session.user) ? (is_featured ? 1 : 0) : 0;
+  const safeStatus = resolveSafeStatus(req.session.user, status);
+  const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   try {
-    _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, safeUpdateStatus, safeFeatured, id);
+    _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, safeStatus, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
     req.flash('success', 'Article updated');
