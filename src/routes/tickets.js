@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -250,8 +250,7 @@ router.get('/:id', (req, res) => {
   const rawComments = _showCommentsStmt.all(id);
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.
-  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  const comments = isPrivileged ? rawComments : rawComments.filter(c => !c.is_internal);
+  const comments = isPrivileged(req.session.user) ? rawComments : rawComments.filter(c => !c.is_internal);
 
   const staff = getActiveStaff(db);
 

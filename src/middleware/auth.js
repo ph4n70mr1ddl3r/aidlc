@@ -1,4 +1,5 @@
 const db = require('../models/database');
+const { isPrivileged } = require('../utils');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
@@ -101,8 +102,7 @@ function canAccessResource(req, resource) {
   if (!req.session.user || !resource) {
     return false;
   }
-  const isAdminOrManager = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  if (isAdminOrManager) {
+  if (isPrivileged(req.session.user)) {
     return true;
   }
   // Check all ownership fields — a resource may have multiple populated

@@ -124,7 +124,7 @@ const seed = db.transaction(() => {
   `);
 
   const now = new Date();
-  const today = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
   const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?)');
   tickets.forEach((t, i) => {
     const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
