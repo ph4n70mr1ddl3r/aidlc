@@ -66,7 +66,8 @@ function renderMarkdown(content) {
     const escaped = sanitizeHtml(content, {
       allowedTags: [],
       allowedAttributes: {},
-      allowedSchemes: ['http', 'https', 'mailto']
+      allowedSchemes: ['http', 'https', 'mailto'],
+      allowedSchemesAppliedToAttributes: ['href', 'src']
     });
     return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
   }

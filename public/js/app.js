@@ -27,20 +27,8 @@ document.addEventListener('submit', function (e) {
       btn.disabled = true;
       btn.style.opacity = '0.6';
     });
-    // Re-enable buttons on fetch/network errors so the user can retry
-    Promise.resolve().then(function () {
-      var firstBtn = btns[0];
-      if (!firstBtn) return;
-      var formEl = firstBtn.form || form;
-      formEl.addEventListener('reset', function () {
-        btns.forEach(function (btn) {
-          btn.disabled = false;
-          btn.style.opacity = '';
-        });
-      });
-    });
   }
-  // Also re-enable buttons if the page stays on the same form (e.g. network
+  // Re-enable buttons if the page stays on the same form (e.g. network
   // error or validation redirect). Track the pending re-enable via a module-
   // level flag so only one global error listener is ever registered.
   if (!window._formReenableAttached) {
