@@ -39,6 +39,9 @@ const MARKED_OPTIONS = {
 };
 
 function renderMarkdown(content) {
+  if (!content || typeof content !== 'string') {
+    return '';
+  }
   try {
     const html = marked.parse(content, MARKED_OPTIONS);
     return sanitizeHtml(html, {

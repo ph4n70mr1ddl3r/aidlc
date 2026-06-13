@@ -197,8 +197,16 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Impact must be at most 500 characters');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (!VALID_CHANGE_TYPES.includes(change_type) || !VALID_STATUSES.includes(status) || !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid change type, status, or priority');
+  if (!VALID_CHANGE_TYPES.includes(change_type)) {
+    req.flash('error', 'Invalid change type');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  if (!VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  if (!VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
     return res.redirect(`/changes/${id}/edit`);
   }
 

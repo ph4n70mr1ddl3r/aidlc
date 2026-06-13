@@ -396,11 +396,12 @@ router.post('/:id/comments', (req, res) => {
   }
   const { comment, is_internal } = req.body;
 
-  if (!comment || !comment.trim()) {
+  const trimmedComment = comment?.trim?.() || '';
+  if (!trimmedComment) {
     req.flash('error', 'Comment cannot be empty');
     return res.redirect(`/tickets/${id}`);
   }
-  if (comment.trim().length > 5000) {
+  if (trimmedComment.length > 5000) {
     req.flash('error', 'Comment must be at most 5000 characters');
     return res.redirect(`/tickets/${id}`);
   }
@@ -414,7 +415,7 @@ router.post('/:id/comments', (req, res) => {
     }
 
     const addComment = db.transaction(() => {
-      _commentInsertStmt.run(id, req.session.user.id, comment.trim().substring(0, 5000),
+      _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, 5000),
         // Only admin/manager can mark comments as internal
         (is_internal && isPrivileged(req.session.user)) ? 1 : 0);
 

@@ -241,13 +241,12 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   const description = trim(req.body.description);
   const { status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
 
-  const safeStatus = VALID_STATUSES.includes(status) ? status : null;
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : null;
-
-  if (!name || !safeStatus || !safePriority) {
-    req.flash('error', 'Valid name, status, and priority are required');
+  if (!name) {
+    req.flash('error', 'Project name is required');
     return res.redirect(`/projects/${id}/edit`);
   }
+  const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
+  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
   if (description && description.length > 5000) {
     req.flash('error', 'Description must be at most 5,000 characters');
     return res.redirect(`/projects/${id}/edit`);
