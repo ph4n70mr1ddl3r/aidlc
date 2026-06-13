@@ -309,9 +309,9 @@ function initSchema() {
     -- ========================
     -- INDEXES
     -- ========================
-    CREATE INDEX IF NOT EXISTS idx_assets_tag ON assets(asset_tag);
+    -- NOTE: UNIQUE constraints on asset_tag and ticket_number create implicit
+    -- indexes, so no explicit index is needed for those columns.
     CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
-    CREATE INDEX IF NOT EXISTS idx_tickets_number ON tickets(ticket_number);
     CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
     CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority);
     CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_to);
