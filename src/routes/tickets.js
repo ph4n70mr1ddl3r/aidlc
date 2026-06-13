@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -114,7 +114,7 @@ router.get('/', (req, res) => {
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM tickets t WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'tickets', 't', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const tickets = db.prepare(`

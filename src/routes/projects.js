@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -104,7 +104,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM projects p WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'projects', 'p', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   // Use LEFT JOIN with conditional aggregation instead of correlated subqueries

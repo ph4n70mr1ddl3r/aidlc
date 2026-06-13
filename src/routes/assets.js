@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM assets a WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'assets', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const assets = db.prepare(`

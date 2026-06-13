@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -46,7 +46,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM vendors v WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'vendors', 'v', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const vendors = db.prepare(`

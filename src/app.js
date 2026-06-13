@@ -18,8 +18,11 @@ const { stopLoginFailureCleanup } = require('./routes/auth');
 // ---------------------------------------------------------------------------
 // Normalize NODE_ENV early (before production checks) so that
 // values like 'Production' or 'PRODUCTION' are caught by validation.
+// Default to 'development' so NODE_ENV is always defined.
 // ---------------------------------------------------------------------------
-if (process.env.NODE_ENV) {
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+} else {
   process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
 }
 
@@ -58,8 +61,7 @@ const db = require('./models/database');
 // than 1 year on each server start.
 const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
 if (Number.isFinite(pruneDays) && pruneDays > 0) {
-  const { pruneAuditLog } = require('./utils');
-  const pruned = pruneAuditLog(db, pruneDays);
+  const pruned = utilsModule.pruneAuditLog(db, pruneDays);
   if (pruned > 0) {
     console.log(`Pruned ${pruned} audit log entries older than ${pruneDays} days`);
   }

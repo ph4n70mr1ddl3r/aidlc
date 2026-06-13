@@ -441,4 +441,35 @@ function asyncHandler(fn) {
   };
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, DEFAULT_PAGE_SIZE };
+// Cached prepared statements for countQuery — one per base table + where combination.
+// better-sqlite3 caches prepared statements internally, but this avoids the
+// overhead of string-concatenating the SQL and calling prepare() on every request.
+const _countQueryCache = new Map();
+const _COUNT_CACHE_MAX = 500;
+function countQuery(db, baseTable, alias, whereClause, params) {
+  const key = `${baseTable}|${alias}|${whereClause}`;
+  let stmt = _countQueryCache.get(key);
+  if (!stmt) {
+    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable} ${alias} WHERE ${whereClause}`);
+    _countQueryCache.set(key, stmt);
+    if (_countQueryCache.size > _COUNT_CACHE_MAX) {
+      const first = _countQueryCache.keys().next().value;
+      if (first !== undefined) {
+        _countQueryCache.delete(first);
+      }
+    }
+  }
+  return stmt.get(...params).c;
+}
+
+/**
+ * Check if a user has admin or manager privileges.
+ * Centralizes the repeated role-check pattern across routes.
+ * @param {Object} user - Session user object with a `role` property
+ * @returns {boolean}
+ */
+function isPrivileged(user) {
+  return user && (user.role === 'admin' || user.role === 'manager');
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safeFloat, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, DEFAULT_PAGE_SIZE };

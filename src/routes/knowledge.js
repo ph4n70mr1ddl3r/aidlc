@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, isPrivileged } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { marked } = require('marked');
@@ -88,15 +88,14 @@ router.get('/', (req, res) => {
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
   // (titles, authors, categories) to all authenticated users.
-  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  if (!isPrivileged) {
+  if (!isPrivileged(req.session.user)) {
     where.push("(k.status = 'published' OR k.author_id = ?)");
     params.push(req.session.user.id);
   }
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM knowledge_articles k WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'knowledge_articles', 'k', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const articles = db.prepare(`
@@ -151,11 +150,10 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  const safeStatus = isPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
+  const safeStatus = isPrivileged(req.session.user) && VALID_STATUSES.includes(status) ? status : 'draft';
   // Non-privileged users can only create drafts — publishing requires admin/manager
 
-  const safeFeatured = isPrivileged ? (is_featured ? 1 : 0) : 0;
+  const safeFeatured = isPrivileged(req.session.user) ? (is_featured ? 1 : 0) : 0;
 
   try {
     const result = _articleInsertStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, req.session.user.id, safeStatus, safeFeatured);
@@ -190,8 +188,7 @@ router.get('/:id', (req, res) => {
   // Without this check any authenticated user can read drafts/archived articles by URL.
   if (article.status !== 'published') {
     const isOwner = article.author_id === req.session.user.id;
-    const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-    if (!isOwner && !isPrivileged) {
+    if (!isOwner && !isPrivileged(req.session.user)) {
       req.flash('error', 'Article not found');
       return res.redirect('/knowledge');
     }
@@ -237,8 +234,7 @@ router.get('/:id/edit', (req, res) => {
   }
 
   const isOwner = article.author_id === req.session.user.id;
-  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  if (!isOwner && !isPrivileged) {
+  if (!isOwner && !isPrivileged(req.session.user)) {
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
   }
@@ -261,8 +257,7 @@ router.put('/:id', (req, res) => {
     return res.redirect('/knowledge');
   }
   const isOwner = existing.author_id === req.session.user.id;
-  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
-  if (!isOwner && !isPrivileged) {
+  if (!isOwner && !isPrivileged(req.session.user)) {
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
   }
@@ -292,13 +287,13 @@ router.put('/:id', (req, res) => {
   }
 
   // Non-privileged users cannot publish — force to draft
-  const safeUpdateStatus = isPrivileged && VALID_STATUSES.includes(status) ? status : 'draft';
+  const safeUpdateStatus = isPrivileged(req.session.user) && VALID_STATUSES.includes(status) ? status : 'draft';
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeFeatured = isPrivileged ? (is_featured ? 1 : 0) : 0;
+  const safeFeatured = isPrivileged(req.session.user) ? (is_featured ? 1 : 0) : 0;
 
   try {
     _articleUpdateStmt.run(title.substring(0, 200), content.substring(0, 50000), category, tags.substring(0, 500) || null, safeUpdateStatus, safeFeatured, id);
