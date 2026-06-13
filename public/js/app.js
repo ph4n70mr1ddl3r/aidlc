@@ -31,14 +31,16 @@ document.addEventListener('submit', function (e) {
   // Re-enable buttons if the page stays on the same form (e.g. network
   // error or validation redirect). Track the pending re-enable via a module-
   // level flag so only one global error listener is ever registered.
+  function _reenableButtons() {
+    document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '';
+    });
+  }
   if (!window._formReenableAttached) {
     window._formReenableAttached = true;
-    window.addEventListener('error', function () {
-      document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
-        btn.disabled = false;
-        btn.style.opacity = '';
-      });
-    });
+    window.addEventListener('error', _reenableButtons);
+    window.addEventListener('unhandledrejection', _reenableButtons);
   }
 });
 

@@ -1,6 +1,8 @@
 const db = require('../models/database');
 const { isPrivileged } = require('../utils');
 
+const SESSION_COOKIE = 'connect.sid';
+
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
 const _authCheckStmt = db.prepare('SELECT id, is_active, role FROM users WHERE id = ?');
@@ -24,7 +26,7 @@ function _verifySessionUser(req, res) {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
       req.session.destroy(() => {
-        res.clearCookie('connect.sid');
+        res.clearCookie(SESSION_COOKIE);
         res.redirect('/login?reason=deactivated');
       });
       return false;
