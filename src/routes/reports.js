@@ -9,6 +9,7 @@ router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
 // Rate limit report endpoints — aggregation queries are expensive and could
 // be abused for DoS even behind admin/manager auth.
+// Only apply to data endpoints, not the index landing page.
 const reportLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 30,
@@ -16,7 +17,7 @@ const reportLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-router.use(reportLimiter);
+router.use(['/tickets', '/assets', '/staff'], reportLimiter);
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for report queries.

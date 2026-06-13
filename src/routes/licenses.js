@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -48,7 +48,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM licenses WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'licenses', '', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const licenses = db.prepare(`

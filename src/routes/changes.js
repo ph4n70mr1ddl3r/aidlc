@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -47,7 +47,7 @@ router.get('/', (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = db.prepare(`SELECT COUNT(*) as c FROM change_log c WHERE ${whereClause}`).get(...params).c;
+  const total = countQuery(db, 'change_log', 'c', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const changes = db.prepare(`

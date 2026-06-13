@@ -39,6 +39,16 @@ function safeSort(value, allowedMap, defaultKey) {
  * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=']] - Allowed SQL operators
  * @returns {{ where: string[], params: any[] }}
  */
+/**
+ * Quote a column name that may include a table alias (e.g. "t"."status").
+ * Splitting on '.' and quoting each part ensures SQLite resolves it correctly.
+ * @param {string} col
+ * @returns {string}
+ */
+function quoteColumn(col) {
+  return col.split('.').map(p => `"${p}"`).join('.');
+}
+
 function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=']) {
   const where = [];
   const params = [];
@@ -53,7 +63,7 @@ function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<
     if (!allowedOperators.includes(op)) {
       throw new Error(`Invalid filter operator: ${op}`);
     }
-    where.push(`"${column}" ${op} ?`);
+    where.push(`${quoteColumn(column)} ${op} ?`);
     params.push(config.value);
   }
   return { where, params };
@@ -115,7 +125,7 @@ function addSearch(where, params, search, columns) {
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
-  const conditions = columns.map(c => `"${c}" LIKE ? ESCAPE '\\'`);
+  const conditions = columns.map(c => `${quoteColumn(c)} LIKE ? ESCAPE '\\'`);
   where.push(`(${conditions.join(' OR ')})`);
   columns.forEach(() => params.push(term));
 }
