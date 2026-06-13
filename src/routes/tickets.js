@@ -203,10 +203,11 @@ router.post('/', (req, res) => {
     }
   }
 
-  // Generate ticket number atomically using dedicated counter table
+  // Generate ticket number atomically using dedicated counter table.
+  // Use UTC date for consistency with DB datetime('now') which stores UTC.
   const createTicket = db.transaction(() => {
     const now = new Date();
-    const todayStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const todayStr = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
     const row = _ticketCounterStmt.get(todayStr);
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;

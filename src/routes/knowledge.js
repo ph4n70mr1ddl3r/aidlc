@@ -208,10 +208,9 @@ router.get('/:id', (req, res) => {
     viewed[id] = true;
     // Evict oldest entries if the tracking set exceeds the cap
     const keys = Object.keys(viewed);
-    if (keys.length > MAX_VIEWED_ARTICLES) {
-      for (let i = 0; i < keys.length - MAX_VIEWED_ARTICLES; i++) {
-        delete viewed[keys[i]];
-      }
+    const toEvict = keys.length - MAX_VIEWED_ARTICLES;
+    if (toEvict > 0) {
+      keys.slice(0, toEvict).forEach(k => delete viewed[k]);
     }
   }
 

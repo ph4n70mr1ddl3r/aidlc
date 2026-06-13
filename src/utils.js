@@ -463,9 +463,10 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable} ${alias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
     if (_countQueryCache.size > _COUNT_CACHE_MAX) {
-      const first = _countQueryCache.keys().next().value;
-      if (first !== undefined) {
-        _countQueryCache.delete(first);
+      const iter = _countQueryCache.keys();
+      let k;
+      while (_countQueryCache.size > _COUNT_CACHE_MAX && (k = iter.next().value) !== undefined) {
+        _countQueryCache.delete(k);
       }
     }
   }

@@ -242,6 +242,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 }));
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
+const SESSION_COOKIE = 'connect.sid';
 router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
@@ -250,7 +251,7 @@ router.post('/logout', (req, res) => {
     if (err) {
       console.error('Session destroy error:', err.message);
     }
-    res.clearCookie('connect.sid');
+    res.clearCookie(SESSION_COOKIE);
     res.redirect('/login');
   });
 });
