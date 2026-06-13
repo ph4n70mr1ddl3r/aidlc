@@ -246,7 +246,11 @@ router.get('/:id', (req, res) => {
     return res.redirect('/tickets');
   }
 
-  const comments = _showCommentsStmt.all(id);
+  const rawComments = _showCommentsStmt.all(id);
+  // Filter internal comments server-side — non-privileged users must not
+  // receive internal comments even if the template rendering fails.
+  const isPrivileged = req.session.user.role === 'admin' || req.session.user.role === 'manager';
+  const comments = isPrivileged ? rawComments : rawComments.filter(c => !c.is_internal);
 
   const staff = getActiveStaff(db);
 

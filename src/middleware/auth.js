@@ -23,8 +23,8 @@ function _verifySessionUser(req, res) {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
       req.session.destroy(() => {
-        const cookieName = (req.session.cookie && req.session.cookie.name) || 'connect.sid';
-        res.clearCookie(cookieName);
+        // express-session uses 'connect.sid' as the default cookie name
+        res.clearCookie('connect.sid');
         res.redirect('/login?reason=deactivated');
       });
       return false;
