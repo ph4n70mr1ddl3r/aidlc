@@ -35,6 +35,7 @@ const _projectMembershipsStmt = db.prepare(`
     FROM project_members pm
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
+    ORDER BY p.updated_at DESC
   `);
 const _staffRoleStmt = db.prepare('SELECT role, username FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT is_active FROM users WHERE id = ?');

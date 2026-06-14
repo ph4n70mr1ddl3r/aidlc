@@ -222,15 +222,21 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // eslint-disable-next-line no-unused-vars -- password intentionally excluded from session
   const { password: _password, ...sessionUser } = user;
 
-  await new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
+  try {
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
     });
-  });
+  } catch (err) {
+    console.error('Session regeneration error during login:', err.message);
+    req.flash('error', 'An error occurred during login. Please try again.');
+    return res.redirect('/login');
+  }
   req.session.user = sessionUser;
   audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
   req.flash('success', `Welcome back, ${user.first_name}!`);
@@ -367,15 +373,21 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 
   // Regenerate session to invalidate old session
   const sessionUser = req.session.user;
-  await new Promise((resolve, reject) => {
-    req.session.regenerate((err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
+  try {
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
     });
-  });
+  } catch (err) {
+    console.error('Session regeneration error during password change:', err.message);
+    req.flash('error', 'An error occurred. Please try again.');
+    return res.redirect('/profile');
+  }
   req.session.user = sessionUser;
   req.flash('success', 'Password changed successfully');
   res.redirect('/profile');

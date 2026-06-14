@@ -29,8 +29,7 @@ document.addEventListener('submit', function (e) {
     });
   }
   // Re-enable buttons if the page stays on the same form (e.g. network
-  // error or validation redirect). Track the pending re-enable via a module-
-  // level flag so only one global error listener is ever registered.
+  // error, validation redirect, or bfcache restore).
   function _reenableButtons() {
     document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
       btn.disabled = false;
@@ -39,8 +38,15 @@ document.addEventListener('submit', function (e) {
   }
   if (!window._formReenableAttached) {
     window._formReenableAttached = true;
+    // Catch JS runtime errors and unhandled rejections
     window.addEventListener('error', _reenableButtons);
     window.addEventListener('unhandledrejection', _reenableButtons);
+    // Catch bfcache restore (e.g. back button after failed submit)
+    window.addEventListener('pageshow', _reenableButtons);
+    // Catch network failures that don't fire JS errors
+    window.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') _reenableButtons();
+    });
   }
 });
 
