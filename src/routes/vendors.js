@@ -8,6 +8,17 @@ const { invalidateDashboardCache } = require('./dashboard');
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+/**
+ * Parse a vendor rating from a form field value.
+ * Returns an integer 1-5, or null for empty/invalid input.
+ * Extracted from inline IIFE for readability.
+ */
+function parseVendorRating(value) {
+  const n = parseInt(value, 10);
+  // Default to 1 (minimum rating) for invalid input to match original behavior
+  return Math.max(1, Math.min(5, Number.isFinite(n) ? n : 1));
+}
+
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
@@ -129,7 +140,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   try {
     const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, 2000) || null, rating !== undefined && rating !== '' ? (n => Math.max(1, Math.min(5, Number.isFinite(n) ? n : 1)))(parseInt(rating, 10)) : null);
+      (notes || '').substring(0, 2000) || null, rating !== undefined && rating !== '' ? parseVendorRating(rating) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -251,7 +262,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
         (website || '').substring(0, 500) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
-        rating !== undefined && rating !== '' ? (n => Math.max(1, Math.min(5, Number.isFinite(n) ? n : 1)))(parseInt(rating, 10)) : null,
+        rating !== undefined && rating !== '' ? parseVendorRating(rating) : null,
         existing.is_active ? 1 : 0, id);
 
       // Sync name change to license references (licenses.vendor is a text field

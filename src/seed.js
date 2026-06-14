@@ -135,7 +135,7 @@ const seed = db.transaction(() => {
       t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
       t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);
   });
-  insertCounter.run(today, tickets.length + 1);
+  insertCounter.run(today, tickets.length);
   console.log(`✅ Created ${tickets.length} tickets`);
 
   // ========================

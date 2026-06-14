@@ -250,7 +250,11 @@ function safeDate(value) {
  * Sanitize a datetime-local field: return the value if valid, or null.
  */
 function safeDateTimeLocal(value) {
-  return isValidDateTimeLocal(value) ? value : null;
+  // Normalize T separator to space for consistent comparison with SQLite
+  // datetime() output (which uses space format). The HTML datetime-local input
+  // sends YYYY-MM-DDTHH:MM, but storing with space avoids string-comparison bugs
+  // when compared against datetime('now') and similar functions.
+  return isValidDateTimeLocal(value) ? value.replace('T', ' ') : null;
 }
 
 /**
