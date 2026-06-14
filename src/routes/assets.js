@@ -145,8 +145,16 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect('/assets/new');
   }
-  const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
-  const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
+  if (!VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect('/assets/new');
+  }
+  if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
+    req.flash('error', 'Invalid condition rating');
+    return res.redirect('/assets/new');
+  }
+  const safeStatus = status;
+  const safeCondition = condition_rating || 'good';
 
   // Validate assignee is an active user
   const createAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -283,8 +291,16 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect(`/assets/${id}/edit`);
   }
-  const safeStatus = VALID_STATUSES.includes(status) ? status : 'in_storage';
-  const safeCondition = VALID_CONDITIONS.includes(condition_rating) ? condition_rating : 'good';
+  if (!VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
+    req.flash('error', 'Invalid condition rating');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  const safeStatus = status;
+  const safeCondition = condition_rating || 'good';
 
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;

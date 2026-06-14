@@ -157,8 +157,16 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/projects/new');
   }
 
-  const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  if (!status || !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect('/projects/new');
+  }
+  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
+    return res.redirect('/projects/new');
+  }
+  const safeStatus = status;
+  const safePriority = priority;
 
   const sStart = safeDate(start_date);
   const sEnd = safeDate(end_date);

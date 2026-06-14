@@ -202,7 +202,11 @@ router.post('/', (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect('/tickets/new');
   }
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
+    return res.redirect('/tickets/new');
+  }
+  const safePriority = priority;
 
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
