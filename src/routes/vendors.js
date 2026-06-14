@@ -19,6 +19,21 @@ function parseVendorRating(value) {
   return Math.max(1, Math.min(5, Number.isFinite(n) ? n : 1));
 }
 
+/**
+ * Validate a vendor rating value and return an error message if invalid.
+ * Returns null if the rating is valid (1-5) or empty (optional field).
+ */
+function validateVendorRating(value) {
+  if (value === undefined || value === '' || value === null) {
+    return null;
+  }
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 5) {
+    return 'Rating must be between 1 and 5';
+  }
+  return null;
+}
+
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
@@ -138,12 +153,10 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to 1
-  if (rating !== undefined && rating !== '' && rating !== null) {
-    const ratingNum = parseInt(rating, 10);
-    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) {
-      req.flash('error', 'Rating must be between 1 and 5');
-      return res.redirect('/vendors/new');
-    }
+  const ratingErr = validateVendorRating(rating);
+  if (ratingErr) {
+    req.flash('error', ratingErr);
+    return res.redirect('/vendors/new');
   }
 
   try {
@@ -258,12 +271,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to 1
-  if (rating !== undefined && rating !== '' && rating !== null) {
-    const ratingNum = parseInt(rating, 10);
-    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) {
-      req.flash('error', 'Rating must be between 1 and 5');
-      return res.redirect(`/vendors/${id}/edit`);
-    }
+  const ratingErr = validateVendorRating(rating);
+  if (ratingErr) {
+    req.flash('error', ratingErr);
+    return res.redirect(`/vendors/${id}/edit`);
   }
 
   try {

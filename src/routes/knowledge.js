@@ -225,6 +225,9 @@ router.get('/:id', (req, res) => {
     if (viewed.length > MAX_VIEWED_ARTICLES) {
       viewed.splice(0, viewed.length - MAX_VIEWED_ARTICLES);
     }
+    // Reassign to trigger session.modified flag (resave:false won't persist
+    // in-place array mutations)
+    req.session[VIEWED_KEY] = viewed;
   }
 
   article.renderedContent = renderMarkdown(article.content);
