@@ -120,6 +120,26 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Asset name must be at most 200 characters');
     return res.redirect('/assets/new');
   }
+  if (manufacturer && manufacturer.length > 100) {
+    req.flash('error', 'Manufacturer must be at most 100 characters');
+    return res.redirect('/assets/new');
+  }
+  if (model && model.length > 100) {
+    req.flash('error', 'Model must be at most 100 characters');
+    return res.redirect('/assets/new');
+  }
+  if (serial_number && serial_number.length > 100) {
+    req.flash('error', 'Serial number must be at most 100 characters');
+    return res.redirect('/assets/new');
+  }
+  if (location && location.length > 100) {
+    req.flash('error', 'Location must be at most 100 characters');
+    return res.redirect('/assets/new');
+  }
+  if (notes && notes.length > 2000) {
+    req.flash('error', 'Notes must be at most 2,000 characters');
+    return res.redirect('/assets/new');
+  }
 
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
@@ -237,6 +257,26 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
   if (name.length > 200) {
     req.flash('error', 'Asset name must be at most 200 characters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (manufacturer && manufacturer.length > 100) {
+    req.flash('error', 'Manufacturer must be at most 100 characters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (model && model.length > 100) {
+    req.flash('error', 'Model must be at most 100 characters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (serial_number && serial_number.length > 100) {
+    req.flash('error', 'Serial number must be at most 100 characters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (location && location.length > 100) {
+    req.flash('error', 'Location must be at most 100 characters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (notes && notes.length > 2000) {
+    req.flash('error', 'Notes must be at most 2,000 characters');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (!VALID_CATEGORIES.includes(category)) {

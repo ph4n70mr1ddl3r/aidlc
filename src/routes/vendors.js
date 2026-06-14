@@ -137,6 +137,15 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
+  // Validate rating range upfront instead of silently defaulting to 1
+  if (rating !== undefined && rating !== '' && rating !== null) {
+    const ratingNum = parseInt(rating, 10);
+    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      req.flash('error', 'Rating must be between 1 and 5');
+      return res.redirect('/vendors/new');
+    }
+  }
+
   try {
     const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
       (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
@@ -246,6 +255,15 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
     req.flash('error', 'Contract end must be on or after contract start');
     return res.redirect(`/vendors/${id}/edit`);
+  }
+
+  // Validate rating range upfront instead of silently defaulting to 1
+  if (rating !== undefined && rating !== '' && rating !== null) {
+    const ratingNum = parseInt(rating, 10);
+    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      req.flash('error', 'Rating must be between 1 and 5');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
   }
 
   try {

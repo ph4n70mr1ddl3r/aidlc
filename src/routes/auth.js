@@ -16,11 +16,12 @@ const rateLimit = require('express-rate-limit');
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: 'Too many login attempts. Please try again later.',
+  handler: (req, res) => {
+    req.flash('error', 'Too many login attempts. Please try again in 15 minutes.');
+    res.redirect('/login');
+  },
   standardHeaders: true,
   legacyHeaders: false
-  // Count all requests — login handler returns 302 redirects for both
-  // success and failure, so skipSuccessfulRequests would never count anything.
 });
 
 // Track per-account login failures to prevent brute-force across IP rotation
@@ -301,11 +302,8 @@ router.put('/profile', requireAuth, (req, res) => {
   try {
     _profileUpdateStmt.run(first_name.substring(0, 100), last_name.substring(0, 100), email.substring(0, 200), phone ? phone.substring(0, 50) : null, req.session.user.id);
 
-    // Update session
-    req.session.user.first_name = first_name;
-    req.session.user.last_name = last_name;
-    req.session.user.email = email;
-    req.session.user.phone = (phone || '').substring(0, 50);
+    // Update session (full reassign to ensure express-session detects the change with resave:false)
+    req.session.user = { ...req.session.user, first_name, last_name, email, phone: (phone || '').substring(0, 50) };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');

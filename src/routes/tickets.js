@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -157,7 +157,7 @@ router.post('/', (req, res) => {
   const requester_name = trim(req.body.requester_name);
   const requester_email = trim(req.body.requester_email);
   const requester_department = trim(req.body.requester_department);
-  const requester_phone = trim(req.body.requester_phone);
+  const requester_phone = sanitizePhone(req.body.requester_phone);
   const assigned_to = req.body.assigned_to;
   const asset_id = req.body.asset_id;
   const due_date = req.body.due_date;
@@ -177,6 +177,24 @@ router.post('/', (req, res) => {
 
   if (!isValidEmail(requester_email)) {
     req.flash('error', 'Please enter a valid requester email address');
+    return res.redirect('/tickets/new');
+  }
+
+  if (requester_phone && !isValidPhone(requester_phone)) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/tickets/new');
+  }
+
+  if (requester_name.length > 100) {
+    req.flash('error', 'Requester name must be at most 100 characters');
+    return res.redirect('/tickets/new');
+  }
+  if (requester_email.length > 200) {
+    req.flash('error', 'Requester email must be at most 200 characters');
+    return res.redirect('/tickets/new');
+  }
+  if (requester_department && requester_department.length > 100) {
+    req.flash('error', 'Requester department must be at most 100 characters');
     return res.redirect('/tickets/new');
   }
 
@@ -353,6 +371,11 @@ router.put('/:id', (req, res) => {
         req.flash('error', 'Selected asset does not exist');
         return res.redirect(`/tickets/${id}/edit`);
       }
+    }
+
+    if (resolution_notes && resolution_notes.length > 5000) {
+      req.flash('error', 'Resolution notes must be at most 5,000 characters');
+      return res.redirect(`/tickets/${id}/edit`);
     }
 
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
