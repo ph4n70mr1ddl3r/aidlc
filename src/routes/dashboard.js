@@ -21,7 +21,7 @@ let dashboardCache = { timestamp: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
 // so the template doesn't crash on property access like ticketStats.open.
-const EMPTY_DEFAULTS = Object.freeze({
+const EMPTY_DEFAULTS = {
   ticketStats: { total: 0, open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0 },
   assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 },
   projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
@@ -32,7 +32,7 @@ const EMPTY_DEFAULTS = Object.freeze({
   ticketsByCategory: [],
   staffWorkload: [],
   licenseAlerts: []
-});
+};
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for frequently-executed queries.

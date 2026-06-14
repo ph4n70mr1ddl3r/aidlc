@@ -91,15 +91,18 @@ router.post('/', requireAdminOrManager, (req, res) => {
 
   const seats = Math.max(1, safeInt(total_seats, 1));
   const used = safeInt(used_seats, 0);
+  if (used < 0) {
+    req.flash('error', 'Used seats cannot be negative');
+    return res.redirect('/licenses/new');
+  }
   if (used > seats) {
     req.flash('error', 'Used seats cannot exceed total seats');
     return res.redirect('/licenses/new');
   }
-  const clampedUsed = Math.max(0, used);
 
   try {
     const result = _licenseInsertStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
-      seats, clampedUsed,
+      seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
@@ -189,11 +192,14 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   const seats = Math.max(1, safeInt(total_seats, 1));
   const used = safeInt(used_seats, 0);
+  if (used < 0) {
+    req.flash('error', 'Used seats cannot be negative');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
   if (used > seats) {
     req.flash('error', 'Used seats cannot exceed total seats');
     return res.redirect(`/licenses/${id}/edit`);
   }
-  const clampedUsed = Math.max(0, used);
 
   try {
     // Verify license exists before updating; fetch existing key for preservation
@@ -207,7 +213,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
 
     _licenseUpdateStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
-      seats, clampedUsed,
+      seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);

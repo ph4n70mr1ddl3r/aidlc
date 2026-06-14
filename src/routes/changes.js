@@ -16,7 +16,7 @@ const _showChangeStmt = db.prepare(`
     WHERE c.id = ?
   `);
 const _editChangeStmt = db.prepare('SELECT * FROM change_log WHERE id = ?');
-const _existsChangeStmt = db.prepare('SELECT id FROM change_log WHERE id = ?');
+const _changeExistStmt = db.prepare('SELECT id FROM change_log WHERE id = ?');
 const _deleteChangeStmt = db.prepare('DELETE FROM change_log WHERE id = ?');
 
 // Cached prepared statements for create/update routes
@@ -238,7 +238,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   try {
     // Verify change exists before updating
-    const existing = _existsChangeStmt.get(id);
+    const existing = _changeExistStmt.get(id);
     if (!existing) {
       req.flash('error', 'Change not found');
       return res.redirect('/changes');
