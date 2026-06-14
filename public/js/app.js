@@ -28,9 +28,13 @@ document.addEventListener('submit', function (e) {
       btn.style.opacity = '0.6';
     });
   }
+  // Track whether any form was submitted in this page session.
+  // Used to avoid re-enabling buttons on unrelated visibility changes.
+  window._formSubmitted = true;
   // Re-enable buttons if the page stays on the same form (e.g. network
   // error, validation redirect, or bfcache restore).
   function _reenableButtons() {
+    if (!window._formSubmitted) { return; }
     document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
       btn.disabled = false;
       btn.style.opacity = '';
@@ -43,9 +47,11 @@ document.addEventListener('submit', function (e) {
     window.addEventListener('unhandledrejection', _reenableButtons);
     // Catch bfcache restore (e.g. back button after failed submit)
     window.addEventListener('pageshow', _reenableButtons);
-    // Catch network failures that don't fire JS errors
+    // Catch network failures that don't fire JS errors — only re-enable
+    // if a form was actually submitted on this page, so we don't interfere
+    // with legitimately disabled buttons on tab refocus.
     window.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') _reenableButtons();
+      if (document.visibilityState === 'visible' && window._formSubmitted) _reenableButtons();
     });
   }
 });

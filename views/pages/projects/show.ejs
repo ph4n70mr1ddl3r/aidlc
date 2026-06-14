@@ -77,9 +77,10 @@
             <strong><%= t.title %></strong>
             <span class="text-sm text-muted"> — <%= t.assigned_name || 'Unassigned' %></span>
             <% if (t.due_date && t.status !== 'done') { %>
-              <% const _tDays = Math.round((localDate(t.due_date) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / (1000*60*60*24)); %>
+              <% const _dueLocal = localDate(t.due_date); if (_dueLocal) { const _tDays = Math.round((_dueLocal - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / (1000*60*60*24)); %>
               <% if (_tDays < 0) { %><span class="badge badge-critical" style="margin-left:4px;">Overdue</span>
               <% } else if (_tDays <= 3) { %><span class="badge badge-high" style="margin-left:4px;">Due soon</span><% } %>
+              <% } %>
             <% } %>
           </span>
           <span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span>
