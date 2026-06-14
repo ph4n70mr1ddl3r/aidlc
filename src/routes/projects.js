@@ -245,6 +245,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Project name is required');
     return res.redirect(`/projects/${id}/edit`);
   }
+  if (name.length > 200) {
+    req.flash('error', 'Project name must be at most 200 characters');
+    return res.redirect(`/projects/${id}/edit`);
+  }
   const safeStatus = VALID_STATUSES.includes(status) ? status : 'planning';
   const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
   if (description && description.length > 5000) {

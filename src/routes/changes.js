@@ -101,8 +101,14 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid change type');
     return res.redirect('/changes/new');
   }
-  const safeStatus = VALID_STATUSES.includes(status) ? status : 'scheduled';
-  const safePriority = VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  if (!status || !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect('/changes/new');
+  }
+  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
+    return res.redirect('/changes/new');
+  }
 
   const sStart = safeDateTimeLocal(scheduled_start);
   const sEnd = safeDateTimeLocal(scheduled_end);
@@ -119,7 +125,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, safeStatus, safePriority,
+    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
       sStart, sEnd, (impact || '').substring(0, 500) || null, safeAssignee);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
