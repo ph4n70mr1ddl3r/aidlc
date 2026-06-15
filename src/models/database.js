@@ -298,15 +298,6 @@ function initSchema() {
     );
 
     -- ========================
-    -- SCHEMA MIGRATIONS
-    -- ========================
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      version INTEGER PRIMARY KEY,
-      name TEXT NOT NULL,
-      applied_at TEXT DEFAULT (datetime('now'))
-    );
-
-    -- ========================
     -- INDEXES
     -- ========================
     -- NOTE: UNIQUE constraints on asset_tag and ticket_number create implicit

@@ -57,11 +57,13 @@ function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<
       continue;
     }
     if (!allowedColumns.includes(column)) {
-      throw new Error(`Invalid filter column: ${column}`);
+      console.warn(`buildFilters: skipping invalid column "${column}"`);
+      continue;
     }
     const op = config.operator || '=';
     if (!allowedOperators.includes(op)) {
-      throw new Error(`Invalid filter operator: ${op}`);
+      console.warn(`buildFilters: skipping invalid operator "${op}"`);
+      continue;
     }
     where.push(`${quoteColumn(column)} ${op} ?`);
     params.push(config.value);
@@ -454,7 +456,11 @@ function countQuery(db, baseTable, alias, whereClause, params) {
   const safeAlias = alias ? ` ${quoteColumn(alias)}` : '';
   const key = `${baseTable}|${alias}|${whereClause}`;
   let stmt = _countQueryCache.get(key);
-  if (!stmt) {
+  if (stmt) {
+    // Re-insert to update insertion order (true LRU)
+    _countQueryCache.delete(key);
+    _countQueryCache.set(key, stmt);
+  } else {
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
     if (_countQueryCache.size > _COUNT_CACHE_MAX) {

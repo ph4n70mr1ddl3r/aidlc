@@ -39,20 +39,20 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'license_type': { value: VALID_LICENSE_TYPES.includes(req.query.license_type) ? req.query.license_type : '' }
-  }, ['license_type']);
+    'l.license_type': { value: VALID_LICENSE_TYPES.includes(req.query.license_type) ? req.query.license_type : '' }
+  }, ['l.license_type']);
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['software_name', 'vendor']);
+  addSearch(where, params, req.query.search, ['l.software_name', 'l.vendor']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = countQuery(db, 'licenses', '', whereClause, params);
+  const total = countQuery(db, 'licenses', 'l', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
   const licenses = db.prepare(`
-    SELECT * FROM licenses WHERE ${whereClause} ORDER BY software_name ASC LIMIT ? OFFSET ?
+    SELECT * FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
 
   res.render('pages/licenses/index', {
