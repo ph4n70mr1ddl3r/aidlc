@@ -33,7 +33,7 @@ const _articleUpdateStmt = db.prepare(`
   `);
 
 function resolveSafeStatus(user, status) {
-  return isPrivileged(user) && VALID_STATUSES.includes(status) ? status : 'draft';
+  return isPrivileged(user) ? status : 'draft';
 }
 
 function resolveSafeFeatured(user, is_featured) {
@@ -162,7 +162,12 @@ router.post('/', requireAdminOrManager, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status);
+  if (status && !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect('/knowledge/new');
+  }
+
+  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft');
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
@@ -308,7 +313,12 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status);
+  if (status && !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+
+  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft');
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)

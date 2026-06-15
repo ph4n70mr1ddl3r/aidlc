@@ -207,7 +207,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid change type');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (!VALID_STATUSES.includes(status)) {
+  if (!status || !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/changes/${id}/edit`);
   }

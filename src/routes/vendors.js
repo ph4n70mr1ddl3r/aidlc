@@ -15,8 +15,10 @@ router.use(requireAuth, auditMiddleware);
  */
 function parseVendorRating(value) {
   const n = parseInt(value, 10);
-  // Default to 1 (minimum rating) for invalid input to match original behavior
-  return Math.max(1, Math.min(5, Number.isFinite(n) ? n : 1));
+  if (!Number.isFinite(n)) {
+    return null;
+  }
+  return Math.max(1, Math.min(5, n));
 }
 
 /**
