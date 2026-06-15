@@ -1,7 +1,7 @@
 <%
   // Expected locals: page (numeric), totalPages, total (optional record count), limit (optional page size),
   // baseUrl (path with query params minus page)
-  const _page = typeof page !== 'undefined' && typeof page === 'number' ? page : (typeof currentPage !== 'undefined' && typeof currentPage === 'number' ? currentPage : 1);
+  const _page = typeof page !== 'undefined' && typeof page === 'number' ? page : 1;
   const _totalPages = typeof totalPages !== 'undefined' ? totalPages : 1;
   const _total = typeof total !== 'undefined' ? total : null;
   const _limit = typeof limit !== 'undefined' ? limit : 25;

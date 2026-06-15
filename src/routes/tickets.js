@@ -273,9 +273,7 @@ router.get('/:id', (req, res) => {
   // receive internal comments even if the template rendering fails.
   const comments = isPrivileged(req.session.user) ? rawComments : rawComments.filter(c => !c.is_internal);
 
-  const staff = getActiveStaff(db);
-
-  res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket, comments, staff });
+  res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket, comments });
 });
 
 // Edit ticket form

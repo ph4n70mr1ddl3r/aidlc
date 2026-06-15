@@ -62,7 +62,7 @@ const _staffUpdateStmt = db.prepare(`
   `);
 
 // Cached prepared statement for department list in staff index
-const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL ORDER BY department');
+const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE department IS NOT NULL AND is_active = 1 ORDER BY department');
 
 // List staff (paginated)
 router.get('/', (req, res) => {

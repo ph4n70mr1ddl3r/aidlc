@@ -52,7 +52,7 @@
             <td><%= a.manufacturer %> <%= a.name %></td>
             <td class="text-sm"><%= titleCase(a.category) %></td>
             <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
-            <td><span class="badge badge-<%= a.condition_rating === 'new' ? 'low' : a.condition_rating === 'good' ? 'low' : a.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= titleCase(a.condition_rating) %></span></td>
+            <td><span class="badge badge-<%= a.condition_rating === 'new' || a.condition_rating === 'good' ? 'low' : a.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= titleCase(a.condition_rating) %></span></td>
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
             <td class="actions-cell">
