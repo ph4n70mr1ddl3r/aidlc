@@ -206,7 +206,6 @@ router.post('/', (req, res) => {
     req.flash('error', 'Invalid priority');
     return res.redirect('/tickets/new');
   }
-  const safePriority = priority;
 
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -234,7 +233,7 @@ router.post('/', (req, res) => {
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
 
-    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, safePriority,
+    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, priority,
       requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
       safeAssignee, safeAssetId, safeDate(due_date));
     return { ticket_number, id: result.lastInsertRowid };

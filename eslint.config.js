@@ -38,6 +38,6 @@ module.exports = [
     },
   },
   {
-    ignores: ['node_modules/', 'public/', 'views/', 'data/', '*.md', 'package-lock.json'],
+    ignores: ['node_modules/', 'views/', 'data/', '*.md', 'package-lock.json', 'public/css/'],
   },
 ];

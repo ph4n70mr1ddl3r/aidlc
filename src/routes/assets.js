@@ -153,7 +153,6 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid condition rating');
     return res.redirect('/assets/new');
   }
-  const safeStatus = status;
   const safeCondition = condition_rating || 'good';
 
   // Validate assignee is an active user
@@ -172,7 +171,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
       const result = _insertStmt.run(
         asset_tag, name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
         (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
-        safeStatus, safeCondition, safeDate(purchase_date),
+        status, safeCondition, safeDate(purchase_date),
         safePositiveFloat(purchase_price),
         safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
       );
@@ -299,7 +298,6 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid condition rating');
     return res.redirect(`/assets/${id}/edit`);
   }
-  const safeStatus = status;
   const safeCondition = condition_rating || 'good';
 
   // Validate assignee is an active user
@@ -320,7 +318,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     _updateStmt.run(
       asset_tag.substring(0, 50), name.substring(0, 200), category,
       (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
-      (serial_number || '').substring(0, 100) || null, safeStatus, safeCondition,
+      (serial_number || '').substring(0, 100) || null, status, safeCondition,
       safeDate(purchase_date), safePositiveFloat(purchase_price),
       safeDate(warranty_expiry), updateAssignee,
       (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id

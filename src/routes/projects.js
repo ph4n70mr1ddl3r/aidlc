@@ -165,8 +165,6 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid priority');
     return res.redirect('/projects/new');
   }
-  const safeStatus = status;
-  const safePriority = priority;
 
   const sStart = safeDate(start_date);
   const sEnd = safeDate(end_date);
@@ -183,7 +181,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _projectInsertStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority,
+    const result = _projectInsertStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority,
       sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, safeOwnerId);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
@@ -265,8 +263,6 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/projects/${id}/edit`);
   }
-  const safeStatus = status;
-  const safePriority = priority;
   if (description && description.length > 5000) {
     req.flash('error', 'Description must be at most 5,000 characters');
     return res.redirect(`/projects/${id}/edit`);
@@ -299,7 +295,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${id}/edit`);
     }
 
-    _projectUpdateStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, safeStatus, safePriority, sStart, sEnd,
+    _projectUpdateStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority, sStart, sEnd,
       budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, safeOwnerId, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
