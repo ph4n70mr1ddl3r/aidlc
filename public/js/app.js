@@ -7,7 +7,9 @@ document.querySelectorAll('.flash').forEach(function (el) {
   setTimeout(function () {
     el.style.opacity = '0';
     el.style.transition = 'opacity 0.3s';
-    setTimeout(function () { el.remove(); }, 300);
+    setTimeout(function () {
+      el.remove();
+    }, 300);
   }, 5000);
 });
 
@@ -15,10 +17,14 @@ document.querySelectorAll('.flash').forEach(function (el) {
 // (any form with a CSRF token is a mutating form)
 document.addEventListener('submit', function (e) {
   const form = e.target;
-  if (form.tagName !== 'FORM') { return; }
+  if (form.tagName !== 'FORM') {
+    return;
+  }
   // Skip disabling if an onsubmit handler (e.g. confirm() dialog)
   // has already prevented the default action — the user cancelled.
-  if (e.defaultPrevented) { return; }
+  if (e.defaultPrevented) {
+    return;
+  }
   // Disable ALL submit buttons in the form, not just the first one.
   // Some forms have multiple action buttons (e.g. save + status change).
   const btns = form.querySelectorAll('button[type="submit"]');
@@ -34,7 +40,9 @@ document.addEventListener('submit', function (e) {
   // Re-enable buttons if the page stays on the same form (e.g. network
   // error, validation redirect, or bfcache restore).
   function _reenableButtons() {
-    if (!window._formSubmitted) { return; }
+    if (!window._formSubmitted) {
+      return;
+    }
     document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
       btn.disabled = false;
       btn.style.opacity = '';
@@ -51,7 +59,9 @@ document.addEventListener('submit', function (e) {
     // if a form was actually submitted on this page, so we don't interfere
     // with legitimately disabled buttons on tab refocus.
     window.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && window._formSubmitted) _reenableButtons();
+      if (document.visibilityState === 'visible' && window._formSubmitted) {
+        _reenableButtons();
+      }
     });
   }
 });
@@ -71,14 +81,18 @@ document.addEventListener('click', function (e) {
   const toggle = e.target.closest('[data-toggle="sidebar"]');
   if (toggle) {
     const sidebar = document.getElementById('sidebar');
-    if (sidebar) { sidebar.classList.toggle('open'); }
+    if (sidebar) {
+      sidebar.classList.toggle('open');
+    }
   }
 });
 
 // Confirmation dialogs: <form data-confirm="message">
 document.addEventListener('submit', function (e) {
   const form = e.target;
-  if (form.tagName !== 'FORM') { return; }
+  if (form.tagName !== 'FORM') {
+    return;
+  }
   const msg = form.getAttribute('data-confirm');
   if (msg && !confirm(msg)) {
     e.preventDefault();
@@ -99,10 +113,14 @@ document.addEventListener('change', function (e) {
 const _licenseKeys = {};
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('[data-license-reveal]');
-  if (!btn) { return; }
+  if (!btn) {
+    return;
+  }
   const licenseId = btn.getAttribute('data-license-reveal');
   const display = document.getElementById('license-key-display');
-  if (!display) { return; }
+  if (!display) {
+    return;
+  }
   if (display.dataset.shown === '1') {
     const storedKey = _licenseKeys[licenseId] || '';
     display.textContent = storedKey ? '****' + storedKey.slice(-4) : '****';
@@ -114,7 +132,9 @@ document.addEventListener('click', function (e) {
       headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
       .then(function (res) {
-        if (!res.ok) { throw new Error('HTTP ' + res.status); }
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
         return res.json();
       })
       .then(function (data) {

@@ -38,6 +38,14 @@ module.exports = [
     },
   },
   {
+    files: ['public/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
+  {
     ignores: ['node_modules/', 'views/', 'data/', '*.md', 'package-lock.json', 'public/css/'],
   },
 ];
