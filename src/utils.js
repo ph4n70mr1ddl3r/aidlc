@@ -383,7 +383,7 @@ function recalcProjectProgress(db, projectId) {
 // Cached prepared statement for getActiveStaff — called on every list/form route.
 // Module-level cache (safe because the app uses a single db instance).
 let _getActiveStaffStmt = null;
-function _getGetActiveStaffStmt(db) {
+function _getActiveStaffStmtFn(db) {
   if (!_getActiveStaffStmt) {
     _getActiveStaffStmt = db.prepare('SELECT id, first_name, last_name FROM users WHERE is_active = 1 ORDER BY first_name');
   }
@@ -397,7 +397,7 @@ function _getGetActiveStaffStmt(db) {
  * @returns {Array<{id: number, first_name: string, last_name: string}>}
  */
 function getActiveStaff(db) {
-  return _getGetActiveStaffStmt(db).all();
+  return _getActiveStaffStmtFn(db).all();
 }
 
 /**

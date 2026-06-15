@@ -30,9 +30,10 @@ function _verifySessionUser(req, res) {
       });
       return false;
     }
-    // Keep session role in sync (admin may have changed it)
+    // Keep session role in sync (admin may have changed it).
+    // Full reassign to ensure session modified flag fires with resave:false.
     if (row.role !== req.session.user.role) {
-      req.session.user.role = row.role;
+      req.session.user = { ...req.session.user, role: row.role };
     }
   } catch (err) {
     // Fail closed — if we can't verify the session, treat it as unauthenticated.

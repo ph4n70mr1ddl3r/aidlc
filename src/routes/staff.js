@@ -304,7 +304,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();
 
-    // Keep session in sync if admin is editing their own record (full reassign to ensure save with resave:false)
+    // Keep session in sync if user is editing their own record (full reassign to ensure save with resave:false)
     if (Number(id) === Number(req.session.user.id)) {
       req.session.user = { ...req.session.user, first_name, last_name, email, role, department, phone: phone ? phone.substring(0, 50) : null };
     }
