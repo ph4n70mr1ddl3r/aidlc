@@ -9,8 +9,8 @@ module.exports = [
       sourceType: 'commonjs',
       globals: {
         ...globals.node,
-        ...globals.es2022,
-      },
+        ...globals.es2022
+      }
     },
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
@@ -34,18 +34,18 @@ module.exports = [
       'keyword-spacing': 'error',
       'space-infix-ops': 'error',
       'object-curly-spacing': ['error', 'always'],
-      'array-bracket-spacing': ['error', 'never'],
-    },
+      'array-bracket-spacing': ['error', 'never']
+    }
   },
   {
     files: ['public/**/*.js'],
     languageOptions: {
       globals: {
-        ...globals.browser,
-      },
-    },
+        ...globals.browser
+      }
+    }
   },
   {
-    ignores: ['node_modules/', 'views/', 'data/', '*.md', 'package-lock.json', 'public/css/'],
-  },
+    ignores: ['node_modules/', 'views/', 'data/', '*.md', 'package-lock.json', 'public/css/']
+  }
 ];

@@ -37,7 +37,10 @@ function resolveSafeStatus(user, status) {
 }
 
 function resolveSafeFeatured(user, is_featured) {
-  return isPrivileged(user) ? (is_featured ? 1 : 0) : 0;
+  if (!isPrivileged(user)) {
+    return 0;
+  }
+  return (is_featured && is_featured !== '0') ? 1 : 0;
 }
 
 // Configure marked options (passed per-call to avoid mutating global state)

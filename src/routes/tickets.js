@@ -33,7 +33,7 @@ const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id =
 const _satisfactionUpdateStmt = db.prepare(
     'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
   );
-const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
+const _assetExistStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteCommentsStmt = db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
@@ -217,7 +217,7 @@ router.post('/', (req, res) => {
   // Validate linked asset exists
   const safeAssetId = asset_id ? safeId(asset_id) : null;
   if (safeAssetId) {
-    const assetExists = _assetExistsStmt.get(safeAssetId);
+    const assetExists = _assetExistStmt.get(safeAssetId);
     if (!assetExists) {
       req.flash('error', 'Selected asset does not exist');
       return res.redirect('/tickets/new');
@@ -367,7 +367,7 @@ router.put('/:id', (req, res) => {
     // Validate linked asset exists
     const updateAssetId = asset_id ? safeId(asset_id) : null;
     if (updateAssetId) {
-      const assetExists = _assetExistsStmt.get(updateAssetId);
+      const assetExists = _assetExistStmt.get(updateAssetId);
       if (!assetExists) {
         req.flash('error', 'Selected asset does not exist');
         return res.redirect(`/tickets/${id}/edit`);
