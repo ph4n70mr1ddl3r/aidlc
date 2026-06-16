@@ -395,7 +395,11 @@ function shutdown(signal) {
   }
   server.close(() => {
     console.log('HTTP server closed.');
-    db.close();
+    try {
+      db.close();
+    } catch (err) {
+      console.error('Error closing database:', err.message);
+    }
     console.log('Database connection closed.');
     process.exit(0);
   });

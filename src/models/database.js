@@ -6,9 +6,20 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 
 
 // Ensure data directory exists
 const dir = path.dirname(DB_PATH);
-fs.mkdirSync(dir, { recursive: true });
+try {
+  fs.mkdirSync(dir, { recursive: true });
+} catch (err) {
+  console.error(`ERROR: Cannot create database directory "${dir}": ${err.message}`);
+  process.exit(1);
+}
 
-const db = new Database(DB_PATH);
+let db;
+try {
+  db = new Database(DB_PATH);
+} catch (err) {
+  console.error(`ERROR: Cannot open database at "${DB_PATH}": ${err.message}`);
+  process.exit(1);
+}
 
 // Enable WAL mode for better performance
 db.pragma('journal_mode = WAL');
