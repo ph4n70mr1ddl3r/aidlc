@@ -420,7 +420,7 @@ router.post('/:id/comments', (req, res) => {
   }
   const { comment, is_internal } = req.body;
 
-  const trimmedComment = comment?.trim?.() || '';
+  const trimmedComment = trim(comment) || '';
   if (!trimmedComment) {
     req.flash('error', 'Comment cannot be empty');
     return res.redirect(`/tickets/${id}`);
