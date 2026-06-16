@@ -155,7 +155,7 @@ router.post('/', (req, res) => {
   const category = req.body.category;
   const priority = req.body.priority;
   const requester_name = trim(req.body.requester_name);
-  const requester_email = trim(req.body.requester_email);
+  const requester_email = trim(req.body.requester_email).toLowerCase();
   const requester_department = trim(req.body.requester_department);
   const requester_phone = sanitizePhone(req.body.requester_phone);
   const assigned_to = req.body.assigned_to;
@@ -441,7 +441,7 @@ router.post('/:id/comments', (req, res) => {
     const addComment = db.transaction(() => {
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, 5000),
         // Only admin/manager can mark comments as internal
-        (is_internal && isPrivileged(req.session.user)) ? 1 : 0);
+        (is_internal === 'on' && isPrivileged(req.session.user)) ? 1 : 0);
 
       // Refresh ticket updated_at so it sorts as recently active
       _commentTouchStmt.run(id);

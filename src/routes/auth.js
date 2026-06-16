@@ -281,7 +281,7 @@ router.get('/profile', requireAuth, (req, res) => {
 router.put('/profile', requireAuth, (req, res) => {
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
-  const email = trim(req.body.email);
+  const email = trim(req.body.email).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
 
   if (!first_name || !last_name || !email) {

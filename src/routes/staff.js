@@ -124,9 +124,9 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create staff
 router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
-  const username = trim(req.body.username);
+  const username = trim(req.body.username).toLowerCase();
   const { password } = req.body;
-  const email = trim(req.body.email);
+  const email = trim(req.body.email).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
   const { role } = req.body;
@@ -250,7 +250,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     return res.redirect('/staff');
   }
 
-  const email = trim(req.body.email);
+  const email = trim(req.body.email).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
   const { role } = req.body;

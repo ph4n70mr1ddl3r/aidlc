@@ -97,7 +97,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 router.post('/', requireAdminOrManager, (req, res) => {
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
-  const email = trim(req.body.email);
+  const email = trim(req.body.email).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
@@ -219,7 +219,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
-  const email = trim(req.body.email);
+  const email = trim(req.body.email).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
