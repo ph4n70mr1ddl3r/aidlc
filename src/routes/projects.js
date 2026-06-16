@@ -397,11 +397,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
   }
 
   const rawTitle = req.body.title;
+  const title = trim(rawTitle);
   const description = trim(req.body.description);
   const { status, priority, assigned_to, due_date } = req.body;
 
   // Defensive: handle quick-status-change forms that only send `status`
-  if (!rawTitle) {
+  if (!title) {
     // Quick status update only — preserve existing values
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
@@ -431,17 +432,24 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     return res.redirect(`/projects/${projectId}`);
   }
 
+  if (!VALID_TASK_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid task status');
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid task priority');
+    return res.redirect(`/projects/${projectId}`);
+  }
+
   try {
-    const title = trim(rawTitle);
     const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
     if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
       req.flash('error', 'Selected assignee is not available');
       return res.redirect(`/projects/${projectId}`);
     }
     const updateTask = db.transaction(() => {
-      const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : 'todo';
-      const params = [title.substring(0, 200), description.substring(0, 5000) || null, safeStatus, VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId];
-      if (safeStatus === 'done') {
+      const params = [title.substring(0, 200), description.substring(0, 5000) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId];
+      if (status === 'done') {
         _taskFullUpdateResolveStmt.run(...params);
       } else {
         _taskFullUpdateUnresolveStmt.run(...params);
