@@ -13,6 +13,7 @@ const http = require('http');
 const crypto = require('crypto');
 const utilsModule = require('./utils');
 const constantsModule = require('./constants');
+const { SESSION_COOKIE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,7 @@ if (process.env.NODE_ENV === 'production' && !process.env.SESSION_STORE) {
 }
 
 app.use(session({
+  name: SESSION_COOKIE,
   secret: sessionSecret,
   resave: false,
   saveUninitialized: false,
