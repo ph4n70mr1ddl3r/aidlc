@@ -10,15 +10,15 @@ router.use(requireAuth, auditMiddleware);
 
 /**
  * Parse a vendor rating from a form field value.
- * Returns an integer 1-5, or null for empty/invalid input.
- * Extracted from inline IIFE for readability.
+ * Returns an integer, or null for empty/invalid input.
+ * Range validation is handled by validateVendorRating() before this is called.
  */
 function parseVendorRating(value) {
   const n = parseInt(value, 10);
   if (!Number.isFinite(n)) {
     return null;
   }
-  return Math.max(1, Math.min(5, n));
+  return n;
 }
 
 /**

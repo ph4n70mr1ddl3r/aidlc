@@ -133,7 +133,10 @@ router.get('/:id', (req, res) => {
 });
 
 // AJAX endpoint for license key reveal (admin/manager only)
-router.get('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => {
+// POST (not GET) so the endpoint benefits from CSRF protection — GET requests
+// are not checked by doubleCsrfProtection and could leak keys via cross-site
+// request forgery.
+router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     return res.status(400).json({ error: 'Invalid license ID' });

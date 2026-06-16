@@ -128,8 +128,15 @@ document.addEventListener('click', function (e) {
     btn.querySelector('i').className = 'fas fa-eye';
   } else {
     // Fetch key via AJAX on first reveal
+    // Use POST with CSRF token (GET is not CSRF-protected)
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
     fetch('/licenses/' + licenseId + '/key', {
-      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRF-Token': csrfToken
+      }
     })
       .then(function (res) {
         if (!res.ok) {
