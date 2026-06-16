@@ -116,7 +116,7 @@ function addSearch(where, params, search, columns) {
     throw new Error('columns is required for addSearch');
   }
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
-  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
   for (const c of columns) {
     if (!SAFE_COLUMN_RE.test(c)) {
       throw new Error(`Invalid column name in addSearch: ${c}`);

@@ -180,7 +180,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   try {
     const result = _articleInsertStmt.run(safeTitle, content.substring(0, 50000), category, safeTags, req.session.user.id, safeStatus, safeFeatured);
 
-    req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${title}"`);
+    req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
     invalidateDashboardCache();
     res.redirect(`/knowledge/${result.lastInsertRowid}`);
@@ -331,7 +331,7 @@ router.put('/:id', (req, res) => {
   try {
     _articleUpdateStmt.run(safeTitle, content.substring(0, 50000), category, safeTags, safeStatus, safeFeatured, id);
 
-    req.audit('update', 'knowledge_article', id, `Updated article "${title}"`);
+    req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');
     invalidateDashboardCache();
     res.redirect(`/knowledge/${id}`);
