@@ -33,7 +33,7 @@ const _articleUpdateStmt = db.prepare(`
   `);
 
 function resolveSafeStatus(user, status) {
-  return isPrivileged(user) ? status : 'draft';
+  return isPrivileged(user) ? (status || 'draft') : 'draft';
 }
 
 function resolveSafeFeatured(user, is_featured) {

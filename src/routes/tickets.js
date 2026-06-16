@@ -345,6 +345,28 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  if (resolution_notes && resolution_notes.length > 5000) {
+    req.flash('error', 'Resolution notes must be at most 5,000 characters');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
+  // Validate assignee is an active user
+  const updateAssignee = assigned_to ? safeId(assigned_to) : null;
+  if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+    req.flash('error', 'Selected assignee is not available');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
+  // Validate linked asset exists
+  const updateAssetId = asset_id ? safeId(asset_id) : null;
+  if (updateAssetId) {
+    const assetExists = _assetExistStmt.get(updateAssetId);
+    if (!assetExists) {
+      req.flash('error', 'Selected asset does not exist');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+  }
+
   try {
     const ticket = _updateExistStmt.get(id);
     if (!ticket) {
@@ -355,28 +377,6 @@ router.put('/:id', (req, res) => {
     if (!canAccessResource(req, ticket)) {
       req.flash('error', 'You can only update tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
-    }
-
-    // Validate assignee is an active user
-    const updateAssignee = assigned_to ? safeId(assigned_to) : null;
-    if (updateAssignee && !isActiveUser(db, updateAssignee)) {
-      req.flash('error', 'Selected assignee is not available');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
-
-    // Validate linked asset exists
-    const updateAssetId = asset_id ? safeId(asset_id) : null;
-    if (updateAssetId) {
-      const assetExists = _assetExistStmt.get(updateAssetId);
-      if (!assetExists) {
-        req.flash('error', 'Selected asset does not exist');
-        return res.redirect(`/tickets/${id}/edit`);
-      }
-    }
-
-    if (resolution_notes && resolution_notes.length > 5000) {
-      req.flash('error', 'Resolution notes must be at most 5,000 characters');
-      return res.redirect(`/tickets/${id}/edit`);
     }
 
     const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,

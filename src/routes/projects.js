@@ -276,10 +276,13 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       return res.redirect('/projects');
     }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
-    const parsedProgress = parseInt(progress, 10);
-    const safeProgress = progress !== undefined && progress !== ''
-      ? (Number.isFinite(parsedProgress) ? Math.max(0, Math.min(100, parsedProgress)) : existingProject.progress)
-      : existingProject.progress;
+    let safeProgress = existingProject.progress;
+    if (progress !== undefined && progress !== '') {
+      const parsed = parseInt(progress, 10);
+      if (Number.isFinite(parsed)) {
+        safeProgress = Math.max(0, Math.min(100, parsed));
+      }
+    }
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);

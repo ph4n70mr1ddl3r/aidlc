@@ -70,10 +70,11 @@ router.get('/', (req, res) => {
 
   // Whitelist known departments from DB
   const departments = _departmentsStmt.all().map(r => r.department);
+  const activeFilter = req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '';
   const filters = buildFilters({
     'u.role': { value: USER_ROLES.includes(req.query.role) ? req.query.role : '' },
     'u.department': { value: departments.includes(req.query.department) ? req.query.department : '' },
-    'u.is_active': { value: req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '' }
+    'u.is_active': { value: activeFilter }
   }, ['u.role', 'u.department', 'u.is_active']);
 
   const where = [...filters.where];
