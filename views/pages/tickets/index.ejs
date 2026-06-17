@@ -11,7 +11,7 @@
 
 <!-- Filters -->
 <form method="GET" action="/tickets" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search tickets..." aria-label="Search tickets" value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search tickets..." aria-label="Search tickets" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>

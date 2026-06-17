@@ -2,7 +2,7 @@
 <%- include('../../partials/nav') %>
 <div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (isPrivileged(user)) { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a><% } %></div>
 <form method="GET" action="/changes" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option><% }) %></select>

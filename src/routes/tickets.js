@@ -221,8 +221,8 @@ router.post('/', (req, res) => {
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
 
-    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC), category, priority,
-      requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR), (requester_phone || '').substring(0, MAX_PHONE),
+    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
+      requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
       safeAssignee, safeAssetId, safeDate(due_date));
     return { ticket_number, id: result.lastInsertRowid };
   });
@@ -367,8 +367,8 @@ router.put('/:id', (req, res) => {
       return res.redirect(`/tickets/${id}`);
     }
 
-    const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC), category, priority, status,
-      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC)];
+    const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
+      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = status === 'resolved' || status === 'closed';

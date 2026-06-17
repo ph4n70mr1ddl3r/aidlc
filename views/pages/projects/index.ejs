@@ -9,7 +9,7 @@
 </div>
 
 <form method="GET" action="/projects" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search projects..." aria-label="Search projects" value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search projects..." aria-label="Search projects" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <% CONSTANTS.PROJECT_STATUSES.forEach(s => { %>

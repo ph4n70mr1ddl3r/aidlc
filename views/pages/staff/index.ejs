@@ -9,7 +9,7 @@
 </div>
 
 <form method="GET" action="/staff" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search staff..." aria-label="Search staff" value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search staff..." aria-label="Search staff" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="role" aria-label="Filter by role">
     <option value="">All Roles</option>
     <% CONSTANTS.USER_ROLES.forEach(r => { %>

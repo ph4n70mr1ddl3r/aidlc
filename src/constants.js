@@ -57,6 +57,7 @@ const MAX_EMAIL = 200;            // email addresses
 const MAX_PHONE = 50;             // phone numbers
 const MAX_ADDRESS = 500;          // vendor address
 const MAX_PASSWORD = 128;         // password max length
+const MAX_SEARCH = 100;           // search box input (list filters)
 
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
@@ -69,5 +70,5 @@ module.exports = {
   USER_ROLES,
   SESSION_COOKIE,
   MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
-  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD
+  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD, MAX_SEARCH
 };

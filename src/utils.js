@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_PAGE_SIZE = 25;
-const { MAX_PASSWORD, MAX_EMAIL } = require('./constants');
+const { MAX_PASSWORD, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
 /**
  * Parse pagination params from query string
@@ -123,7 +123,9 @@ function addSearch(where, params, search, columns) {
       throw new Error(`Invalid column name in addSearch: ${c}`);
     }
   }
-  const raw = String(search);
+  // Cap input length so a client cannot force expensive escaping plus a
+  // pathological LIKE scan by submitting a multi-megabyte ?search= value.
+  const raw = String(search).slice(0, MAX_SEARCH);
   // Escape SQL LIKE wildcards — backslash must be escaped first to avoid
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');

@@ -12,7 +12,7 @@
 </div>
 
 <form method="GET" action="/assets" class="filter-bar">
-  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search assets..." aria-label="Search assets" value="<%= filters.search || '' %>">
+  <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search assets..." aria-label="Search assets" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="category" aria-label="Filter by category">
     <option value="">All Categories</option>
     <% CONSTANTS.ASSET_CATEGORIES.forEach(c => { %>
