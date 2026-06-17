@@ -103,7 +103,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   try {
     const result = _licenseInsertStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
+      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -217,7 +217,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     _licenseUpdateStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
+      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

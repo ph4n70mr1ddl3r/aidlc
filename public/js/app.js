@@ -36,16 +36,20 @@ document.addEventListener('submit', function (e) {
   }
   // Track whether any form was submitted in this page session.
   // Used to avoid re-enabling buttons on unrelated visibility changes.
-  window._formSubmitted = true;
+  form.dataset.submitted = 'true';
   // Re-enable buttons if the page stays on the same form (e.g. network
   // error, validation redirect, or bfcache restore).
   function _reenableButtons() {
-    if (!window._formSubmitted) {
+    const submittedForms = document.querySelectorAll('form[data-submitted="true"]');
+    if (!submittedForms.length) {
       return;
     }
-    document.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
-      btn.disabled = false;
-      btn.style.opacity = '';
+    submittedForms.forEach(function (f) {
+      f.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      });
+      delete f.dataset.submitted;
     });
   }
   if (!window._formReenableAttached) {
@@ -59,7 +63,7 @@ document.addEventListener('submit', function (e) {
     // if a form was actually submitted on this page, so we don't interfere
     // with legitimately disabled buttons on tab refocus.
     window.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && window._formSubmitted) {
+      if (document.visibilityState === 'visible') {
         _reenableButtons();
       }
     });

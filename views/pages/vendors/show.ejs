@@ -12,7 +12,7 @@
 <div class="card"><div class="card-body">
   <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value" style="font-weight:600;"><%= vendor.name %></div></div>
   <div class="detail-row"><div class="detail-label">Contact Person</div><div class="detail-value"><%= vendor.contact_person || '-' %></div></div>
-  <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><% if (vendor.email) { %><a href="mailto:<%= encodeURIComponent(vendor.email) %>"><%= vendor.email %></a><% } else { %>-<% } %></div></div>
+  <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><% if (vendor.email) { %><a href="mailto:<%= vendor.email %>"><%= vendor.email %></a><% } else { %>-<% } %></div></div>
   <div class="detail-row"><div class="detail-label">Phone</div><div class="detail-value"><%= vendor.phone || '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Address</div><div class="detail-value"><%= vendor.address || '-' %></div></div>
   <div class="detail-row"><div class="detail-label">Website</div><div class="detail-value"><% if (vendor.website && /^https?:\/\//i.test(vendor.website)) { %><a href="<%= vendor.website %>" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"><%= vendor.website %></a><% } else if (vendor.website) { %><%= vendor.website %><% } else { %>-<% } %></div></div>

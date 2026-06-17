@@ -418,5 +418,11 @@ process.on('unhandledRejection', (reason) => {
     forceExitTimer.unref();
   }
 });
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Always exit after an uncaught exception — the process is in an undefined state.
+  const forceExitTimer = setTimeout(() => process.exit(1), 1000);
+  forceExitTimer.unref();
+});
 
 module.exports = app;

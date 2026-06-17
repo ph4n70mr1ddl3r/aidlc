@@ -8,7 +8,7 @@
     <div class="form-grid">
       <div class="form-group"><label for="category">Category *</label><select name="category" id="category" class="form-control" required>
         <% CONSTANTS.KB_CATEGORIES.forEach(c => { %>
-          <option value="<%= c %>" <%= article.category === c ? 'selected' : '' %>><%= c %></option>
+          <option value="<%= c %>" <%= article.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
         <% }) %>
       </select></div>
       <div class="form-group"><label for="status">Status</label><select name="status" id="status" class="form-control">

@@ -5,9 +5,10 @@
   const _totalPages = typeof totalPages !== 'undefined' ? totalPages : 1;
   const _total = typeof total !== 'undefined' ? total : null;
   const _limit = typeof limit !== 'undefined' ? limit : 25;
+  const _baseUrl = typeof baseUrl !== 'undefined' ? baseUrl : '';
   const buildUrl = (p) => {
-    const sep = baseUrl.includes('?') ? '&' : '?';
-    return baseUrl + sep + 'page=' + p;
+    const sep = _baseUrl.includes('?') ? '&' : '?';
+    return _baseUrl + sep + 'page=' + p;
   };
 %>
 <div class="pagination-info" aria-live="polite">

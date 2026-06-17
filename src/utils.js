@@ -32,14 +32,6 @@ function safeSort(value, allowedMap, defaultKey) {
 }
 
 /**
- * Build WHERE clause safely from whitelisted filters.
- * Column names and operators are validated against allowlists to prevent SQL injection.
- * @param {Object} filters - { column: { value, operator? } }
- * @param {string[]} allowedColumns - List of allowed column names (e.g. ['a.category', 't.status'])
- * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=']] - Allowed SQL operators
- * @returns {{ where: string[], params: any[] }}
- */
-/**
  * Quote a column name that may include a table alias (e.g. "t"."status").
  * Splitting on '.' and quoting each part ensures SQLite resolves it correctly.
  * @param {string} col
@@ -49,6 +41,14 @@ function quoteColumn(col) {
   return col.split('.').map(p => `"${p}"`).join('.');
 }
 
+/**
+ * Build WHERE clause safely from whitelisted filters.
+ * Column names and operators are validated against allowlists to prevent SQL injection.
+ * @param {Object} filters - { column: { value, operator? } }
+ * @param {string[]} allowedColumns - List of allowed column names (e.g. ['a.category', 't.status'])
+ * @param {string[]} [allowedOperators=['=', '!=', '<', '>', '<=', '>=']] - Allowed SQL operators
+ * @returns {{ where: string[], params: any[] }}
+ */
 function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=']) {
   const where = [];
   const params = [];
@@ -410,11 +410,29 @@ function getActiveStaff(db) {
  * @returns {number} number of rows deleted
  */
 function pruneAuditLog(db, retentionDays) {
-  const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString();
+  const cutoff = db.prepare("SELECT datetime('now', ? || ' days') AS cutoff").get(`-${retentionDays}`).cutoff;
   const result = db.prepare(
     'DELETE FROM audit_log WHERE created_at < ?'
   ).run(cutoff);
   return result.changes;
+}
+
+/**
+ * Validate a string field length is within bounds.
+ * Returns an error message if invalid, or null if valid.
+ * Reduces duplication of length-check boilerplate across routes.
+ */
+function validateStringLength(value, min, max, fieldName) {
+  if (!value || typeof value !== 'string') {
+    return `${fieldName} is required`;
+  }
+  if (value.length < min) {
+    return `${fieldName} must be at least ${min} characters`;
+  }
+  if (value.length > max) {
+    return `${fieldName} must be at most ${max} characters`;
+  }
+  return null;
 }
 
 /**
@@ -428,7 +446,10 @@ function titleCase(value) {
   if (!value || typeof value !== 'string') {
     return '';
   }
-  return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API']);
+  return value.replace(/_/g, ' ').replace(/\b\w+/g, word =>
+    ACRONYMS.has(word.toUpperCase()) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  );
 }
 
 /**
@@ -483,4 +504,4 @@ function isPrivileged(user) {
   return user && (user.role === 'admin' || user.role === 'manager');
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, validateStringLength, DEFAULT_PAGE_SIZE };
