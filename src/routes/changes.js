@@ -16,7 +16,6 @@ const _showChangeStmt = db.prepare(`
     WHERE c.id = ?
   `);
 const _editChangeStmt = db.prepare('SELECT * FROM change_log WHERE id = ?');
-const _changeExistStmt = db.prepare('SELECT id FROM change_log WHERE id = ?');
 const _deleteChangeStmt = db.prepare('DELETE FROM change_log WHERE id = ?');
 
 // Cached prepared statements for create/update routes
@@ -105,7 +104,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid status');
     return res.redirect('/changes/new');
   }
-  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+  const safePriority = priority && VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid priority');
     return res.redirect('/changes/new');
   }
@@ -125,7 +125,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
+    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, safePriority,
       sStart, sEnd, (impact || '').substring(0, 500) || null, safeAssignee);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
@@ -211,10 +211,19 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid status');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (!VALID_PRIORITIES.includes(priority)) {
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/changes/${id}/edit`);
   }
+
+  // Fetch existing record to preserve unchanged fields
+  const existingChange = _editChangeStmt.get(id);
+  if (!existingChange) {
+    req.flash('error', 'Change not found');
+    return res.redirect('/changes');
+  }
+
+  const safePriority = priority && VALID_PRIORITIES.includes(priority) ? priority : existingChange.priority;
 
   const sSchedStart = safeDateTimeLocal(scheduled_start);
   const sSchedEnd = safeDateTimeLocal(scheduled_end);
@@ -237,14 +246,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    // Verify change exists before updating
-    const existing = _changeExistStmt.get(id);
-    if (!existing) {
-      req.flash('error', 'Change not found');
-      return res.redirect('/changes');
-    }
-
-    _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, priority,
+    _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, safePriority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
       (impact || '').substring(0, 500) || null, safeAssignee, id);
 

@@ -331,6 +331,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_licenses_expiry ON licenses(expiry_date);
     CREATE INDEX IF NOT EXISTS idx_tickets_resolved ON tickets(resolved_at);
     CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
+    CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
     CREATE INDEX IF NOT EXISTS idx_assets_warranty ON assets(warranty_expiry);
     CREATE INDEX IF NOT EXISTS idx_vendors_active ON vendors(is_active);
     CREATE INDEX IF NOT EXISTS idx_project_tasks_status ON project_tasks(status);
