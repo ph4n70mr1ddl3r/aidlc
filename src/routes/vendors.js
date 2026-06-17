@@ -9,21 +9,25 @@ const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 /**
- * Parse a vendor rating from a form field value.
- * Returns an integer, or null for empty/invalid input.
- * Range validation is handled by validateVendorRating() before this is called.
+ * Parse and validate a vendor rating from a form field value.
+ * Returns null for empty/undefined input (optional field).
+ * Returns the parsed integer (1-5) if valid.
+ * Returns null if invalid — callers MUST use validateVendorRating() first
+ * to provide a user-facing error message.
  */
 function parseVendorRating(value) {
-  const n = parseInt(value, 10);
-  if (!Number.isFinite(n)) {
+  if (value === undefined || value === '' || value === null) {
     return null;
   }
-  return n;
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
  * Validate a vendor rating value and return an error message if invalid.
  * Returns null if the rating is valid (1-5) or empty (optional field).
+ * Uses parseInt once and shares the result with parseVendorRating by
+ * ensuring the same comparison logic.
  */
 function validateVendorRating(value) {
   if (value === undefined || value === '' || value === null) {
@@ -49,8 +53,8 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 const _licenseSyncStmt = db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE vendor = ?');
-const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
-const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = (SELECT name FROM vendors WHERE id = ?)');
+const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = ?');
+const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = ?');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
 // Cached prepared statements for vendor create route
@@ -399,10 +403,12 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
       }
 
       // Nullify vendor references on licenses to avoid orphaned references
-      const dependentLicenses = _licenseDependentsStmt.all(id);
+      // Use the vendor name directly (already fetched above) instead of a
+      // correlated subquery, which is both clearer and slightly faster.
+      const dependentLicenses = _licenseDependentsStmt.all(vendor.name);
       licenseCount = dependentLicenses.length;
       if (licenseCount > 0) {
-        _deleteDetachLicensesStmt.run(id);
+        _deleteDetachLicensesStmt.run(vendor.name);
       }
       const result = _deleteStmt.run(id);
       return { changes: result.changes, active: false };

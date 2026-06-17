@@ -422,24 +422,6 @@ function pruneAuditLog(db, retentionDays) {
 }
 
 /**
- * Validate a string field length is within bounds.
- * Returns an error message if invalid, or null if valid.
- * Reduces duplication of length-check boilerplate across routes.
- */
-function validateStringLength(value, min, max, fieldName) {
-  if (!value || typeof value !== 'string') {
-    return `${fieldName} is required`;
-  }
-  if (value.length < min) {
-    return `${fieldName} must be at least ${min} characters`;
-  }
-  if (value.length > max) {
-    return `${fieldName} must be at most ${max} characters`;
-  }
-  return null;
-}
-
-/**
  * Title-case a string: replace underscores with spaces and capitalize each word.
  * Centralized helper to avoid repeating the regex pattern across templates.
  * Handles null/undefined gracefully.
@@ -526,4 +508,4 @@ function isPrivileged(user) {
   return user && (user.role === 'admin' || user.role === 'manager');
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, validateStringLength, DEFAULT_PAGE_SIZE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged };

@@ -419,6 +419,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     return res.redirect(`/projects/${projectId}`);
   }
 
+  if (!title) {
+    req.flash('error', 'Task title is required');
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (title.length > 200) {
+    req.flash('error', 'Task title must be at most 200 characters');
+    return res.redirect(`/projects/${projectId}`);
+  }
   if (!VALID_TASK_STATUSES.includes(status)) {
     req.flash('error', 'Invalid task status');
     return res.redirect(`/projects/${projectId}`);
