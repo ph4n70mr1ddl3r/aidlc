@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery } = require('../utils');
-const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES } = require('../constants');
+const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
@@ -154,12 +154,12 @@ router.post('/', (req, res) => {
     req.flash('error', 'Title, category, requester name, and requester email are required');
     return res.redirect('/tickets/new');
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/tickets/new');
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect('/tickets/new');
   }
 
@@ -173,16 +173,16 @@ router.post('/', (req, res) => {
     return res.redirect('/tickets/new');
   }
 
-  if (requester_name.length > 100) {
-    req.flash('error', 'Requester name must be at most 100 characters');
+  if (requester_name.length > MAX_SHORT_STR) {
+    req.flash('error', `Requester name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/tickets/new');
   }
-  if (requester_email.length > 200) {
-    req.flash('error', 'Requester email must be at most 200 characters');
+  if (requester_email.length > MAX_EMAIL) {
+    req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
     return res.redirect('/tickets/new');
   }
-  if (requester_department && requester_department.length > 100) {
-    req.flash('error', 'Requester department must be at most 100 characters');
+  if (requester_department && requester_department.length > MAX_SHORT_STR) {
+    req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/tickets/new');
   }
 
@@ -221,8 +221,8 @@ router.post('/', (req, res) => {
     const seq = row.next_seq;
     const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
 
-    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, 200), (description || '').substring(0, 5000), category, priority,
-      requester_name.substring(0, 100), requester_email.substring(0, 200), (requester_department || '').substring(0, 100), (requester_phone || '').substring(0, 50),
+    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC), category, priority,
+      requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR), (requester_phone || '').substring(0, MAX_PHONE),
       safeAssignee, safeAssetId, safeDate(due_date));
     return { ticket_number, id: result.lastInsertRowid };
   });
@@ -310,12 +310,12 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
 
@@ -333,8 +333,8 @@ router.put('/:id', (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  if (resolution_notes && resolution_notes.length > 5000) {
-    req.flash('error', 'Resolution notes must be at most 5,000 characters');
+  if (resolution_notes && resolution_notes.length > MAX_DESC) {
+    req.flash('error', `Resolution notes must be at most ${MAX_DESC} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
 
@@ -367,8 +367,8 @@ router.put('/:id', (req, res) => {
       return res.redirect(`/tickets/${id}`);
     }
 
-    const params = [title.substring(0, 200), (description || '').substring(0, 5000), category, priority, status,
-      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, 5000)];
+    const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC), category, priority, status,
+      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC)];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = status === 'resolved' || status === 'closed';
@@ -406,8 +406,8 @@ router.post('/:id/comments', (req, res) => {
     req.flash('error', 'Comment cannot be empty');
     return res.redirect(`/tickets/${id}`);
   }
-  if (trimmedComment.length > 5000) {
-    req.flash('error', 'Comment must be at most 5000 characters');
+  if (trimmedComment.length > MAX_DESC) {
+    req.flash('error', `Comment must be at most ${MAX_DESC} characters`);
     return res.redirect(`/tickets/${id}`);
   }
 
@@ -420,7 +420,7 @@ router.post('/:id/comments', (req, res) => {
     }
 
     const addComment = db.transaction(() => {
-      _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, 5000),
+      _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal
         (is_internal === 'on' && isPrivileged(req.session.user)) ? 1 : 0);
 

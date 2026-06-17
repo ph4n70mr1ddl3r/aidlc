@@ -19,7 +19,7 @@
         </div>
         <div class="form-group">
           <label for="name">Name *</label>
-          <input type="text" name="name" id="name" class="form-control" value="<%= asset.name || '' %>" maxlength="200" required>
+          <input type="text" name="name" id="name" class="form-control" value="<%= asset.name || '' %>" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required>
         </div>
         <div class="form-group">
           <label for="category">Category *</label>
@@ -31,15 +31,15 @@
         </div>
         <div class="form-group">
           <label for="manufacturer">Manufacturer</label>
-          <input type="text" name="manufacturer" id="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>" maxlength="100">
+          <input type="text" name="manufacturer" id="manufacturer" class="form-control" value="<%= asset.manufacturer || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>">
         </div>
         <div class="form-group">
           <label for="model">Model</label>
-          <input type="text" name="model" id="model" class="form-control" value="<%= asset.model || '' %>" maxlength="100">
+          <input type="text" name="model" id="model" class="form-control" value="<%= asset.model || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>">
         </div>
         <div class="form-group">
           <label for="serial_number">Serial Number</label>
-          <input type="text" name="serial_number" id="serial_number" class="form-control" value="<%= asset.serial_number || '' %>" maxlength="100" autocomplete="off">
+          <input type="text" name="serial_number" id="serial_number" class="form-control" value="<%= asset.serial_number || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" autocomplete="off">
         </div>
         <div class="form-group">
           <label for="status">Status</label>
@@ -80,12 +80,12 @@
         </div>
         <div class="form-group">
           <label for="location">Location</label>
-          <input type="text" name="location" id="location" class="form-control" value="<%= asset.location || '' %>" maxlength="100">
+          <input type="text" name="location" id="location" class="form-control" value="<%= asset.location || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>">
         </div>
       </div>
       <div class="form-group">
         <label for="notes">Notes</label>
-        <textarea name="notes" id="notes" class="form-control" maxlength="2000"><%= asset.notes || '' %></textarea>
+        <textarea name="notes" id="notes" class="form-control" maxlength="<%= CONSTANTS.MAX_NOTES %>"><%= asset.notes || '' %></textarea>
       </div>
       <div style="margin-top:20px;display:flex;gap:12px;">
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update Asset' : 'Create Asset' %></button>

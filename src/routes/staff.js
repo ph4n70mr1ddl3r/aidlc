@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery } = require('../utils');
-const { USER_ROLES } = require('../constants');
+const { USER_ROLES, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -138,7 +138,7 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
     return res.redirect('/staff/new');
   }
   // Reject non-string / excessively long passwords early to prevent bcrypt DoS
-  if (typeof password !== 'string' || password.length > 128) {
+  if (typeof password !== 'string' || password.length > MAX_PASSWORD) {
     req.flash('error', 'Invalid password');
     return res.redirect('/staff/new');
   }
@@ -172,7 +172,7 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 12);
   try {
-    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role, (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null);
+    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role, (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null);
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
@@ -301,15 +301,15 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   const safeIsActive = 1;
 
   try {
-    _staffUpdateStmt.run(email.substring(0, 200), first_name.substring(0, 100), last_name.substring(0, 100), role,
-      (department || '').substring(0, 100), phone ? phone.substring(0, 50) : null, safeIsActive, id);
+    _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role,
+      (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();
 
     // Keep session in sync if user is editing their own record (full reassign to ensure save with resave:false)
     if (Number(id) === Number(req.session.user.id)) {
-      req.session.user = { ...req.session.user, first_name, last_name, email, role, department, phone: phone ? phone.substring(0, 50) : null };
+      req.session.user = { ...req.session.user, first_name, last_name, email, role, department, phone: phone ? phone.substring(0, MAX_PHONE) : null };
     }
 
     req.flash('success', 'Staff member updated');
@@ -382,8 +382,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     req.flash('error', 'Password is required');
     return res.redirect(`/staff/${id}`);
   }
-  if (new_password.length > 128) {
-    req.flash('error', 'Password must be at most 128 characters');
+  if (new_password.length > MAX_PASSWORD) {
+    req.flash('error', `Password must be at most ${MAX_PASSWORD} characters`);
     return res.redirect(`/staff/${id}`);
   }
   const pwErr = validatePassword(new_password);

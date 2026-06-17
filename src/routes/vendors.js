@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery } = require('../utils');
-const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR } = require('../constants');
+const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
@@ -26,15 +26,15 @@ function parseVendorRating(value) {
 /**
  * Validate a vendor rating value and return an error message if invalid.
  * Returns null if the rating is valid (1-5) or empty (optional field).
- * Uses parseInt once and shares the result with parseVendorRating by
- * ensuring the same comparison logic.
+ * Delegates parsing to parseVendorRating so the two helpers share a single
+ * parseInt and can never disagree on what counts as parseable.
  */
 function validateVendorRating(value) {
   if (value === undefined || value === '' || value === null) {
     return null;
   }
-  const n = parseInt(value, 10);
-  if (!Number.isFinite(n) || n < 1 || n > 5) {
+  const n = parseVendorRating(value);
+  if (n === null || n < 1 || n > 5) {
     return 'Rating must be between 1 and 5';
   }
   return null;
@@ -113,20 +113,20 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Vendor name is required');
     return res.redirect('/vendors/new');
   }
-  if (name.length > 200) {
-    req.flash('error', 'Vendor name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Vendor name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/vendors/new');
   }
-  if (contact_person && contact_person.length > 100) {
-    req.flash('error', 'Contact person must be at most 100 characters');
+  if (contact_person && contact_person.length > MAX_SHORT_STR) {
+    req.flash('error', `Contact person must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/vendors/new');
   }
-  if (address && address.length > 500) {
-    req.flash('error', 'Address must be at most 500 characters');
+  if (address && address.length > MAX_ADDRESS) {
+    req.flash('error', `Address must be at most ${MAX_ADDRESS} characters`);
     return res.redirect('/vendors/new');
   }
-  if (notes && notes.length > 2000) {
-    req.flash('error', 'Notes must be at most 2,000 characters');
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect('/vendors/new');
   }
 
@@ -166,9 +166,9 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _vendorInsertStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
-      (website || '').substring(0, 500) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, 2000) || null, rating !== undefined && rating !== '' ? parseVendorRating(rating) : null);
+    const result = _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
+      (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
+      (notes || '').substring(0, MAX_NOTES) || null, rating !== undefined && rating !== '' ? parseVendorRating(rating) : null);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -235,20 +235,20 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Vendor name is required');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (name.length > 200) {
-    req.flash('error', 'Vendor name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Vendor name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (contact_person && contact_person.length > 100) {
-    req.flash('error', 'Contact person must be at most 100 characters');
+  if (contact_person && contact_person.length > MAX_SHORT_STR) {
+    req.flash('error', `Contact person must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (address && address.length > 500) {
-    req.flash('error', 'Address must be at most 500 characters');
+  if (address && address.length > MAX_ADDRESS) {
+    req.flash('error', `Address must be at most ${MAX_ADDRESS} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (notes && notes.length > 2000) {
-    req.flash('error', 'Notes must be at most 2,000 characters');
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (email && !isValidEmail(email)) {
@@ -294,9 +294,9 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     const updateVendor = db.transaction(() => {
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      _updateStmt.run(name.substring(0, 200), (contact_person || '').substring(0, 100) || null, (email || '').substring(0, 200) || null, phone ? phone.substring(0, 50) : null, (address || '').substring(0, 500) || null,
-        (website || '').substring(0, 500) || null, safeCategory,
-        sContractStart, sContractEnd, (notes || '').substring(0, 2000) || null,
+      _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
+        (website || '').substring(0, MAX_LONG_STR) || null, safeCategory,
+        sContractStart, sContractEnd, (notes || '').substring(0, MAX_NOTES) || null,
         rating !== undefined && rating !== '' ? parseVendorRating(rating) : null,
         existing.is_active ? 1 : 0, id);
 

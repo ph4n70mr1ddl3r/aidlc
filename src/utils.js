@@ -3,6 +3,7 @@
  */
 
 const DEFAULT_PAGE_SIZE = 25;
+const { MAX_PASSWORD, MAX_EMAIL } = require('./constants');
 
 /**
  * Parse pagination params from query string
@@ -79,8 +80,8 @@ function validatePassword(password) {
   if (!password || password.length < 12) {
     return 'Password must be at least 12 characters';
   }
-  if (password.length > 128) {
-    return 'Password must be at most 128 characters';
+  if (password.length > MAX_PASSWORD) {
+    return `Password must be at most ${MAX_PASSWORD} characters`;
   }
   if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
     return 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
@@ -100,7 +101,7 @@ function isValidUsername(username) {
  * Validate basic email format. Returns true if valid.
  */
 function isValidEmail(email) {
-  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= MAX_EMAIL;
 }
 
 /**

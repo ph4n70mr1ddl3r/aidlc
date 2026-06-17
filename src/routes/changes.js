@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
-const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES } = require('../constants');
+const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
@@ -83,16 +83,16 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/changes/new');
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect('/changes/new');
   }
-  if (impact && impact.length > 500) {
-    req.flash('error', 'Impact must be at most 500 characters');
+  if (impact && impact.length > MAX_LONG_STR) {
+    req.flash('error', `Impact must be at most ${MAX_LONG_STR} characters`);
     return res.redirect('/changes/new');
   }
 
@@ -125,8 +125,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _changeInsertStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, safePriority,
-      sStart, sEnd, (impact || '').substring(0, 500) || null, safeAssignee);
+    const result = _changeInsertStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+      sStart, sEnd, (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee);
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
@@ -191,16 +191,16 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Title is required');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (impact && impact.length > 500) {
-    req.flash('error', 'Impact must be at most 500 characters');
+  if (impact && impact.length > MAX_LONG_STR) {
+    req.flash('error', `Impact must be at most ${MAX_LONG_STR} characters`);
     return res.redirect(`/changes/${id}/edit`);
   }
   if (!VALID_CHANGE_TYPES.includes(change_type)) {
@@ -246,9 +246,9 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    _changeUpdateStmt.run(title.substring(0, 200), (description || '').substring(0, 5000) || null, change_type, status, safePriority,
+    _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
-      (impact || '').substring(0, 500) || null, safeAssignee, id);
+      (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');

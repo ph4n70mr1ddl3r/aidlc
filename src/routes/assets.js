@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
-const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS } = require('../constants');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
@@ -116,28 +116,28 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Name and category are required');
     return res.redirect('/assets/new');
   }
-  if (name.length > 200) {
-    req.flash('error', 'Asset name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Asset name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/assets/new');
   }
-  if (manufacturer && manufacturer.length > 100) {
-    req.flash('error', 'Manufacturer must be at most 100 characters');
+  if (manufacturer && manufacturer.length > MAX_SHORT_STR) {
+    req.flash('error', `Manufacturer must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/assets/new');
   }
-  if (model && model.length > 100) {
-    req.flash('error', 'Model must be at most 100 characters');
+  if (model && model.length > MAX_SHORT_STR) {
+    req.flash('error', `Model must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/assets/new');
   }
-  if (serial_number && serial_number.length > 100) {
-    req.flash('error', 'Serial number must be at most 100 characters');
+  if (serial_number && serial_number.length > MAX_SHORT_STR) {
+    req.flash('error', `Serial number must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/assets/new');
   }
-  if (location && location.length > 100) {
-    req.flash('error', 'Location must be at most 100 characters');
+  if (location && location.length > MAX_SHORT_STR) {
+    req.flash('error', `Location must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/assets/new');
   }
-  if (notes && notes.length > 2000) {
-    req.flash('error', 'Notes must be at most 2,000 characters');
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect('/assets/new');
   }
 
@@ -169,11 +169,11 @@ router.post('/', requireAdminOrManager, (req, res) => {
       const asset_tag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
 
       const result = _insertStmt.run(
-        asset_tag, name.substring(0, 200), category, (manufacturer || '').substring(0, 100) || null,
-        (model || '').substring(0, 100) || null, (serial_number || '').substring(0, 100) || null,
+        asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
+        (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
         status, safeCondition, safeDate(purchase_date),
         safePositiveFloat(purchase_price),
-        safeDate(warranty_expiry), createAssignee, (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null
+        safeDate(warranty_expiry), createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
       return { asset_tag, id: result.lastInsertRowid };
     });
@@ -262,28 +262,28 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (name.length > 200) {
-    req.flash('error', 'Asset name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Asset name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (manufacturer && manufacturer.length > 100) {
-    req.flash('error', 'Manufacturer must be at most 100 characters');
+  if (manufacturer && manufacturer.length > MAX_SHORT_STR) {
+    req.flash('error', `Manufacturer must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (model && model.length > 100) {
-    req.flash('error', 'Model must be at most 100 characters');
+  if (model && model.length > MAX_SHORT_STR) {
+    req.flash('error', `Model must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (serial_number && serial_number.length > 100) {
-    req.flash('error', 'Serial number must be at most 100 characters');
+  if (serial_number && serial_number.length > MAX_SHORT_STR) {
+    req.flash('error', `Serial number must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (location && location.length > 100) {
-    req.flash('error', 'Location must be at most 100 characters');
+  if (location && location.length > MAX_SHORT_STR) {
+    req.flash('error', `Location must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (notes && notes.length > 2000) {
-    req.flash('error', 'Notes must be at most 2,000 characters');
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
   if (!VALID_CATEGORIES.includes(category)) {
@@ -316,12 +316,12 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     }
 
     _updateStmt.run(
-      asset_tag.substring(0, 50), name.substring(0, 200), category,
-      (manufacturer || '').substring(0, 100) || null, (model || '').substring(0, 100) || null,
-      (serial_number || '').substring(0, 100) || null, status, safeCondition,
+      asset_tag.substring(0, 50), name.substring(0, MAX_MEDIUM_STR), category,
+      (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
+      (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
       safeDate(purchase_date), safePositiveFloat(purchase_price),
       safeDate(warranty_expiry), updateAssignee,
-      (location || '').substring(0, 100) || null, (notes || '').substring(0, 2000) || null, id
+      (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
     );
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);

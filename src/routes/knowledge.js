@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, isPrivileged } = require('../utils');
-const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES } = require('../constants');
+const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
@@ -147,16 +147,16 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/knowledge/new');
   }
-  if (content.length > 50000) {
-    req.flash('error', 'Content must be at most 50,000 characters');
+  if (content.length > MAX_CONTENT) {
+    req.flash('error', `Content must be at most ${MAX_CONTENT} characters`);
     return res.redirect('/knowledge/new');
   }
-  if (tags.length > 500) {
-    req.flash('error', 'Tags must be at most 500 characters');
+  if (tags.length > MAX_LONG_STR) {
+    req.flash('error', `Tags must be at most ${MAX_LONG_STR} characters`);
     return res.redirect('/knowledge/new');
   }
 
@@ -174,11 +174,11 @@ router.post('/', requireAdminOrManager, (req, res) => {
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, 500), { allowedTags: [], allowedAttributes: {} }) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, 200), { allowedTags: [], allowedAttributes: {} });
+  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), { allowedTags: [], allowedAttributes: {} }) || null;
+  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), { allowedTags: [], allowedAttributes: {} });
 
   try {
-    const result = _articleInsertStmt.run(safeTitle, content.substring(0, 50000), category, safeTags, req.session.user.id, safeStatus, safeFeatured);
+    const result = _articleInsertStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, req.session.user.id, safeStatus, safeFeatured);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
@@ -298,16 +298,16 @@ router.put('/:id', (req, res) => {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  if (title.length > 200) {
-    req.flash('error', 'Title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  if (content.length > 50000) {
-    req.flash('error', 'Content must be at most 50,000 characters');
+  if (content.length > MAX_CONTENT) {
+    req.flash('error', `Content must be at most ${MAX_CONTENT} characters`);
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  if (tags.length > 500) {
-    req.flash('error', 'Tags must be at most 500 characters');
+  if (tags.length > MAX_LONG_STR) {
+    req.flash('error', `Tags must be at most ${MAX_LONG_STR} characters`);
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
@@ -325,11 +325,11 @@ router.put('/:id', (req, res) => {
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, 500), { allowedTags: [], allowedAttributes: {} }) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, 200), { allowedTags: [], allowedAttributes: {} });
+  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), { allowedTags: [], allowedAttributes: {} }) || null;
+  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), { allowedTags: [], allowedAttributes: {} });
 
   try {
-    _articleUpdateStmt.run(safeTitle, content.substring(0, 50000), category, safeTags, safeStatus, safeFeatured, id);
+    _articleUpdateStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, safeStatus, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');

@@ -15,11 +15,11 @@
       <div class="form-grid">
         <div class="form-group" style="grid-column:1/-1;">
           <label for="title">Title *</label>
-          <input type="text" name="title" id="title" class="form-control" value="<%= ticket.title || '' %>" maxlength="200" required>
+          <input type="text" name="title" id="title" class="form-control" value="<%= ticket.title || '' %>" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label for="description">Description</label>
-          <textarea name="description" id="description" class="form-control" rows="4" maxlength="5000"><%= ticket.description || '' %></textarea>
+          <textarea name="description" id="description" class="form-control" rows="4" maxlength="<%= CONSTANTS.MAX_DESC %>"><%= ticket.description || '' %></textarea>
         </div>
         <div class="form-group">
           <label for="category">Category *</label>
@@ -76,26 +76,26 @@
       <div class="form-grid">
         <div class="form-group">
           <label for="requester_name">Requester Name *</label>
-          <input type="text" name="requester_name" id="requester_name" class="form-control" value="<%= ticket.requester_name || '' %>" maxlength="100" required autocomplete="off">
+          <input type="text" name="requester_name" id="requester_name" class="form-control" value="<%= ticket.requester_name || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" required autocomplete="off">
         </div>
         <div class="form-group">
           <label for="requester_email">Requester Email *</label>
-          <input type="email" name="requester_email" id="requester_email" class="form-control" value="<%= ticket.requester_email || '' %>" maxlength="200" required autocomplete="off">
+          <input type="email" name="requester_email" id="requester_email" class="form-control" value="<%= ticket.requester_email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" required autocomplete="off">
         </div>
         <div class="form-group">
           <label for="requester_department">Department</label>
-          <input type="text" name="requester_department" id="requester_department" class="form-control" value="<%= ticket.requester_department || '' %>" maxlength="100" autocomplete="off">
+          <input type="text" name="requester_department" id="requester_department" class="form-control" value="<%= ticket.requester_department || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" autocomplete="off">
         </div>
         <div class="form-group">
           <label for="requester_phone">Phone</label>
-          <input type="text" name="requester_phone" id="requester_phone" class="form-control" value="<%= ticket.requester_phone || '' %>" maxlength="50" autocomplete="off">
+          <input type="text" name="requester_phone" id="requester_phone" class="form-control" value="<%= ticket.requester_phone || '' %>" maxlength="<%= CONSTANTS.MAX_PHONE %>" autocomplete="off">
         </div>
       </div>
 
       <% if (isEdit) { %>
       <div class="form-group">
         <label for="resolution_notes">Resolution Notes</label>
-        <textarea name="resolution_notes" id="resolution_notes" class="form-control" rows="3" maxlength="5000"><%= ticket.resolution_notes || '' %></textarea>
+        <textarea name="resolution_notes" id="resolution_notes" class="form-control" rows="3" maxlength="<%= CONSTANTS.MAX_DESC %>"><%= ticket.resolution_notes || '' %></textarea>
       </div>
       <% } %>
 

@@ -42,6 +42,22 @@ const USER_ROLES = ['admin','manager','staff'];
 // stay in sync if the name ever changes.
 const SESSION_COOKIE = 'connect.sid';
 
+// ---------------------------------------------------------------------------
+// Shared max-length constants for input validation
+// These are the single source of truth for all substring truncation limits
+// used across route handlers. Kept here to eliminate magic number repetition.
+// ---------------------------------------------------------------------------
+const MAX_SHORT_STR = 100;        // first_name, last_name, department, manufacturer, model, etc.
+const MAX_MEDIUM_STR = 200;       // title, software_name, vendor name, asset name, etc.
+const MAX_LONG_STR = 500;         // tags, impact, website, address, serial notes
+const MAX_DESC = 5000;            // description fields (tickets, projects, tasks, etc.)
+const MAX_NOTES = 2000;           // notes fields (assets, vendors, licenses)
+const MAX_CONTENT = 50000;        // knowledge article content
+const MAX_EMAIL = 200;            // email addresses
+const MAX_PHONE = 50;             // phone numbers
+const MAX_ADDRESS = 500;          // vendor address
+const MAX_PASSWORD = 128;         // password max length
+
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
   TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES,
@@ -51,5 +67,7 @@ module.exports = {
   CHANGE_TYPES, CHANGE_STATUSES, CHANGE_PRIORITIES,
   LICENSE_TYPES,
   USER_ROLES,
-  SESSION_COOKIE
+  SESSION_COOKIE,
+  MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
+  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD
 };

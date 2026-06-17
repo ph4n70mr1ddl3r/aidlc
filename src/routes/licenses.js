@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery } = require('../utils');
-const { LICENSE_TYPES: VALID_LICENSE_TYPES } = require('../constants');
+const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -79,8 +79,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Software name is required');
     return res.redirect('/licenses/new');
   }
-  if (software_name.length > 200) {
-    req.flash('error', 'Software name must be at most 200 characters');
+  if (software_name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/licenses/new');
   }
 
@@ -101,9 +101,9 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _licenseInsertStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, (license_key || '').substring(0, 500) || null, license_type || null,
+    const result = _licenseInsertStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, (license_key || '').substring(0, MAX_LONG_STR) || null, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null);
+      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -184,8 +184,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Software name is required');
     return res.redirect(`/licenses/${id}/edit`);
   }
-  if (software_name.length > 200) {
-    req.flash('error', 'Software name must be at most 200 characters');
+  if (software_name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
@@ -213,11 +213,11 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     }
 
     // If license_key field was left blank on edit, preserve the existing key
-    const safeKey = (license_key || '').substring(0, 500) || existing.license_key;
+    const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || existing.license_key;
 
-    _licenseUpdateStmt.run(software_name.substring(0, 200), (vendor || '').substring(0, 200) || null, safeKey, license_type || null,
+    _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, 2000) || null, id);
+      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null, id);
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

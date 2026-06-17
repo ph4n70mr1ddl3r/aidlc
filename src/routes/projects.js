@@ -7,7 +7,8 @@ const {
   PROJECT_PRIORITIES: VALID_PRIORITIES,
   TASK_STATUSES: VALID_TASK_STATUSES,
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
-  MEMBER_ROLES: VALID_MEMBER_ROLES
+  MEMBER_ROLES: VALID_MEMBER_ROLES,
+  MAX_MEDIUM_STR, MAX_DESC
 } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -139,12 +140,12 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
-  if (name.length > 200) {
-    req.flash('error', 'Project name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/projects/new');
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect('/projects/new');
   }
 
@@ -172,7 +173,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
   }
 
   try {
-    const result = _projectInsertStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority,
+    const result = _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
       sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, safeOwnerId);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
@@ -242,8 +243,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Project name is required');
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (name.length > 200) {
-    req.flash('error', 'Project name must be at most 200 characters');
+  if (name.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/projects/${id}/edit`);
   }
   if (!VALID_STATUSES.includes(status)) {
@@ -254,8 +255,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (description && description.length > 5000) {
-    req.flash('error', 'Description must be at most 5,000 characters');
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${id}/edit`);
   }
 
@@ -289,7 +290,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${id}/edit`);
     }
 
-    _projectUpdateStmt.run(name.substring(0, 200), (description || '').substring(0, 5000) || null, status, priority, sStart, sEnd,
+    _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
       budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, safeOwnerId, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
@@ -349,8 +350,12 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Task title is required');
     return res.redirect(`/projects/${projectId}`);
   }
-  if (title.length > 200) {
-    req.flash('error', 'Task title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Task title must be at most ${MAX_MEDIUM_STR} characters`);
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -361,7 +366,7 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${projectId}`);
     }
     const addTask = db.transaction(() => {
-      const result = _taskInsertStmt.run(projectId, title.substring(0, 200), (description || '').substring(0, 5000) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
+      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
 
       recalcProjectProgress(db, projectId);
       return result.lastInsertRowid;
@@ -423,8 +428,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Task title is required');
     return res.redirect(`/projects/${projectId}`);
   }
-  if (title.length > 200) {
-    req.flash('error', 'Task title must be at most 200 characters');
+  if (title.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Task title must be at most ${MAX_MEDIUM_STR} characters`);
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (description && description.length > MAX_DESC) {
+    req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
   if (!VALID_TASK_STATUSES.includes(status)) {
@@ -443,7 +452,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${projectId}`);
     }
     const updateTask = db.transaction(() => {
-      const params = [title.substring(0, 200), description.substring(0, 5000) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
+      const params = [title.substring(0, MAX_MEDIUM_STR), description.substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
       _taskFullUpdateStmt.run(...params);
       recalcProjectProgress(db, projectId);
     });

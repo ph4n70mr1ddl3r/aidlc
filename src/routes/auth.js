@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
-const { SESSION_COOKIE } = require('../constants');
+const { SESSION_COOKIE, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
 
 const router = require('express').Router();
 
@@ -179,7 +179,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   // Reject excessively long passwords early to prevent wasted bcrypt CPU
-  if (typeof password !== 'string' || password.length > 128) {
+  if (typeof password !== 'string' || password.length > MAX_PASSWORD) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
@@ -300,10 +300,10 @@ router.put('/profile', requireAuth, (req, res) => {
   }
 
   try {
-    _profileUpdateStmt.run(first_name.substring(0, 100), last_name.substring(0, 100), email.substring(0, 200), phone ? phone.substring(0, 50) : null, req.session.user.id);
+    _profileUpdateStmt.run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
 
     // Update session (full reassign to ensure express-session detects the change with resave:false)
-    req.session.user = { ...req.session.user, first_name, last_name, email, phone: (phone || '').substring(0, 50) };
+    req.session.user = { ...req.session.user, first_name, last_name, email, phone: (phone || '').substring(0, MAX_PHONE) };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     req.flash('success', 'Profile updated successfully');
@@ -328,7 +328,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   }
 
   // Reject excessively long / non-string current password to prevent bcrypt DoS
-  if (typeof current_password !== 'string' || current_password.length > 128) {
+  if (typeof current_password !== 'string' || current_password.length > MAX_PASSWORD) {
     req.flash('error', 'Invalid current password');
     return res.redirect('/profile');
   }
@@ -337,8 +337,8 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     req.flash('error', 'New password is required');
     return res.redirect('/profile');
   }
-  if (new_password.length > 128) {
-    req.flash('error', 'Password must be at most 128 characters');
+  if (new_password.length > MAX_PASSWORD) {
+    req.flash('error', `Password must be at most ${MAX_PASSWORD} characters`);
     return res.redirect('/profile');
   }
 

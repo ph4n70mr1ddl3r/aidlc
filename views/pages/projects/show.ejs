@@ -51,7 +51,7 @@
       <% if (isPrivileged(user)) { %>
       <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" maxlength="200" required>
+        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required>
         <select name="priority" class="form-control" style="width:120px;">
           <% CONSTANTS.TASK_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= p === 'medium' ? 'selected' : '' %>><%= titleCase(p) %></option><% }) %>
         </select>
