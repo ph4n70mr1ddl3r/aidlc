@@ -460,13 +460,14 @@ function titleCase(value) {
     // Check that the next character in the ORIGINAL word is not uppercase,
     // otherwise a word like "SOPHISTICATED" would be incorrectly split
     // into "SOP" + "HISTICATED".
-    for (const acr of ACRONYMS) {
-      if (upper.startsWith(acr) && upper.length > acr.length) {
-        const next = word[acr.length];
+    for (let i = Math.min(upper.length - 1, 4); i >= 1; i--) {
+      const prefix = upper.slice(0, i);
+      if (ACRONYMS.has(prefix)) {
+        const next = word[i];
         if (next >= 'A' && next <= 'Z') {
           continue;
         }
-        return acr + word.slice(acr.length);
+        return prefix + word.slice(i);
       }
     }
     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();

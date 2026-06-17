@@ -68,6 +68,7 @@
       <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;" class="flex items-center gap-2">
         <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" style="display:flex;align-items:center;gap:8px;flex:1;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="_quick_status" value="1">
           <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" data-auto-submit <% if (user.role !== 'admin' && user.role !== 'manager') { %>disabled<% } %>>
             <% CONSTANTS.TASK_STATUSES.forEach(s => { %>
             <option value="<%= s %>" <%= t.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>

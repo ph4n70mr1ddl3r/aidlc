@@ -36,23 +36,12 @@ const _satisfactionUpdateStmt = db.prepare(
 const _assetExistStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
-// Cached statements for ticket update route
+// Cached statement for ticket update route
 const _updateExistStmt = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?');
-const _updateResolveStmt = db.prepare(`
+const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
       status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
-      resolved_at = datetime('now'), updated_at = datetime('now')
-    WHERE id = ?
-  `);
-const _updateUnresolveStmt = db.prepare(`
-    UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
-      status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
-      resolved_at = NULL, updated_at = datetime('now')
-    WHERE id = ?
-  `);
-const _updateNeutralStmt = db.prepare(`
-    UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
-      status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
+      resolved_at = CASE WHEN ? THEN datetime('now') WHEN ? THEN NULL ELSE resolved_at END,
       updated_at = datetime('now')
     WHERE id = ?
   `);
@@ -383,17 +372,10 @@ router.put('/:id', (req, res) => {
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = status === 'resolved' || status === 'closed';
+    const shouldSet = isNowResolved && !wasResolved ? 1 : 0;
+    const shouldClear = !isNowResolved && wasResolved ? 1 : 0;
 
-    // Use the appropriate cached statement based on resolved_at transition
-    let stmt;
-    if (isNowResolved && !wasResolved) {
-      stmt = _updateResolveStmt;
-    } else if (!isNowResolved && wasResolved) {
-      stmt = _updateUnresolveStmt;
-    } else {
-      stmt = _updateNeutralStmt;
-    }
-    stmt.run(...params, id);
+    _updateTicketStmt.run(...params, shouldSet, shouldClear, id);
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');

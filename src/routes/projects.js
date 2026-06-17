@@ -53,25 +53,16 @@ const _taskInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 const _taskExistStmt = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?');
-const _taskQuickStatusResolveStmt = db.prepare(`
-    UPDATE project_tasks SET status = ?, completed_at = datetime('now'), updated_at = datetime('now')
-    WHERE id = ? AND project_id = ?
-  `);
-const _taskQuickStatusUnresolveStmt = db.prepare(`
-    UPDATE project_tasks SET status = ?, completed_at = NULL, updated_at = datetime('now')
-    WHERE id = ? AND project_id = ?
-  `);
-const _taskFullUpdateResolveStmt = db.prepare(`
-    UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
-      assigned_to = ?, due_date = ?,
-      completed_at = COALESCE(completed_at, datetime('now')),
+const _taskQuickStatusStmt = db.prepare(`
+    UPDATE project_tasks SET status = ?,
+      completed_at = CASE WHEN ? THEN datetime('now') ELSE NULL END,
       updated_at = datetime('now')
     WHERE id = ? AND project_id = ?
   `);
-const _taskFullUpdateUnresolveStmt = db.prepare(`
+const _taskFullUpdateStmt = db.prepare(`
     UPDATE project_tasks SET title = ?, description = ?, status = ?, priority = ?,
       assigned_to = ?, due_date = ?,
-      completed_at = NULL,
+      completed_at = CASE WHEN ? THEN COALESCE(completed_at, datetime('now')) ELSE NULL END,
       updated_at = datetime('now')
     WHERE id = ? AND project_id = ?
   `);
@@ -402,7 +393,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
   const { status, priority, assigned_to, due_date } = req.body;
 
   // Defensive: handle quick-status-change forms that only send `status`
-  if (!title) {
+  if (req.body._quick_status) {
     // Quick status update only — preserve existing values
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
@@ -416,11 +407,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
         return res.redirect(`/projects/${projectId}`);
       }
       const updateTask = db.transaction(() => {
-        if (safeStatus === 'done') {
-          _taskQuickStatusResolveStmt.run(safeStatus, taskId, projectId);
-        } else {
-          _taskQuickStatusUnresolveStmt.run(safeStatus, taskId, projectId);
-        }
+        _taskQuickStatusStmt.run(safeStatus, safeStatus === 'done' ? 1 : 0, taskId, projectId);
         recalcProjectProgress(db, projectId);
       });
       updateTask();
@@ -448,12 +435,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
       return res.redirect(`/projects/${projectId}`);
     }
     const updateTask = db.transaction(() => {
-      const params = [title.substring(0, 200), description.substring(0, 5000) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), taskId, projectId];
-      if (status === 'done') {
-        _taskFullUpdateResolveStmt.run(...params);
-      } else {
-        _taskFullUpdateUnresolveStmt.run(...params);
-      }
+      const params = [title.substring(0, 200), description.substring(0, 5000) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
+      _taskFullUpdateStmt.run(...params);
       recalcProjectProgress(db, projectId);
     });
     updateTask();
