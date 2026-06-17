@@ -330,7 +330,14 @@ app.use((err, req, res, _next) => {
   } else {
     console.error('Unhandled error:', err.message || err);
   }
+
+  // Handle JSON requests (e.g. AJAX endpoints) gracefully
+  const wantsJson = req.accepts('html') === false && req.accepts('json');
+
   if (err.code === 'EBADCSRFTOKEN') {
+    if (wantsJson) {
+      return res.status(403).json({ error: 'Invalid security token' });
+    }
     if (typeof req.flash === 'function') {
       req.flash('error', 'Invalid security token. Please try again.');
     }
@@ -348,6 +355,14 @@ app.use((err, req, res, _next) => {
     } catch { /* invalid URL, ignore */ }
     return res.redirect('/');
   }
+
+  if (wantsJson) {
+    const detail = process.env.NODE_ENV === 'production'
+      ? 'Something went wrong.'
+      : err.message;
+    return res.status(500).json({ error: detail });
+  }
+
   const detail = process.env.NODE_ENV === 'production'
     ? 'Something went wrong.'
     : err.message;
