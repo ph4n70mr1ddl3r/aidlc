@@ -3,7 +3,7 @@
 
 <div class="page-header">
   <div><h2><%= staffUser.first_name %> <%= staffUser.last_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/staff">Staff</a> / <%= staffUser.first_name %> <%= staffUser.last_name %></div></div>
-  <% if (user.role === 'admin' || user.role === 'manager') { %>
+  <% if (isPrivileged(user)) { %>
   <div class="flex gap-2">
     <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
   </div>
@@ -50,7 +50,7 @@
       <div class="card-body" style="text-align:center;">
         <div class="user-avatar" style="width:64px;height:64px;font-size:24px;margin:0 auto 12px;"><%= (staffUser.first_name || '?')[0] %><%= (staffUser.last_name || '?')[0] %></div>
         <h3><%= staffUser.first_name %> <%= staffUser.last_name %></h3>
-        <span class="badge badge-<%= staffUser.role === 'admin' ? 'critical' : staffUser.role === 'manager' ? 'high' : 'medium' %>" style="margin-top:8px;"><%= titleCase(staffUser.role) %></span>
+        <span class="badge badge-<%= badgeClass(staffUser.role, ROLE_BADGE) %>" style="margin-top:8px;"><%= titleCase(staffUser.role) %></span>
         <div class="text-sm text-muted mt-2"><%= staffUser.department || '' %></div>
       </div>
     </div>

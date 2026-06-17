@@ -3,7 +3,7 @@
 
 <div class="page-header">
   <div><h2>Staff <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Staff</div></div>
-  <% if (user.role === 'admin' || user.role === 'manager') { %>
+  <% if (isPrivileged(user)) { %>
   <a href="/staff/new" class="btn btn-primary"><i class="fas fa-plus"></i> Add Staff</a>
   <% } %>
 </div>
@@ -44,7 +44,7 @@
               </div>
             </a></td>
             <td class="text-sm"><%= s.email %></td>
-            <td><span class="badge badge-<%= s.role === 'admin' ? 'critical' : s.role === 'manager' ? 'high' : 'medium' %>"><%= titleCase(s.role) %></span></td>
+            <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
             <td class="text-sm"><%= s.department || '-' %></td>
             <td class="text-sm"><%= s.open_tickets %></td>
             <td class="text-sm"><%= s.open_tasks %></td>

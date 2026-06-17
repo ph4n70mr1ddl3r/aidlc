@@ -17,7 +17,7 @@
     <thead><tr><th>Staff Member</th><th>Role</th><th>Open Tickets</th><th>Resolved</th><th>Avg Resolution</th><th>Tasks Done</th><th>Workload</th></tr></thead>
     <tbody><% performance.forEach(p => { %><tr>
       <td><a href="/staff/<%= p.id %>" style="color:var(--text);text-decoration:none;font-weight:600;"><%= p.name %></a></td>
-      <td><span class="badge badge-<%= p.role === 'admin' ? 'critical' : p.role === 'manager' ? 'high' : 'medium' %>"><%= titleCase(p.role) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(p.role, ROLE_BADGE) %>"><%= titleCase(p.role) %></span></td>
       <td class="text-center"><%= p.open_tickets %></td>
       <td class="text-center"><%= p.resolved_tickets || 0 %></td>
       <td class="text-center"><%= p.avg_resolution_days ? Number(p.avg_resolution_days).toFixed(1) + ' days' : 'N/A' %></td>

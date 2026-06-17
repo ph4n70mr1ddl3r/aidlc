@@ -6,7 +6,7 @@
     <h2><%= asset.asset_tag %> - <%= asset.name %></h2>
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/assets">Assets</a> / <%= asset.asset_tag %></div>
   </div>
-  <% if (user.role === 'admin' || user.role === 'manager') { %>
+  <% if (isPrivileged(user)) { %>
   <div class="flex gap-2">
     <a href="/assets/<%= asset.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/assets/<%= asset.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this asset?">
@@ -29,7 +29,7 @@
         <div class="detail-row"><div class="detail-label">Model</div><div class="detail-value"><%= asset.model || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Serial Number</div><div class="detail-value" style="font-family:monospace;"><%= asset.serial_number || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= titleCase(asset.status) %></span></div></div>
-        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= asset.condition_rating === 'new' || asset.condition_rating === 'good' ? 'low' : asset.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= titleCase(asset.condition_rating) %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= badgeClass(asset.condition_rating, CONDITION_BADGE) %>"><%= titleCase(asset.condition_rating) %></span></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(asset.purchase_date) %></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price != null ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><% if (asset.warranty_expiry) { %>

@@ -1,6 +1,6 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Vendors <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Vendors</div></div><% if (user.role === 'admin' || user.role === 'manager') { %><a href="/vendors/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Vendor</a><% } %></div>
+<div class="page-header"><div><h2>Vendors <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Vendors</div></div><% if (isPrivileged(user)) { %><a href="/vendors/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Vendor</a><% } %></div>
 <form method="GET" action="/vendors" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search vendors..." aria-label="Search vendors" value="<%= filters.search || '' %>">
   <select name="category" aria-label="Filter by category">

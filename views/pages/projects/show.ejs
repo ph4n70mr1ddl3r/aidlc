@@ -3,7 +3,7 @@
 
 <div class="page-header">
   <div><h2><%= project.name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/projects">Projects</a> / <%= project.name %></div></div>
-  <% if (user.role === 'admin' || user.role === 'manager') { %>
+  <% if (isPrivileged(user)) { %>
   <div class="flex gap-2">
     <a href="/projects/<%= project.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
     <form action="/projects/<%= project.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this project and all tasks?">
@@ -20,7 +20,7 @@
     <div class="flex justify-between items-center mb-2">
       <div>
         <span class="badge badge-<%= project.status %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.status) %></span>
-        <span class="badge badge-<%= project.priority %>" style="font-size:14px;padding:6px 16px;"><%= project.priority %></span>
+        <span class="badge badge-<%= project.priority %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.priority) %></span>
       </div>
       <div class="text-sm text-muted">
         Owner: <strong><%= project.owner_name || 'Unassigned' %></strong> | 
@@ -48,7 +48,7 @@
     </div>
     <div class="card-body">
       <!-- Add Task -->
-      <% if (user.role === 'admin' || user.role === 'manager') { %>
+      <% if (isPrivileged(user)) { %>
       <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" maxlength="200" required>
@@ -69,7 +69,7 @@
         <form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=PUT" method="POST" style="display:flex;align-items:center;gap:8px;flex:1;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="_quick_status" value="1">
-          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" data-auto-submit <% if (user.role !== 'admin' && user.role !== 'manager') { %>disabled<% } %>>
+          <select name="status" class="form-control" style="width:120px;padding:4px 28px 4px 8px;font-size:12px;" data-auto-submit <% if (!isPrivileged(user)) { %>disabled<% } %>>
             <% CONSTANTS.TASK_STATUSES.forEach(s => { %>
             <option value="<%= s %>" <%= t.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>
             <% }) %>
@@ -87,7 +87,7 @@
           <span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= formatDate(t.due_date) %></span><% } %>
         </form>
-        <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">
+        <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);" aria-label="Delete task <%= t.title %>"><i class="fas fa-times"></i></button>
         </form><% } %>
@@ -102,7 +102,7 @@
     <div class="card mb-2">
       <div class="card-header"><h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %>)</h3></div>
       <div class="card-body">
-        <% if (user.role === 'admin' || user.role === 'manager') { %>
+        <% if (isPrivileged(user)) { %>
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="user_id" class="form-control" style="flex:1;" required>
@@ -121,7 +121,7 @@
             <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
             <div class="text-sm text-muted"><%= titleCase(m.project_role) %></div>
           </div>
-          <% if (user.role === 'admin' || user.role === 'manager') { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
+          <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;" aria-label="Remove <%= m.member_name %>"><i class="fas fa-times"></i></button>
           </form><% } %>

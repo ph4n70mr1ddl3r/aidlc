@@ -508,4 +508,15 @@ function isPrivileged(user) {
   return user && (user.role === 'admin' || user.role === 'manager');
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged };
+// Map a value to a badge severity class using a whitelist mapping.
+// Falls back to the value itself if not found in the mapping.
+// Used in EJS templates to keep badge severity logic DRY.
+function badgeClass(value, mapping) {
+  return (mapping && Object.prototype.hasOwnProperty.call(mapping, value)) ? mapping[value] : value;
+}
+
+const CONDITION_BADGE = { new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' };
+const CHANGE_TYPE_BADGE = { security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' };
+const ROLE_BADGE = { admin: 'critical', manager: 'high', staff: 'medium' };
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };

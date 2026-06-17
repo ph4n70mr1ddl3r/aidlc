@@ -1,6 +1,6 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (user.role === 'admin' || user.role === 'manager') { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a><% } %></div>
+<div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (isPrivileged(user)) { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a><% } %></div>
 <form method="GET" action="/changes" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>">
   <select name="status" aria-label="Filter by status">
@@ -17,7 +17,7 @@
     <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
     <tbody><% changes.forEach(c => { %><tr>
       <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
-      <td><span class="badge badge-<%= c.change_type === 'security' ? 'critical' : c.change_type === 'incident' ? 'high' : c.change_type === 'maintenance' ? 'medium' : 'low' %>"><%= titleCase(c.change_type) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(c.change_type, CHANGE_TYPE_BADGE) %>"><%= titleCase(c.change_type) %></span></td>
       <td><span class="badge badge-<%= c.priority %>"><%= titleCase(c.priority) %></span></td>
       <td><span class="badge badge-<%= c.status %>"><%= titleCase(c.status) %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? formatDateTime(c.scheduled_start) : '-' %></td>

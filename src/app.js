@@ -242,11 +242,15 @@ app.use((req, res, next) => {
   };
   res.locals.currentPage = req.path;
   res.locals.csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : '';
-  res.locals.jsonScriptSafe = utilsModule.jsonScriptSafe;
   res.locals.localDate = utilsModule.localDate;
   res.locals.formatDate = utilsModule.formatDate;
   res.locals.formatDateTime = utilsModule.formatDateTime;
   res.locals.titleCase = utilsModule.titleCase;
+  res.locals.isPrivileged = utilsModule.isPrivileged;
+  res.locals.badgeClass = utilsModule.badgeClass;
+  res.locals.CONDITION_BADGE = utilsModule.CONDITION_BADGE;
+  res.locals.CHANGE_TYPE_BADGE = utilsModule.CHANGE_TYPE_BADGE;
+  res.locals.ROLE_BADGE = utilsModule.ROLE_BADGE;
   // Expose validation constants to all templates so EJS forms stay in sync
   // with the single source of truth in constants.js.
   res.locals.CONSTANTS = constantsModule;

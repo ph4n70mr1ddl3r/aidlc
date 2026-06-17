@@ -7,8 +7,8 @@
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/tickets">Tickets</a> / <%= ticket.ticket_number %></div>
   </div>
   <%
-    const canEditTicket = user.role === 'admin' || user.role === 'manager' || ticket.assigned_to === user.id;
-    const canDeleteTicket = user.role === 'admin' || user.role === 'manager';
+    const canEditTicket = isPrivileged(user) || ticket.assigned_to === user.id;
+    const canDeleteTicket = isPrivileged(user);
   %>
   <div class="flex gap-2">
     <% if (canEditTicket) { %><a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
@@ -23,7 +23,7 @@
 </div>
 
 <%
-  const canChangeTicketStatus = user.role === 'admin' || user.role === 'manager' || ticket.assigned_to === user.id;
+  const canChangeTicketStatus = isPrivileged(user) || ticket.assigned_to === user.id;
 %>
 <% if (canChangeTicketStatus) { %>
 <!-- Quick Status Actions -->
@@ -75,7 +75,7 @@
         </div>
         <% } %>
 
-        <% if ((ticket.status === 'resolved' || ticket.status === 'closed') && (user.role === 'admin' || user.role === 'manager')) { %>
+        <% if ((ticket.status === 'resolved' || ticket.status === 'closed') && isPrivileged(user)) { %>
         <form action="/tickets/<%= ticket.id %>/satisfaction?_method=PUT" method="POST" style="margin-top:16px;background:var(--bg);padding:12px;border-radius:8px;">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <strong>Satisfaction Rating:</strong>
@@ -116,7 +116,7 @@
             <textarea id="comment" name="comment" class="form-control" rows="3" placeholder="Type your comment..." maxlength="5000" required></textarea>
           </div>
           <div class="flex items-center gap-2">
-            <% if (user.role === 'admin' || user.role === 'manager') { %>
+            <% if (isPrivileged(user)) { %>
             <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
               <input type="checkbox" name="is_internal" value="1"> Internal note (visible to IT staff only)
             </label>

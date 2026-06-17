@@ -6,7 +6,7 @@
     <h2>Assets <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2>
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Assets</div>
   </div>
-  <% if (user.role === 'admin' || user.role === 'manager') { %>
+  <% if (isPrivileged(user)) { %>
   <a href="/assets/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Asset</a>
   <% } %>
 </div>
@@ -52,7 +52,7 @@
             <td><%= a.manufacturer %> <%= a.name %></td>
             <td class="text-sm"><%= titleCase(a.category) %></td>
             <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
-            <td><span class="badge badge-<%= a.condition_rating === 'new' || a.condition_rating === 'good' ? 'low' : a.condition_rating === 'fair' ? 'medium' : 'critical' %>"><%= titleCase(a.condition_rating) %></span></td>
+            <td><span class="badge badge-<%= badgeClass(a.condition_rating, CONDITION_BADGE) %>"><%= titleCase(a.condition_rating) %></span></td>
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
             <td class="actions-cell">

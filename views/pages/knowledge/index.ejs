@@ -12,7 +12,7 @@
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <option value="published" <%= filters.status === 'published' ? 'selected' : '' %>>Published</option>
-    <% if (user.role === 'admin' || user.role === 'manager') { %>
+    <% if (isPrivileged(user)) { %>
     <option value="draft" <%= filters.status === 'draft' ? 'selected' : '' %>>Draft</option>
     <option value="archived" <%= filters.status === 'archived' ? 'selected' : '' %>>Archived</option>
     <% } %>

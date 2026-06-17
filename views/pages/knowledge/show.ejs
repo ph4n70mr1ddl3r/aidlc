@@ -3,8 +3,8 @@
 <div class="page-header">
   <div><h2><%= article.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/knowledge">Knowledge Base</a> / <%= article.title %></div></div>
   <%
-    const canEditArticle = article.author_id === user.id || user.role === 'admin' || user.role === 'manager';
-    const canDeleteArticle = user.role === 'admin' || user.role === 'manager';
+    const canEditArticle = article.author_id === user.id || isPrivileged(user);
+    const canDeleteArticle = isPrivileged(user);
   %>
   <% if (canEditArticle || canDeleteArticle) { %>
   <div class="flex gap-2">
