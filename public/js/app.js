@@ -114,7 +114,7 @@ document.addEventListener('change', function (e) {
 // The full key is NEVER embedded in the initial HTML — it is fetched via
 // AJAX on first reveal and stored in a closure variable only (not in the DOM).
 // Toggling back shows the masked preview (last 4 chars) without re-fetching.
-const _licenseKeys = {};
+const _licenseKeys = Object.create(null);
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('[data-license-reveal]');
   if (!btn) {
