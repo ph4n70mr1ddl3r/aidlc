@@ -34,7 +34,6 @@ const _satisfactionUpdateStmt = db.prepare(
     'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
   );
 const _assetExistStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
-const _deleteCommentsStmt = db.prepare('DELETE FROM ticket_comments WHERE ticket_id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
 // Cached statements for ticket update route
@@ -558,7 +557,6 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
   try {
     let changes = 0;
     const deleteStmt = db.transaction(() => {
-      _deleteCommentsStmt.run(id);
       const result = _deleteTicketStmt.run(id);
       changes = result.changes;
     });

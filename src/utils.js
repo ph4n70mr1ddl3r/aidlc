@@ -219,11 +219,15 @@ function isValidDate(value) {
   if (!value || typeof value !== 'string') {
     return false;
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) {
     return false;
   }
   const d = new Date(value + 'T00:00:00');
-  return !isNaN(d.getTime());
+  return !isNaN(d.getTime()) &&
+    d.getFullYear() === parseInt(m[1], 10) &&
+    d.getMonth() === parseInt(m[2], 10) - 1 &&
+    d.getDate() === parseInt(m[3], 10);
 }
 
 /**
@@ -447,9 +451,19 @@ function titleCase(value) {
     return '';
   }
   const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API']);
-  return value.replace(/_/g, ' ').replace(/\b\w+/g, word =>
-    ACRONYMS.has(word.toUpperCase()) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-  );
+  return value.replace(/_/g, ' ').replace(/\b\w+/g, word => {
+    const upper = word.toUpperCase();
+    if (ACRONYMS.has(upper)) {
+      return upper;
+    }
+    // Detect acronym with suffix (e.g. "SOPs", "APIv2", "IPs")
+    for (const acr of ACRONYMS) {
+      if (upper.startsWith(acr) && upper.length > acr.length) {
+        return acr + word.slice(acr.length);
+      }
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
 }
 
 /**
@@ -484,7 +498,7 @@ function countQuery(db, baseTable, alias, whereClause, params) {
   } else {
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
-    if (_countQueryCache.size >= _COUNT_CACHE_MAX) {
+    if (_countQueryCache.size > _COUNT_CACHE_MAX) {
       const oldestKey = _countQueryCache.keys().next().value;
       if (oldestKey !== undefined) {
         _countQueryCache.delete(oldestKey);
