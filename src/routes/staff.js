@@ -154,6 +154,10 @@ router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/staff/new');
   }
+  if (department && department.length > MAX_SHORT_STR) {
+    req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect('/staff/new');
+  }
   const pwError = validatePassword(password);
   if (pwError) {
     req.flash('error', pwError);
@@ -266,6 +270,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (department && department.length > MAX_SHORT_STR) {
+    req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
   if (!USER_ROLES.includes(role)) {

@@ -306,14 +306,6 @@ function formatDateTime(value) {
 }
 
 /**
- * Safely encode a value for embedding in a <script> tag as JSON.
- * JSON.stringify handles quotes/escapes but does NOT escape </script>.
- */
-function jsonScriptSafe(value) {
-  return JSON.stringify(value).replace(/<\/script/gi, '<\\/script');
-}
-
-/**
  * Parse a date-only string ("YYYY-MM-DD") as a local-date midnight Date.
  * Using `new Date("YYYY-MM-DD")` treats it as UTC midnight, which causes
  * toLocaleDateString() to display the previous calendar day in negative-UTC
@@ -522,4 +514,4 @@ const CONDITION_BADGE = { new: 'low', good: 'low', fair: 'medium', poor: 'critic
 const CHANGE_TYPE_BADGE = { security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' };
 const ROLE_BADGE = { admin: 'critical', manager: 'high', staff: 'medium' };
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, jsonScriptSafe, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };
