@@ -450,15 +450,22 @@ function titleCase(value) {
   if (!value || typeof value !== 'string') {
     return '';
   }
-  const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API']);
+  const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT']);
   return value.replace(/_/g, ' ').replace(/\b\w+/g, word => {
     const upper = word.toUpperCase();
     if (ACRONYMS.has(upper)) {
       return upper;
     }
-    // Detect acronym with suffix (e.g. "SOPs", "APIv2", "IPs")
+    // Detect acronym with suffix (e.g. "SOPs", "APIv2", "IPs").
+    // Check that the next character in the ORIGINAL word is not uppercase,
+    // otherwise a word like "SOPHISTICATED" would be incorrectly split
+    // into "SOP" + "HISTICATED".
     for (const acr of ACRONYMS) {
       if (upper.startsWith(acr) && upper.length > acr.length) {
+        const next = word[acr.length];
+        if (next >= 'A' && next <= 'Z') {
+          continue;
+        }
         return acr + word.slice(acr.length);
       }
     }
@@ -496,14 +503,14 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     _countQueryCache.delete(key);
     _countQueryCache.set(key, stmt);
   } else {
-    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
-    _countQueryCache.set(key, stmt);
-    if (_countQueryCache.size > _COUNT_CACHE_MAX) {
+    if (_countQueryCache.size >= _COUNT_CACHE_MAX) {
       const oldestKey = _countQueryCache.keys().next().value;
       if (oldestKey !== undefined) {
         _countQueryCache.delete(oldestKey);
       }
     }
+    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
+    _countQueryCache.set(key, stmt);
   }
   return stmt.get(...params).c;
 }
