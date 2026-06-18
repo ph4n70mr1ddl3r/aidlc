@@ -215,6 +215,16 @@ const passwordLimiter = rateLimit({
 });
 app.use('/profile/password', passwordLimiter);
 
+// Rate limit profile updates (separate from password changes)
+const profileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many profile update attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.put('/profile', profileLimiter);
+
 // Rate limit write endpoints to prevent spam
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

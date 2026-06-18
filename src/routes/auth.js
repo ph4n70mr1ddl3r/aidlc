@@ -34,7 +34,13 @@ const ipLoginFailures = new Map(); // ip -> { count, lockedUntil, lastAttempt }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
-const DUMMY_BCRYPT_HASH = bcrypt.hashSync('dummy', 12);
+let _dummyHash = null;
+function getDummyHash() {
+  if (!_dummyHash) {
+    _dummyHash = bcrypt.hashSync('dummy', 12);
+  }
+  return _dummyHash;
+}
 
 function checkLockout(map, key) {
   const entry = map.get(key);
@@ -220,7 +226,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Always perform a bcrypt comparison to prevent username enumeration via timing
   // side-channel. If the user doesn't exist, compare against a dummy hash so the
   // CPU cost is identical whether the username is valid or not.
-  const hashToCompare = user ? user.password : DUMMY_BCRYPT_HASH;
+  const hashToCompare = user ? user.password : getDummyHash();
   const passwordMatch = await bcrypt.compare(password, hashToCompare);
 
   if (!user || !passwordMatch) {

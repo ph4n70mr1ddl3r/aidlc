@@ -24,7 +24,10 @@ function _verifySessionUser(req, res) {
   try {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
-      req.session.destroy(() => {
+      req.session.destroy((err) => {
+        if (err) {
+ console.error('Session destroy error (deactivated):', err.message);
+}
         res.clearCookie(SESSION_COOKIE);
         res.redirect('/login?reason=deactivated');
       });
@@ -33,7 +36,10 @@ function _verifySessionUser(req, res) {
     // Invalidate session if password was changed after login
     if (row.password_changed_at && req.session.user.password_changed_at &&
         row.password_changed_at !== req.session.user.password_changed_at) {
-      req.session.destroy(() => {
+      req.session.destroy((err) => {
+        if (err) {
+ console.error('Session destroy error (password changed):', err.message);
+}
         res.clearCookie(SESSION_COOKIE);
         req.flash('error', 'Your session has expired. Please log in again.');
         res.redirect('/login');
