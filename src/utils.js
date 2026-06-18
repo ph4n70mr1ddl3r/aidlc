@@ -428,6 +428,9 @@ function getActiveStaff(db) {
  * @returns {number} number of rows deleted
  */
 function pruneAuditLog(db, retentionDays) {
+  if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
+    return 0;
+  }
   const cutoff = db.prepare("SELECT datetime('now', ? || ' days') AS cutoff").get(`-${retentionDays}`).cutoff;
   const result = db.prepare(
     'DELETE FROM audit_log WHERE created_at < ?'

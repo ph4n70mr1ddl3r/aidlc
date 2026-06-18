@@ -268,7 +268,6 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   const email = trim(req.body.email).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
-  const { role } = req.body;
   const department = trim(req.body.department);
   const phone = sanitizePhone(req.body.phone);
   if (!email || !first_name || !last_name) {
@@ -287,7 +286,8 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (!USER_ROLES.includes(role)) {
+  const safeRole = trim(req.body.role);
+  if (!USER_ROLES.includes(safeRole)) {
     req.flash('error', 'Invalid role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -300,12 +300,12 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   }
 
   // Only admins can assign the admin role
-  if (role === 'admin' && req.session.user.role !== 'admin') {
+  if (safeRole === 'admin' && req.session.user.role !== 'admin') {
     req.flash('error', 'Only administrators can assign the admin role');
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
-  if (Number(id) === Number(req.session.user.id) && role !== req.session.user.role) {
+  if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
     req.flash('error', 'You cannot change your own role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -320,7 +320,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
   const safeIsActive = 1;
 
   try {
-    _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role,
+    _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
       (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, safeIsActive, id);
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
@@ -328,7 +328,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
     // Keep session in sync if user is editing their own record (full reassign to ensure save with resave:false)
     if (Number(id) === Number(req.session.user.id)) {
-      req.session.user = { ...req.session.user, first_name, last_name, email, role, department, phone: phone ? phone.substring(0, MAX_PHONE) : null };
+      req.session.user = { ...req.session.user, first_name, last_name, email, role: safeRole, department, phone: phone ? phone.substring(0, MAX_PHONE) : null };
     }
 
     req.flash('success', 'Staff member updated');
@@ -484,7 +484,7 @@ router.delete('/:id', requireAdmin, (req, res) => {
 
       _unassignTasksStmt.run(id);
 
-      // Unassign open change-log entries so they don't orphan on an inactive user
+      // Unassign change-log entries so they don't orphan on an inactive user
       _unassignChangesStmt.run(id);
 
       for (const projectId of affectedProjects) {

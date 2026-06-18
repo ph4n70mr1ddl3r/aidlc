@@ -108,7 +108,7 @@ router.post('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid priority');
     return res.redirect('/changes/new');
   }
-  const safePriority = priority && VALID_PRIORITIES.includes(priority) ? priority : 'medium';
+  const safePriority = priority || 'medium';
 
   const sStart = safeDateTimeLocal(scheduled_start);
   const sEnd = safeDateTimeLocal(scheduled_end);

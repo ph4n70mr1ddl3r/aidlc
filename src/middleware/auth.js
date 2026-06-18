@@ -33,9 +33,10 @@ function _verifySessionUser(req, res) {
       });
       return false;
     }
-    // Invalidate session if password was changed after login
-    if (row.password_changed_at && req.session.user.password_changed_at &&
-        row.password_changed_at !== req.session.user.password_changed_at) {
+    // Invalidate session if password was changed after login.
+    // Also handles the case where password_changed_at was NULL at login
+    // (e.g. seed users) and is now set after an admin password reset.
+    if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
       req.session.destroy((err) => {
         if (err) {
  console.error('Session destroy error (password changed):', err.message);
