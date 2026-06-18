@@ -38,7 +38,7 @@ const _projectMembershipsStmt = db.prepare(`
     ORDER BY p.updated_at DESC
   `);
 const _staffRoleStmt = db.prepare('SELECT role, username FROM users WHERE id = ?');
-const _reactivateCheckStmt = db.prepare('SELECT is_active FROM users WHERE id = ?');
+const _reactivateCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
@@ -362,6 +362,14 @@ router.put('/:id/reactivate', requireAdmin, (req, res) => {
     }
 
     _reactivateStmt.run(id);
+
+    // Clear any login failure lockout so the user can log in immediately
+    // rather than waiting for the lockout to expire (which could persist
+    // across the deactivation/reactivation cycle).
+    if (target.username) {
+      clearLoginFailure(target.username);
+    }
+
     req.audit('update', 'user', id, 'Reactivated user account');
     invalidateDashboardCache();
     req.flash('success', 'Account reactivated successfully');

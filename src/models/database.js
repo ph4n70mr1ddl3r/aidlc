@@ -57,6 +57,7 @@ function initSchema() {
       avatar TEXT,
       is_active INTEGER DEFAULT 1,
       last_login TEXT,
+      password_changed_at TEXT DEFAULT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );

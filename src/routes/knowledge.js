@@ -56,12 +56,13 @@ function renderMarkdown(content) {
   try {
     const html = marked.parse(content, MARKED_OPTIONS);
     return sanitizeHtml(html, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary']),
+      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
       allowedAttributes: {
         ...sanitizeHtml.defaults.allowedAttributes,
         img: ['src', 'alt', 'title'],
         a: ['href', 'name', 'target', 'rel', 'title'],
-        code: ['class']
+        code: ['class'],
+        input: ['type', 'checked', 'disabled']
       },
       // Force rel="noopener noreferrer" on all links for defense-in-depth
       // against reverse tabnabbing, even though marked doesn't emit target="_blank".
