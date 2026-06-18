@@ -122,8 +122,17 @@ router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/staff/form', { title: 'New Staff Member', staffMember: {}, isEdit: false, viewerRole: req.session.user.role });
 });
 
+// Rate limit staff creation to prevent account-mass-creation attacks
+const createStaffLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many staff creation attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Create staff
-router.post('/', requireAdminOrManager, asyncHandler(async (req, res) => {
+router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
   const username = trim(req.body.username).toLowerCase();
   const { password } = req.body;
   const email = trim(req.body.email).toLowerCase();
@@ -415,6 +424,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // takes effect immediately instead of waiting for lockout expiry.
   if (targetUser.username) {
     clearLoginFailure(targetUser.username);
+    req.audit('delete', 'user', id, `Cleared login lockout for ${targetUser.username} after password reset`);
   }
 
   req.audit('update', 'user', id, 'Password reset by admin');

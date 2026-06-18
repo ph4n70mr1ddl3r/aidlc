@@ -140,13 +140,14 @@ if (!sessionSecret) {
     console.error('ERROR: SESSION_SECRET is required in production');
     process.exit(1);
   }
-  sessionSecret = crypto.randomBytes(32).toString('hex');
-  console.warn('WARNING: No SESSION_SECRET set — using random ephemeral secret (sessions will not survive restart)');
+  sessionSecret = 'dev-session-secret-not-for-production';
+  console.warn('WARNING: No SESSION_SECRET set — using dev-only fallback (do not use in production)');
 }
 
-// In production, MemoryStore is not suitable — warn if no external store is configured
+// In production, MemoryStore is not suitable — require an external store
 if (process.env.NODE_ENV === 'production' && !process.env.SESSION_STORE) {
-  console.warn('WARNING: Using default MemoryStore for sessions. Consider configuring a production-grade session store (e.g. connect-sqlite, redis) via SESSION_STORE env var.');
+  console.error('ERROR: SESSION_STORE must be set in production (e.g. SESSION_STORE=connect-sqlite). MemoryStore is not suitable for production use.');
+  process.exit(1);
 }
 
 app.use(session({

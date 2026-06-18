@@ -4,6 +4,7 @@ const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
 const { SESSION_COOKIE, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
+const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
 
@@ -33,7 +34,7 @@ const ipLoginFailures = new Map(); // ip -> { count, lockedUntil, lastAttempt }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
-const DUMMY_BCRYPT_HASH = '$2a$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const DUMMY_BCRYPT_HASH = bcrypt.hashSync('dummy', 12);
 
 function checkLockout(map, key) {
   const entry = map.get(key);
@@ -324,6 +325,7 @@ router.put('/profile', requireAuth, (req, res) => {
     req.session.user = { ...req.session.user, first_name, last_name, email, phone: (phone || '').substring(0, MAX_PHONE) };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
+    invalidateDashboardCache();
     req.flash('success', 'Profile updated successfully');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -371,6 +373,15 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
+  if (typeof confirm_password !== 'string' || !confirm_password) {
+    req.flash('error', 'Password confirmation is required');
+    return res.redirect('/profile');
+  }
+  if (confirm_password.length > MAX_PASSWORD) {
+    req.flash('error', 'Password confirmation is invalid');
+    return res.redirect('/profile');
+  }
+
   if (new_password !== confirm_password) {
     req.flash('error', 'New passwords do not match');
     return res.redirect('/profile');
@@ -386,6 +397,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   _passwordUpdateStmt.run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
+  invalidateDashboardCache();
 
   // Regenerate session to invalidate old session ID,
   // then fetch fresh user data from DB (don't carry over old session data)

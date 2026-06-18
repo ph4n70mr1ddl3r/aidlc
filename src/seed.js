@@ -1,4 +1,10 @@
 require('dotenv').config();
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('ERROR: Refusing to seed database in production');
+  process.exit(1);
+}
+
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
 
