@@ -117,7 +117,7 @@ function addSearch(where, params, search, columns) {
     throw new Error('columns is required for addSearch');
   }
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
-  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
+  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
   for (const c of columns) {
     if (!SAFE_COLUMN_RE.test(c)) {
       throw new Error(`Invalid column name in addSearch: ${c}`);
@@ -169,6 +169,9 @@ function safeInt(value, fallback = 0) {
   if (value === undefined || value === null || value === '') {
     return fallback;
   }
+  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
+    return fallback;
+  }
   const n = parseInt(value, 10);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -196,7 +199,7 @@ function sanitizePhone(phone) {
   if (!phone || typeof phone !== 'string') {
     return null;
   }
-  const sanitized = phone.replace(/[^\d+\-()\s]/g, '').trim();
+  const sanitized = phone.replace(/[^\d+\-()\s.xX#]/g, '').trim();
   return sanitized || null;
 }
 
@@ -226,11 +229,8 @@ function isValidDate(value) {
   if (!m) {
     return false;
   }
-  const d = new Date(value + 'T00:00:00');
-  return !isNaN(d.getTime()) &&
-    d.getFullYear() === parseInt(m[1], 10) &&
-    d.getMonth() === parseInt(m[2], 10) - 1 &&
-    d.getDate() === parseInt(m[3], 10);
+  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+  return !isNaN(d.getTime());
 }
 
 /**
@@ -481,10 +481,12 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     _countQueryCache.delete(key);
     _countQueryCache.set(key, stmt);
   } else {
-    if (_countQueryCache.size >= _COUNT_CACHE_MAX) {
+    while (_countQueryCache.size >= _COUNT_CACHE_MAX - 10) {
       const oldestKey = _countQueryCache.keys().next().value;
       if (oldestKey !== undefined) {
         _countQueryCache.delete(oldestKey);
+      } else {
+        break;
       }
     }
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);

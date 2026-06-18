@@ -4,7 +4,7 @@ const { SESSION_COOKIE } = require('../constants');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
-const _authCheckStmt = db.prepare('SELECT id, is_active, role FROM users WHERE id = ?');
+const _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
 
 /**
  * Verify the session user is still active in the database.
@@ -27,6 +27,16 @@ function _verifySessionUser(req, res) {
       req.session.destroy(() => {
         res.clearCookie(SESSION_COOKIE);
         res.redirect('/login?reason=deactivated');
+      });
+      return false;
+    }
+    // Invalidate session if password was changed after login
+    if (row.password_changed_at && req.session.user.password_changed_at &&
+        row.password_changed_at !== req.session.user.password_changed_at) {
+      req.session.destroy(() => {
+        res.clearCookie(SESSION_COOKIE);
+        req.flash('error', 'Your session has expired. Please log in again.');
+        res.redirect('/login');
       });
       return false;
     }

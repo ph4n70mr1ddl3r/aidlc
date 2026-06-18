@@ -5,6 +5,15 @@ const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, 
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
+const rateLimit = require('express-rate-limit');
+const commentRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many comments. Please slow down.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
@@ -393,7 +402,7 @@ router.put('/:id', (req, res) => {
 // they are not the assignee (e.g. second opinions, status updates from other teams).
 // The show page already enforces visibility, so users can only reach this route
 // if they can view the ticket.
-router.post('/:id/comments', (req, res) => {
+router.post('/:id/comments', commentRateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid ticket ID');
@@ -435,6 +444,7 @@ router.post('/:id/comments', (req, res) => {
 
     req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');
+    invalidateDashboardCache();
   } catch (err) {
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');

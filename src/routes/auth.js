@@ -8,7 +8,7 @@ const { SESSION_COOKIE, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = re
 const router = require('express').Router();
 
 // Cached prepared statements — login runs frequently and db.prepare() is expensive.
-const _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login FROM users WHERE username = ? AND is_active = 1');
+const _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
 const _updateLastLoginStmt = db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?');
 
 // Apply login rate limiter only to POST /login
@@ -17,6 +17,8 @@ const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   handler: (req, res) => {
+    audit({ req, action: 'login_rate_limited', entity: 'user', entityId: null,
+      details: 'Login rate limited by IP' });
     req.flash('error', 'Too many login attempts. Please try again in 15 minutes.');
     res.redirect('/login');
   },
@@ -88,6 +90,14 @@ function purgeStaleEntries(map) {
  * Increments failure counts and locks the account/IP after MAX_LOGIN_FAILURES.
  */
 function recordLoginFailure(username, ip) {
+  // Hard cap on map size (evict oldest before adding new)
+  if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+    const oldest = loginFailures.keys().next().value;
+    if (oldest !== undefined) {
+      loginFailures.delete(oldest);
+    }
+  }
+
   // Record per-username failure
   let entry = loginFailures.get(username);
   if (!entry) {
@@ -104,6 +114,14 @@ function recordLoginFailure(username, ip) {
 
   // Record per-IP failure
   if (ip) {
+    // Hard cap on IP map size
+    if (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
+      const oldest = ipLoginFailures.keys().next().value;
+      if (oldest !== undefined) {
+        ipLoginFailures.delete(oldest);
+      }
+    }
+
     let ipEntry = ipLoginFailures.get(ip);
     if (!ipEntry) {
       purgeStaleEntries(ipLoginFailures);
@@ -259,13 +277,13 @@ router.post('/logout', (req, res) => {
 });
 
 // Cached prepared statements for profile routes
-const _profileSelectStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
+const _profileSelectStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at, created_at, updated_at FROM users WHERE id = ?');
 const _profileUpdateStmt = db.prepare(`
   UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
   WHERE id = ?
 `);
 const _passwordSelectStmt = db.prepare('SELECT password FROM users WHERE id = ?');
-const _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, updated_at = datetime(\'now\') WHERE id = ?');
+const _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
@@ -369,8 +387,9 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
 
-  // Regenerate session to invalidate old session
-  const sessionUser = req.session.user;
+  // Regenerate session to invalidate old session ID,
+  // then fetch fresh user data from DB (don't carry over old session data)
+  const userId = req.session.user.id;
   try {
     await new Promise((resolve, reject) => {
       req.session.regenerate((err) => {
@@ -386,7 +405,13 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect('/profile');
   }
-  req.session.user = sessionUser;
+  // Fetch fresh user data (without password) for the new session
+  const freshUser = _profileSelectStmt.get(userId);
+  if (freshUser) {
+    // eslint-disable-next-line no-unused-vars
+    const { password: _pw, ...safeUser } = freshUser;
+    req.session.user = safeUser;
+  }
   req.flash('success', 'Password changed successfully');
   res.redirect('/profile');
 }));

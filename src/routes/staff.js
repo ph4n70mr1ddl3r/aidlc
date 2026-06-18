@@ -40,7 +40,7 @@ const _projectMembershipsStmt = db.prepare(`
 const _staffRoleStmt = db.prepare('SELECT role, username FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
-const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, updated_at = datetime(\'now\') WHERE id = ?');
+const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);

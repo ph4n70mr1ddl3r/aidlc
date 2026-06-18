@@ -360,4 +360,11 @@ function initSchema() {
 
 initSchema();
 
+// Migration: add password_changed_at column if it doesn't exist
+try {
+  db.exec('ALTER TABLE users ADD COLUMN password_changed_at TEXT DEFAULT NULL');
+} catch {
+  // Column already exists — ignore
+}
+
 module.exports = db;
