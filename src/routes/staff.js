@@ -354,6 +354,7 @@ router.put('/:id/reactivate', requireAdmin, (req, res) => {
 
     _reactivateStmt.run(id);
     req.audit('update', 'user', id, 'Reactivated user account');
+    invalidateDashboardCache();
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
     console.error('Staff reactivate error:', err.message);

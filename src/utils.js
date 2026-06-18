@@ -229,8 +229,11 @@ function isValidDate(value) {
   if (!m) {
     return false;
   }
-  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
-  return !isNaN(d.getTime());
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const day = parseInt(m[3], 10);
+  const d = new Date(year, month - 1, day);
+  return !isNaN(d.getTime()) && d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
 }
 
 /**
@@ -245,7 +248,14 @@ function isValidDateTimeLocal(value) {
     return false;
   }
   const d = new Date(value);
-  return !isNaN(d.getTime());
+  if (isNaN(d.getTime())) {
+    return false;
+  }
+  const [datePart, timePart] = value.split('T');
+  const [y, mo, da] = datePart.split('-').map(Number);
+  const [h, mi] = timePart.split(':').map(Number);
+  return d.getFullYear() === y && d.getMonth() === mo - 1 && d.getDate() === da &&
+    d.getHours() === h && d.getMinutes() === mi;
 }
 
 /**
@@ -321,8 +331,17 @@ function localDate(value) {
   if (!m) {
     return null;
   }
-  const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
-  return isNaN(d.getTime()) ? null : d;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  const day = parseInt(m[3], 10);
+  const d = new Date(year, month - 1, day);
+  if (isNaN(d.getTime())) {
+    return null;
+  }
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
+    return null;
+  }
+  return d;
 }
 
 // Cached prepared statement for isActiveUser — called on almost every write route.
