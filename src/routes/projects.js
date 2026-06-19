@@ -338,6 +338,13 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
     return res.redirect('/projects');
   }
 
+  // Verify the project exists before inserting a task
+  const projectExists = _projectExistStmt.get(projectId);
+  if (!projectExists) {
+    req.flash('error', 'Project not found');
+    return res.redirect('/projects');
+  }
+
   const title = trim(req.body.title);
   const description = trim(req.body.description);
   const { status, priority, assigned_to, due_date } = req.body;

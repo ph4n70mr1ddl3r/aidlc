@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_PAGE_SIZE = parseInt(process.env.PAGE_SIZE, 10) || 25;
-const { MAX_PASSWORD, MAX_EMAIL, MAX_SEARCH } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
 /**
  * Parse pagination params from query string
@@ -86,8 +86,8 @@ function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<
  * Returns an error message string if invalid, or null if valid.
  */
 function validatePassword(password) {
-  if (!password || password.length < 12) {
-    return 'Password must be at least 12 characters';
+  if (!password || password.length < MIN_PASSWORD) {
+    return `Password must be at least ${MIN_PASSWORD} characters`;
   }
   if (password.length > MAX_PASSWORD) {
     return `Password must be at most ${MAX_PASSWORD} characters`;

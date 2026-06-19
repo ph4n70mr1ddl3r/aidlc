@@ -34,11 +34,8 @@ const ipLoginFailures = new Map(); // ip -> { count, lockedUntil, lastAttempt }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
-let _dummyHash = null;
+const _dummyHash = bcrypt.hashSync('dummy', 12);
 function getDummyHash() {
-  if (!_dummyHash) {
-    _dummyHash = bcrypt.hashSync('dummy', 12);
-  }
   return _dummyHash;
 }
 

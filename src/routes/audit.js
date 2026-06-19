@@ -11,13 +11,14 @@ const SORT_MAP = {
 };
 
 const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
+const ALLOWED_ENTITY_TYPES = ['user', 'ticket', 'asset', 'project', 'project_task', 'project_member', 'vendor', 'knowledge_article', 'license', 'change'];
 
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
     'a.action': { value: ALLOWED_ACTIONS.includes(req.query.action) ? req.query.action : '' },
-    'a.entity_type': { value: req.query.entity_type ? String(req.query.entity_type).substring(0, 50) : '' }
+    'a.entity_type': { value: ALLOWED_ENTITY_TYPES.includes(req.query.entity_type) ? req.query.entity_type : '' }
   }, ['a.action', 'a.entity_type']);
 
   const where = [...filters.where];
