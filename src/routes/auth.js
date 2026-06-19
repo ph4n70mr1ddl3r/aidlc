@@ -145,11 +145,17 @@ function recordLoginFailure(username, ip) {
 }
 
 function clearLoginFailure(username) {
-  loginFailures.delete(String(username).substring(0, 50).toLowerCase());
+  if (!username || typeof username !== 'string') {
+    return;
+  }
+  loginFailures.delete(username.substring(0, 50).toLowerCase());
 }
 
 function clearIpLoginFailure(ip) {
-  ipLoginFailures.delete(String(ip).substring(0, 64).toLowerCase());
+  if (!ip || typeof ip !== 'string') {
+    return;
+  }
+  ipLoginFailures.delete(ip.substring(0, 64).toLowerCase());
 }
 
 // Purge stale entries every 10 minutes to prevent memory leak.
@@ -359,7 +365,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
-  if (typeof new_password !== 'string') {
+  if (typeof new_password !== 'string' || !new_password) {
     req.flash('error', 'New password is required');
     return res.redirect('/profile');
   }

@@ -39,7 +39,16 @@ function safeSort(value, allowedMap, defaultKey) {
  * @returns {string}
  */
 function quoteColumn(col) {
-  return col.split('.').map(p => `"${p}"`).join('.');
+  if (!col || typeof col !== 'string') {
+    throw new Error(`Invalid column name: ${col}`);
+  }
+  const parts = col.split('.');
+  for (const p of parts) {
+    if (!p) {
+      throw new Error(`Invalid column name segment: "${col}"`);
+    }
+  }
+  return parts.map(p => `"${p}"`).join('.');
 }
 
 /**
@@ -110,7 +119,7 @@ function isValidEmail(email) {
  * @param {string[]} columns - List of column names to search (must be non-empty)
  */
 function addSearch(where, params, search, columns) {
-  if (!search) {
+  if (!search || typeof search !== 'string') {
     return;
   }
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
@@ -125,7 +134,7 @@ function addSearch(where, params, search, columns) {
   }
   // Cap input length so a client cannot force expensive escaping plus a
   // pathological LIKE scan by submitting a multi-megabyte ?search= value.
-  const raw = String(search).slice(0, MAX_SEARCH);
+  const raw = search.slice(0, MAX_SEARCH);
   // Escape SQL LIKE wildcards — backslash must be escaped first to avoid
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
@@ -499,16 +508,17 @@ function countQuery(db, baseTable, alias, whereClause, params) {
   const key = `${baseTable}|${alias}|${whereClause}`;
   let stmt = _countQueryCache.get(key);
   if (stmt) {
-    // Re-insert to update insertion order (true LRU)
     _countQueryCache.delete(key);
     _countQueryCache.set(key, stmt);
   } else {
-    while (_countQueryCache.size >= _COUNT_CACHE_MAX - 10) {
-      const oldestKey = _countQueryCache.keys().next().value;
-      if (oldestKey !== undefined) {
-        _countQueryCache.delete(oldestKey);
-      } else {
-        break;
+    const over = _countQueryCache.size + 1 - _COUNT_CACHE_MAX;
+    if (over > 0) {
+      const iter = _countQueryCache.keys();
+      for (let i = 0; i < over; i++) {
+        const k = iter.next().value;
+        if (k !== undefined) {
+          _countQueryCache.delete(k);
+        }
       }
     }
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
