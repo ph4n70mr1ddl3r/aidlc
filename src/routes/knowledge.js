@@ -54,7 +54,7 @@ function renderMarkdown(content) {
     return '';
   }
   try {
-    const html = marked.parse(content, MARKED_OPTIONS);
+    const html = marked.parseSync(content, MARKED_OPTIONS);
     return sanitizeHtml(html, {
       allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
       allowedAttributes: {
