@@ -53,8 +53,8 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 const _licenseSyncStmt = db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
-const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE vendor = ?');
-const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE vendor = ?');
+const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE LOWER(vendor) = LOWER(?)');
+const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 
 // Cached prepared statements for vendor create route

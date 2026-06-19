@@ -125,6 +125,13 @@ function addSearch(where, params, search, columns) {
   if (!columns || !Array.isArray(columns) || columns.length === 0) {
     throw new Error('columns is required for addSearch');
   }
+  // Trim whitespace so that a string of only spaces does not match every row.
+  // A search of "   " would produce LIKE '%   %' which matches any string
+  // containing at least one space — essentially returning all rows.
+  const trimmed = search.trim();
+  if (!trimmed) {
+    return;
+  }
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
   const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
   for (const c of columns) {
@@ -134,7 +141,7 @@ function addSearch(where, params, search, columns) {
   }
   // Cap input length so a client cannot force expensive escaping plus a
   // pathological LIKE scan by submitting a multi-megabyte ?search= value.
-  const raw = search.slice(0, MAX_SEARCH);
+  const raw = trimmed.slice(0, MAX_SEARCH);
   // Escape SQL LIKE wildcards — backslash must be escaped first to avoid
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');

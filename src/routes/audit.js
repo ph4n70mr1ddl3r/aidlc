@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
 
   const filters = buildFilters({
     'a.action': { value: ALLOWED_ACTIONS.includes(req.query.action) ? req.query.action : '' },
-    'a.entity_type': { value: req.query.entity_type ? req.query.entity_type : '' }
+    'a.entity_type': { value: req.query.entity_type ? String(req.query.entity_type).substring(0, 50) : '' }
   }, ['a.action', 'a.entity_type']);
 
   const where = [...filters.where];
