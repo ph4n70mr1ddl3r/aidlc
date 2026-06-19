@@ -237,7 +237,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 
   const name = trim(req.body.name);
   const description = trim(req.body.description);
-  const { status, priority, start_date, end_date, budget, spent, progress, owner_id } = req.body;
+  const { status, priority, start_date, end_date, budget, spent, owner_id } = req.body;
 
   if (!name) {
     req.flash('error', 'Project name is required');
@@ -268,13 +268,6 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
       return res.redirect('/projects');
     }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
-    let safeProgress = existingProject.progress;
-    if (progress !== undefined && progress !== '') {
-      const parsed = parseInt(progress, 10);
-      if (Number.isFinite(parsed)) {
-        safeProgress = Math.max(0, Math.min(100, parsed));
-      }
-    }
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
@@ -291,7 +284,10 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
     }
 
     _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
-      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeProgress, safeOwnerId, id);
+      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, existingProject.progress, safeOwnerId, id);
+    // Recalculate progress from tasks to keep it consistent — manual progress
+    // would be overwritten by task CRUD operations via recalcProjectProgress anyway.
+    recalcProjectProgress(db, id);
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');

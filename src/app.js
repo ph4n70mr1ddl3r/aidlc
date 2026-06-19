@@ -296,6 +296,7 @@ app.use('/knowledge', require('./routes/knowledge'));
 app.use('/changes', require('./routes/changes'));
 app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
+app.use('/audit', require('./routes/audit'));
 
 // Health check (unauthenticated) — rate-limited to prevent abuse
 const healthCheckStmt = db.prepare('SELECT 1 AS ok');

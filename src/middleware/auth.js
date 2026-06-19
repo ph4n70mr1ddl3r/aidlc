@@ -24,12 +24,12 @@ function _verifySessionUser(req, res) {
   try {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
+      res.clearCookie(SESSION_COOKIE);
+      res.redirect('/login?reason=deactivated');
       req.session.destroy((err) => {
         if (err) {
- console.error('Session destroy error (deactivated):', err.message);
-}
-        res.clearCookie(SESSION_COOKIE);
-        res.redirect('/login?reason=deactivated');
+          console.error('Session destroy error (deactivated):', err.message);
+        }
       });
       return false;
     }
@@ -37,13 +37,13 @@ function _verifySessionUser(req, res) {
     // Also handles the case where password_changed_at was NULL at login
     // (e.g. seed users) and is now set after an admin password reset.
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
+      res.clearCookie(SESSION_COOKIE);
+      req.flash('error', 'Your session has expired. Please log in again.');
+      res.redirect('/login');
       req.session.destroy((err) => {
         if (err) {
- console.error('Session destroy error (password changed):', err.message);
-}
-        res.clearCookie(SESSION_COOKIE);
-        req.flash('error', 'Your session has expired. Please log in again.');
-        res.redirect('/login');
+          console.error('Session destroy error (password changed):', err.message);
+        }
       });
       return false;
     }

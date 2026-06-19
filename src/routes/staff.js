@@ -25,6 +25,7 @@ const _assignedTasksStmt = db.prepare(`
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
     ORDER BY pt.due_date ASC
+    LIMIT 10
   `);
 const _assignedAssetsStmt = db.prepare(`
     SELECT id, asset_tag, name, category, status
@@ -41,6 +42,7 @@ const _staffRoleStmt = db.prepare('SELECT role, username FROM users WHERE id = ?
 const _reactivateCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
+const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);
@@ -405,7 +407,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect('/profile');
   }
 
-  const { new_password } = req.body;
+  const { new_password, current_password } = req.body;
   if (!new_password || typeof new_password !== 'string') {
     req.flash('error', 'Password is required');
     return res.redirect(`/staff/${id}`);
@@ -414,6 +416,18 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     req.flash('error', `Password must be at most ${MAX_PASSWORD} characters`);
     return res.redirect(`/staff/${id}`);
   }
+
+  // Require the admin to confirm their own password before resetting another user's
+  if (!current_password || typeof current_password !== 'string' || current_password.length > MAX_PASSWORD) {
+    req.flash('error', 'Your current password is required to reset another user\'s password');
+    return res.redirect(`/staff/${id}`);
+  }
+  const adminUser = _adminPasswordStmt.get(req.session.user.id);
+  if (!adminUser || !(await bcrypt.compare(current_password, adminUser.password))) {
+    req.flash('error', 'Your current password is incorrect');
+    return res.redirect(`/staff/${id}`);
+  }
+
   const pwErr = validatePassword(new_password);
   if (pwErr) {
     req.flash('error', pwErr);
@@ -456,20 +470,22 @@ router.delete('/:id', requireAdmin, (req, res) => {
     return res.redirect('/staff');
   }
 
-  // Early check: skip expensive transaction if user is already inactive
-  const targetCheck = _reactivateCheckStmt.get(id);
-  if (!targetCheck) {
-    req.flash('error', 'Staff member not found');
-    return res.redirect('/staff');
-  }
-  if (!targetCheck.is_active) {
-    req.flash('info', 'Account is already inactive');
-    return res.redirect('/staff');
-  }
-
   try {
     let changes = 0;
+    let notFound = false;
+    let alreadyInactive = false;
     const deactivate = db.transaction(() => {
+      // Check is_active inside the transaction to avoid TOCTOU race
+      const target = _reactivateCheckStmt.get(id);
+      if (!target) {
+        notFound = true;
+        return;
+      }
+      if (!target.is_active) {
+        alreadyInactive = true;
+        return;
+      }
+
       const result = _deactivateStmt.run(id);
       changes = result.changes;
       if (changes === 0) {
@@ -493,7 +509,11 @@ router.delete('/:id', requireAdmin, (req, res) => {
     });
     deactivate();
 
-    if (changes === 0) {
+    if (notFound) {
+      req.flash('error', 'Staff member not found');
+    } else if (alreadyInactive) {
+      req.flash('info', 'Account is already inactive');
+    } else if (changes === 0) {
       req.flash('error', 'Staff member not found');
     } else {
       req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes');

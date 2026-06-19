@@ -1,0 +1,29 @@
+<%- include('../../partials/header') %>
+<%- include('../../partials/nav') %>
+<div class="page-header"><div><h2>Audit Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Audit Log</div></div></div>
+<form method="GET" action="/audit" class="filter-bar">
+  <select name="action" aria-label="Filter by action">
+    <option value="">All Actions</option>
+    <% ['create', 'update', 'delete', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'].forEach(a => { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a.replace(/_/g, ' ') %></option><% }) %></select>
+  <input type="text" name="entity_type" class="search-input" autocomplete="off" placeholder="Entity type..." aria-label="Entity type" value="<%= filters.entity_type || '' %>">
+  <select name="sort"><option value="newest" <%= filters.sort === 'newest' || !filters.sort ? 'selected' : '' %>>Newest First</option><option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option></select>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <a href="/audit" class="btn btn-sm btn-outline">Clear</a>
+</form>
+<div class="card"><div class="card-body" style="padding:0;">
+  <% if (entries.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No audit entries found</h3></div>
+  <% } else { %><div class="table-responsive"><table>
+    <thead><tr><th>Date/Time</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>IP Address</th><th>Details</th></tr></thead>
+    <tbody><% entries.forEach(e => { %><tr>
+      <td class="text-sm"><%= formatDateTime(e.created_at) %></td>
+      <td><%= e.user_name || 'System' %></td>
+      <td><span class="badge badge-<%= e.action === 'delete' || e.action === 'login_failed' ? 'critical' : e.action === 'create' ? 'low' : e.action === 'update' ? 'medium' : 'medium' %>"><%= e.action.replace(/_/g, ' ') %></span></td>
+      <td><%= e.entity_type ? e.entity_type.replace(/_/g, ' ') : '-' %></td>
+      <td><%= e.entity_id || '-' %></td>
+      <td class="text-sm"><%= e.ip_address || '-' %></td>
+      <td class="text-sm" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= e.details || '' %>"><%= e.details || '-' %></td>
+    </tr><% }) %></tbody>
+  </table></div><% } %>
+</div></div>
+<%- include('../../partials/pagination') %>
+<%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

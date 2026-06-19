@@ -20,6 +20,7 @@
       <a href="/knowledge" class="nav-item <%= currentPage.startsWith('/knowledge') ? 'active' : '' %>" <%= currentPage.startsWith('/knowledge') ? 'aria-current="page"' : '' %>><i class="fas fa-book" aria-hidden="true"></i> Knowledge Base</a>
       <% if (isPrivileged(user)) { %>
       <a href="/reports" class="nav-item <%= currentPage.startsWith('/reports') ? 'active' : '' %>" <%= currentPage.startsWith('/reports') ? 'aria-current="page"' : '' %>><i class="fas fa-chart-bar" aria-hidden="true"></i> Reports</a>
+      <a href="/audit" class="nav-item <%= currentPage.startsWith('/audit') ? 'active' : '' %>" <%= currentPage.startsWith('/audit') ? 'aria-current="page"' : '' %>><i class="fas fa-clipboard-list" aria-hidden="true"></i> Audit Log</a>
       <% } %>
     </div>
   </nav>

@@ -229,7 +229,11 @@ router.get('/:id', (req, res) => {
   }
   const viewed = req.session[VIEWED_KEY];
   if (!viewed.includes(id) && article.author_id !== req.session.user.id) {
-    _viewCountStmt.run(id);
+    try {
+      _viewCountStmt.run(id);
+    } catch (err) {
+      console.error('View count update error:', err.message);
+    }
     viewed.push(id);
     // Evict oldest entries (front of array) if the tracking set exceeds the cap
     if (viewed.length > MAX_VIEWED_ARTICLES) {

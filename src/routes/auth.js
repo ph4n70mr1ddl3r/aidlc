@@ -50,8 +50,6 @@ function checkLockout(map, key) {
   if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
     return true;
   }
-  // Lockout expired or never set — clean up
-  map.delete(key);
   return false;
 }
 
@@ -115,7 +113,7 @@ function recordLoginFailure(username, ip) {
   entry.lastAttempt = Date.now();
   if (entry.count >= MAX_LOGIN_FAILURES) {
     entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
-    entry.count = 0;
+    entry.count = MAX_LOGIN_FAILURES;
   }
   loginFailures.set(username, entry);
 
@@ -138,7 +136,7 @@ function recordLoginFailure(username, ip) {
     ipEntry.lastAttempt = Date.now();
     if (ipEntry.count >= MAX_LOGIN_FAILURES) {
       ipEntry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
-      ipEntry.count = 0;
+      ipEntry.count = MAX_LOGIN_FAILURES;
     }
     ipLoginFailures.set(ip, ipEntry);
   }
