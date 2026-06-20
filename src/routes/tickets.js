@@ -5,11 +5,11 @@ const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, 
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
-const { default: rateLimit, ipKeyGenerator } = require('express-rate-limit');
+const rateLimit = require('express-rate-limit');
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : ipKeyGenerator(req.ip),
+  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : req.ip,
   message: 'Too many comments. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false
