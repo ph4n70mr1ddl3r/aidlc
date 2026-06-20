@@ -92,18 +92,11 @@ function purgeStaleEntries(map) {
  * Increments failure counts and locks the account/IP after MAX_LOGIN_FAILURES.
  */
 function recordLoginFailure(username, ip) {
-  // Hard cap on map size (evict oldest before adding new)
-  if (loginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-    const oldest = loginFailures.keys().next().value;
-    if (oldest !== undefined) {
-      loginFailures.delete(oldest);
-    }
-  }
+  // Ensure bounded map size before adding new entries
+  purgeStaleEntries(loginFailures);
 
-  // Record per-username failure
   let entry = loginFailures.get(username);
   if (!entry) {
-    purgeStaleEntries(loginFailures);
     entry = { count: 0, lockedUntil: null, lastAttempt: null };
   }
   entry.count++;
@@ -116,17 +109,10 @@ function recordLoginFailure(username, ip) {
 
   // Record per-IP failure
   if (ip) {
-    // Hard cap on IP map size
-    if (ipLoginFailures.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-      const oldest = ipLoginFailures.keys().next().value;
-      if (oldest !== undefined) {
-        ipLoginFailures.delete(oldest);
-      }
-    }
+    purgeStaleEntries(ipLoginFailures);
 
     let ipEntry = ipLoginFailures.get(ip);
     if (!ipEntry) {
-      purgeStaleEntries(ipLoginFailures);
       ipEntry = { count: 0, lockedUntil: null, lastAttempt: null };
     }
     ipEntry.count++;
@@ -391,6 +377,11 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
 
   if (new_password !== confirm_password) {
     req.flash('error', 'New passwords do not match');
+    return res.redirect('/profile');
+  }
+
+  if (current_password === new_password) {
+    req.flash('error', 'New password must be different from current password');
     return res.redirect('/profile');
   }
 

@@ -11,7 +11,7 @@ if (process.env.NODE_ENV === 'production') {
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
 
-console.log('🌱 Seeding database...\n');
+console.log('Seeding database...\n');
 
 // Wrap entire seed in a transaction
 const seed = db.transaction(() => {
@@ -84,6 +84,9 @@ const seed = db.transaction(() => {
       a.status, a.condition_rating, a.purchase_date, a.purchase_price, a.warranty_expiry,
       a.assigned_to, a.location);
   }
+  // Initialize asset counter to prevent AST-001 collision with the next created asset
+  const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = ?');
+  initAssetCounter.run(assets.length + 1, assets.length + 1);
   console.log(`✅ Created ${assets.length} assets`);
 
   // ========================

@@ -6,9 +6,11 @@ const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator: rateLimitIpKey } = rateLimit;
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
+  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : rateLimitIpKey(req),
   message: 'Too many comments. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false

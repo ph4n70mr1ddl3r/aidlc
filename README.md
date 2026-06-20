@@ -59,9 +59,9 @@ Open http://localhost:3000 in your browser.
 
 | Role | Username | Password |
 |---|---|---|
-| Admin | `admin` | `Admin@2026!` |
-| Manager | `jwilliams` | `Staff@2026!` |
-| Staff | `mpatel` | `Staff@2026!` |
+| Admin | `admin` | `Admin@2026!!` |
+| Manager | `jwilliams` | `Staff@2026!!` |
+| Staff | `mpatel` | `Staff@2026!!` |
 
 > ⚠️ Change these immediately in production by resetting passwords after first login.
 

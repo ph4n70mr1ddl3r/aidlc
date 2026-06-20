@@ -520,12 +520,13 @@ function countQuery(db, baseTable, alias, whereClause, params) {
   } else {
     const over = _countQueryCache.size + 1 - _COUNT_CACHE_MAX;
     if (over > 0) {
-      const iter = _countQueryCache.keys();
+      const entries = _countQueryCache.keys();
       for (let i = 0; i < over; i++) {
-        const k = iter.next().value;
-        if (k !== undefined) {
-          _countQueryCache.delete(k);
+        const entry = entries.next();
+        if (entry.done) {
+          break;
         }
+        _countQueryCache.delete(entry.value);
       }
     }
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
