@@ -47,6 +47,7 @@ const SESSION_COOKIE = 'connect.sid';
 // These are the single source of truth for all substring truncation limits
 // used across route handlers. Kept here to eliminate magic number repetition.
 // ---------------------------------------------------------------------------
+const MAX_USERNAME = 50;          // username (also used as substring limit in auth.js and staff.js)
 const MAX_SHORT_STR = 100;        // first_name, last_name, department, manufacturer, model, etc.
 const MAX_MEDIUM_STR = 200;       // title, software_name, vendor name, asset name, etc.
 const MAX_LONG_STR = 500;         // tags, impact, website, address, serial notes
@@ -70,6 +71,6 @@ module.exports = {
   LICENSE_TYPES,
   USER_ROLES,
   SESSION_COOKIE,
-  MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
+  MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH
 };

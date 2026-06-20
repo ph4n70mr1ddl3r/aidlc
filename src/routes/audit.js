@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
-const { paginate, paginationBaseUrl, buildFilters, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, safeSort } = require('../utils');
 
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager);
@@ -10,7 +10,7 @@ const SORT_MAP = {
   oldest: 'a.created_at ASC'
 };
 
-const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
+const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'read', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
 const ALLOWED_ENTITY_TYPES = ['user', 'ticket', 'asset', 'project', 'project_task', 'project_member', 'vendor', 'knowledge_article', 'license', 'change'];
 
 router.get('/', (req, res) => {
@@ -28,7 +28,7 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'audit_log', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
-  const orderBy = SORT_MAP[req.query.sort] || SORT_MAP.newest;
+  const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
 
   const entries = db.prepare(`
     SELECT a.*, u.first_name || ' ' || u.last_name as user_name

@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
-const { SESSION_COOKIE, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
+const { SESSION_COOKIE, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const router = require('express').Router();
@@ -129,7 +129,7 @@ function clearLoginFailure(username) {
   if (!username || typeof username !== 'string') {
     return;
   }
-  loginFailures.delete(username.substring(0, 50).toLowerCase());
+  loginFailures.delete(username.substring(0, MAX_USERNAME).toLowerCase());
 }
 
 function clearIpLoginFailure(ip) {
@@ -197,7 +197,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   // Check account-level lockout (prevents brute-force across IP rotation)
-  const safeUsername = username.substring(0, 50).toLowerCase();
+  const safeUsername = username.substring(0, MAX_USERNAME).toLowerCase();
   const clientIp = req.ip || 'unknown';
   if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
     // Use the same generic message as normal login failure to prevent

@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery } = require('../utils');
-const { USER_ROLES, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE } = require('../constants');
+const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -189,7 +189,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
 
   const hashedPassword = await bcrypt.hash(password, 12);
   try {
-    const result = _staffInsertStmt.run(username.substring(0, 50), hashedPassword, email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role, (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null);
+    const result = _staffInsertStmt.run(username.substring(0, MAX_USERNAME), hashedPassword, email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role, (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null);
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);

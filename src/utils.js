@@ -3,7 +3,7 @@
  */
 
 const DEFAULT_PAGE_SIZE = parseInt(process.env.PAGE_SIZE, 10) || 25;
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_EMAIL, MAX_SEARCH } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
 /**
  * Parse pagination params from query string
@@ -29,7 +29,15 @@ function paginationBaseUrl(req) {
  * Whitelisted sort options to prevent SQL injection
  */
 function safeSort(value, allowedMap, defaultKey) {
-  return Object.prototype.hasOwnProperty.call(allowedMap, value) ? allowedMap[value] : allowedMap[defaultKey];
+  if (Object.prototype.hasOwnProperty.call(allowedMap, value)) {
+    return allowedMap[value];
+  }
+  // Guard against missing defaultKey — fall back to the first entry in the map
+  if (Object.prototype.hasOwnProperty.call(allowedMap, defaultKey)) {
+    return allowedMap[defaultKey];
+  }
+  const firstKey = Object.keys(allowedMap)[0];
+  return allowedMap[firstKey];
 }
 
 /**
@@ -103,7 +111,7 @@ function validatePassword(password) {
  * Returns true if valid.
  */
 function isValidUsername(username) {
-  return typeof username === 'string' && /^[a-zA-Z0-9._-]{2,50}$/.test(username);
+  return typeof username === 'string' && new RegExp(`^[a-zA-Z0-9._-]{2,${MAX_USERNAME}}$`).test(username);
 }
 
 /**
@@ -532,7 +540,8 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
   }
-  return stmt.get(...params).c;
+  const result = stmt.get(...params);
+  return result ? result.c : 0;
 }
 
 /**

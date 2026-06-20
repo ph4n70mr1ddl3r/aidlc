@@ -423,7 +423,10 @@ function shutdown(signal) {
   if (typeof server.closeAllConnections === 'function') {
     server.closeAllConnections();
   }
+  const forceExitTimer = setTimeout(() => process.exit(1), 10000);
+  forceExitTimer.unref();
   server.close(() => {
+    clearTimeout(forceExitTimer);
     console.log('HTTP server closed.');
     try {
       db.close();
@@ -433,9 +436,6 @@ function shutdown(signal) {
     console.log('Database connection closed.');
     process.exit(0);
   });
-  // Force exit after 10 s if connections don't drain
-  const forceExitTimer = setTimeout(() => process.exit(1), 10000);
-  forceExitTimer.unref();
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

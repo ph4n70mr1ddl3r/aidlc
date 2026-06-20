@@ -25,11 +25,12 @@ function _verifySessionUser(req, res) {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
       res.clearCookie(SESSION_COOKIE);
-      res.redirect('/login?reason=deactivated');
       req.session.destroy((err) => {
         if (err) {
           console.error('Session destroy error (deactivated):', err.message);
         }
+        // Only redirect after session is destroyed to avoid race conditions
+        res.redirect('/login?reason=deactivated');
       });
       return false;
     }
@@ -39,11 +40,12 @@ function _verifySessionUser(req, res) {
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
       res.clearCookie(SESSION_COOKIE);
       req.flash('error', 'Your session has expired. Please log in again.');
-      res.redirect('/login');
       req.session.destroy((err) => {
         if (err) {
           console.error('Session destroy error (password changed):', err.message);
         }
+        // Only redirect after session is destroyed to avoid race conditions
+        res.redirect('/login');
       });
       return false;
     }

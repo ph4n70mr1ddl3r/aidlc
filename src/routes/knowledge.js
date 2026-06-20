@@ -241,7 +241,7 @@ router.get('/:id', (req, res) => {
     }
     // Reassign to trigger session.modified flag (resave:false won't persist
     // in-place array mutations)
-    req.session[VIEWED_KEY] = viewed;
+    req.session[VIEWED_KEY] = [...viewed];
   }
 
   article.renderedContent = renderMarkdown(article.content);
