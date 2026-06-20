@@ -448,7 +448,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // takes effect immediately instead of waiting for lockout expiry.
   if (targetUser.username) {
     clearLoginFailure(targetUser.username);
-    req.audit('delete', 'user', id, `Cleared login lockout for ${targetUser.username} after password reset`);
+    req.audit('update', 'user', id, `Cleared login lockout for ${targetUser.username} after password reset`);
   }
 
   req.audit('update', 'user', id, 'Password reset by admin');

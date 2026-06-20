@@ -395,15 +395,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
     return res.redirect('/projects');
   }
 
-  const rawTitle = req.body.title;
-  const title = trim(rawTitle);
+  const title = trim(req.body.title);
   const description = trim(req.body.description);
   const { status, priority, assigned_to, due_date } = req.body;
 
   // Defensive: handle quick-status-change forms that only send `status`.
-  // Detect by the absence of a title rather than a body field so a client
-  // cannot force the quick path by injecting `_quick_status` into a full edit.
-  if (!rawTitle) {
+  // Uses a dedicated `_quick_status` flag sent by the EJS template so a
+  // client cannot force the quick path by omitting the title from a full edit.
+  if (req.body._quick_status) {
     // Quick status update only — preserve existing values
     try {
       const existing = _taskExistStmt.get(taskId, projectId);
