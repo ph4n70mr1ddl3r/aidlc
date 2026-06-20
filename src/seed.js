@@ -37,12 +37,12 @@ const seed = db.transaction(() => {
   // USERS
   // ========================
   const users = [
-    { username: 'admin', password: 'Admin@2026!', email: 'admin@company.com', first_name: 'Sarah', last_name: 'Chen', role: 'admin', department: 'IT', phone: '555-0101' },
-    { username: 'jwilliams', password: 'Staff@2026!', email: 'j.williams@company.com', first_name: 'James', last_name: 'Williams', role: 'manager', department: 'IT', phone: '555-0102' },
-    { username: 'mpatel', password: 'Staff@2026!', email: 'm.patel@company.com', first_name: 'Maya', last_name: 'Patel', role: 'staff', department: 'IT', phone: '555-0103' },
-    { username: 'trodriguez', password: 'Staff@2026!', email: 't.rodriguez@company.com', first_name: 'Tomás', last_name: 'Rodriguez', role: 'staff', department: 'IT', phone: '555-0104' },
-    { username: 'akimura', password: 'Staff@2026!', email: 'a.kimura@company.com', first_name: 'Aiko', last_name: 'Kimura', role: 'staff', department: 'IT', phone: '555-0105' },
-    { username: 'dmuller', password: 'Staff@2026!', email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' }
+    { username: 'admin', password: 'Admin@2026!!', email: 'admin@company.com', first_name: 'Sarah', last_name: 'Chen', role: 'admin', department: 'IT', phone: '555-0101' },
+    { username: 'jwilliams', password: 'Staff@2026!!', email: 'j.williams@company.com', first_name: 'James', last_name: 'Williams', role: 'manager', department: 'IT', phone: '555-0102' },
+    { username: 'mpatel', password: 'Staff@2026!!', email: 'm.patel@company.com', first_name: 'Maya', last_name: 'Patel', role: 'staff', department: 'IT', phone: '555-0103' },
+    { username: 'trodriguez', password: 'Staff@2026!!', email: 't.rodriguez@company.com', first_name: 'Tomás', last_name: 'Rodriguez', role: 'staff', department: 'IT', phone: '555-0104' },
+    { username: 'akimura', password: 'Staff@2026!!', email: 'a.kimura@company.com', first_name: 'Aiko', last_name: 'Kimura', role: 'staff', department: 'IT', phone: '555-0105' },
+    { username: 'dmuller', password: 'Staff@2026!!', email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' }
   ];
 
   const insertUser = db.prepare(`
@@ -305,8 +305,8 @@ seed();
 
 console.log('\n🎉 Seeding complete!\n');
 console.log('Default login credentials:');
-console.log('  Admin:    admin / Admin@2026!');
-console.log('  Manager:  jwilliams / Staff@2026!');
-console.log('  Staff:    mpatel / Staff@2026!\n');
+console.log('  Admin:    admin / Admin@2026!!');
+console.log('  Manager:  jwilliams / Staff@2026!!');
+console.log('  Staff:    mpatel / Staff@2026!!\n');
 
 db.close();
