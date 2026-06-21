@@ -32,6 +32,10 @@ const _editArticleStmt = db.prepare('SELECT * FROM knowledge_articles WHERE id =
 const _viewCountStmt = db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?');
 const _deleteArticleStmt = db.prepare('DELETE FROM knowledge_articles WHERE id = ?');
 
+// Module-level constants for session view tracking (avoids redefining per-request)
+const VIEWED_KEY = 'kb_viewed';
+const MAX_VIEWED_ARTICLES = 200;
+
 // Cached prepared statements for create/update routes
 const _articleInsertStmt = db.prepare(`
     INSERT INTO knowledge_articles (title, content, category, tags, author_id, status, is_featured)
@@ -49,8 +53,8 @@ function resolveSafeStatus(user, status, existingStatus) {
   }
   // Non-privileged owners editing their own article must not promote status
   // (e.g. draft -> published). They may keep the existing status or demote to
-  // draft (unpublish). This prevents silent unpublishing when a staff author
-  // edits their own published article.
+  // draft (unpublish). When the status field is absent from the request the
+  // caller passes existing.status, so the check below preserves it unchanged.
   if (existingStatus && status !== existingStatus && status !== 'draft') {
     return existingStatus;
   }
@@ -247,8 +251,6 @@ router.get('/:id', (req, res) => {
   // Use an array (not an object) so eviction removes the oldest-viewed article —
   // Object.keys() on integer-like keys returns numeric order, which would evict
   // the lowest-ID article instead of the oldest viewed.
-  const VIEWED_KEY = 'kb_viewed';
-  const MAX_VIEWED_ARTICLES = 200;
   if (!req.session[VIEWED_KEY]) {
     req.session[VIEWED_KEY] = [];
   }
