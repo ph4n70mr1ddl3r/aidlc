@@ -6,6 +6,7 @@ const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
+const { defaultKeyGenerator } = rateLimit;
 
 // Rate limit ticket write operations to prevent abuse
 const ticketWriteLimiter = rateLimit({
@@ -19,7 +20,7 @@ const ticketWriteLimiter = rateLimit({
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : req.ip,
+  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : defaultKeyGenerator(req),
   message: 'Too many comments. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false

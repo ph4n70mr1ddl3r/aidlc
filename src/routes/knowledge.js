@@ -351,8 +351,8 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft', existing.status);
-  const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
+  const safeStatus = resolveSafeStatus(req.session.user, status || existing.status, existing.status);
+  const safeFeatured = is_featured !== undefined ? resolveSafeFeatured(req.session.user, is_featured) : existing.is_featured;
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
