@@ -5,6 +5,16 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTi
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
+const rateLimit = require('express-rate-limit');
+
+const changeWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many change operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
@@ -72,7 +82,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create change
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const description = trim(req.body.description);
   const { change_type, status, priority, scheduled_start, scheduled_end } = req.body;
@@ -174,7 +184,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update change
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid change ID');
@@ -262,7 +272,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Delete change
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid change ID');

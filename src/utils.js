@@ -29,6 +29,10 @@ function paginationBaseUrl(req) {
  * Whitelisted sort options to prevent SQL injection
  */
 function safeSort(value, allowedMap, defaultKey) {
+  const keys = Object.keys(allowedMap);
+  if (keys.length === 0) {
+    return '';
+  }
   if (Object.prototype.hasOwnProperty.call(allowedMap, value)) {
     return allowedMap[value];
   }
@@ -36,8 +40,7 @@ function safeSort(value, allowedMap, defaultKey) {
   if (Object.prototype.hasOwnProperty.call(allowedMap, defaultKey)) {
     return allowedMap[defaultKey];
   }
-  const firstKey = Object.keys(allowedMap)[0];
-  return allowedMap[firstKey];
+  return allowedMap[keys[0]];
 }
 
 /**

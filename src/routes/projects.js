@@ -12,6 +12,16 @@ const {
 } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
+const rateLimit = require('express-rate-limit');
+
+const projectWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many project operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
@@ -131,7 +141,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create project
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
   const description = trim(req.body.description);
   const { status, priority, start_date, end_date, budget, owner_id } = req.body;
@@ -228,7 +238,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update project
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid project ID');
@@ -300,7 +310,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Delete project (with tasks & members in transaction)
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid project ID');
@@ -331,7 +341,7 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Add task to project
-router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
+router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const projectId = safeId(req.params.id);
   if (!projectId) {
     req.flash('error', 'Invalid project ID');
@@ -387,7 +397,7 @@ router.post('/:id/tasks', requireAdminOrManager, (req, res) => {
 });
 
 // Update task
-router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
+router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
@@ -473,7 +483,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
 });
 
 // Delete task
-router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => {
+router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
@@ -507,7 +517,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, (req, res) => 
 });
 
 // Add member to project
-router.post('/:id/members', requireAdminOrManager, (req, res) => {
+router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid project ID');
@@ -540,7 +550,7 @@ router.post('/:id/members', requireAdminOrManager, (req, res) => {
 });
 
 // Remove member from project
-router.delete('/:id/members/:memberId', requireAdminOrManager, (req, res) => {
+router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   const memberId = safeId(req.params.memberId);
   if (!id || !memberId) {

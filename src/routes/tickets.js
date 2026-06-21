@@ -6,6 +6,16 @@ const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
+
+// Rate limit ticket write operations to prevent abuse
+const ticketWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many ticket operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
@@ -147,7 +157,7 @@ router.get('/new', (req, res) => {
 });
 
 // Create ticket
-router.post('/', (req, res) => {
+router.post('/', ticketWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const description = trim(req.body.description);
   const category = req.body.category;
@@ -299,7 +309,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update ticket
-router.put('/:id', (req, res) => {
+router.put('/:id', ticketWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid ticket ID');
@@ -543,7 +553,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
 });
 
 // Delete ticket
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid ticket ID');

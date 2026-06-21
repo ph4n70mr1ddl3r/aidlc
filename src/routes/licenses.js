@@ -6,10 +6,19 @@ const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NO
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
+const licenseWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many license operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 // Rate limit license key reveal to prevent bulk exfiltration
+// (higher limit than write operations since this is just a read)
 const licenseKeyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
@@ -68,7 +77,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create license
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
@@ -167,7 +176,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update license
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid license ID');
@@ -231,7 +240,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Delete license
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid license ID');

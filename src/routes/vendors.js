@@ -5,6 +5,16 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEma
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
+const rateLimit = require('express-rate-limit');
+
+const vendorWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many vendor operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
@@ -98,7 +108,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create vendor
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
   const email = trim(req.body.email).toLowerCase();
@@ -214,7 +224,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update vendor
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -320,7 +330,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Deactivate vendor (dedicated route — mirrors staff pattern)
-router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
+router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -350,7 +360,7 @@ router.put('/:id/deactivate', requireAdminOrManager, (req, res) => {
 });
 
 // Reactivate vendor
-router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
+router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -380,7 +390,7 @@ router.put('/:id/reactivate', requireAdminOrManager, (req, res) => {
 });
 
 // Delete vendor (must be deactivated first to prevent accidental data loss)
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
