@@ -294,7 +294,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
 
     _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
-      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, 0, safeOwnerId, id);
+      budget ? safePositiveFloat(budget, 0) : 0, safeSpent, existingProject.progress, safeOwnerId, id);
     // Recalculate progress from tasks to keep it consistent — manual progress
     // would be overwritten by task CRUD operations via recalcProjectProgress anyway.
     recalcProjectProgress(db, id);

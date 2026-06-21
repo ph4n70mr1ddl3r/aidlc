@@ -2,7 +2,8 @@
  * Shared utilities for routes
  */
 
-const DEFAULT_PAGE_SIZE = parseInt(process.env.PAGE_SIZE, 10) || 25;
+const _ps = parseInt(process.env.PAGE_SIZE, 10);
+const DEFAULT_PAGE_SIZE = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : 25;
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
 /**

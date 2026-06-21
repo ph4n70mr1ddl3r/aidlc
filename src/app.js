@@ -37,6 +37,7 @@ if (process.env.NODE_ENV === 'production') {
     'fallback-secret',
     'session-secret',
     'dev-session-secret-change-for-production',
+    'dev-session-secret-not-for-production',
     'dev-csrf-secret-change-for-production',
     'generate-a-random-string-here',
     'generate-another-random-string-here'

@@ -174,11 +174,12 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
   }
+  const safeRating = rating !== undefined && rating !== '' ? parseVendorRating(rating) : null;
 
   try {
     const result = _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
       (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, MAX_NOTES) || null, rating !== undefined && rating !== '' ? parseVendorRating(rating) : null);
+      (notes || '').substring(0, MAX_NOTES) || null, safeRating);
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
@@ -292,6 +293,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);
   }
+  const safeRating = rating !== undefined && rating !== '' ? parseVendorRating(rating) : null;
 
   try {
     // Verify vendor exists before updating
@@ -307,7 +309,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
         (website || '').substring(0, MAX_LONG_STR) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, MAX_NOTES) || null,
-        rating !== undefined && rating !== '' ? parseVendorRating(rating) : null,
+        safeRating,
         existing.is_active ? 1 : 0, id);
 
       // Sync name change to license references (licenses.vendor is a text field
