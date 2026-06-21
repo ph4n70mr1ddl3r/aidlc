@@ -357,6 +357,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);
     CREATE INDEX IF NOT EXISTS idx_changes_updated ON change_log(updated_at);
     CREATE INDEX IF NOT EXISTS idx_kb_updated ON knowledge_articles(updated_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
   `);
 }
 initSchema();

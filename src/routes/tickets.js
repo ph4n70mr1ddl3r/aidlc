@@ -44,7 +44,7 @@ const _showTicketStmt = db.prepare(`
 const _showCommentsStmt = db.prepare(`
     SELECT tc.*, u.first_name || ' ' || u.last_name as author_name, u.role as author_role
     FROM ticket_comments tc
-    JOIN users u ON tc.user_id = u.id
+    LEFT JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
     ORDER BY tc.created_at ASC
   `);

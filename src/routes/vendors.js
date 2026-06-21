@@ -52,7 +52,7 @@ function validateVendorRating(value) {
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
-const _deactivateCheckStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
+const _vendorStatusStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE vendors SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE vendors SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _updateExistStmt = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?');
@@ -338,7 +338,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
   }
 
   try {
-    const existing = _deactivateCheckStmt.get(id);
+    const existing = _vendorStatusStmt.get(id);
     if (!existing) {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
@@ -368,7 +368,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
   }
 
   try {
-    const existing = _deactivateCheckStmt.get(id);
+    const existing = _vendorStatusStmt.get(id);
     if (!existing) {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
