@@ -529,22 +529,23 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     _countQueryCache.delete(key);
     _countQueryCache.set(key, stmt);
   } else {
-    const over = _countQueryCache.size + 1 - _COUNT_CACHE_MAX;
-    if (over > 0) {
-      const entries = _countQueryCache.keys();
-      for (let i = 0; i < over; i++) {
-        const entry = entries.next();
-        if (entry.done) {
-          break;
-        }
-        _countQueryCache.delete(entry.value);
+    while (_countQueryCache.size >= _COUNT_CACHE_MAX) {
+      const keyToEvict = _countQueryCache.keys().next().value;
+      if (keyToEvict === undefined) {
+        break;
       }
+      _countQueryCache.delete(keyToEvict);
     }
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
   }
-  const result = stmt.get(...params);
-  return result ? result.c : 0;
+  try {
+    const result = stmt.get(...params);
+    return result ? result.c : 0;
+  } catch (err) {
+    _countQueryCache.delete(key);
+    throw err;
+  }
 }
 
 /**

@@ -43,8 +43,18 @@ const _articleUpdateStmt = db.prepare(`
     WHERE id = ?
   `);
 
-function resolveSafeStatus(user, status) {
-  return isPrivileged(user) ? (status || 'draft') : 'draft';
+function resolveSafeStatus(user, status, existingStatus) {
+  if (isPrivileged(user)) {
+    return status || 'draft';
+  }
+  // Non-privileged owners editing their own article must not promote status
+  // (e.g. draft -> published). They may keep the existing status or demote to
+  // draft (unpublish). This prevents silent unpublishing when a staff author
+  // edits their own published article.
+  if (existingStatus && status !== existingStatus && status !== 'draft') {
+    return existingStatus;
+  }
+  return status || 'draft';
 }
 
 function resolveSafeFeatured(user, is_featured) {
@@ -341,7 +351,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft');
+  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft', existing.status);
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
