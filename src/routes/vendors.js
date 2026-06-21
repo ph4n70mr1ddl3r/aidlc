@@ -20,34 +20,19 @@ router.use(requireAuth, auditMiddleware);
 
 /**
  * Parse and validate a vendor rating from a form field value.
- * Returns null for empty/undefined input (optional field).
- * Returns the parsed integer (1-5) if valid.
- * Returns null if invalid — callers MUST use validateVendorRating() first
- * to provide a user-facing error message.
- */
-function parseVendorRating(value) {
-  if (value === undefined || value === '' || value === null) {
-    return null;
-  }
-  const n = parseInt(value, 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-/**
- * Validate a vendor rating value and return an error message if invalid.
- * Returns null if the rating is valid (1-5) or empty (optional field).
- * Delegates parsing to parseVendorRating so the two helpers share a single
- * parseInt and can never disagree on what counts as parseable.
+ * Returns { value, error } where:
+ *   - value is the parsed integer (1-5) or null for empty/optional fields
+ *   - error is a string message or null if valid
  */
 function validateVendorRating(value) {
   if (value === undefined || value === '' || value === null) {
-    return null;
+    return { value: null, error: null };
   }
-  const n = parseVendorRating(value);
-  if (n === null || n < 1 || n > 5) {
-    return 'Rating must be between 1 and 5';
+  const n = parseInt(value, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 5) {
+    return { value: null, error: 'Rating must be between 1 and 5' };
   }
-  return null;
+  return { value: n, error: null };
 }
 
 // Cached prepared statements for show/edit routes (static SQL).
@@ -168,13 +153,12 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
-  // Validate rating range upfront instead of silently defaulting to 1
-  const ratingErr = validateVendorRating(rating);
+  // Validate rating range upfront instead of silently defaulting to null
+  const { value: safeRating, error: ratingErr } = validateVendorRating(rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
   }
-  const safeRating = rating !== undefined && rating !== '' ? parseVendorRating(rating) : null;
 
   try {
     const result = _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
@@ -287,13 +271,12 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect(`/vendors/${id}/edit`);
   }
 
-  // Validate rating range upfront instead of silently defaulting to 1
-  const ratingErr = validateVendorRating(rating);
+  // Validate rating range upfront instead of silently defaulting to null
+  const { value: safeRating, error: ratingErr } = validateVendorRating(rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);
   }
-  const safeRating = rating !== undefined && rating !== '' ? parseVendorRating(rating) : null;
 
   try {
     // Verify vendor exists before updating
