@@ -4,6 +4,16 @@ const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
+const rateLimit = require('express-rate-limit');
+
+// Rate limit asset write operations to prevent abuse
+const assetWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 50,
+  message: 'Too many asset operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -97,7 +107,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create asset
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
   const category = req.body.category;
   const manufacturer = trim(req.body.manufacturer);
@@ -232,7 +242,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update asset
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid asset ID');
@@ -340,7 +350,7 @@ router.put('/:id', requireAdminOrManager, (req, res) => {
 });
 
 // Delete asset
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid asset ID');

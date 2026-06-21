@@ -6,6 +6,17 @@ const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM
 const { invalidateDashboardCache } = require('./dashboard');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
+const rateLimit = require('express-rate-limit');
+
+// Rate limit knowledge article creation/update — markdown parsing + sanitization
+// is CPU-intensive and could be abused for server-side DoS even by authenticated users.
+const kbWriteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30,
+  message: 'Too many article submissions. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -49,41 +60,45 @@ const MARKED_OPTIONS = {
   gfm: true
 };
 
+const SANITIZE_HTML_OPTIONS = {
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    img: ['src', 'alt', 'title'],
+    a: ['href', 'name', 'target', 'rel', 'title'],
+    code: ['class'],
+    input: ['type', 'checked', 'disabled']
+  },
+  // Force rel="noopener noreferrer" on all links for defense-in-depth
+  // against reverse tabnabbing, even though marked doesn't emit target="_blank".
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' })
+  },
+  allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemesAppliedToAttributes: ['href', 'src'],
+  allowProtocolRelative: false
+};
+
+const STRIP_HTML_OPTIONS = {
+  allowedTags: [],
+  allowedAttributes: {},
+  allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemesAppliedToAttributes: ['href', 'src']
+};
+
 function renderMarkdown(content) {
   if (!content || typeof content !== 'string') {
     return '';
   }
   try {
     const html = marked.parseSync(content, MARKED_OPTIONS);
-    return sanitizeHtml(html, {
-      allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
-      allowedAttributes: {
-        ...sanitizeHtml.defaults.allowedAttributes,
-        img: ['src', 'alt', 'title'],
-        a: ['href', 'name', 'target', 'rel', 'title'],
-        code: ['class'],
-        input: ['type', 'checked', 'disabled']
-      },
-      // Force rel="noopener noreferrer" on all links for defense-in-depth
-      // against reverse tabnabbing, even though marked doesn't emit target="_blank".
-      transformTags: {
-        a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' })
-      },
-      allowedSchemes: ['http', 'https', 'mailto'],
-      allowedSchemesAppliedToAttributes: ['href', 'src'],
-      allowProtocolRelative: false
-    });
+    return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
     // If markdown/sanitization fails, escape the raw content and wrap in a
     // visible error notice so the user knows rendering failed instead of
     // seeing a blank page.
     console.error('Markdown render error:', err.message);
-    const escaped = sanitizeHtml(content, {
-      allowedTags: [],
-      allowedAttributes: {},
-      allowedSchemes: ['http', 'https', 'mailto'],
-      allowedSchemesAppliedToAttributes: ['href', 'src']
-    });
+    const escaped = sanitizeHtml(content, STRIP_HTML_OPTIONS);
     return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
   }
 }
@@ -136,7 +151,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 });
 
 // Create article
-router.post('/', requireAdminOrManager, (req, res) => {
+router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const content = trim(req.body.content);
   const category = req.body.category;
@@ -175,8 +190,8 @@ router.post('/', requireAdminOrManager, (req, res) => {
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), { allowedTags: [], allowedAttributes: {} }) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), { allowedTags: [], allowedAttributes: {} });
+  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
+  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
 
   try {
     const result = _articleInsertStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, req.session.user.id, safeStatus, safeFeatured);
@@ -273,7 +288,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update article (author or admin/manager only)
-router.put('/:id', (req, res) => {
+router.put('/:id', kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
@@ -330,8 +345,8 @@ router.put('/:id', (req, res) => {
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), { allowedTags: [], allowedAttributes: {} }) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), { allowedTags: [], allowedAttributes: {} });
+  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
+  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
 
   try {
     _articleUpdateStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, safeStatus, safeFeatured, id);

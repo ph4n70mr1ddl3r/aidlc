@@ -47,8 +47,10 @@
 <div class="card mt-3"><div class="card-header"><h3>Warranty Expiring Soon (90 days)</h3></div><div class="card-body" style="padding:0;">
   <div class="table-responsive"><table>
     <thead><tr><th>Asset</th><th>Name</th><th>Warranty Expiry</th><th>Days Left</th></tr></thead>
-    <tbody><% warrantyExpiring.forEach(a => { 
-      const days = Math.round((localDate(a.warranty_expiry) - new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())) / (1000*60*60*24));
+    <tbody>    <% warrantyExpiring.forEach(a => { 
+      const expiryDate = localDate(a.warranty_expiry);
+      const todayDate = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+      const days = expiryDate ? Math.round((expiryDate - todayDate) / (1000*60*60*24)) : 0;
     %><tr>
       <td style="font-weight:600;"><%= a.asset_tag %></td>
       <td><%= a.name %></td>
