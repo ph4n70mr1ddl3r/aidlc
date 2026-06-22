@@ -80,10 +80,9 @@ describe('safeSort', () => {
     expect(result).toBe('first_name ASC');
   });
 
-  it('should return empty string for empty map', () => {
+  it('should throw for empty map', () => {
     const allowedMap = {};
-    const result = utils.safeSort('asc', allowedMap, 'desc');
-    expect(result).toBe('');
+    expect(() => utils.safeSort('asc', allowedMap, 'desc')).toThrow('safeSort: allowedMap must not be empty');
   });
 });
 

@@ -35,7 +35,7 @@ function paginationBaseUrl(req) {
 function safeSort(value, allowedMap, defaultKey) {
   const keys = Object.keys(allowedMap);
   if (keys.length === 0) {
-    return '';
+    throw new Error('safeSort: allowedMap must not be empty');
   }
   if (Object.prototype.hasOwnProperty.call(allowedMap, value)) {
     return allowedMap[value];
@@ -197,6 +197,10 @@ function safePositiveFloat(value, fallback = null) {
  */
 function safeInt(value, fallback = 0) {
   if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  // Reject arrays from HTTP parameter pollution
+  if (Array.isArray(value)) {
     return fallback;
   }
   if (typeof value === 'string' && !/^-?\d+$/.test(value)) {

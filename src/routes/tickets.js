@@ -167,8 +167,8 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   const requester_email = trim(req.body.requester_email).toLowerCase();
   const requester_department = trim(req.body.requester_department);
   const requester_phone = sanitizePhone(req.body.requester_phone);
-  const assigned_to = req.body.assigned_to;
-  const asset_id = req.body.asset_id;
+  const assigned_to = trim(req.body.assigned_to);
+  const asset_id = trim(req.body.asset_id);
   const due_date = req.body.due_date;
 
   if (!title || !category || !requester_name || !requester_email) {
@@ -322,8 +322,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const category = req.body.category;
   const priority = req.body.priority;
   const status = req.body.status;
-  const assigned_to = req.body.assigned_to;
-  const asset_id = req.body.asset_id;
+  const assigned_to = trim(req.body.assigned_to);
+  const asset_id = trim(req.body.asset_id);
   const due_date = req.body.due_date;
   const resolution_notes = trim(req.body.resolution_notes);
 

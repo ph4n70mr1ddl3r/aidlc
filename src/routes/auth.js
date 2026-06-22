@@ -136,7 +136,7 @@ function clearIpLoginFailure(ip) {
   if (!ip || typeof ip !== 'string') {
     return;
   }
-  ipLoginFailures.delete(ip.substring(0, 64).toLowerCase());
+  ipLoginFailures.delete(ip);
 }
 
 // Purge stale entries every 10 minutes to prevent memory leak.
