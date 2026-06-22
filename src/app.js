@@ -417,7 +417,12 @@ server.on('listening', () => {
 
 // Graceful shutdown
 // ---------------------------------------------------------------------------
+let _shuttingDown = false;
 function shutdown(signal) {
+  if (_shuttingDown) {
+    return;
+  }
+  _shuttingDown = true;
   console.log(`\n${signal} received — shutting down gracefully…`);
   // Stop login failure cleanup interval before closing DB
   stopLoginFailureCleanup();

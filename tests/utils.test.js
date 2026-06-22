@@ -340,6 +340,227 @@ describe('isPrivileged', () => {
 });
 
 /**
+ * Test for addSearch function
+ */
+describe('addSearch', () => {
+  it('should add LIKE conditions for search term', () => {
+    const where = [];
+    const params = [];
+    utils.addSearch(where, params, 'test', ['name', 'email']);
+    expect(where.length).toBe(1);
+    expect(where[0]).toContain('LIKE');
+    expect(where[0]).toContain('ESCAPE');
+    expect(params).toEqual(['%test%', '%test%']);
+  });
+
+  it('should skip empty search', () => {
+    const where = [];
+    const params = [];
+    utils.addSearch(where, params, '', ['name']);
+    expect(where.length).toBe(0);
+  });
+
+  it('should skip whitespace-only search', () => {
+    const where = [];
+    const params = [];
+    utils.addSearch(where, params, '   ', ['name']);
+    expect(where.length).toBe(0);
+  });
+
+  it('should escape LIKE wildcards', () => {
+    const where = [];
+    const params = [];
+    utils.addSearch(where, params, '100%_complete', ['name']);
+    expect(params[0]).toContain('100\\%\\_complete');
+  });
+
+  it('should validate column names', () => {
+    expect(() => {
+      utils.addSearch([], [], 'test', ['invalid-column!']);
+    }).toThrow('Invalid column name');
+  });
+});
+
+/**
+ * Test for safePositiveFloat function
+ */
+describe('safePositiveFloat', () => {
+  it('should parse valid positive float', () => {
+    expect(utils.safePositiveFloat('123.45')).toBe(123.45);
+    expect(utils.safePositiveFloat('0')).toBe(0);
+  });
+
+  it('should return fallback for negative values', () => {
+    expect(utils.safePositiveFloat('-1')).toBeNull();
+    expect(utils.safePositiveFloat('-1', 0)).toBe(0);
+  });
+
+  it('should return null for invalid values', () => {
+    expect(utils.safePositiveFloat('abc')).toBeNull();
+    expect(utils.safePositiveFloat('')).toBeNull();
+    expect(utils.safePositiveFloat(null)).toBeNull();
+  });
+
+  it('should return default fallback for undefined/null', () => {
+    expect(utils.safePositiveFloat(undefined, 10)).toBe(10);
+    expect(utils.safePositiveFloat(null, 5)).toBe(5);
+  });
+});
+
+/**
+ * Test for sanitizePhone function
+ */
+describe('sanitizePhone', () => {
+  it('should keep digits, +, -, (, ), spaces', () => {
+    const result = utils.sanitizePhone('+1 (555) 123-4567');
+    expect(result).toBe('+1 (555) 123-4567');
+  });
+
+  it('should strip invalid characters', () => {
+    const result = utils.sanitizePhone('555-ABC-1234');
+    expect(result).toBe('555--1234');
+  });
+
+  it('should return null for empty input', () => {
+    expect(utils.sanitizePhone('')).toBeNull();
+    expect(utils.sanitizePhone(null)).toBeNull();
+  });
+});
+
+/**
+ * Test for isValidPhone function
+ */
+describe('isValidPhone', () => {
+  it('should validate standard phone formats', () => {
+    expect(utils.isValidPhone('+1-555-123-4567')).toBe(true);
+    expect(utils.isValidPhone('(555) 123-4567')).toBe(true);
+    expect(utils.isValidPhone('555-123-4567')).toBe(true);
+  });
+
+  it('should reject phone with too few digits', () => {
+    expect(utils.isValidPhone('123-45')).toBe(false);
+  });
+
+  it('should reject empty/null', () => {
+    expect(utils.isValidPhone('')).toBe(false);
+    expect(utils.isValidPhone(null)).toBe(false);
+  });
+});
+
+/**
+ * Test for isValidDateTimeLocal function
+ */
+describe('isValidDateTimeLocal', () => {
+  it('should validate correct datetime-local format', () => {
+    expect(utils.isValidDateTimeLocal('2024-01-15T14:30')).toBe(true);
+    expect(utils.isValidDateTimeLocal('2023-12-31T00:00')).toBe(true);
+  });
+
+  it('should reject invalid datetime values', () => {
+    expect(utils.isValidDateTimeLocal('2024-13-01T14:30')).toBe(false);
+    expect(utils.isValidDateTimeLocal('2024-01-15T25:00')).toBe(false);
+    expect(utils.isValidDateTimeLocal('not-a-datetime')).toBe(false);
+  });
+
+  it('should reject missing time', () => {
+    expect(utils.isValidDateTimeLocal('2024-01-15')).toBe(false);
+  });
+});
+
+/**
+ * Test for safeDate function
+ */
+describe('safeDate', () => {
+  it('should return valid date unchanged', () => {
+    expect(utils.safeDate('2024-01-15')).toBe('2024-01-15');
+  });
+
+  it('should return null for invalid date', () => {
+    expect(utils.safeDate('2024-13-01')).toBeNull();
+    expect(utils.safeDate('not-a-date')).toBeNull();
+    expect(utils.safeDate('')).toBeNull();
+  });
+});
+
+/**
+ * Test for safeDateTimeLocal function
+ */
+describe('safeDateTimeLocal', () => {
+  it('should normalize T separator to space', () => {
+    expect(utils.safeDateTimeLocal('2024-01-15T14:30')).toBe('2024-01-15 14:30');
+  });
+
+  it('should return null for invalid datetime', () => {
+    expect(utils.safeDateTimeLocal('not-valid')).toBeNull();
+  });
+});
+
+/**
+ * Test for localDate function
+ */
+describe('localDate', () => {
+  it('should parse date string as local midnight Date', () => {
+    const d = utils.localDate('2024-01-15');
+    expect(d).toBeInstanceOf(Date);
+    expect(d.getFullYear()).toBe(2024);
+    expect(d.getMonth()).toBe(0); // January is 0
+    expect(d.getDate()).toBe(15);
+  });
+
+  it('should return null for invalid date string', () => {
+    expect(utils.localDate('not-a-date')).toBeNull();
+    expect(utils.localDate('')).toBeNull();
+  });
+
+  it('should return null for non-string input', () => {
+    expect(utils.localDate(null)).toBeNull();
+    expect(utils.localDate(undefined)).toBeNull();
+  });
+});
+
+/**
+ * Test for formatDate function
+ */
+describe('formatDate', () => {
+  it('should return dash for null/undefined', () => {
+    expect(utils.formatDate(null)).toBe('-');
+    expect(utils.formatDate(undefined)).toBe('-');
+  });
+
+  it('should format date-only string', () => {
+    const result = utils.formatDate('2024-01-15');
+    expect(typeof result).toBe('string');
+    expect(result).not.toBe('-');
+  });
+
+  it('should format datetime string', () => {
+    const result = utils.formatDate('2024-01-15T14:30:00');
+    expect(typeof result).toBe('string');
+    expect(result).not.toBe('-');
+  });
+});
+
+/**
+ * Test for formatDateTime function
+ */
+describe('formatDateTime', () => {
+  it('should return dash for null/undefined', () => {
+    expect(utils.formatDateTime(null)).toBe('-');
+    expect(utils.formatDateTime(undefined)).toBe('-');
+  });
+
+  it('should format a datetime string', () => {
+    const result = utils.formatDateTime('2024-01-15T14:30:00');
+    expect(typeof result).toBe('string');
+    expect(result).not.toBe('-');
+  });
+
+  it('should return dash for invalid input', () => {
+    expect(utils.formatDateTime('not-a-date')).toBe('-');
+  });
+});
+
+/**
  * Test for badgeClass function
  */
 describe('badgeClass', () => {
