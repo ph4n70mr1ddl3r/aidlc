@@ -295,8 +295,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
 
     const updateProject = db.transaction(() => {
-      _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
+      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
         budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeOwnerId, id);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
       recalcProjectProgress(db, id);
     });
     updateProject();
@@ -305,6 +308,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('success', 'Project updated successfully');
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Project not found');
+      return res.redirect('/projects');
+    }
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
   }
@@ -469,7 +476,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     }
     const updateTask = db.transaction(() => {
       const params = [title.substring(0, MAX_MEDIUM_STR), description.substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
-      _taskFullUpdateStmt.run(...params);
+      const result = _taskFullUpdateStmt.run(...params);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
       recalcProjectProgress(db, projectId);
     });
     updateTask();
@@ -478,6 +488,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     req.flash('success', 'Task updated');
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Task not found');
+      return res.redirect(`/projects/${projectId}`);
+    }
     console.error('Project task update error:', err.message);
     req.flash('error', 'Error updating task');
   }

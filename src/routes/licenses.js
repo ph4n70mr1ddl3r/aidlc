@@ -224,9 +224,13 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     // If license_key field was left blank on edit, preserve the existing key
     const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || existing.license_key;
 
-    _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
+    const result = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
       seats, used,
       safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null, id);
+    if (result.changes === 0) {
+      req.flash('error', 'License not found');
+      return res.redirect('/licenses');
+    }
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

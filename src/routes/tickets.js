@@ -396,7 +396,11 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     const shouldSet = isNowResolved && !wasResolved ? 1 : 0;
     const shouldClear = !isNowResolved && wasResolved ? 1 : 0;
 
-    _updateTicketStmt.run(...params, shouldSet, shouldClear, id);
+    const result = _updateTicketStmt.run(...params, shouldSet, shouldClear, id);
+    if (result.changes === 0) {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
