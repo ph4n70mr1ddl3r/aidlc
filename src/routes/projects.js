@@ -50,10 +50,11 @@ const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE proj
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
 const _deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
 
-// Cached prepared statements for project update
+// Cached prepared statement for project update (progress is set by recalcProjectProgress
+// immediately after, so it is intentionally excluded to avoid a double-write)
 const _projectUpdateStmt = db.prepare(`
     UPDATE projects SET name = ?, description = ?, status = ?, priority = ?,
-      start_date = ?, end_date = ?, budget = ?, spent = ?, progress = ?, owner_id = ?,
+      start_date = ?, end_date = ?, budget = ?, spent = ?, owner_id = ?,
       updated_at = datetime('now')
     WHERE id = ?
   `);
@@ -295,9 +296,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
     const updateProject = db.transaction(() => {
       _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
-        budget ? safePositiveFloat(budget, 0) : 0, safeSpent, existingProject.progress, safeOwnerId, id);
-      // Recalculate progress from tasks to keep it consistent — manual progress
-      // would be overwritten by task CRUD operations via recalcProjectProgress anyway.
+        budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeOwnerId, id);
       recalcProjectProgress(db, id);
     });
     updateProject();

@@ -135,6 +135,14 @@ const createStaffLimiter = rateLimit({
   legacyHeaders: false
 });
 
+const staffWriteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: 'Too many staff update operations. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Create staff
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
   const username = trim(req.body.username).toLowerCase();
@@ -260,7 +268,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
 });
 
 // Update staff
-router.put('/:id', requireAdminOrManager, (req, res) => {
+router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');

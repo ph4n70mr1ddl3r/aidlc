@@ -562,13 +562,8 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
   }
 
   try {
-    let changes = 0;
-    const deleteStmt = db.transaction(() => {
-      const result = _deleteTicketStmt.run(id);
-      changes = result.changes;
-    });
-    deleteStmt();
-    if (changes === 0) {
+    const result = _deleteTicketStmt.run(id);
+    if (result.changes === 0) {
       req.flash('error', 'Ticket not found');
     } else {
       req.audit('delete', 'ticket', id, 'Deleted ticket');

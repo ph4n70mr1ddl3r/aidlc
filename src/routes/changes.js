@@ -256,9 +256,14 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   try {
-    _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+    const result = _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
       sSchedStart, sSchedEnd, sActStart, sActEnd,
       (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
+
+    if (result.changes === 0) {
+      req.flash('error', 'Change not found');
+      return res.redirect('/changes');
+    }
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
