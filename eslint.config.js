@@ -46,6 +46,14 @@ module.exports = [
     }
   },
   {
+    files: ['tests/**/*.test.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest
+      }
+    }
+  },
+  {
     ignores: ['node_modules/', 'views/', 'data/', '*.md', 'package-lock.json', 'public/css/']
   }
 ];

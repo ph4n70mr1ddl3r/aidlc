@@ -406,7 +406,9 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-server.listen(PORT);
+if (require.main === module) {
+  server.listen(PORT);
+}
 
 server.on('listening', () => {
   console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);

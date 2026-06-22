@@ -6,6 +6,9 @@ const _ps = parseInt(process.env.PAGE_SIZE, 10);
 const DEFAULT_PAGE_SIZE = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : 25;
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
+const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT']);
+const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
+
 /**
  * Parse pagination params from query string
  */
@@ -145,7 +148,6 @@ function addSearch(where, params, search, columns) {
     return;
   }
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
-  const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
   for (const c of columns) {
     if (!SAFE_COLUMN_RE.test(c)) {
       throw new Error(`Invalid column name in addSearch: ${c}`);
@@ -477,7 +479,6 @@ function titleCase(value) {
   if (!value || typeof value !== 'string') {
     return '';
   }
-  const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT']);
   return value.replace(/_/g, ' ').replace(/\b\w+/g, word => {
     const upper = word.toUpperCase();
     if (ACRONYMS.has(upper)) {
@@ -556,7 +557,7 @@ function countQuery(db, baseTable, alias, whereClause, params) {
  * @returns {boolean}
  */
 function isPrivileged(user) {
-  return user && (user.role === 'admin' || user.role === 'manager');
+  return Boolean(user && (user.role === 'admin' || user.role === 'manager'));
 }
 
 // Map a value to a badge severity class using a whitelist mapping.
@@ -570,4 +571,4 @@ const CONDITION_BADGE = { new: 'low', good: 'low', fair: 'medium', poor: 'critic
 const CHANGE_TYPE_BADGE = { security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' };
 const ROLE_BADGE = { admin: 'critical', manager: 'high', staff: 'medium' };
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };
