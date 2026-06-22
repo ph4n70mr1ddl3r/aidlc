@@ -74,7 +74,7 @@ jest.mock('../src/utils', () => ({
 }));
 
 jest.mock('../src/constants', () => ({
-  SESSION_COOKIE: 'connect.sid',
+  SESSION_COOKIE: 'itm_sid',
   MIN_PASSWORD: 12,
   MAX_PASSWORD: 128,
   MAX_USERNAME: 50,

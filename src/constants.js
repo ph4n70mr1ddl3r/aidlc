@@ -40,7 +40,7 @@ const USER_ROLES = ['admin','manager','staff'];
 
 // Session cookie name — single source of truth so auth middleware and routes
 // stay in sync if the name ever changes.
-const SESSION_COOKIE = 'connect.sid';
+const SESSION_COOKIE = 'itm_sid';
 
 // ---------------------------------------------------------------------------
 // Shared max-length constants for input validation
