@@ -45,7 +45,8 @@ const _showMembersStmt = db.prepare(`
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
   `);
-const _projectExistStmt = db.prepare('SELECT spent, progress FROM projects WHERE id = ?');
+const _projectEditStmt = db.prepare('SELECT spent, progress FROM projects WHERE id = ?');
+const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
 const _deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
@@ -273,7 +274,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   try {
     // Verify project exists before updating
-    const existingProject = _projectExistStmt.get(id);
+    const existingProject = _projectEditStmt.get(id);
     if (!existingProject) {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
@@ -358,7 +359,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   }
 
   // Verify the project exists before inserting a task
-  const projectExists = _projectExistStmt.get(projectId);
+  const projectExists = _projectExistsStmt.get(projectId);
   if (!projectExists) {
     req.flash('error', 'Project not found');
     return res.redirect('/projects');

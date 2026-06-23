@@ -747,3 +747,58 @@ describe('recalcProjectProgress', () => {
     expect(db.prepare).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Test for countQuery with empty result
+ */
+describe('countQuery with no matches', () => {
+  it('should return 0 when no rows match', () => {
+    const t = 'tbl_empty_' + Date.now();
+    const stmt = { get: jest.fn(() => ({ c: 0 })) };
+    const mockDb = { prepare: jest.fn(() => stmt) };
+    const result = utils.countQuery(mockDb, t, '', '1=0', []);
+    expect(result).toBe(0);
+  });
+});
+
+/**
+ * Additional edge case tests for formatDate
+ */
+describe('formatDate with T-separator datetime', () => {
+  it('should handle ISO datetime with T separator', () => {
+    const result = utils.formatDate('2024-01-15T14:30:00');
+    expect(typeof result).toBe('string');
+    expect(result).not.toBe('-');
+  });
+
+  it('should return dash for invalid input', () => {
+    expect(utils.formatDate('not-a-date')).toBe('-');
+  });
+});
+
+/**
+ * Additional safeDateTimeLocal edge cases
+ */
+describe('safeDateTimeLocal edge cases', () => {
+  it('should return null for undefined', () => {
+    expect(utils.safeDateTimeLocal(undefined)).toBeNull();
+  });
+
+  it('should return null for empty string', () => {
+    expect(utils.safeDateTimeLocal('')).toBeNull();
+  });
+});
+
+/**
+ * Test for titleCase with acronym suffixes
+ */
+describe('titleCase with acronym suffixes', () => {
+  it('should handle acronym with lowercase suffix (SOPs, APIv2)', () => {
+    expect(utils.titleCase('sops_guidelines')).toBe('SOPs Guidelines');
+    expect(utils.titleCase('api_v2_docs')).toBe('API V2 Docs');
+  });
+
+  it('should not split words containing acronyms (SOPHISTICATED)', () => {
+    expect(utils.titleCase('sophisticated_approach')).toBe('Sophisticated Approach');
+  });
+});

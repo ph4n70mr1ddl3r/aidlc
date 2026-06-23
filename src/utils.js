@@ -499,6 +499,9 @@ function titleCase(value) {
         if (next >= 'A' && next <= 'Z') {
           continue;
         }
+        if (word === word.toLowerCase() && word.length - i > 2) {
+          continue;
+        }
         return prefix + word.slice(i);
       }
     }

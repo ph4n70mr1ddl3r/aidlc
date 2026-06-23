@@ -60,6 +60,7 @@ const MAX_ADDRESS = 500;          // vendor address
 const MIN_PASSWORD = 12;          // password minimum length
 const MAX_PASSWORD = 128;         // password max length
 const MAX_SEARCH = 100;           // search box input (list filters)
+const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX
 
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
@@ -72,5 +73,5 @@ module.exports = {
   USER_ROLES,
   SESSION_COOKIE,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
-  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH
+  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG
 };

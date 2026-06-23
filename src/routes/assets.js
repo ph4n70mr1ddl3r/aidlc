@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
-const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES } = require('../constants');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -176,7 +176,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     // Generate asset tag atomically using dedicated counter table
     const createAsset = db.transaction(() => {
       const counterRow = _assetCounterGetStmt.get();
-      const asset_tag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
+      const asset_tag = ('AST-' + String(counterRow.next_seq).padStart(3, '0')).substring(0, MAX_ASSET_TAG);
 
       const result = _insertStmt.run(
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
@@ -268,7 +268,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (!/^AST-\d{3,}$/.test(asset_tag) || asset_tag.length > 50) {
+  if (!/^AST-\d{3,}$/.test(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
     req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }
@@ -326,7 +326,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
 
     const result = _updateStmt.run(
-      asset_tag.substring(0, 50), name.substring(0, MAX_MEDIUM_STR), category,
+      asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
       (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
       (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
       safeDate(purchase_date), safePositiveFloat(purchase_price),
