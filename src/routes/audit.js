@@ -1,6 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { paginate, paginationBaseUrl, buildFilters, countQuery, safeSort } = require('../utils');
+const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager);
@@ -9,9 +10,6 @@ const SORT_MAP = {
   newest: 'a.created_at DESC',
   oldest: 'a.created_at ASC'
 };
-
-const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'read', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
-const ALLOWED_ENTITY_TYPES = ['user', 'ticket', 'asset', 'project', 'project_task', 'project_member', 'vendor', 'knowledge_article', 'license', 'change'];
 
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);

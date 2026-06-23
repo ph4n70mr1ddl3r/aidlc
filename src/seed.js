@@ -11,6 +11,11 @@ if (process.env.NODE_ENV === 'production') {
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
 
+// Seed passwords from env (with dev-only defaults). Set SEED_ADMIN_PASSWORD
+// and SEED_PASSWORD in .env to override; never rely on defaults in shared or CI environments.
+const SEED_ADMIN_PW = process.env.SEED_ADMIN_PASSWORD || 'Admin@2026!!';
+const SEED_STAFF_PW = process.env.SEED_PASSWORD || 'Staff@2026!!';
+
 console.log('Seeding database...\n');
 
 // Wrap entire seed in a transaction
@@ -37,12 +42,12 @@ const seed = db.transaction(() => {
   // USERS
   // ========================
   const users = [
-    { username: 'admin', password: 'Admin@2026!!', email: 'admin@company.com', first_name: 'Sarah', last_name: 'Chen', role: 'admin', department: 'IT', phone: '555-0101' },
-    { username: 'jwilliams', password: 'Staff@2026!!', email: 'j.williams@company.com', first_name: 'James', last_name: 'Williams', role: 'manager', department: 'IT', phone: '555-0102' },
-    { username: 'mpatel', password: 'Staff@2026!!', email: 'm.patel@company.com', first_name: 'Maya', last_name: 'Patel', role: 'staff', department: 'IT', phone: '555-0103' },
-    { username: 'trodriguez', password: 'Staff@2026!!', email: 't.rodriguez@company.com', first_name: 'Tomás', last_name: 'Rodriguez', role: 'staff', department: 'IT', phone: '555-0104' },
-    { username: 'akimura', password: 'Staff@2026!!', email: 'a.kimura@company.com', first_name: 'Aiko', last_name: 'Kimura', role: 'staff', department: 'IT', phone: '555-0105' },
-    { username: 'dmuller', password: 'Staff@2026!!', email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' }
+    { username: 'admin', password: SEED_ADMIN_PW, email: 'admin@company.com', first_name: 'Sarah', last_name: 'Chen', role: 'admin', department: 'IT', phone: '555-0101' },
+    { username: 'jwilliams', password: SEED_STAFF_PW, email: 'j.williams@company.com', first_name: 'James', last_name: 'Williams', role: 'manager', department: 'IT', phone: '555-0102' },
+    { username: 'mpatel', password: SEED_STAFF_PW, email: 'm.patel@company.com', first_name: 'Maya', last_name: 'Patel', role: 'staff', department: 'IT', phone: '555-0103' },
+    { username: 'trodriguez', password: SEED_STAFF_PW, email: 't.rodriguez@company.com', first_name: 'Tomás', last_name: 'Rodriguez', role: 'staff', department: 'IT', phone: '555-0104' },
+    { username: 'akimura', password: SEED_STAFF_PW, email: 'a.kimura@company.com', first_name: 'Aiko', last_name: 'Kimura', role: 'staff', department: 'IT', phone: '555-0105' },
+    { username: 'dmuller', password: SEED_STAFF_PW, email: 'd.muller@company.com', first_name: 'Dieter', last_name: 'Müller', role: 'staff', department: 'IT', phone: '555-0106' }
   ];
 
   const insertUser = db.prepare(`
@@ -308,8 +313,8 @@ seed();
 
 console.log('\n🎉 Seeding complete!\n');
 console.log('Default login credentials:');
-console.log('  Admin:    admin / Admin@2026!!');
-console.log('  Manager:  jwilliams / Staff@2026!!');
-console.log('  Staff:    mpatel / Staff@2026!!\n');
+console.log('  Admin:    admin / ' + SEED_ADMIN_PW);
+console.log('  Manager:  jwilliams / ' + SEED_STAFF_PW);
+console.log('  Staff:    mpatel / ' + SEED_STAFF_PW + '\n');
 
 db.close();

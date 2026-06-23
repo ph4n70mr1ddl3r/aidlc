@@ -13,7 +13,7 @@ const http = require('http');
 const crypto = require('crypto');
 const utilsModule = require('./utils');
 const constantsModule = require('./constants');
-const { SESSION_COOKIE } = constantsModule;
+const { SESSION_COOKIE, SESSION_MAX_AGE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
 
 // ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ app.use(session({
   saveUninitialized: false,
   rolling: true,
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: SESSION_MAX_AGE,
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax'

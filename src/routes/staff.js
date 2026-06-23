@@ -38,7 +38,7 @@ const _projectMembershipsStmt = db.prepare(`
     WHERE pm.user_id = ?
     ORDER BY p.updated_at DESC
   `);
-const _staffRoleStmt = db.prepare('SELECT role, username FROM users WHERE id = ?');
+const _staffRoleStmt = db.prepare('SELECT role, username, is_active FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
@@ -175,6 +175,18 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/staff/new');
   }
+  if (first_name.length > MAX_SHORT_STR) {
+    req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect('/staff/new');
+  }
+  if (last_name.length > MAX_SHORT_STR) {
+    req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect('/staff/new');
+  }
+  if (email.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect('/staff/new');
+  }
   if (department && department.length > MAX_SHORT_STR) {
     req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/staff/new');
@@ -288,6 +300,18 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/staff/${id}/edit`);
   }
+  if (first_name.length > MAX_SHORT_STR) {
+    req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (last_name.length > MAX_SHORT_STR) {
+    req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (email.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect(`/staff/${id}/edit`);
+  }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/staff/${id}/edit`);
@@ -324,10 +348,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'You cannot modify administrator accounts');
     return res.redirect('/staff');
   }
-  // Always keep is_active = 1 on the edit form. Deactivation must go through
-  // the dedicated DELETE route which also unassigns tickets/tasks atomically.
-  // Prevents bypassing the unassignment logic via the edit form.
-  const safeIsActive = 1;
+  // Preserve existing is_active on edit. Deactivation must go through the
+  // dedicated DELETE route which also unassigns tickets/tasks atomically.
+  // Setting is_active=0 via the edit form would bypass the unassignment logic,
+  // but setting it to 1 would inadvertently reactivate a deactivated user.
+  // Instead, keep the current value and warn the editor.
+  const safeIsActive = targetUser.is_active;
+  if (!targetUser.is_active) {
+    req.flash('info', 'This account is deactivated. Editing will not reactivate it — use the Reactivate button on the show page.');
+  }
 
   try {
     const result = _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,

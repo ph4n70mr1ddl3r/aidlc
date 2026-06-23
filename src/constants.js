@@ -42,6 +42,14 @@ const USER_ROLES = ['admin','manager','staff'];
 // stay in sync if the name ever changes.
 const SESSION_COOKIE = 'itm_sid';
 
+// Session max-age (24 hours, in milliseconds)
+const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
+
+// Audit log filter whitelists — kept in constants so they stay in sync
+// if new actions or entity types are added across route files.
+const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'read', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
+const ALLOWED_ENTITY_TYPES = ['user', 'ticket', 'asset', 'project', 'project_task', 'project_member', 'vendor', 'knowledge_article', 'license', 'change'];
+
 // ---------------------------------------------------------------------------
 // Shared max-length constants for input validation
 // These are the single source of truth for all substring truncation limits
@@ -71,7 +79,8 @@ module.exports = {
   CHANGE_TYPES, CHANGE_STATUSES, CHANGE_PRIORITIES,
   LICENSE_TYPES,
   USER_ROLES,
-  SESSION_COOKIE,
+  SESSION_COOKIE, SESSION_MAX_AGE,
+  ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG
 };
