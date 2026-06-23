@@ -389,7 +389,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
 });
 
 // Reactivate staff (dedicated route — no hidden-field tampering risk)
-router.put('/:id/reactivate', requireAdmin, (req, res) => {
+const reactivateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many reactivation attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');

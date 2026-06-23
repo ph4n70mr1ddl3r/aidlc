@@ -468,7 +468,15 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
 });
 
 // Quick status update
-router.put('/:id/status', (req, res) => {
+const statusUpdateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: 'Too many status updates. Please slow down.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid ticket ID');
@@ -517,7 +525,15 @@ router.put('/:id/status', (req, res) => {
 });
 
 // Satisfaction rating (admin/manager only, resolved/closed tickets only)
-router.put('/:id/satisfaction', requireAdminOrManager, (req, res) => {
+const satisfactionLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Too many rating submissions. Please slow down.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid ticket ID');
