@@ -424,7 +424,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
       clearLoginFailure(target.username);
     }
 
-    req.audit('update', 'user', id, 'Reactivated user account');
+    req.audit('reactivate', 'user', id, 'Reactivated user account');
     invalidateDashboardCache();
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
@@ -498,10 +498,9 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // takes effect immediately instead of waiting for lockout expiry.
   if (targetUser.username) {
     clearLoginFailure(targetUser.username);
-    req.audit('update', 'user', id, `Cleared login lockout for ${targetUser.username} after password reset`);
   }
 
-  req.audit('update', 'user', id, 'Password reset by admin');
+  req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
   req.flash('success', 'Password reset successfully');
   res.redirect(`/staff/${id}`);
 }));
