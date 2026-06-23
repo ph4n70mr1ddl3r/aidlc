@@ -506,8 +506,17 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   res.redirect(`/staff/${id}`);
 }));
 
+// Rate limit staff deactivation (bcrypt DoS, account lockout bypass)
+const deactivateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many deactivation attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Delete staff (soft delete — deactivate)
-router.delete('/:id', requireAdmin, (req, res) => {
+router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');

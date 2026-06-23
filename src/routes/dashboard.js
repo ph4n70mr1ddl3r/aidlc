@@ -186,20 +186,7 @@ function invalidateDashboardCache() {
 router.get('/', (req, res) => {
   const data = getDashboardData(req.session.user);
 
-  res.render('pages/dashboard', {
-    title: 'Dashboard',
-    ticketStats: data.ticketStats,
-    assetStats: data.assetStats,
-    projectStats: data.projectStats,
-    staffCount: data.staffCount,
-    recentTickets: data.recentTickets,
-    myTickets: data.myTickets,
-    expiringWarranties: data.expiringWarranties,
-    upcomingChanges: data.upcomingChanges,
-    ticketsByCategory: data.ticketsByCategory,
-    staffWorkload: data.staffWorkload,
-    licenseAlerts: data.licenseAlerts
-  });
+  res.render('pages/dashboard', { title: 'Dashboard', ...data });
 });
 
 module.exports = router;
