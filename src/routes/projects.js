@@ -45,7 +45,7 @@ const _showMembersStmt = db.prepare(`
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
   `);
-const _projectEditStmt = db.prepare('SELECT spent FROM projects WHERE id = ?');
+const _projectSpentStmt = db.prepare('SELECT spent FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -274,7 +274,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   try {
     // Verify project exists before updating
-    const existingProject = _projectEditStmt.get(id);
+    const existingProject = _projectSpentStmt.get(id);
     if (!existingProject) {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
@@ -415,8 +415,6 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     return res.redirect('/projects');
   }
 
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
   const { status, priority, assigned_to, due_date } = req.body;
 
   // Defensive: handle quick-status-change forms that only send `status`.
@@ -447,6 +445,9 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     }
     return res.redirect(`/projects/${projectId}`);
   }
+
+  const title = trim(req.body.title);
+  const description = trim(req.body.description);
 
   if (!title) {
     req.flash('error', 'Task title is required');
