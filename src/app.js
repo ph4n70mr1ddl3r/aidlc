@@ -148,8 +148,14 @@ if (!sessionSecret) {
 // In production, MemoryStore is not suitable — load an external store.
 // Set SESSION_STORE to the package name of a connect-compatible session store
 // (e.g. SESSION_STORE=connect-sqlite3). The package must be installed separately.
+// Only module names matching /^(connect-|@[\w-]+\/connect-)/ are accepted to
+// prevent arbitrary code execution via a SESSION_STORE pointing to any module.
 let sessionStore;
 if (process.env.SESSION_STORE) {
+  if (!/^(connect-|@[\w-]+\/connect-)/.test(process.env.SESSION_STORE)) {
+    console.error(`ERROR: SESSION_STORE "${process.env.SESSION_STORE}" does not match expected pattern (must be connect-* or @scope/connect-*)`);
+    process.exit(1);
+  }
   try {
     const StoreModule = require(process.env.SESSION_STORE);
     const Store = typeof StoreModule === 'function' ? StoreModule(session) : StoreModule;

@@ -21,6 +21,13 @@ function _verifySessionUser(req, res) {
     return false;
   }
 
+  // Skip duplicate DB verification within the same request — requireAuth and
+  // requireRole both call _verifySessionUser, but Express middleware runs
+  // synchronously so nothing can change between the two calls.
+  if (req._authVerified) {
+    return true;
+  }
+
   try {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
@@ -29,14 +36,10 @@ function _verifySessionUser(req, res) {
         if (err) {
           console.error('Session destroy error (deactivated):', err.message);
         }
-        // Only redirect after session is destroyed to avoid race conditions
         res.redirect('/login?reason=deactivated');
       });
       return false;
     }
-    // Invalidate session if password was changed after login.
-    // Also handles the case where password_changed_at was NULL at login
-    // (e.g. seed users) and is now set after an admin password reset.
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
       res.clearCookie(SESSION_COOKIE);
       req.flash('error', 'Your session has expired. Please log in again.');
@@ -44,24 +47,21 @@ function _verifySessionUser(req, res) {
         if (err) {
           console.error('Session destroy error (password changed):', err.message);
         }
-        // Only redirect after session is destroyed to avoid race conditions
         res.redirect('/login');
       });
       return false;
     }
-    // Keep session role in sync (admin may have changed it).
-    // Full reassign to ensure session modified flag fires with resave:false.
     if (row.role !== req.session.user.role) {
       req.session.user = { ...req.session.user, role: row.role };
     }
   } catch (err) {
-    // Fail closed — if we can't verify the session, treat it as unauthenticated.
     console.error('Auth DB check error:', err.message);
     req.flash('error', 'Session verification failed. Please log in again.');
     res.redirect('/login');
     return false;
   }
 
+  req._authVerified = true;
   return true;
 }
 
