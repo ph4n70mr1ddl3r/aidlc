@@ -452,13 +452,15 @@ process.on('unhandledRejection', (reason) => {
   // In production, exit after an unhandled rejection to prevent undefined state.
   // The process is in an indeterminate state and continuing may cause silent data corruption.
   if (process.env.NODE_ENV === 'production') {
-    setTimeout(() => process.exit(1), 1000);
+    const timer = setTimeout(() => process.exit(1), 1000);
+    timer.unref();
   }
 });
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   // Always exit after an uncaught exception — the process is in an undefined state.
-  setTimeout(() => process.exit(1), 1000);
+  const timer = setTimeout(() => process.exit(1), 1000);
+  timer.unref();
 });
 
 module.exports = app;

@@ -308,13 +308,17 @@ const seed = db.transaction(() => {
   console.log(`✅ Created ${comments.length} ticket comments`);
 });
 
-// Execute the transaction
-seed();
-
-console.log('\n🎉 Seeding complete!\n');
-console.log('Default login credentials:');
-console.log('  Admin:    admin / ' + SEED_ADMIN_PW);
-console.log('  Manager:  jwilliams / ' + SEED_STAFF_PW);
-console.log('  Staff:    mpatel / ' + SEED_STAFF_PW + '\n');
-
-db.close();
+// Execute the transaction — ensure db.close() runs even if seed fails
+try {
+  seed();
+  console.log('\n🎉 Seeding complete!\n');
+  console.log('Default login credentials:');
+  console.log('  Admin:    admin / ' + SEED_ADMIN_PW);
+  console.log('  Manager:  jwilliams / ' + SEED_STAFF_PW);
+  console.log('  Staff:    mpatel / ' + SEED_STAFF_PW + '\n');
+} catch (err) {
+  console.error('Seeding failed:', err.message);
+  process.exitCode = 1;
+} finally {
+  db.close();
+}
