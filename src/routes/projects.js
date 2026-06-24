@@ -279,7 +279,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
     }
-    const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, 0) : existingProject.spent;
+    const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, null) : null;
+    // Preserve the existing spent value when the field is empty OR invalid
+    // (e.g. a non-numeric value from a crafted request). An explicit "0"
+    // still updates spent to 0 — only absent/garbage input keeps the prior value.
+    const preservedSpent = safeSpent !== null ? safeSpent : existingProject.spent;
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
@@ -297,7 +301,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
     const updateProject = db.transaction(() => {
       const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
-        budget ? safePositiveFloat(budget, 0) : 0, safeSpent, safeOwnerId, id);
+        budget ? safePositiveFloat(budget, 0) : 0, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }

@@ -4,8 +4,10 @@
 <form method="GET" action="/audit" class="filter-bar">
   <select name="action" aria-label="Filter by action">
     <option value="">All Actions</option>
-    <% ['create', 'update', 'delete', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'].forEach(a => { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a.replace(/_/g, ' ') %></option><% }) %></select>
-  <input type="text" name="entity_type" class="search-input" autocomplete="off" placeholder="Entity type..." aria-label="Entity type" value="<%= filters.entity_type || '' %>">
+    <% CONSTANTS.ALLOWED_ACTIONS.forEach(a => { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a.replace(/_/g, ' ') %></option><% }) %></select>
+  <select name="entity_type" aria-label="Filter by entity type">
+    <option value="">All Entities</option>
+    <% CONSTANTS.ALLOWED_ENTITY_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.entity_type === t ? 'selected' : '' %>><%= t.replace(/_/g, ' ') %></option><% }) %></select>
   <select name="sort" aria-label="Sort order"><option value="newest" <%= filters.sort === 'newest' || !filters.sort ? 'selected' : '' %>>Newest First</option><option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/audit" class="btn btn-sm btn-outline">Clear</a>
