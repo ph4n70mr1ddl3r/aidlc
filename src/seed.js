@@ -91,7 +91,7 @@ const seed = db.transaction(() => {
   }
   // Initialize asset counter to prevent AST-001 collision with the next created asset
   const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = ?');
-  initAssetCounter.run(assets.length + 1, assets.length + 1);
+  initAssetCounter.run(assets.length, assets.length);
   console.log(`✅ Created ${assets.length} assets`);
 
   // ========================

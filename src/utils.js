@@ -6,7 +6,7 @@ const _ps = parseInt(process.env.PAGE_SIZE, 10);
 const DEFAULT_PAGE_SIZE = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : 25;
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
-const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT']);
+const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT', 'JSON', 'HTML', 'HTTP', 'HTTPS', 'CLI', 'GUI', 'SQL', 'CSV', 'XML', 'YAML', 'PDF', 'BIOS', 'USB', 'CPU', 'GPU', 'RAM', 'SSD', 'HDD']);
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
 
 /**
