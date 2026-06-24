@@ -133,6 +133,22 @@ describe('buildFilters', () => {
     expect(result.where).toEqual(['"status" = ?']);
     expect(result.params).toEqual(['active']);
   });
+
+  it('should support custom operators', () => {
+    const filters = { count: { value: 5, operator: '>' } };
+    const allowedColumns = ['count'];
+    const result = utils.buildFilters(filters, allowedColumns);
+    expect(result.where).toEqual(['"count" > ?']);
+    expect(result.params).toEqual([5]);
+  });
+
+  it('should skip invalid operators', () => {
+    const filters = { count: { value: 5, operator: 'INJECT' } };
+    const allowedColumns = ['count'];
+    const result = utils.buildFilters(filters, allowedColumns);
+    expect(result.where).toEqual([]);
+    expect(result.params).toEqual([]);
+  });
 });
 
 /**
@@ -228,6 +244,11 @@ describe('safeInt', () => {
     expect(utils.safeInt(1.5, -1)).toBe(-1);
   });
 
+  it('should reject string arrays (parameter pollution)', () => {
+    expect(utils.safeInt(['123'], 0)).toBe(0);
+    expect(utils.safeInt(['123', '456'])).toBe(0);
+  });
+
   it('should accept integer number inputs', () => {
     expect(utils.safeInt(42)).toBe(42);
     expect(utils.safeInt(0, 10)).toBe(0);
@@ -264,6 +285,12 @@ describe('isValidDate', () => {
     expect(utils.isValidDate('2024-02-30')).toBe(false);
     expect(utils.isValidDate('not-a-date')).toBe(false);
   });
+
+  it('should reject null/undefined/non-string', () => {
+    expect(utils.isValidDate(null)).toBe(false);
+    expect(utils.isValidDate(undefined)).toBe(false);
+    expect(utils.isValidDate(12345)).toBe(false);
+  });
 });
 
 /**
@@ -299,6 +326,15 @@ describe('titleCase', () => {
   it('should handle null/undefined', () => {
     expect(utils.titleCase(null)).toBe('');
     expect(utils.titleCase(undefined)).toBe('');
+  });
+
+  it('should handle double underscores', () => {
+    expect(utils.titleCase('first__name')).toBe('First  Name');
+  });
+
+  it('should handle non-string values', () => {
+    expect(utils.titleCase(123)).toBe('');
+    expect(utils.titleCase('')).toBe('');
   });
 });
 
@@ -414,6 +450,11 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(undefined, 10)).toBe(10);
     expect(utils.safePositiveFloat(null, 5)).toBe(5);
   });
+
+  it('should reject array input (parameter pollution)', () => {
+    expect(utils.safePositiveFloat(['1.5'], 0)).toBe(0);
+    expect(utils.safePositiveFloat(['1.5', '2.5'])).toBeNull();
+  });
 });
 
 /**
@@ -443,6 +484,15 @@ describe('sanitizePhone', () => {
   it('should return null for empty input', () => {
     expect(utils.sanitizePhone('')).toBeNull();
     expect(utils.sanitizePhone(null)).toBeNull();
+  });
+
+  it('should keep extension characters x, X, #', () => {
+    const result = utils.sanitizePhone('555-1234 x123');
+    expect(result).toBe('555-1234 x123');
+    const result2 = utils.sanitizePhone('555-1234 X456');
+    expect(result2).toBe('555-1234 X456');
+    const result3 = utils.sanitizePhone('555-1234 #789');
+    expect(result3).toBe('555-1234 #789');
   });
 });
 

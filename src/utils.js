@@ -185,6 +185,10 @@ function safePositiveFloat(value, fallback = null) {
   if (value === undefined || value === null || value === '') {
     return fallback;
   }
+  // Reject arrays from HTTP parameter pollution
+  if (Array.isArray(value)) {
+    return fallback;
+  }
   const n = parseFloat(value);
   if (!Number.isFinite(n) || n < 0) {
     return fallback;
