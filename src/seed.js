@@ -11,10 +11,19 @@ if (process.env.NODE_ENV === 'production') {
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
 
-// Seed passwords from env (with dev-only defaults). Set SEED_ADMIN_PASSWORD
-// and SEED_PASSWORD in .env to override; never rely on defaults in shared or CI environments.
-const SEED_ADMIN_PW = process.env.SEED_ADMIN_PASSWORD || 'Admin@2026!!';
-const SEED_STAFF_PW = process.env.SEED_PASSWORD || 'Staff@2026!!';
+// Seed passwords: prefer env vars, otherwise generate strong random passwords.
+// NEVER hardcode default passwords — they would be visible to everyone with repo access.
+const crypto = require('crypto');
+
+function _generateSeedPassword(label) {
+  const pw = crypto.randomBytes(12).toString('base64') + 'Aa1!';
+  console.warn(`WARNING: No ${label} set via environment. Generated random password: ${pw}`);
+  console.warn(`  Set ${label} in .env to suppress this warning and use a fixed password.`);
+  return pw;
+}
+
+const SEED_ADMIN_PW = process.env.SEED_ADMIN_PASSWORD || _generateSeedPassword('SEED_ADMIN_PASSWORD');
+const SEED_STAFF_PW = process.env.SEED_PASSWORD || _generateSeedPassword('SEED_PASSWORD');
 
 console.log('Seeding database...\n');
 

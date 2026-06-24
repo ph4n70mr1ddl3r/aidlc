@@ -533,6 +533,44 @@ function asyncHandler(fn) {
   };
 }
 
+/**
+ * Calculate the number of days between today and a date string (YYYY-MM-DD).
+ * Negative means the date is in the past. Returns null for invalid input.
+ */
+function daysUntil(dateStr) {
+  const d = localDate(dateStr);
+  if (!d) {
+    return null;
+  }
+  const today = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  return Math.round((d - today) / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Calculate seat/license usage as a percentage (0-100).
+ * Returns 0 when total is 0 or invalid.
+ */
+function usagePercent(used, total) {
+  const u = Number(used);
+  const t = Number(total);
+  if (!Number.isFinite(t) || t <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(u) || u < 0) {
+    return 0;
+  }
+  return Math.min(100, Math.round((u / t) * 100));
+}
+
+/**
+ * Check if a date string is within N days from today.
+ * Returns false for invalid input.
+ */
+function isExpiringSoon(dateStr, withinDays = 30) {
+  const d = daysUntil(dateStr);
+  return d !== null && d >= 0 && d <= withinDays;
+}
+
 // Cached prepared statements for countQuery — one per base table + where combination.
 // better-sqlite3 caches prepared statements internally, but this avoids the
 // overhead of string-concatenating the SQL and calling prepare() on every request.
@@ -550,12 +588,11 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     _countQueryCache.delete(key);
     _countQueryCache.set(key, stmt);
   } else {
-    while (_countQueryCache.size >= _COUNT_CACHE_MAX) {
+    if (_countQueryCache.size >= _COUNT_CACHE_MAX) {
       const keyToEvict = _countQueryCache.keys().next().value;
-      if (keyToEvict === undefined) {
-        break;
+      if (keyToEvict !== undefined) {
+        _countQueryCache.delete(keyToEvict);
       }
-      _countQueryCache.delete(keyToEvict);
     }
     stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
     _countQueryCache.set(key, stmt);
@@ -590,4 +627,16 @@ const CONDITION_BADGE = { new: 'low', good: 'low', fair: 'medium', poor: 'critic
 const CHANGE_TYPE_BADGE = { security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' };
 const ROLE_BADGE = { admin: 'critical', manager: 'high', staff: 'medium' };
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE };
+/**
+ * Reset module-level cached prepared statements (test use only).
+ * Ensures test isolation when using mock db instances.
+ */
+function resetCachedStatements() {
+  _isActiveUserStmt = null;
+  _progressSelectStmt = null;
+  _progressUpdateStmt = null;
+  _activeStaffStmt = null;
+  _countQueryCache.clear();
+}
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };

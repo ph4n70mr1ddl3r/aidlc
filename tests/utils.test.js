@@ -794,6 +794,10 @@ describe('getActiveStaff', () => {
  * Test for recalcProjectProgress function
  */
 describe('recalcProjectProgress', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
   it('should calculate progress from task completion ratio', () => {
     const selectStmt = { get: jest.fn(() => ({ total: 4, done: 3 })) };
     const updateStmt = { run: jest.fn() };
@@ -809,12 +813,17 @@ describe('recalcProjectProgress', () => {
   });
 
   it('should handle zero tasks (progress = 0)', () => {
-    // Module-level caching means the select and update stmts from the
-    // previous test are already cached, so the new mock db's prepare
-    // won't be called. The cached updateStmt from above is reused.
-    const db = { prepare: jest.fn() };
+    const selectStmt = { get: jest.fn(() => ({ total: 0, done: 0 })) };
+    const updateStmt = { run: jest.fn() };
+    let callCount = 0;
+    const db = {
+      prepare: jest.fn(() => {
+        callCount++;
+        return callCount === 1 ? selectStmt : updateStmt;
+      })
+    };
     utils.recalcProjectProgress(db, 1);
-    expect(db.prepare).not.toHaveBeenCalled();
+    expect(updateStmt.run).toHaveBeenCalledWith(0, 1);
   });
 });
 
@@ -856,6 +865,121 @@ describe('safeDateTimeLocal edge cases', () => {
 
   it('should return null for empty string', () => {
     expect(utils.safeDateTimeLocal('')).toBeNull();
+  });
+});
+
+/**
+ * Test for daysUntil function
+ */
+describe('daysUntil', () => {
+  it('should return positive number for future date', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 30);
+    const str = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    const result = utils.daysUntil(str);
+    expect(result).toBe(30);
+  });
+
+  it('should return negative number for past date', () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 5);
+    const str = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}-${String(past.getDate()).padStart(2, '0')}`;
+    const result = utils.daysUntil(str);
+    expect(result).toBe(-5);
+  });
+
+  it('should return null for invalid input', () => {
+    expect(utils.daysUntil(null)).toBeNull();
+    expect(utils.daysUntil('not-a-date')).toBeNull();
+  });
+
+  it('should return null for empty string', () => {
+    expect(utils.daysUntil('')).toBeNull();
+  });
+});
+
+/**
+ * Test for usagePercent function
+ */
+describe('usagePercent', () => {
+  it('should calculate percentage correctly', () => {
+    expect(utils.usagePercent(25, 100)).toBe(25);
+    expect(utils.usagePercent(200, 100)).toBe(100);
+    expect(utils.usagePercent(0, 50)).toBe(0);
+  });
+
+  it('should return 0 when total is 0', () => {
+    expect(utils.usagePercent(10, 0)).toBe(0);
+    expect(utils.usagePercent(0, 0)).toBe(0);
+  });
+
+  it('should cap at 100', () => {
+    expect(utils.usagePercent(150, 100)).toBe(100);
+  });
+
+  it('should handle invalid inputs', () => {
+    expect(utils.usagePercent(null, 100)).toBe(0);
+    expect(utils.usagePercent('abc', 100)).toBe(0);
+    expect(utils.usagePercent(10, null)).toBe(0);
+  });
+});
+
+/**
+ * Test for isExpiringSoon function
+ */
+describe('isExpiringSoon', () => {
+  it('should return true for date within 30 days', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 15);
+    const str = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    expect(utils.isExpiringSoon(str)).toBe(true);
+  });
+
+  it('should return false for date beyond 30 days', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 60);
+    const str = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    expect(utils.isExpiringSoon(str)).toBe(false);
+  });
+
+  it('should return false for past date', () => {
+    const past = new Date();
+    past.setDate(past.getDate() - 1);
+    const str = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}-${String(past.getDate()).padStart(2, '0')}`;
+    expect(utils.isExpiringSoon(str)).toBe(false);
+  });
+
+  it('should return false for invalid input', () => {
+    expect(utils.isExpiringSoon(null)).toBe(false);
+    expect(utils.isExpiringSoon('')).toBe(false);
+  });
+
+  it('should respect custom withinDays parameter', () => {
+    const future = new Date();
+    future.setDate(future.getDate() + 7);
+    const str = `${future.getFullYear()}-${String(future.getMonth() + 1).padStart(2, '0')}-${String(future.getDate()).padStart(2, '0')}`;
+    expect(utils.isExpiringSoon(str, 5)).toBe(false);
+    expect(utils.isExpiringSoon(str, 10)).toBe(true);
+  });
+});
+
+/**
+ * Test for resetCachedStatements function
+ */
+describe('resetCachedStatements', () => {
+  it('should clear all cached prepared statements', () => {
+    utils.resetCachedStatements();
+    const selectStmt = { get: jest.fn(() => ({ total: 2, done: 1 })) };
+    const updateStmt = { run: jest.fn() };
+    let callCount = 0;
+    const db = {
+      prepare: jest.fn(() => {
+        callCount++;
+        return callCount === 1 ? selectStmt : updateStmt;
+      })
+    };
+    utils.recalcProjectProgress(db, 1);
+    expect(db.prepare).toHaveBeenCalledTimes(2);
   });
 });
 
