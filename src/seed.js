@@ -17,7 +17,7 @@ const crypto = require('crypto');
 
 function _generateSeedPassword(label) {
   const pw = crypto.randomBytes(12).toString('base64') + 'Aa1!';
-  console.warn(`WARNING: No ${label} set via environment. Generated random password: ${pw}`);
+  console.warn(`WARNING: No ${label} set via environment — using a randomly generated password.`);
   console.warn(`  Set ${label} in .env to suppress this warning and use a fixed password.`);
   return pw;
 }

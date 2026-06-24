@@ -15,6 +15,7 @@ document.querySelectorAll('.flash').forEach(function (el) {
 
 // Prevent double-submit on all forms that submit via POST/PUT/DELETE
 // (any form with a CSRF token is a mutating form)
+let formReenableAttached = false;
 document.addEventListener('submit', function (e) {
   const form = e.target;
   if (form.tagName !== 'FORM') {
@@ -52,8 +53,8 @@ document.addEventListener('submit', function (e) {
       delete f.dataset.submitted;
     });
   }
-  if (!window._formReenableAttached) {
-    window._formReenableAttached = true;
+  if (!formReenableAttached) {
+    formReenableAttached = true;
     // Catch JS runtime errors and unhandled rejections
     window.addEventListener('error', _reenableButtons);
     window.addEventListener('unhandledrejection', _reenableButtons);
