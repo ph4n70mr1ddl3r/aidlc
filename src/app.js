@@ -145,15 +145,27 @@ if (!sessionSecret) {
   console.warn('WARNING: No SESSION_SECRET set — using dev-only fallback (do not use in production)');
 }
 
-// In production, MemoryStore is not suitable — require an external store
-if (process.env.NODE_ENV === 'production' && !process.env.SESSION_STORE) {
-  console.error('ERROR: SESSION_STORE must be set in production (e.g. SESSION_STORE=connect-sqlite). MemoryStore is not suitable for production use.');
-  process.exit(1);
+// In production, MemoryStore is not suitable — load an external store.
+// Set SESSION_STORE to the package name of a connect-compatible session store
+// (e.g. SESSION_STORE=connect-sqlite3). The package must be installed separately.
+let sessionStore;
+if (process.env.SESSION_STORE) {
+  try {
+    const StoreModule = require(process.env.SESSION_STORE);
+    const Store = typeof StoreModule === 'function' ? StoreModule(session) : StoreModule;
+    sessionStore = new Store();
+  } catch (err) {
+    console.error(`ERROR: Failed to load session store "${process.env.SESSION_STORE}": ${err.message}`);
+    process.exit(1);
+  }
+} else if (process.env.NODE_ENV === 'production') {
+  console.warn('WARNING: No SESSION_STORE configured — using MemoryStore which is NOT suitable for production. Set SESSION_STORE to a persistent store (e.g. connect-sqlite3).');
 }
 
 app.use(session({
   name: SESSION_COOKIE,
   secret: sessionSecret,
+  store: sessionStore,
   resave: false,
   saveUninitialized: false,
   rolling: true,
