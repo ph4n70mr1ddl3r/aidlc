@@ -274,6 +274,11 @@ app.use((req, res, next) => {
   res.locals.localDate = utilsModule.localDate;
   res.locals.formatDate = utilsModule.formatDate;
   res.locals.formatDateTime = utilsModule.formatDateTime;
+  // Date/usage helpers used by list/detail templates (licenses index, asset &
+  // project show pages). Without these the templates throw ReferenceError.
+  res.locals.daysUntil = utilsModule.daysUntil;
+  res.locals.usagePercent = utilsModule.usagePercent;
+  res.locals.isExpiringSoon = utilsModule.isExpiringSoon;
   res.locals.titleCase = utilsModule.titleCase;
   res.locals.isPrivileged = utilsModule.isPrivileged;
   res.locals.badgeClass = utilsModule.badgeClass;

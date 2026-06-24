@@ -15,7 +15,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label for="asset_tag">Asset Tag *</label>
-          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="50" required>
+          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" required>
         </div>
         <div class="form-group">
           <label for="name">Name *</label>
