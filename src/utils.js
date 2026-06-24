@@ -203,6 +203,12 @@ function safeInt(value, fallback = 0) {
   if (Array.isArray(value)) {
     return fallback;
   }
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value)) {
+      return fallback;
+    }
+    return value;
+  }
   if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
     return fallback;
   }
@@ -233,7 +239,9 @@ function sanitizePhone(phone) {
   if (!phone || typeof phone !== 'string') {
     return null;
   }
-  const sanitized = phone.replace(/[^\d+\-()\s.xX#]/g, '').trim();
+  // Strip disallowed characters, then collapse internal whitespace so
+  // something like "+1 (555)  123-4567" becomes "+1 (555) 123-4567"
+  const sanitized = phone.replace(/[^\d+\-()\s.xX#]/g, '').trim().replace(/\s+/g, ' ');
   return sanitized || null;
 }
 

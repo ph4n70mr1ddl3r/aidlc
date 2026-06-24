@@ -222,6 +222,16 @@ describe('safeInt', () => {
     expect(utils.safeInt('')).toBe(0);
     expect(utils.safeInt(null)).toBe(0);
   });
+
+  it('should reject float number inputs', () => {
+    expect(utils.safeInt(1.5)).toBe(0);
+    expect(utils.safeInt(1.5, -1)).toBe(-1);
+  });
+
+  it('should accept integer number inputs', () => {
+    expect(utils.safeInt(42)).toBe(42);
+    expect(utils.safeInt(0, 10)).toBe(0);
+  });
 });
 
 /**
@@ -418,6 +428,16 @@ describe('sanitizePhone', () => {
   it('should strip invalid characters', () => {
     const result = utils.sanitizePhone('555-ABC-1234');
     expect(result).toBe('555--1234');
+  });
+
+  it('should normalize internal whitespace', () => {
+    const result = utils.sanitizePhone('+1 (555)  123-4567');
+    expect(result).toBe('+1 (555) 123-4567');
+  });
+
+  it('should handle multiple spaces and leading/trailing whitespace', () => {
+    const result = utils.sanitizePhone('  555  123  4567  ');
+    expect(result).toBe('555 123 4567');
   });
 
   it('should return null for empty input', () => {
