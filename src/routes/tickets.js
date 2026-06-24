@@ -6,7 +6,12 @@ const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
-const { defaultKeyGenerator } = rateLimit;
+
+// express-rate-limit v8 renamed the exported IP key generator from
+// `defaultKeyGenerator` to `ipKeyGenerator`. The library docs recommend
+// `ipKeyGenerator(req.ip)` for the unauthenticated fallback of a custom
+// per-user keyGenerator.
+const { ipKeyGenerator } = rateLimit;
 
 // Rate limit ticket write operations to prevent abuse
 const ticketWriteLimiter = rateLimit({
@@ -17,10 +22,18 @@ const ticketWriteLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Key comment rate-limiting by user id (per-account) so a single user can't
+// be silenced by another's IP, falling back to IP for unauthenticated calls.
+function commentKeyGenerator(req) {
+  return req.session && req.session.user && req.session.user.id
+    ? `user:${req.session.user.id}`
+    : ipKeyGenerator(req.ip);
+}
+
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
-  keyGenerator: (req) => req.session?.user?.id ? `user:${req.session.user.id}` : defaultKeyGenerator(req),
+  keyGenerator: commentKeyGenerator,
   message: 'Too many comments. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false
@@ -598,3 +611,5 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing (the route module is mocked in app.test.js).
+module.exports.commentKeyGenerator = commentKeyGenerator;

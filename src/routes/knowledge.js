@@ -105,7 +105,9 @@ function renderMarkdown(content) {
     return '';
   }
   try {
-    const html = marked.parseSync(content, MARKED_OPTIONS);
+    // marked v18 removed parseSync(); parse() is synchronous unless async
+    // extensions are registered (none here), so it returns a string.
+    const html = marked.parse(content, MARKED_OPTIONS);
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
     // If markdown/sanitization fails, escape the raw content and wrap in a
@@ -403,3 +405,5 @@ router.delete('/:id', requireAdminOrManager, (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing (the route module is mocked in app.test.js).
+module.exports.renderMarkdown = renderMarkdown;
