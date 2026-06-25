@@ -132,10 +132,13 @@ Environment variables (set in `.env`):
 |---|---|---|
 | `PORT` | `3000` | HTTP port |
 | `DB_PATH` | `./data/itmanager.db` | SQLite database path |
-| `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev) |
-| `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev) |
+| `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
+| `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
 | `NODE_ENV` | `development` | `development` or `production` |
 | `TRUST_PROXY` | `0` | Set to `1` when behind a reverse proxy (nginx, etc.) |
+| `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
+| `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
+| `PAGE_SIZE` | `25` | Default page size for paginated list views (max `100`) |
 
 ## Security
 
@@ -151,9 +154,14 @@ Environment variables (set in `.env`):
 ## Scripts
 
 ```bash
-npm start        # Start production server
-npm run dev      # Start with nodemon (auto-reload)
-npm run seed     # Seed database with sample data
+npm start            # Start production server
+npm run dev          # Start with nodemon (auto-reload)
+npm run seed         # Seed database with sample data
+npm run lint         # Lint with ESLint
+npm run lint:fix     # Lint and auto-fix
+npm test             # Run the Jest test suite
+npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with coverage report
 ```
 
 ## License

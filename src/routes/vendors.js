@@ -25,6 +25,14 @@ router.use(requireAuth, auditMiddleware);
  *   - error is a string message or null if valid
  */
 function _validateVendorRating(value) {
+  // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
+  // which parseInt() would silently coerce to its first element ("3,5" -> 3).
+  // Mirrors the array guards in safeId / safeInt / safePositiveFloat. Rating is
+  // optional, so treat a malformed (array) input as "no value" rather than an
+  // error, consistent with how those sanitizers fall back on arrays.
+  if (Array.isArray(value)) {
+    return { value: null, error: null };
+  }
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
@@ -435,3 +443,5 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
+module.exports.validateVendorRating = _validateVendorRating;
