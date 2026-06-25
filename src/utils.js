@@ -3,6 +3,8 @@
  */
 
 const _ps = parseInt(process.env.PAGE_SIZE, 10);
+// Maximum allowed page number to prevent excessively deep pagination offsets
+const MAX_PAGE = 5000;
 const DEFAULT_PAGE_SIZE = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : 25;
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
 
@@ -13,7 +15,7 @@ const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
  * Parse pagination params from query string
  */
 function paginate(req) {
-  const page = Math.max(1, Math.min(5000, parseInt(req.query.page, 10) || 1));
+  const page = Math.max(1, Math.min(MAX_PAGE, parseInt(req.query.page, 10) || 1));
   const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || DEFAULT_PAGE_SIZE));
   const offset = (page - 1) * limit;
   return { page, limit, offset };

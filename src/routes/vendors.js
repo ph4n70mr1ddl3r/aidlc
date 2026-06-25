@@ -24,7 +24,7 @@ router.use(requireAuth, auditMiddleware);
  *   - value is the parsed integer (1-5) or null for empty/optional fields
  *   - error is a string message or null if valid
  */
-function validateVendorRating(value) {
+function _validateVendorRating(value) {
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
@@ -154,7 +154,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = validateVendorRating(rating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
@@ -272,7 +272,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = validateVendorRating(rating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);

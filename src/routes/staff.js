@@ -38,7 +38,7 @@ const _projectMembershipsStmt = db.prepare(`
     WHERE pm.user_id = ?
     ORDER BY p.updated_at DESC
   `);
-const _staffRoleStmt = db.prepare('SELECT role, username, is_active FROM users WHERE id = ?');
+const _staffUserStmt = db.prepare('SELECT role, username, is_active FROM users WHERE id = ?');
 const _reactivateCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
@@ -327,7 +327,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   // Fetch the target user to check their current role
-  const targetUser = _staffRoleStmt.get(id);
+  const targetUser = _staffUserStmt.get(id);
   if (!targetUser) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
@@ -485,7 +485,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   }
 
   // Fetch the target user to get their username for login failure cleanup
-  const targetUser = _staffRoleStmt.get(id);
+  const targetUser = _staffUserStmt.get(id);
   if (!targetUser) {
     req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
