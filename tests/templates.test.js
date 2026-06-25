@@ -107,4 +107,33 @@ describe('templates render without ReferenceError', () => {
     });
     expect(html).toContain('Migrate the database');
   });
+
+  it('changes/form renders stored datetimes into datetime-local inputs with a T separator (regression: space format blanked the field on edit)', () => {
+    // safeDateTimeLocal() stores values in space format ("YYYY-MM-DD HH:MM") so
+    // they compare lexically against SQLite datetime('now'). But a datetime-local
+    // input requires a 'T' separator; a space makes the value non-conforming and
+    // browsers drop it (field renders blank → re-submit clears the saved time).
+    const html = render('changes/form.ejs', {
+      ...baseLocals(),
+      title: 'Edit Change',
+      isEdit: true,
+      change: {
+        id: 1, title: 'Server patch', change_type: 'maintenance',
+        status: 'scheduled', priority: 'medium', impact: '', description: '',
+        // Stored in space format, exactly as produced by safeDateTimeLocal():
+        scheduled_start: '2024-01-15 10:00:00',
+        scheduled_end: '2024-01-15 12:00:00',
+        actual_start: '2024-01-15 10:05:00',
+        actual_end: '2024-01-15 11:58:00'
+      },
+      staff: []
+    });
+    // Each datetime-local value must use 'T', not a space, and not be blank.
+    const values = [...html.matchAll(/type="datetime-local"[^>]*value="([^"]*)"/g)].map(m => m[1]);
+    expect(values.length).toBe(4);
+    for (const v of values) {
+      expect(v).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+      expect(v).not.toContain(' ');
+    }
+  });
 });

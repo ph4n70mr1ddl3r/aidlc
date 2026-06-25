@@ -19,11 +19,11 @@
       <div class="form-group"><label for="assigned_to">Assigned To</label><select name="assigned_to" id="assigned_to" class="form-control">
         <option value="">Unassigned</option><% staff.forEach(s => { %><option value="<%= s.id %>" <%= change.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }) %>
       </select></div>
-      <div class="form-group"><label for="scheduled_start">Scheduled Start</label><input type="datetime-local" name="scheduled_start" id="scheduled_start" class="form-control" value="<%= change.scheduled_start ? change.scheduled_start.slice(0,16) : '' %>"></div>
-      <div class="form-group"><label for="scheduled_end">Scheduled End</label><input type="datetime-local" name="scheduled_end" id="scheduled_end" class="form-control" value="<%= change.scheduled_end ? change.scheduled_end.slice(0,16) : '' %>"></div>
+      <div class="form-group"><label for="scheduled_start">Scheduled Start</label><input type="datetime-local" name="scheduled_start" id="scheduled_start" class="form-control" value="<%= change.scheduled_start ? change.scheduled_start.slice(0,16).replace(' ', 'T') : '' %>"></div>
+      <div class="form-group"><label for="scheduled_end">Scheduled End</label><input type="datetime-local" name="scheduled_end" id="scheduled_end" class="form-control" value="<%= change.scheduled_end ? change.scheduled_end.slice(0,16).replace(' ', 'T') : '' %>"></div>
       <% if (isEdit) { %>
-      <div class="form-group"><label for="actual_start">Actual Start</label><input type="datetime-local" name="actual_start" id="actual_start" class="form-control" value="<%= change.actual_start ? change.actual_start.slice(0,16) : '' %>"></div>
-      <div class="form-group"><label for="actual_end">Actual End</label><input type="datetime-local" name="actual_end" id="actual_end" class="form-control" value="<%= change.actual_end ? change.actual_end.slice(0,16) : '' %>"></div>
+      <div class="form-group"><label for="actual_start">Actual Start</label><input type="datetime-local" name="actual_start" id="actual_start" class="form-control" value="<%= change.actual_start ? change.actual_start.slice(0,16).replace(' ', 'T') : '' %>"></div>
+      <div class="form-group"><label for="actual_end">Actual End</label><input type="datetime-local" name="actual_end" id="actual_end" class="form-control" value="<%= change.actual_end ? change.actual_end.slice(0,16).replace(' ', 'T') : '' %>"></div>
       <% } %>
       <div class="form-group" style="grid-column:1/-1;"><label for="impact">Impact</label><textarea name="impact" id="impact" class="form-control" rows="2" maxlength="<%= CONSTANTS.MAX_LONG_STR %>"><%= change.impact || '' %></textarea></div>
     </div>
