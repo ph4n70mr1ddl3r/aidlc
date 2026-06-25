@@ -39,7 +39,7 @@ const _insertStmt = db.prepare(`
       assigned_to, location, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-const _updateExistStmt = db.prepare('SELECT id FROM assets WHERE id = ?');
+const _assetExistsStmt = db.prepare('SELECT id FROM assets WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
       model = ?, serial_number = ?, status = ?, condition_rating = ?,
@@ -319,7 +319,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   try {
     // Verify asset exists before updating
-    const existing = _updateExistStmt.get(id);
+    const existing = _assetExistsStmt.get(id);
     if (!existing) {
       req.flash('error', 'Asset not found');
       return res.redirect('/assets');
