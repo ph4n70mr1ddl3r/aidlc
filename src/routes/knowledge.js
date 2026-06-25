@@ -105,9 +105,13 @@ function renderMarkdown(content) {
     return '';
   }
   try {
-    // marked v18 removed parseSync(); parse() is synchronous unless async
+    // marked v18 removed parseSync(). parse() is synchronous unless async
     // extensions are registered (none here), so it returns a string.
+    // Guard against async extensions by wrapping in Promise.resolve().
     const html = marked.parse(content, MARKED_OPTIONS);
+    if (html instanceof Promise) {
+      throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
+    }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
     // If markdown/sanitization fails, escape the raw content and wrap in a

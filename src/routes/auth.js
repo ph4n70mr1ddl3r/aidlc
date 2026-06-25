@@ -87,9 +87,10 @@ function purgeStaleEntries(map) {
     }
     const entry = map.get(oldest);
     if (entry && entry.lockedUntil && Date.now() < entry.lockedUntil) {
-      map.delete(oldest);
-      map.set(oldest, entry);
-      continue;
+      // Cannot evict a currently-locked entry — stop here.
+      // Reaching this means every remaining entry is either locked or
+      // too recent to be stale, so further attempts would loop forever.
+      break;
     }
     map.delete(oldest);
   }
