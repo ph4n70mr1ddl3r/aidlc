@@ -101,10 +101,13 @@ function purgeStaleEntries(map) {
  * Increments failure counts and locks the account/IP after MAX_LOGIN_FAILURES.
  */
 function recordLoginFailure(username, ip) {
+  // Normalize to lowercase so the key matches what clearLoginFailure uses
+  const safe = username.toLowerCase();
+
   // Ensure bounded map size before adding new entries
   purgeStaleEntries(loginFailures);
 
-  let entry = loginFailures.get(username);
+  let entry = loginFailures.get(safe);
   if (!entry) {
     entry = { count: 0, lockedUntil: null, lastAttempt: null };
   }
@@ -114,7 +117,7 @@ function recordLoginFailure(username, ip) {
     entry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
     entry.count = MAX_LOGIN_FAILURES;
   }
-  loginFailures.set(username, entry);
+  loginFailures.set(safe, entry);
 
   // Record per-IP failure
   if (ip) {
@@ -427,9 +430,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   // Fetch fresh user data (without password) for the new session
   const freshUser = _profileSelectStmt.get(userId);
   if (freshUser) {
-    // eslint-disable-next-line no-unused-vars
-    const { password: _pw, ...safeUser } = freshUser;
-    req.session.user = safeUser;
+    req.session.user = freshUser;
   }
   req.flash('success', 'Password changed successfully');
   res.redirect('/profile');
