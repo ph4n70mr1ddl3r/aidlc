@@ -51,21 +51,24 @@ function safeSort(value, allowedMap, defaultKey) {
 
 /**
  * Quote a column name that may include a table alias (e.g. "t"."status").
- * Splitting on '.' and quoting each part ensures SQLite resolves it correctly.
+ *
+ * Each segment is validated against SAFE_COLUMN_RE (the same allowlist pattern
+ * addSearch uses) BEFORE quoting, so the function is safe-by-construction:
+ * it can never emit a segment containing a quote, dash, or other character
+ * that would break out of the double-quoted identifier. All current callers
+ * pre-validate their inputs, but quoteColumn is the single choke-point that
+ * builds identifier SQL and is publicly exported, so it must defend itself
+ * against future misuse rather than relying on callers to stay disciplined.
  * @param {string} col
  * @returns {string}
  */
 function quoteColumn(col) {
-  if (!col || typeof col !== 'string') {
+  if (!col || typeof col !== 'string' || !SAFE_COLUMN_RE.test(col)) {
     throw new Error(`Invalid column name: ${col}`);
   }
-  const parts = col.split('.');
-  for (const p of parts) {
-    if (!p) {
-      throw new Error(`Invalid column name segment: "${col}"`);
-    }
-  }
-  return parts.map(p => `"${p}"`).join('.');
+  // SAFE_COLUMN_RE guarantees every segment is a bare identifier, so it is now
+  // safe to wrap each one in double quotes without risk of injection.
+  return '"' + col.split('.').join('"."') + '"';
 }
 
 /**

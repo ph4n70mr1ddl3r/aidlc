@@ -55,15 +55,31 @@ npm start
 
 Open http://localhost:3000 in your browser.
 
-### Default Login Credentials (after seeding)
+### Seed / Login Credentials
 
-| Role | Username | Password |
-|---|---|---|
-| Admin | `admin` | `Admin@2026!!` |
-| Manager | `jwilliams` | `Staff@2026!!` |
-| Staff | `mpatel` | `Staff@2026!!` |
+`npm run seed` does **not** use fixed default passwords. It generates a strong
+random password for each role, prints it to the console (with a warning), and
+hashes it with bcrypt before storing it:
 
-> ⚠️ Change these immediately in production by resetting passwords after first login.
+```
+Default login credentials:
+  Admin:    admin / <random>
+  Manager:  jwilliams / <random>
+  Staff:    mpatel / <random>
+```
+
+Copy the printed passwords from the seed output to sign in.
+
+To use fixed passwords instead (e.g. for a shared dev/CI environment), set them
+in `.env` **before** seeding:
+
+```
+SEED_ADMIN_PASSWORD=<your-strong-admin-password>
+SEED_PASSWORD=<your-strong-staff-password>
+```
+
+> ⚠️ Never reuse seed passwords in production. Reset every account's password
+> after the first login in any non-local environment.
 
 ## Project Structure
 

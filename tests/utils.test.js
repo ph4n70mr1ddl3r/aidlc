@@ -104,6 +104,18 @@ describe('quoteColumn', () => {
     expect(() => utils.quoteColumn('')).toThrow('Invalid column name');
     expect(() => utils.quoteColumn(null)).toThrow('Invalid column name');
   });
+
+  // Regression: quoteColumn must validate every segment so it is
+  // safe-by-construction. A segment containing a quote, dash, semicolon, or
+  // space must be rejected rather than emitted into the SQL identifier —
+  // otherwise a future caller that forgets to pre-validate could inject SQL.
+  it('should reject segments containing non-identifier characters (defense-in-depth)', () => {
+    expect(() => utils.quoteColumn('a"b')).toThrow('Invalid column name');
+    expect(() => utils.quoteColumn('t.status; --')).toThrow('Invalid column name');
+    expect(() => utils.quoteColumn('user name')).toThrow('Invalid column name');
+    expect(() => utils.quoteColumn('a-b')).toThrow('Invalid column name');
+    expect(() => utils.quoteColumn('t.')).toThrow('Invalid column name');
+  });
 });
 
 /**
