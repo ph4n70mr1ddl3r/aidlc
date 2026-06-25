@@ -279,14 +279,14 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify vendor exists before updating
-    const existing = _vendorUpdateCheckStmt.get(id);
-    if (!existing) {
-      req.flash('error', 'Vendor not found');
-      return res.redirect('/vendors');
-    }
-
     const updateVendor = db.transaction(() => {
+      // Verify vendor exists and fetch current state inside the transaction
+      // to avoid a TOCTOU race with concurrent activate/deactivate requests.
+      const existing = _vendorUpdateCheckStmt.get(id);
+      if (!existing) {
+        throw new Error('NOT_FOUND');
+      }
+
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
       const result = _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,

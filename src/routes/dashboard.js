@@ -144,7 +144,10 @@ function getDashboardData(user) {
       // On DB error, re-use previous cache if available (stale data is better
       // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
       // there is no prior cache at all (first-request failure).
+      // Update the timestamp regardless so subsequent requests don't hammer
+      // the DB on every request after a transient error — they retry after TTL.
       shared = dashboardCache.data || EMPTY_DEFAULTS;
+      dashboardCache = { timestamp: now, data: shared };
     }
   }
 

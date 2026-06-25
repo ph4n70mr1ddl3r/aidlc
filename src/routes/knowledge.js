@@ -109,7 +109,7 @@ function renderMarkdown(content) {
     // extensions are registered (none here), so it returns a string.
     // Guard against async extensions by wrapping in Promise.resolve().
     const html = marked.parse(content, MARKED_OPTIONS);
-    if (html instanceof Promise) {
+    if (html instanceof Promise || (html && typeof html.then === 'function')) {
       throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
