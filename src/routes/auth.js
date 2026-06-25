@@ -82,11 +82,16 @@ function purgeStaleEntries(map) {
   }
   while (map.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
     const oldest = map.keys().next().value;
-    if (oldest !== undefined) {
-      map.delete(oldest);
-    } else {
+    if (oldest === undefined) {
       break;
     }
+    const entry = map.get(oldest);
+    if (entry && entry.lockedUntil && Date.now() < entry.lockedUntil) {
+      map.delete(oldest);
+      map.set(oldest, entry);
+      continue;
+    }
+    map.delete(oldest);
   }
 }
 

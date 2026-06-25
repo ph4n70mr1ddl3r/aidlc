@@ -202,7 +202,7 @@ router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft');
+  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
   // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)

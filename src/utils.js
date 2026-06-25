@@ -13,7 +13,7 @@ const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
  * Parse pagination params from query string
  */
 function paginate(req) {
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const page = Math.max(1, Math.min(5000, parseInt(req.query.page, 10) || 1));
   const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || DEFAULT_PAGE_SIZE));
   const offset = (page - 1) * limit;
   return { page, limit, offset };
@@ -373,7 +373,7 @@ function localDate(value) {
   if (!value || typeof value !== 'string') {
     return null;
   }
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) {
     return null;
   }
