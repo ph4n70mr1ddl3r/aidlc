@@ -62,7 +62,7 @@ const _showCommentsStmt = db.prepare(`
     ORDER BY tc.created_at ASC
   `);
 const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
-const _statusTicketStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
+const _ticketAssigneeStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
 const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(
     'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
@@ -71,7 +71,7 @@ const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
 // Cached statement for ticket update route
-const _updateExistStmt = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?');
+const _updateCheckStmt = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?');
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
       status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
@@ -390,7 +390,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   }
 
   try {
-    const ticket = _updateExistStmt.get(id);
+    const ticket = _updateCheckStmt.get(id);
     if (!ticket) {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
@@ -503,7 +503,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   }
 
   try {
-    const ticket = _statusTicketStmt.get(id);
+    const ticket = _ticketAssigneeStmt.get(id);
     if (!ticket) {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');

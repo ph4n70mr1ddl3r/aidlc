@@ -65,7 +65,7 @@ const _taskInsertStmt = db.prepare(`
     INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-const _taskExistStmt = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?');
+const _taskExistsStmt = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?');
 const _taskQuickStatusStmt = db.prepare(`
     UPDATE project_tasks SET status = ?,
       completed_at = CASE WHEN ? THEN datetime('now') ELSE NULL END,
@@ -427,7 +427,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   if (req.body._quick_status) {
     // Quick status update only — preserve existing values
     try {
-      const existing = _taskExistStmt.get(taskId, projectId);
+      const existing = _taskExistsStmt.get(taskId, projectId);
       if (!existing) {
         req.flash('error', 'Task not found');
         return res.redirect(`/projects/${projectId}`);

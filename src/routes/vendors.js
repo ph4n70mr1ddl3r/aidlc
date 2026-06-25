@@ -40,7 +40,7 @@ const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _vendorStatusStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE vendors SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE vendors SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
-const _updateExistStmt = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?');
+const _vendorUpdateCheckStmt = db.prepare('SELECT id, name, is_active FROM vendors WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
       website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
@@ -280,7 +280,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
   try {
     // Verify vendor exists before updating
-    const existing = _updateExistStmt.get(id);
+    const existing = _vendorUpdateCheckStmt.get(id);
     if (!existing) {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
