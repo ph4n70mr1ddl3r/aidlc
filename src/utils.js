@@ -169,9 +169,17 @@ function addSearch(where, params, search, columns) {
 
 /**
  * Safely parse a route parameter as a positive integer
- * Returns null if invalid
+ * Returns null if invalid.
+ *
+ * Rejects arrays to defend against HTTP parameter pollution
+ * (e.g. ?assigned_to[]=1&assigned_to[]=2) — parseInt() coerces an array to a
+ * string and silently returns the first element, which is surprising and
+ * inconsistent with safeInt / safePositiveFloat. Treat any array as invalid.
  */
 function safeId(value) {
+  if (Array.isArray(value)) {
+    return null;
+  }
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
 }

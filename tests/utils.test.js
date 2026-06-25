@@ -222,6 +222,15 @@ describe('safeId', () => {
     expect(utils.safeId('0')).toBeNull();
     expect(utils.safeId('')).toBeNull();
   });
+
+  it('should reject array input (parameter pollution)', () => {
+    // Regression: previously parseInt coerced ['123'] -> '123' and returned 123,
+    // silently accepting the first element of a polluted query/body value.
+    // safeId must reject arrays for consistency with safeInt / safePositiveFloat.
+    expect(utils.safeId(['123'])).toBeNull();
+    expect(utils.safeId(['123', '456'])).toBeNull();
+    expect(utils.safeId([])).toBeNull();
+  });
 });
 
 /**

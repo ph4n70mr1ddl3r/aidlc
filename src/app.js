@@ -445,9 +445,13 @@ function shutdown(signal) {
   console.log(`\n${signal} received — shutting down gracefully…`);
   // Stop login failure cleanup interval before closing DB
   stopLoginFailureCleanup();
-  // Immediately close idle keep-alive connections so server.close()
-  // doesn't hang waiting for them to time out.
-  if (typeof server.closeAllConnections === 'function') {
+  // Drop idle keep-alive connections so server.close() doesn't hang waiting
+  // for them to time out. closeIdleConnections() lets in-flight requests
+  // finish gracefully (bounded by the force-exit timer below); the broader
+  // closeAllConnections() would also kill active requests mid-flight.
+  if (typeof server.closeIdleConnections === 'function') {
+    server.closeIdleConnections();
+  } else if (typeof server.closeAllConnections === 'function') {
     server.closeAllConnections();
   }
   const forceExitTimer = setTimeout(() => process.exit(1), 10000);
