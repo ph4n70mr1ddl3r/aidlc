@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { isPrivileged } = require('../utils');
-const { SESSION_COOKIE } = require('../constants');
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } = require('../constants');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
@@ -31,7 +31,7 @@ function _verifySessionUser(req, res) {
   try {
     const row = _authCheckStmt.get(req.session.user.id);
     if (!row || !row.is_active) {
-      res.clearCookie(SESSION_COOKIE);
+      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
       req.session.destroy((err) => {
         if (err) {
           console.error('Session destroy error (deactivated):', err.message);
@@ -41,7 +41,7 @@ function _verifySessionUser(req, res) {
       return false;
     }
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
-      res.clearCookie(SESSION_COOKIE);
+      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
       req.flash('error', 'Your session has expired. Please log in again.');
       req.session.destroy((err) => {
         if (err) {

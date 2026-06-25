@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
-const { SESSION_COOKIE, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -277,7 +277,7 @@ router.post('/logout', (req, res) => {
     if (err) {
       console.error('Session destroy error:', err.message);
     }
-    res.clearCookie(SESSION_COOKIE);
+    res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
     res.redirect('/login');
   });
 });

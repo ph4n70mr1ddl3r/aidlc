@@ -42,6 +42,17 @@ const USER_ROLES = ['admin','manager','staff'];
 // stay in sync if the name ever changes.
 const SESSION_COOKIE = 'itm_sid';
 
+// Session cookie options (minus maxAge, which is set by SESSION_MAX_AGE).
+// Must match the app.js session config so that res.clearCookie() can delete
+// the cookie correctly in production (where secure:true requires matching
+// options on the Clear-Cookie header).
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/'
+};
+
 // Session max-age (24 hours, in milliseconds)
 const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
 
@@ -79,7 +90,7 @@ module.exports = {
   CHANGE_TYPES, CHANGE_STATUSES, CHANGE_PRIORITIES,
   LICENSE_TYPES,
   USER_ROLES,
-  SESSION_COOKIE, SESSION_MAX_AGE,
+  SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE,
   ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG
