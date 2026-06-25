@@ -430,13 +430,11 @@ server.on('error', (err) => {
 });
 
 if (require.main === module) {
-  server.listen(PORT);
+  server.listen(PORT, () => {
+    console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
+  });
 }
-
-server.on('listening', () => {
-  console.log(`\n🚀 IT Department Manager running at http://localhost:${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
-});
 
 // Graceful shutdown
 // ---------------------------------------------------------------------------

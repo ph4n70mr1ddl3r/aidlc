@@ -61,7 +61,7 @@ const _staffInsertStmt = db.prepare(`
   `);
 const _staffUpdateStmt = db.prepare(`
     UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
-      department = ?, phone = ?, is_active = ?, updated_at = datetime('now')
+      department = ?, phone = ?, is_active = is_active, updated_at = datetime('now')
     WHERE id = ?
   `);
 
@@ -352,15 +352,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // dedicated DELETE route which also unassigns tickets/tasks atomically.
   // Setting is_active=0 via the edit form would bypass the unassignment logic,
   // but setting it to 1 would inadvertently reactivate a deactivated user.
-  // Instead, keep the current value and warn the editor.
-  const safeIsActive = targetUser.is_active;
+  // The UPDATE SQL uses is_active = is_active (self-assign) to prevent a TOCTOU
+  // race where is_active fetched earlier could be stale.
   if (!targetUser.is_active) {
     req.flash('info', 'This account is deactivated. Editing will not reactivate it — use the Reactivate button on the show page.');
   }
 
   try {
     const result = _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
-      (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, safeIsActive, id);
+      (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
 
     if (result.changes === 0) {
       req.flash('error', 'Staff member not found');

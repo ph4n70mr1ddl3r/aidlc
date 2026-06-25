@@ -137,7 +137,7 @@ function clearLoginFailure(username) {
   if (!username || typeof username !== 'string') {
     return;
   }
-  loginFailures.delete(username);
+  loginFailures.delete(username.toLowerCase());
 }
 
 function clearIpLoginFailure(ip) {

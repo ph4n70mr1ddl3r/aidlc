@@ -542,7 +542,8 @@ function daysUntil(dateStr) {
   if (!d) {
     return null;
   }
-  const today = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((d - today) / (1000 * 60 * 60 * 24));
 }
 
