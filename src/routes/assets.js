@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -79,14 +79,14 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'assets', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const assets = db.prepare(`
+  const assets = selectQuery(db, `
     SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM assets a
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE ${whereClause}
     ORDER BY a.name ASC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   const staff = getActiveStaff(db);
 

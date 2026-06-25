@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -76,9 +76,9 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'vendors', 'v', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const vendors = db.prepare(`
+  const vendors = selectQuery(db, `
     SELECT * FROM vendors v WHERE ${whereClause} ORDER BY v.name ASC LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/vendors/index', {
     title: 'Vendors', vendors, filters: req.query,

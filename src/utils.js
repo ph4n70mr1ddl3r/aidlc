@@ -575,8 +575,10 @@ function isExpiringSoon(dateStr, withinDays = 30) {
 }
 
 // Cached prepared statements for countQuery — one per base table + where combination.
-// better-sqlite3 caches prepared statements internally, but this avoids the
-// overhead of string-concatenating the SQL and calling prepare() on every request.
+// NOTE: better-sqlite3 does NOT cache prepared statements internally (calling
+// db.prepare() with the same SQL twice returns two distinct Statement objects,
+// each re-compiling the SQL). Caching the Statement here therefore avoids that
+// recompilation on every request.
 const _countQueryCache = new Map();
 const _COUNT_CACHE_MAX = 500;
 const _SAFE_TABLE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -605,6 +607,37 @@ function countQuery(db, baseTable, alias, whereClause, params) {
     return result ? result.c : 0;
   } catch (err) {
     _countQueryCache.delete(key);
+    throw err;
+  }
+}
+
+// Cached prepared statements for selectQuery (paginated list routes).
+// The list SQL is built from validated/whitelisted fragments (filters, sort),
+// so the resulting string is deterministic and safe to use as a cache key.
+// As with countQuery, caching the Statement avoids recompiling the SQL via
+// db.prepare() on every request. Cap the cache with LRU eviction to bound
+// memory across unbounded filter/sort combinations.
+const _selectQueryCache = new Map();
+const _SELECT_CACHE_MAX = 500;
+function selectQuery(db, sql, params) {
+  let stmt = _selectQueryCache.get(sql);
+  if (stmt) {
+    _selectQueryCache.delete(sql);
+    _selectQueryCache.set(sql, stmt);
+  } else {
+    if (_selectQueryCache.size >= _SELECT_CACHE_MAX) {
+      const keyToEvict = _selectQueryCache.keys().next().value;
+      if (keyToEvict !== undefined) {
+        _selectQueryCache.delete(keyToEvict);
+      }
+    }
+    stmt = db.prepare(sql);
+    _selectQueryCache.set(sql, stmt);
+  }
+  try {
+    return stmt.all(...params);
+  } catch (err) {
+    _selectQueryCache.delete(sql);
     throw err;
   }
 }
@@ -640,6 +673,7 @@ function resetCachedStatements() {
   _progressUpdateStmt = null;
   _activeStaffStmt = null;
   _countQueryCache.clear();
+  _selectQueryCache.clear();
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };

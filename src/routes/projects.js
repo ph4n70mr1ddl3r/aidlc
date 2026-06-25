@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -113,7 +113,7 @@ router.get('/', (req, res) => {
 
   // Use LEFT JOIN with conditional aggregation instead of correlated subqueries
   // for task counts — avoids N+1 query pattern on large project lists.
-  const projects = db.prepare(`
+  const projects = selectQuery(db, `
     SELECT p.*, u.first_name || ' ' || u.last_name as owner_name,
       COALESCE(tCounts.task_count, 0) as task_count,
       COALESCE(tCounts.done_count, 0) as done_count
@@ -127,7 +127,7 @@ router.get('/', (req, res) => {
     WHERE ${whereClause}
     ORDER BY p.updated_at DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/projects/index', {
     title: 'Projects', projects, filters: req.query,

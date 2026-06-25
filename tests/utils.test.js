@@ -729,6 +729,53 @@ describe('countQuery', () => {
 });
 
 /**
+ * Test for selectQuery function (cached list queries)
+ */
+describe('selectQuery', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
+  it('should return rows and prepare exactly once for repeated SQL', () => {
+    const rows = [{ id: 1 }, { id: 2 }];
+    const stmt = { all: jest.fn(() => rows) };
+    const mockDb = { prepare: jest.fn(() => stmt) };
+    const sql = 'SELECT * FROM t WHERE x = ? LIMIT ? OFFSET ?';
+    expect(utils.selectQuery(mockDb, sql, [1, 10, 0])).toEqual(rows);
+    expect(utils.selectQuery(mockDb, sql, [2, 10, 0])).toEqual(rows);
+    expect(mockDb.prepare).toHaveBeenCalledTimes(1);
+    // Params must be forwarded in order on each call
+    expect(stmt.all).toHaveBeenLastCalledWith(2, 10, 0);
+  });
+
+  it('should cache distinct statements per SQL string', () => {
+    const stmt = { all: jest.fn(() => []) };
+    let callCount = 0;
+    const mockDb = { prepare: jest.fn(() => {
+ callCount++; return stmt;
+}) };
+    utils.selectQuery(mockDb, 'SELECT 1 LIMIT ? OFFSET ?', [10, 0]);
+    utils.selectQuery(mockDb, 'SELECT 2 LIMIT ? OFFSET ?', [10, 0]);
+    utils.selectQuery(mockDb, 'SELECT 1 LIMIT ? OFFSET ?', [10, 0]);
+    expect(callCount).toBe(2);
+  });
+
+  it('should evict the cached entry and re-throw on error', () => {
+    const err = new Error('DB error');
+    const stmtErr = { all: jest.fn(() => {
+ throw err;
+}) };
+    const mockDb = { prepare: jest.fn(() => stmtErr) };
+    expect(() => utils.selectQuery(mockDb, 'SELECT bad LIMIT ? OFFSET ?', [10, 0])).toThrow('DB error');
+    // After the error the cache entry is evicted, so the next call re-prepares
+    const stmtOk = { all: jest.fn(() => [{ ok: 1 }]) };
+    const mockDb2 = { prepare: jest.fn(() => stmtOk) };
+    expect(utils.selectQuery(mockDb2, 'SELECT bad LIMIT ? OFFSET ?', [10, 0])).toEqual([{ ok: 1 }]);
+    expect(mockDb2.prepare).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
  * Test for pruneAuditLog function
  */
 describe('pruneAuditLog', () => {
@@ -980,6 +1027,17 @@ describe('resetCachedStatements', () => {
     };
     utils.recalcProjectProgress(db, 1);
     expect(db.prepare).toHaveBeenCalledTimes(2);
+  });
+
+  it('should clear the selectQuery cache so SQL is re-prepared', () => {
+    const stmt = { all: jest.fn(() => []) };
+    const mockDb = { prepare: jest.fn(() => stmt) };
+    const sql = 'SELECT * FROM reset_test LIMIT ? OFFSET ?';
+    utils.selectQuery(mockDb, sql, [10, 0]);
+    expect(mockDb.prepare).toHaveBeenCalledTimes(1);
+    utils.resetCachedStatements();
+    utils.selectQuery(mockDb, sql, [10, 0]);
+    expect(mockDb.prepare).toHaveBeenCalledTimes(2);
   });
 });
 

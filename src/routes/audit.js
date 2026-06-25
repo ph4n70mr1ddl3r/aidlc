@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
-const { paginate, paginationBaseUrl, buildFilters, countQuery, safeSort } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
@@ -41,14 +41,14 @@ router.get('/', auditLimiter, (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
 
-  const entries = db.prepare(`
+  const entries = selectQuery(db, `
     SELECT a.*, u.first_name || ' ' || u.last_name as user_name
     FROM audit_log a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE ${whereClause}
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/audit/index', {
     title: 'Audit Log', entries, filters: req.query,

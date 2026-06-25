@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -59,14 +59,14 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'change_log', 'c', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const changes = db.prepare(`
+  const changes = selectQuery(db, `
     SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE ${whereClause}
     ORDER BY c.scheduled_start DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/changes/index', {
     title: 'Change Log', changes, filters: req.query,

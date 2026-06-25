@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -60,9 +60,9 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'licenses', 'l', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const licenses = db.prepare(`
+  const licenses = selectQuery(db, `
     SELECT * FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/licenses/index', {
     title: 'Software Licenses', licenses, filters: req.query,

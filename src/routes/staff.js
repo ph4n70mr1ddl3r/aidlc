@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -92,7 +92,7 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'users', 'u', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const staff = db.prepare(`
+  const staff = selectQuery(db, `
     SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role,
       u.department, u.phone, u.avatar, u.is_active, u.last_login,
       u.created_at, u.updated_at,
@@ -112,7 +112,7 @@ router.get('/', (req, res) => {
     WHERE ${whereClause}
     ORDER BY u.first_name ASC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/staff/index', {
     title: 'Staff', staff, departments, filters: req.query,

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { marked } = require('marked');
@@ -149,14 +149,14 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'knowledge_articles', 'k', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const articles = db.prepare(`
+  const articles = selectQuery(db, `
     SELECT k.*, u.first_name || ' ' || u.last_name as author_name
     FROM knowledge_articles k
     LEFT JOIN users u ON k.author_id = u.id
     WHERE ${whereClause}
     ORDER BY k.updated_at DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   res.render('pages/knowledge/index', {
     title: 'Knowledge Base', articles, filters: req.query,

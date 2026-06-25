@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -139,14 +139,14 @@ router.get('/', (req, res) => {
   const total = countQuery(db, 'tickets', 't', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
 
-  const tickets = db.prepare(`
+  const tickets = selectQuery(db, `
     SELECT t.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE ${whereClause}
     ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
-  `).all(...params, limit, offset);
+  `, [...params, limit, offset]);
 
   const staff = getActiveStaff(db);
 
