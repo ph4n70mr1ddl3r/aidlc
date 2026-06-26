@@ -6,5 +6,15 @@ data/
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 *.log
 .DS_Store
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.pem
+*.key
+*.crt

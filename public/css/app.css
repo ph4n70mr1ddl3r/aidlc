@@ -1,4 +1,4 @@
-  :root {
+:root {
     --primary: #2563eb;
     --primary-dark: #1d4ed8;
     --primary-light: #dbeafe;
@@ -41,7 +41,7 @@
   .nav-item {
     display: flex; align-items: center; gap: 12px; padding: 10px 20px;
     color: rgba(255,255,255,0.7); text-decoration: none; font-size: 14px;
-    transition: all 0.2s; border-left: 3px solid transparent;
+    transition: background-color 0.2s, color 0.2s, border-left-color 0.2s; border-left: 3px solid transparent;
   }
   .nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
   .nav-item.active { background: rgba(37,99,235,0.15); color: #fff; border-left-color: var(--primary); }

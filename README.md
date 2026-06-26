@@ -90,6 +90,7 @@ SEED_PASSWORD=<your-strong-staff-password>
 │       └── app.css         # Extracted stylesheet
 ├── src/
 │   ├── app.js              # Express app setup & server entry
+│   ├── constants.js        # Validation enums, limits, session config
 │   ├── seed.js             # Database seeder
 │   ├── utils.js            # Shared utilities (pagination, filters)
 │   ├── middleware/
@@ -108,7 +109,9 @@ SEED_PASSWORD=<your-strong-staff-password>
 │       ├── knowledge.js    # Knowledge base (markdown)
 │       ├── changes.js      # Change log CRUD
 │       ├── licenses.js     # License CRUD
-│       └── reports.js      # Analytics & reports
+│       ├── reports.js      # Analytics & reports
+│       └── audit.js        # Audit log viewer
+├── tests/                  # Jest test suite
 └── views/
     ├── partials/            # Header, footer, nav, pagination
     └── pages/               # EJS page templates
@@ -121,7 +124,8 @@ SEED_PASSWORD=<your-strong-staff-password>
         ├── knowledge/
         ├── changes/
         ├── licenses/
-        └── reports/
+        ├── reports/
+        └── audit/
 ```
 
 ## Configuration
