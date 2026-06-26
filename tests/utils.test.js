@@ -1032,6 +1032,34 @@ describe('isExpiringSoon', () => {
 });
 
 /**
+ * Test for badge constants
+ */
+describe('badge constants', () => {
+  it('CONDITION_BADGE maps all known conditions', () => {
+    expect(utils.CONDITION_BADGE).toEqual({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
+  });
+
+  it('CHANGE_TYPE_BADGE maps all known change types', () => {
+    expect(utils.CHANGE_TYPE_BADGE).toEqual({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
+  });
+
+  it('ROLE_BADGE maps all known roles', () => {
+    expect(utils.ROLE_BADGE).toEqual({ admin: 'critical', manager: 'high', staff: 'medium' });
+  });
+});
+
+/**
+ * Test for paginationBaseUrl with no query params
+ */
+describe('paginationBaseUrl edge cases', () => {
+  it('should return path when query is empty', () => {
+    const req = { query: {}, path: '/test' };
+    const result = utils.paginationBaseUrl(req);
+    expect(result).toBe('/test');
+  });
+});
+
+/**
  * Test for resetCachedStatements function
  */
 describe('resetCachedStatements', () => {

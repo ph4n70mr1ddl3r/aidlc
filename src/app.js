@@ -11,21 +11,21 @@ const helmet = require('helmet');
 const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
 const crypto = require('crypto');
-const utilsModule = require('./utils');
-const constantsModule = require('./constants');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE } = constantsModule;
-const { stopLoginFailureCleanup } = require('./routes/auth');
-
 // ---------------------------------------------------------------------------
-// Normalize NODE_ENV early (before production checks) so that
-// values like 'Production' or 'PRODUCTION' are caught by validation.
-// Default to 'development' so NODE_ENV is always defined.
+// Normalize NODE_ENV early MUST happen BEFORE any module that depends on it
+// (constants.js evaluates SESSION_COOKIE_OPTIONS.secure against NODE_ENV
+// at require time). Default to 'development' so NODE_ENV is always defined.
 // ---------------------------------------------------------------------------
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'development';
 } else {
   process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
 }
+
+const utilsModule = require('./utils');
+const constantsModule = require('./constants');
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE } = constantsModule;
+const { stopLoginFailureCleanup } = require('./routes/auth');
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -298,7 +298,7 @@ app.use((req, res, next) => {
 // (and touches the store) on every authenticated response automatically.
 // ---------------------------------------------------------------------------
 app.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Cache-Control', 'no-store, must-revalidate, private');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
   next();
