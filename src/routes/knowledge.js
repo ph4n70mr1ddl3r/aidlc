@@ -4,7 +4,16 @@ const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
-const marked = require('marked');
+// marked v18+ is ESM-only. In Node <22, require('marked') throws.
+// Try CJS require first, fall back to a static mock that logs a warning.
+let marked;
+try {
+  marked = require('marked');
+} catch {
+  console.error('ERROR: marked package failed to load. Run `npm install` or upgrade to Node >= 22.');
+  console.error('Falling back to plain-text rendering for knowledge articles.');
+  marked = { parse: (content) => content };
+}
 const sanitizeHtml = require('sanitize-html');
 const rateLimit = require('express-rate-limit');
 
