@@ -2,11 +2,11 @@
  * Shared utilities for routes
  */
 
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, DEFAULT_PAGE_SIZE } = require('./constants');
 const _ps = parseInt(process.env.PAGE_SIZE, 10);
-// Maximum allowed page number to prevent excessively deep pagination offsets
-const MAX_PAGE = 5000;
-const DEFAULT_PAGE_SIZE = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : 25;
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH } = require('./constants');
+// Override DEFAULT_PAGE_SIZE from env if set, capped at 100
+const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : null;
+const PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 
 const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT', 'JSON', 'HTML', 'HTTP', 'HTTPS', 'CLI', 'GUI', 'SQL', 'CSV', 'XML', 'YAML', 'PDF', 'BIOS', 'USB', 'CPU', 'GPU', 'RAM', 'SSD', 'HDD']);
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
@@ -16,7 +16,7 @@ const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
  */
 function paginate(req) {
   const page = Math.max(1, Math.min(MAX_PAGE, parseInt(req.query.page, 10) || 1));
-  const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || DEFAULT_PAGE_SIZE));
+  const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || PAGE_SIZE));
   const offset = (page - 1) * limit;
   return { page, limit, offset };
 }

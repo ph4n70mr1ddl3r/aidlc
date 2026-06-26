@@ -115,7 +115,8 @@ const _ticketInsertStmt = db.prepare(`
 const SORT_MAP = {
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
-  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC"
+  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC",
+  default: 't.created_at DESC'
 };
 
 // List tickets (paginated)
@@ -134,7 +135,7 @@ router.get('/', (req, res) => {
   addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
-  const orderBy = safeSort(req.query.sort, SORT_MAP, 'newest');
+  const orderBy = safeSort(req.query.sort, SORT_MAP, 'default');
 
   const total = countQuery(db, 'tickets', 't', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
