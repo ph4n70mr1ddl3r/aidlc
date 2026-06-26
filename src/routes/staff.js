@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -76,10 +76,11 @@ router.get('/', (req, res) => {
 
   // Whitelist known departments from DB
   const departments = _departmentsStmt.all().map(r => r.department);
-  const activeFilter = req.query.status === 'active' ? 1 : req.query.status === 'inactive' ? 0 : '';
+  const qStatus = safeQueryValue(req.query.status);
+  const activeFilter = qStatus === 'active' ? 1 : qStatus === 'inactive' ? 0 : '';
   const filters = buildFilters({
-    'u.role': { value: USER_ROLES.includes(req.query.role) ? req.query.role : '' },
-    'u.department': { value: departments.includes(req.query.department) ? req.query.department : '' },
+    'u.role': { value: USER_ROLES.includes(safeQueryValue(req.query.role)) ? safeQueryValue(req.query.role) : '' },
+    'u.department': { value: departments.includes(safeQueryValue(req.query.department)) ? safeQueryValue(req.query.department) : '' },
     'u.is_active': { value: activeFilter }
   }, ['u.role', 'u.department', 'u.is_active']);
 

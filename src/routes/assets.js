@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -65,9 +65,9 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'a.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
-    'a.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-    'a.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' }
+    'a.category': { value: VALID_CATEGORIES.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
+    'a.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
+    'a.assigned_to': { value: safeQueryValue(req.query.assigned_to) ? safeId(safeQueryValue(req.query.assigned_to)) || '' : '' }
   }, ['a.category', 'a.status', 'a.assigned_to']);
 
   const where = [...filters.where];
@@ -118,7 +118,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
-  const assigned_to = req.body.assigned_to;
+  const assigned_to = trim(req.body.assigned_to);
   const location = trim(req.body.location);
   const notes = trim(req.body.notes);
 
@@ -260,7 +260,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
-  const assigned_to = req.body.assigned_to;
+  const assigned_to = trim(req.body.assigned_to);
   const location = trim(req.body.location);
   const notes = trim(req.body.notes);
 

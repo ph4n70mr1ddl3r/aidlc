@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -124,10 +124,10 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    't.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-    't.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' },
-    't.category': { value: VALID_CATEGORIES.includes(req.query.category) ? req.query.category : '' },
-    't.assigned_to': { value: req.query.assigned_to ? safeId(req.query.assigned_to) || '' : '' }
+    't.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
+    't.priority': { value: VALID_PRIORITIES.includes(safeQueryValue(req.query.priority)) ? safeQueryValue(req.query.priority) : '' },
+    't.category': { value: VALID_CATEGORIES.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
+    't.assigned_to': { value: safeQueryValue(req.query.assigned_to) ? safeId(safeQueryValue(req.query.assigned_to)) || '' : '' }
   }, ['t.status', 't.priority', 't.category', 't.assigned_to']);
 
   const where = [...filters.where];

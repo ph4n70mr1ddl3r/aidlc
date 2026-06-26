@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -50,7 +50,7 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'l.license_type': { value: VALID_LICENSE_TYPES.includes(req.query.license_type) ? req.query.license_type : '' }
+    'l.license_type': { value: VALID_LICENSE_TYPES.includes(safeQueryValue(req.query.license_type)) ? safeQueryValue(req.query.license_type) : '' }
   }, ['l.license_type']);
 
   const where = [...filters.where];

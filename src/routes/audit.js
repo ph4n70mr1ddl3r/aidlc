@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
-const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
@@ -29,8 +29,8 @@ router.get('/', auditLimiter, (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'a.action': { value: ALLOWED_ACTIONS.includes(req.query.action) ? req.query.action : '' },
-    'a.entity_type': { value: ALLOWED_ENTITY_TYPES.includes(req.query.entity_type) ? req.query.entity_type : '' }
+    'a.action': { value: ALLOWED_ACTIONS.includes(safeQueryValue(req.query.action)) ? safeQueryValue(req.query.action) : '' },
+    'a.entity_type': { value: ALLOWED_ENTITY_TYPES.includes(safeQueryValue(req.query.entity_type)) ? safeQueryValue(req.query.entity_type) : '' }
   }, ['a.action', 'a.entity_type']);
 
   const where = [...filters.where];

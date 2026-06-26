@@ -12,6 +12,15 @@ const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN'
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
 
 /**
+ * Safely extract a scalar value from a query parameter, guarding against
+ * HTTP parameter pollution (HPP) where duplicate keys produce arrays.
+ * Returns the first element when the value is an array, or the value itself.
+ */
+function safeQueryValue(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+/**
  * Parse pagination params from query string
  */
 function paginate(req) {
@@ -32,8 +41,9 @@ function paginationBaseUrl(req) {
   const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period'];
   const q = {};
   for (const key of known) {
-    if (req.query[key] !== undefined) {
-      q[key] = Array.isArray(req.query[key]) ? req.query[key][0] : req.query[key];
+    const v = req.query[key];
+    if (v !== undefined) {
+      q[key] = safeQueryValue(v);
     }
   }
   const qs = new URLSearchParams(q).toString();
@@ -696,4 +706,4 @@ function resetCachedStatements() {
   _selectQueryCache.clear();
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };

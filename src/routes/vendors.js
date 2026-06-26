@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -71,8 +71,8 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'v.category': { value: VALID_CATEGORIES_VENDOR.includes(req.query.category) ? req.query.category : '' },
-    'v.is_active': { value: req.query.is_active === '1' ? 1 : req.query.is_active === '0' ? 0 : '' }
+    'v.category': { value: VALID_CATEGORIES_VENDOR.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
+    'v.is_active': { value: safeQueryValue(req.query.is_active) === '1' ? 1 : safeQueryValue(req.query.is_active) === '0' ? 0 : '' }
   }, ['v.category', 'v.is_active']);
 
   const where = [...filters.where];

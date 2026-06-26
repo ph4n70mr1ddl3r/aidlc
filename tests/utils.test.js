@@ -36,6 +36,24 @@ describe('paginate', () => {
 });
 
 /**
+ * Test for safeQueryValue function (HPP guard)
+ */
+describe('safeQueryValue', () => {
+  it('should return scalar value unchanged', () => {
+    expect(utils.safeQueryValue('open')).toBe('open');
+    expect(utils.safeQueryValue('1')).toBe('1');
+    expect(utils.safeQueryValue(undefined)).toBeUndefined();
+    expect(utils.safeQueryValue(null)).toBeNull();
+  });
+
+  it('should return first element for array (HPP defense)', () => {
+    expect(utils.safeQueryValue(['open', 'closed'])).toBe('open');
+    expect(utils.safeQueryValue(['1', '2'])).toBe('1');
+    expect(utils.safeQueryValue([])).toBeUndefined();
+  });
+});
+
+/**
  * Test for paginationBaseUrl function
  */
 describe('paginationBaseUrl', () => {
@@ -605,6 +623,8 @@ describe('localDate', () => {
   it('should return null for invalid date string', () => {
     expect(utils.localDate('not-a-date')).toBeNull();
     expect(utils.localDate('')).toBeNull();
+    expect(utils.localDate('2024-02-30')).toBeNull();
+    expect(utils.localDate('2024-13-01')).toBeNull();
   });
 
   it('should return null for non-string input', () => {

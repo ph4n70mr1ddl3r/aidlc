@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -45,9 +45,9 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   const filters = buildFilters({
-    'c.status': { value: VALID_STATUSES.includes(req.query.status) ? req.query.status : '' },
-    'c.change_type': { value: VALID_CHANGE_TYPES.includes(req.query.change_type) ? req.query.change_type : '' },
-    'c.priority': { value: VALID_PRIORITIES.includes(req.query.priority) ? req.query.priority : '' }
+    'c.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
+    'c.change_type': { value: VALID_CHANGE_TYPES.includes(safeQueryValue(req.query.change_type)) ? safeQueryValue(req.query.change_type) : '' },
+    'c.priority': { value: VALID_PRIORITIES.includes(safeQueryValue(req.query.priority)) ? safeQueryValue(req.query.priority) : '' }
   }, ['c.status', 'c.change_type', 'c.priority']);
 
   const where = [...filters.where];
