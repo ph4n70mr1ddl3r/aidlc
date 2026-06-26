@@ -6,7 +6,7 @@ const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PH
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
-const { clearLoginFailure } = require('./auth');
+const { clearLoginFailure, clearIpLoginFailure } = require('./auth');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -422,6 +422,9 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     // across the deactivation/reactivation cycle).
     if (target.username) {
       clearLoginFailure(target.username);
+    }
+    if (req.ip) {
+      clearIpLoginFailure(req.ip);
     }
 
     req.audit('reactivate', 'user', id, 'Reactivated user account');
