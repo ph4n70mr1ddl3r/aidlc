@@ -386,7 +386,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
 });
 
 // Delete article
-router.delete('/:id', requireAdminOrManager, (req, res) => {
+router.delete('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
