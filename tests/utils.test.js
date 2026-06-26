@@ -349,6 +349,11 @@ describe('titleCase', () => {
     expect(utils.titleCase(undefined)).toBe('');
   });
 
+  it('should handle standalone acronym', () => {
+    expect(utils.titleCase('sop')).toBe('SOP');
+    expect(utils.titleCase('api')).toBe('API');
+  });
+
   it('should handle double underscores', () => {
     expect(utils.titleCase('first__name')).toBe('First  Name');
   });

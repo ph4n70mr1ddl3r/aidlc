@@ -524,7 +524,7 @@ function titleCase(value) {
     // Check that the next character in the ORIGINAL word is not uppercase,
     // otherwise a word like "SOPHISTICATED" would be incorrectly split
     // into "SOP" + "HISTICATED".
-    for (let i = Math.min(upper.length - 1, 4); i >= 1; i--) {
+    for (let i = Math.min(upper.length, 4); i >= 1; i--) {
       const prefix = upper.slice(0, i);
       if (ACRONYMS.has(prefix)) {
         const next = word[i];
