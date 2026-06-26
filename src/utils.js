@@ -25,13 +25,15 @@ function paginate(req) {
  * Build a base URL for pagination links (strips `page` param from query).
  * Uses an explicit allowlist of known query parameters to prevent prototype
  * pollution from spreading user-controlled params into the URL.
+ * Guards against array values from HTTP parameter pollution (HPP) by taking
+ * only the first element, mirroring the array guards in safeId/safeInt/etc.
  */
 function paginationBaseUrl(req) {
   const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period'];
   const q = {};
   for (const key of known) {
     if (req.query[key] !== undefined) {
-      q[key] = req.query[key];
+      q[key] = Array.isArray(req.query[key]) ? req.query[key][0] : req.query[key];
     }
   }
   const qs = new URLSearchParams(q).toString();
