@@ -498,7 +498,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   }
   const { status } = req.body;
 
-  if (!VALID_STATUSES.includes(status)) {
+  if (typeof status !== 'string' || !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/tickets/${id}`);
   }

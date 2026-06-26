@@ -83,7 +83,8 @@ const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
-const DEFAULT_PAGE_SIZE = 25;     // default rows per page (overridable via PAGE_SIZE env, max 100)
+const DEFAULT_PAGE_SIZE = 25;     // default rows per page (overridable via PAGE_SIZE env, max MAX_PAGE_SIZE)
+const MAX_PAGE_SIZE = 100;        // hard cap on page size to prevent resource exhaustion
 
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
@@ -98,5 +99,5 @@ module.exports = {
   ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG,
-  MAX_PAGE, DEFAULT_PAGE_SIZE
+  MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE
 };

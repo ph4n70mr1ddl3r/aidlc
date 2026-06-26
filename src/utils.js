@@ -2,10 +2,10 @@
  * Shared utilities for routes
  */
 
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, DEFAULT_PAGE_SIZE } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE } = require('./constants');
 const _ps = parseInt(process.env.PAGE_SIZE, 10);
-// Override DEFAULT_PAGE_SIZE from env if set, capped at 100
-const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, 100) : null;
+// Override DEFAULT_PAGE_SIZE from env if set, capped at MAX_PAGE_SIZE
+const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_SIZE) : null;
 const PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 
 const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT', 'JSON', 'HTML', 'HTTP', 'HTTPS', 'CLI', 'GUI', 'SQL', 'CSV', 'XML', 'YAML', 'PDF', 'BIOS', 'USB', 'CPU', 'GPU', 'RAM', 'SSD', 'HDD']);
@@ -16,17 +16,24 @@ const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/;
  */
 function paginate(req) {
   const page = Math.max(1, Math.min(MAX_PAGE, parseInt(req.query.page, 10) || 1));
-  const limit = Math.max(1, Math.min(100, parseInt(req.query.limit, 10) || PAGE_SIZE));
+  const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, parseInt(req.query.limit, 10) || PAGE_SIZE));
   const offset = (page - 1) * limit;
   return { page, limit, offset };
 }
 
 /**
- * Build a base URL for pagination links (strips `page` param from query)
+ * Build a base URL for pagination links (strips `page` param from query).
+ * Uses an explicit allowlist of known query parameters to prevent prototype
+ * pollution from spreading user-controlled params into the URL.
  */
 function paginationBaseUrl(req) {
-  const q = { ...req.query };
-  delete q.page;
+  const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period'];
+  const q = {};
+  for (const key of known) {
+    if (req.query[key] !== undefined) {
+      q[key] = req.query[key];
+    }
+  }
   const qs = new URLSearchParams(q).toString();
   return req.path + (qs ? '?' + qs : '');
 }

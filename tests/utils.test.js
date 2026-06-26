@@ -39,13 +39,13 @@ describe('paginate', () => {
  * Test for paginationBaseUrl function
  */
 describe('paginationBaseUrl', () => {
-  it('should strip page param from query string', () => {
+  it('should strip page param from query string and preserve known params', () => {
     const req = {
-      query: { page: '2', filter: 'active', sort: 'name' },
+      query: { page: '2', sort: 'name' },
       path: '/users'
     };
     const result = utils.paginationBaseUrl(req);
-    expect(result).toBe('/users?filter=active&sort=name');
+    expect(result).toBe('/users?sort=name');
   });
 
   it('should return path without query when no params left', () => {

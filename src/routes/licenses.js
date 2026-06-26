@@ -37,7 +37,9 @@ const _licenseInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 const _licenseUpdateStmt = db.prepare(`
-    UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?, license_type = ?,
+    UPDATE licenses SET software_name = ?, vendor = ?,
+      license_key = COALESCE(NULLIF(?, ''), license_key),
+      license_type = ?,
       total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
       updated_at = datetime('now')
     WHERE id = ?
@@ -221,8 +223,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       return res.redirect('/licenses');
     }
 
-    // If license_key field was left blank on edit, preserve the existing key
-    const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || existing.license_key;
+    // If license_key field was left blank on edit, preserve the existing key.
+    // Use COALESCE/NULLIF at the SQL level so the preservation is atomic with
+    // the update, avoiding the race where a concurrent request modifies the key
+    // between the SELECT (above) and UPDATE below.
+    const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || null;
 
     const result = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
       seats, used,
