@@ -107,7 +107,9 @@ function renderMarkdown(content) {
   try {
     // marked v18 removed parseSync(). parse() is synchronous unless async
     // extensions are registered (none here), so it returns a string.
-    // Guard against async extensions by wrapping in Promise.resolve().
+    // Guard against async extensions — if marked.parse returns a Promise,
+    // throw so the catch handler falls back to escaped plain text instead
+    // of rendering [object Promise] in the template.
     const html = marked.parse(content, MARKED_OPTIONS);
     if (html instanceof Promise || (html && typeof html.then === 'function')) {
       throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
