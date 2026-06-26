@@ -2,6 +2,9 @@ const db = require('../models/database');
 const { isPrivileged } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } = require('../constants');
 
+const _authVerifiedSym = Symbol('authVerified');
+
+
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
 const _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
@@ -24,7 +27,7 @@ function _verifySessionUser(req, res) {
   // Skip duplicate DB verification within the same request — requireAuth and
   // requireRole both call _verifySessionUser, but Express middleware runs
   // synchronously so nothing can change between the two calls.
-  if (req._authVerified) {
+  if (req[_authVerifiedSym]) {
     return true;
   }
 
@@ -61,7 +64,7 @@ function _verifySessionUser(req, res) {
     return false;
   }
 
-  req._authVerified = true;
+  req[_authVerifiedSym] = true;
   return true;
 }
 
