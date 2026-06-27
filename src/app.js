@@ -230,7 +230,7 @@ const passwordLimiter = rateLimit({
   // Count all requests — password routes return 302 redirects for both
   // success and failure, so skipSuccessfulRequests would never count anything.
 });
-app.use('/profile/password', passwordLimiter);
+app.put('/profile/password', passwordLimiter);
 
 // Rate limit profile updates (separate from password changes)
 const profileLimiter = rateLimit({
