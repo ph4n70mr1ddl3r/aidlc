@@ -82,6 +82,17 @@ describe('paginationBaseUrl', () => {
     const result = utils.paginationBaseUrl(req);
     expect(result).toBe('/users');
   });
+
+  it('should preserve action and entity_type (audit log filters)', () => {
+    const req = {
+      query: { page: '2', action: 'create', entity_type: 'ticket' },
+      path: '/audit'
+    };
+    const result = utils.paginationBaseUrl(req);
+    expect(result).toContain('action=create');
+    expect(result).toContain('entity_type=ticket');
+    expect(result).not.toContain('page');
+  });
 });
 
 /**

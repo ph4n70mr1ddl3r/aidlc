@@ -38,7 +38,7 @@ function paginate(req) {
  * only the first element, mirroring the array guards in safeId/safeInt/etc.
  */
 function paginationBaseUrl(req) {
-  const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period'];
+  const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period', 'action', 'entity_type'];
   const q = {};
   for (const key of known) {
     const v = req.query[key];
