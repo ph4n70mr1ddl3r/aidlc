@@ -39,7 +39,7 @@ const _projectMembershipsStmt = db.prepare(`
     ORDER BY p.updated_at DESC
   `);
 const _staffUserStmt = db.prepare('SELECT role, username, is_active FROM users WHERE id = ?');
-const _reactivateCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
+const _staffCheckStmt = db.prepare('SELECT id, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
@@ -406,7 +406,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
   }
 
   try {
-    const target = _reactivateCheckStmt.get(id);
+    const target = _staffCheckStmt.get(id);
     if (!target) {
       req.flash('error', 'Staff member not found');
       return res.redirect('/staff');
@@ -538,7 +538,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     let alreadyInactive = false;
     const deactivate = db.transaction(() => {
       // Check is_active inside the transaction to avoid TOCTOU race
-      const target = _reactivateCheckStmt.get(id);
+      const target = _staffCheckStmt.get(id);
       if (!target) {
         notFound = true;
         return;

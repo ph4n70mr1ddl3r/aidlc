@@ -8,12 +8,12 @@ if (process.env.NODE_ENV === 'production') {
   process.exit(1);
 }
 
+const crypto = require('crypto');
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
 
 // Seed passwords: prefer env vars, otherwise generate strong random passwords.
 // NEVER hardcode default passwords — they would be visible to everyone with repo access.
-const crypto = require('crypto');
 
 function _generateSeedPassword(label) {
   const pw = crypto.randomBytes(12).toString('base64') + 'Aa1!';

@@ -186,7 +186,7 @@ router.get('/login', (req, res) => {
     return res.redirect('/dashboard');
   }
   // Only allow known reason values to prevent arbitrary message injection via crafted URLs
-  const allowedReasons = ['deactivated'];
+  const allowedReasons = ['deactivated', 'password_changed'];
   const reason = allowedReasons.includes(req.query.reason) ? req.query.reason : '';
   res.render('pages/auth/login', { title: 'Login', reason });
 });
