@@ -78,6 +78,8 @@ jest.mock('../src/utils', () => ({
 
 jest.mock('../src/constants', () => ({
   SESSION_COOKIE: 'itm_sid',
+  SESSION_COOKIE_OPTIONS: { httpOnly: true, sameSite: 'lax', secure: false, path: '/' },
+  SESSION_MAX_AGE: 86400000,
   MIN_PASSWORD: 12,
   MAX_PASSWORD: 128,
   MAX_USERNAME: 50,

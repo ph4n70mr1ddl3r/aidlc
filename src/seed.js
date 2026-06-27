@@ -44,7 +44,22 @@ const seed = db.transaction(() => {
     DELETE FROM audit_log;
     DELETE FROM users;
     DELETE FROM ticket_counter;
-    DELETE FROM sqlite_sequence WHERE name IN ('users','assets','licenses','tickets','ticket_comments','projects','project_tasks','project_members','vendors','knowledge_articles','change_log','audit_log');
+    -- Reset AUTOINCREMENT sequences for all application tables.
+    -- sqlite_sequence is a SQLite internal table; delete from it per-table
+    -- (rather than one multi-name IN clause) to stay robust across schema
+    -- changes and avoid truncation/footgun issues with long comma lists.
+    DELETE FROM sqlite_sequence WHERE name = 'users';
+    DELETE FROM sqlite_sequence WHERE name = 'assets';
+    DELETE FROM sqlite_sequence WHERE name = 'licenses';
+    DELETE FROM sqlite_sequence WHERE name = 'tickets';
+    DELETE FROM sqlite_sequence WHERE name = 'ticket_comments';
+    DELETE FROM sqlite_sequence WHERE name = 'projects';
+    DELETE FROM sqlite_sequence WHERE name = 'project_tasks';
+    DELETE FROM sqlite_sequence WHERE name = 'project_members';
+    DELETE FROM sqlite_sequence WHERE name = 'vendors';
+    DELETE FROM sqlite_sequence WHERE name = 'knowledge_articles';
+    DELETE FROM sqlite_sequence WHERE name = 'change_log';
+    DELETE FROM sqlite_sequence WHERE name = 'audit_log';
   `);
 
   // ========================

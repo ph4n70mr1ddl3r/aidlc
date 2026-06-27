@@ -33,6 +33,14 @@ describe('paginate', () => {
     const result = utils.paginate(req);
     expect(result.limit).toBe(100);
   });
+
+  it('should safely handle array query values from HPP', () => {
+    const req = { query: { page: ['2', '9999'], limit: ['10', '0'] }, path: '/test' };
+    const result = utils.paginate(req);
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(10);
+    expect(result.offset).toBe(10);
+  });
 });
 
 /**

@@ -24,8 +24,8 @@ function safeQueryValue(value) {
  * Parse pagination params from query string
  */
 function paginate(req) {
-  const page = Math.max(1, Math.min(MAX_PAGE, parseInt(req.query.page, 10) || 1));
-  const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, parseInt(req.query.limit, 10) || PAGE_SIZE));
+  const page = Math.max(1, Math.min(MAX_PAGE, parseInt(safeQueryValue(req.query.page), 10) || 1));
+  const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, parseInt(safeQueryValue(req.query.limit), 10) || PAGE_SIZE));
   const offset = (page - 1) * limit;
   return { page, limit, offset };
 }
