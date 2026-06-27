@@ -52,7 +52,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['c.title', 'c.description']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -85,9 +85,13 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const description = trim(req.body.description);
-  const { change_type, status, priority, scheduled_start, scheduled_end } = req.body;
+  const change_type = trim(req.body.change_type);
+  const status = trim(req.body.status);
+  const priority = trim(req.body.priority);
+  const scheduled_start = req.body.scheduled_start;
+  const scheduled_end = req.body.scheduled_end;
   const impact = trim(req.body.impact);
-  const { assigned_to } = req.body;
+  const assigned_to = req.body.assigned_to;
 
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
@@ -193,9 +197,15 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
-  const { change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end } = req.body;
+  const change_type = trim(req.body.change_type);
+  const status = trim(req.body.status);
+  const priority = trim(req.body.priority);
+  const scheduled_start = req.body.scheduled_start;
+  const scheduled_end = req.body.scheduled_end;
+  const actual_start = req.body.actual_start;
+  const actual_end = req.body.actual_end;
   const impact = trim(req.body.impact);
-  const { assigned_to } = req.body;
+  const assigned_to = req.body.assigned_to;
 
   if (!title) {
     req.flash('error', 'Title is required');

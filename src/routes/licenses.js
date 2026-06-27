@@ -55,7 +55,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['l.software_name', 'l.vendor']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['l.software_name', 'l.vendor']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -63,7 +63,9 @@ router.get('/', (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
 
   const licenses = selectQuery(db, `
-    SELECT * FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
+    SELECT l.id, l.software_name, l.vendor, l.license_type, l.total_seats, l.used_seats,
+      l.purchase_date, l.expiry_date, l.cost, l.notes, l.created_at, l.updated_at
+    FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
   res.render('pages/licenses/index', {
@@ -83,7 +85,12 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
-  const { license_type, total_seats, used_seats, purchase_date, expiry_date, cost } = req.body;
+  const license_type = trim(req.body.license_type);
+  const total_seats = req.body.total_seats;
+  const used_seats = req.body.used_seats;
+  const purchase_date = req.body.purchase_date;
+  const expiry_date = req.body.expiry_date;
+  const cost = req.body.cost;
   const notes = trim(req.body.notes);
 
   if (!software_name) {
@@ -188,7 +195,12 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(req.body.software_name);
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
-  const { license_type, total_seats, used_seats, purchase_date, expiry_date, cost } = req.body;
+  const license_type = trim(req.body.license_type);
+  const total_seats = req.body.total_seats;
+  const used_seats = req.body.used_seats;
+  const purchase_date = req.body.purchase_date;
+  const expiry_date = req.body.expiry_date;
+  const cost = req.body.cost;
   const notes = trim(req.body.notes);
 
   if (!software_name) {

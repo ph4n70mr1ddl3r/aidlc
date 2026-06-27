@@ -144,7 +144,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['k.title', 'k.content', 'k.tags']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags']);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -184,9 +184,9 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const content = trim(req.body.content);
-  const category = req.body.category;
+  const category = trim(req.body.category);
   const tags = trim(req.body.tags);
-  const status = req.body.status;
+  const status = trim(req.body.status);
   const is_featured = req.body.is_featured;
 
   if (!title || !content || !category) {
@@ -337,9 +337,9 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
 
   const title = trim(req.body.title);
   const content = trim(req.body.content);
-  const category = req.body.category;
+  const category = trim(req.body.category);
   const tags = trim(req.body.tags);
-  const status = req.body.status;
+  const status = trim(req.body.status);
   const is_featured = req.body.is_featured;
 
   if (!title || !content || !category) {

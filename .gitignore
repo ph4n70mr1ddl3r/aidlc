@@ -18,3 +18,9 @@ coverage/
 *.pem
 *.key
 *.crt
+Thumbs.db
+Desktop.ini
+*.tgz
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

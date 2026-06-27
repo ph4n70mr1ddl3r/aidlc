@@ -18,7 +18,7 @@
   </select>
   <select name="department" aria-label="Filter by department">
     <option value="">All Departments</option>
-    <% departments.forEach(d => { %><option value="<%= d %>" <%= filters.department === d ? 'selected' : '' %>><%= d %></option><% }) %>
+    <% if (typeof departments !== 'undefined') { departments.forEach(d => { %><option value="<%= d %>" <%= filters.department === d ? 'selected' : '' %>><%= d %></option><% }); } %>
   </select>
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>

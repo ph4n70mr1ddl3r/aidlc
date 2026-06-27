@@ -72,7 +72,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -109,12 +109,12 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 // Create asset
 router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
-  const category = req.body.category;
+  const category = trim(req.body.category);
   const manufacturer = trim(req.body.manufacturer);
   const model = trim(req.body.model);
   const serial_number = trim(req.body.serial_number);
-  const status = req.body.status;
-  const condition_rating = req.body.condition_rating;
+  const status = trim(req.body.status);
+  const condition_rating = trim(req.body.condition_rating);
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
@@ -251,12 +251,12 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   const asset_tag = trim(req.body.asset_tag);
   const name = trim(req.body.name);
-  const category = req.body.category;
+  const category = trim(req.body.category);
   const manufacturer = trim(req.body.manufacturer);
   const model = trim(req.body.model);
   const serial_number = trim(req.body.serial_number);
-  const status = req.body.status;
-  const condition_rating = req.body.condition_rating;
+  const status = trim(req.body.status);
+  const condition_rating = trim(req.body.condition_rating);
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;

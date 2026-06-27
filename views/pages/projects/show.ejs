@@ -107,7 +107,7 @@
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <select name="user_id" class="form-control" style="flex:1;" required>
             <option value="">Add member...</option>
-            <% staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }) %>
+          <% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }); } %>
           </select>
           <select name="role" class="form-control" style="width:120px;">
             <% CONSTANTS.MEMBER_ROLES.forEach(r => { %><option value="<%= r %>" <%= r === 'member' ? 'selected' : '' %>><%= titleCase(r) %></option><% }) %>

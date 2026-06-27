@@ -86,7 +86,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 

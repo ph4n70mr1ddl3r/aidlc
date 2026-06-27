@@ -77,7 +77,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['v.name', 'v.contact_person', 'v.email']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['v.name', 'v.contact_person', 'v.email']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -108,9 +108,11 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
-  const { category, contract_start, contract_end } = req.body;
+  const category = trim(req.body.category);
+  const contract_start = req.body.contract_start;
+  const contract_end = req.body.contract_end;
   const notes = trim(req.body.notes);
-  const { rating } = req.body;
+  const rating = req.body.rating;
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -230,9 +232,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
-  const { category, contract_start, contract_end } = req.body;
+  const category = trim(req.body.category);
+  const contract_start = req.body.contract_start;
+  const contract_end = req.body.contract_end;
   const notes = trim(req.body.notes);
-  const { rating } = req.body;
+  const rating = req.body.rating;
 
   if (!name) {
     req.flash('error', 'Vendor name is required');

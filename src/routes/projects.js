@@ -45,7 +45,7 @@ const _showMembersStmt = db.prepare(`
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
   `);
-const _projectSpentStmt = db.prepare('SELECT spent FROM projects WHERE id = ?');
+const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -104,7 +104,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['p.name', 'p.description']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['p.name', 'p.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -146,7 +146,12 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
   const description = trim(req.body.description);
-  const { status, priority, start_date, end_date, budget, owner_id } = req.body;
+  const status = trim(req.body.status);
+  const priority = trim(req.body.priority);
+  const start_date = req.body.start_date;
+  const end_date = req.body.end_date;
+  const budget = req.body.budget;
+  const owner_id = req.body.owner_id;
 
   if (!name) {
     req.flash('error', 'Project name is required');
@@ -249,7 +254,13 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   const name = trim(req.body.name);
   const description = trim(req.body.description);
-  const { status, priority, start_date, end_date, budget, spent, owner_id } = req.body;
+  const status = trim(req.body.status);
+  const priority = trim(req.body.priority);
+  const start_date = req.body.start_date;
+  const end_date = req.body.end_date;
+  const budget = req.body.budget;
+  const spent = req.body.spent;
+  const owner_id = req.body.owner_id;
 
   if (!name) {
     req.flash('error', 'Project name is required');
@@ -274,7 +285,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   try {
     // Verify project exists before updating
-    const existingProject = _projectSpentStmt.get(id);
+    const existingProject = _projectBudgetSpentStmt.get(id);
     if (!existingProject) {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
@@ -284,6 +295,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // (e.g. a non-numeric value from a crafted request). An explicit "0"
     // still updates spent to 0 — only absent/garbage input keeps the prior value.
     const preservedSpent = safeSpent !== null ? safeSpent : existingProject.spent;
+
+    const safeBudget = budget !== undefined && budget !== '' ? safePositiveFloat(budget, null) : null;
+    // Preserve existing budget when not explicitly provided (mirrors spent preservation)
+    const preservedBudget = safeBudget !== null ? safeBudget : existingProject.budget;
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
@@ -301,7 +316,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
     const updateProject = db.transaction(() => {
       const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
-        budget ? safePositiveFloat(budget, 0) : 0, preservedSpent, safeOwnerId, id);
+        preservedBudget, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
@@ -545,6 +560,10 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     req.flash('error', 'Invalid project ID');
     return res.redirect('/projects');
   }
+  if (!_projectExistsStmt.get(id)) {
+    req.flash('error', 'Project not found');
+    return res.redirect('/projects');
+  }
   const { user_id, role } = req.body;
   try {
     const safeUserId = safeId(user_id);
@@ -577,6 +596,10 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
   const memberId = safeId(req.params.memberId);
   if (!id || !memberId) {
     req.flash('error', 'Invalid ID');
+    return res.redirect('/projects');
+  }
+  if (!_projectExistsStmt.get(id)) {
+    req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
 

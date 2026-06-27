@@ -132,7 +132,7 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, req.query.search, ['t.title', 't.description', 't.ticket_number']);
+  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(req.query.sort, SORT_MAP, 'default');
@@ -175,8 +175,8 @@ router.get('/new', (req, res) => {
 router.post('/', ticketWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
   const description = trim(req.body.description);
-  const category = req.body.category;
-  const priority = req.body.priority;
+  const category = trim(req.body.category);
+  const priority = trim(req.body.priority);
   const requester_name = trim(req.body.requester_name);
   const requester_email = trim(req.body.requester_email).toLowerCase();
   const requester_department = trim(req.body.requester_department);
@@ -333,9 +333,9 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 
   const title = trim(req.body.title);
   const description = trim(req.body.description);
-  const category = req.body.category;
-  const priority = req.body.priority;
-  const status = req.body.status;
+  const category = trim(req.body.category);
+  const priority = trim(req.body.priority);
+  const status = trim(req.body.status);
   const assigned_to = trim(req.body.assigned_to);
   const asset_id = trim(req.body.asset_id);
   const due_date = req.body.due_date;
