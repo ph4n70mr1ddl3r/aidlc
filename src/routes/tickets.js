@@ -438,7 +438,8 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
-  const { comment, is_internal } = req.body;
+  const comment = safeQueryValue(req.body.comment);
+  const is_internal = safeQueryValue(req.body.is_internal);
 
   const trimmedComment = trim(comment) || '';
   if (!trimmedComment) {
@@ -459,13 +460,12 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     }
 
     const addComment = db.transaction(() => {
-      const safeInternal = safeQueryValue(is_internal);
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal.
-        // Guards against HPP array values (e.g. ?is_internal=1&is_internal=0)
-        // via safeQueryValue. A truthy check that also excludes the explicit
-        // string '0' to match the knowledge-base is_featured checkbox idiom.
-        (safeInternal && safeInternal !== '0' && isPrivileged(req.session.user)) ? 1 : 0);
+        // Guards against HPP array values via safeQueryValue on is_internal.
+        // A truthy check that also excludes the explicit string '0' to match
+        // the knowledge-base is_featured checkbox idiom.
+        (is_internal && is_internal !== '0' && isPrivileged(req.session.user)) ? 1 : 0);
 
       // Refresh ticket updated_at so it sorts as recently active
       _commentTouchStmt.run(id);
@@ -497,7 +497,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
-  const { status } = req.body;
+  const status = safeQueryValue(req.body.status);
 
   if (typeof status !== 'string' || !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');

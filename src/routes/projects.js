@@ -586,7 +586,8 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
-  const { user_id, role } = req.body;
+  const user_id = safeQueryValue(req.body.user_id);
+  const role = safeQueryValue(req.body.role);
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) {
