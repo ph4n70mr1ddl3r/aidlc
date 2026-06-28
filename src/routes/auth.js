@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE } = require('../constants');
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -38,7 +38,7 @@ const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
 // a non-existent username does not block the event loop with bcrypt.hashSync.
 // bcrypt.hashSync on cost 12 takes ~200-300ms and would stall all concurrent
 // requests during that time.
-const _dummyHash = bcrypt.hashSync('dummy', 12);
+const _dummyHash = bcrypt.hashSync('dummy', BCRYPT_SALT_ROUNDS);
 
 function checkLockout(map, key) {
   const entry = map.get(key);
@@ -401,7 +401,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
-  const hashed = await bcrypt.hash(new_password, 12);
+  const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
   _passwordUpdateStmt.run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
