@@ -119,7 +119,7 @@
         <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
           <div>
             <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
-            <div class="text-sm text-muted"><%= titleCase(m.project_role) %></div>
+            <div class="text-sm text-muted"><%= titleCase(m.role) %></div>
           </div>
           <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
