@@ -91,7 +91,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const scheduled_start = req.body.scheduled_start;
   const scheduled_end = req.body.scheduled_end;
   const impact = trim(req.body.impact);
-  const assigned_to = req.body.assigned_to;
+  const assigned_to = safeQueryValue(req.body.assigned_to);
 
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
@@ -205,7 +205,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const actual_start = safeQueryValue(req.body.actual_start);
   const actual_end = safeQueryValue(req.body.actual_end);
   const impact = trim(req.body.impact);
-  const assigned_to = req.body.assigned_to;
+  const assigned_to = safeQueryValue(req.body.assigned_to);
 
   if (!title) {
     req.flash('error', 'Title is required');

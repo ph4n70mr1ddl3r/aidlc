@@ -118,7 +118,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
-  const assigned_to = trim(req.body.assigned_to);
+  const assigned_to = safeQueryValue(req.body.assigned_to);
   const location = trim(req.body.location);
   const notes = trim(req.body.notes);
 
@@ -260,7 +260,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const purchase_date = req.body.purchase_date;
   const purchase_price = req.body.purchase_price;
   const warranty_expiry = req.body.warranty_expiry;
-  const assigned_to = trim(req.body.assigned_to);
+  const assigned_to = safeQueryValue(req.body.assigned_to);
   const location = trim(req.body.location);
   const notes = trim(req.body.notes);
 

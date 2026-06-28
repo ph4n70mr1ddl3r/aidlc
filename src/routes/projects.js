@@ -151,7 +151,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const start_date = req.body.start_date;
   const end_date = req.body.end_date;
   const budget = req.body.budget;
-  const owner_id = req.body.owner_id;
+  const owner_id = safeQueryValue(req.body.owner_id);
 
   if (!name) {
     req.flash('error', 'Project name is required');
@@ -260,7 +260,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const end_date = req.body.end_date;
   const budget = req.body.budget;
   const spent = req.body.spent;
-  const owner_id = req.body.owner_id;
+  const owner_id = safeQueryValue(req.body.owner_id);
 
   if (!name) {
     req.flash('error', 'Project name is required');
