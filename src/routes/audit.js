@@ -40,7 +40,7 @@ router.get('/', auditLimiter, (req, res) => {
 
   const total = countQuery(db, 'audit_log', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
-  const orderBy = safeSort(req.query.sort, SORT_MAP, 'default');
+  const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
   const entries = selectQuery(db, `
     SELECT a.*, u.first_name || ' ' || u.last_name as user_name

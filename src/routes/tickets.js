@@ -135,7 +135,7 @@ router.get('/', (req, res) => {
   addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.description', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
-  const orderBy = safeSort(req.query.sort, SORT_MAP, 'default');
+  const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
   const total = countQuery(db, 'tickets', 't', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
