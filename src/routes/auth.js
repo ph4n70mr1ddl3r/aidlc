@@ -325,7 +325,7 @@ router.put('/profile', requireAuth, (req, res) => {
     _profileUpdateStmt.run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
 
     // Update session (full reassign to ensure express-session detects the change with resave:false)
-    req.session.user = { ...req.session.user, first_name, last_name, email, phone: (phone || '').substring(0, MAX_PHONE) };
+    req.session.user = { ...req.session.user, first_name, last_name, email, phone: phone ? phone.substring(0, MAX_PHONE) : null };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     invalidateDashboardCache();
