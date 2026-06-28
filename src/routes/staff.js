@@ -360,13 +360,8 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   try {
-    const result = _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
+    _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
       (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
-
-    if (result.changes === 0) {
-      req.flash('error', 'Staff member not found');
-      return res.redirect('/staff');
-    }
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();

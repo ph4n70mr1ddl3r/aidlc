@@ -325,7 +325,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect('/assets');
     }
 
-    const result = _updateStmt.run(
+    _updateStmt.run(
       asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
       (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
       (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
@@ -333,11 +333,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       safeDate(warranty_expiry), updateAssignee,
       (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
     );
-
-    if (result.changes === 0) {
-      req.flash('error', 'Asset not found');
-      return res.redirect('/assets');
-    }
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');

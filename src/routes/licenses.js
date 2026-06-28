@@ -244,18 +244,22 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   try {
+    // Verify license exists before updating (separate from the COALESCE/NULLIF
+    // guard that preserves the key when the field is blank on edit).
+    const existing = _showLicenseStmt.get(id);
+    if (!existing) {
+      req.flash('error', 'License not found');
+      return res.redirect('/licenses');
+    }
+
     // If license_key field is blank on edit, COALESCE/NULLIF in the UPDATE SQL
     // preserves the existing key atomically, avoiding a TOCTOU between a prior
     // SELECT (to fetch the key) and the UPDATE below.
     const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || null;
 
-    const result = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
+    _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
       seats, used,
       sPurchase, sExpiry, cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null, id);
-    if (result.changes === 0) {
-      req.flash('error', 'License not found');
-      return res.redirect('/licenses');
-    }
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');

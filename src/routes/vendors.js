@@ -311,14 +311,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      const result = _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
+      _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
         (website || '').substring(0, MAX_LONG_STR) || null, safeCategory,
         sContractStart, sContractEnd, (notes || '').substring(0, MAX_NOTES) || null,
         safeRating,
         existing.is_active ? 1 : 0, id);
-      if (result.changes === 0) {
-        throw new Error('NOT_FOUND');
-      }
 
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).

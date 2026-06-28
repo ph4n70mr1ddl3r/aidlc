@@ -379,11 +379,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
 
   try {
-    const result = _articleUpdateStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, safeStatus, safeFeatured, id);
-    if (result.changes === 0) {
-      req.flash('error', 'Article not found');
-      return res.redirect('/knowledge');
-    }
+    _articleUpdateStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, safeStatus, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');
