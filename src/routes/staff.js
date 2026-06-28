@@ -151,7 +151,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const email = trim(req.body.email).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
-  const { role } = req.body;
+  const role = safeQueryValue(req.body.role);
   const department = trim(req.body.department);
   const phone = sanitizePhone(req.body.phone);
 
@@ -321,7 +321,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
-  const safeRole = trim(req.body.role);
+  const safeRole = trim(safeQueryValue(req.body.role));
   if (!USER_ROLES.includes(safeRole)) {
     req.flash('error', 'Invalid role');
     return res.redirect(`/staff/${id}/edit`);

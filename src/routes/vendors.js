@@ -104,7 +104,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
-  const email = trim(req.body.email).toLowerCase();
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
@@ -233,7 +233,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
   const name = trim(req.body.name);
   const contact_person = trim(req.body.contact_person);
-  const email = trim(req.body.email).toLowerCase();
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
   const address = trim(req.body.address);
   const website = trim(req.body.website);
