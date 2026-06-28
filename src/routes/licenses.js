@@ -118,10 +118,18 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses/new');
   }
 
+  // Validate date ordering
+  const sPurchase = safeDate(purchase_date);
+  const sExpiry = safeDate(expiry_date);
+  if (sPurchase && sExpiry && sExpiry < sPurchase) {
+    req.flash('error', 'Expiry date must be on or after purchase date');
+    return res.redirect('/licenses/new');
+  }
+
   try {
     const result = _licenseInsertStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, (license_key || '').substring(0, MAX_LONG_STR) || null, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null);
+      sPurchase, sExpiry, cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -227,6 +235,14 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
 
+  // Validate date ordering
+  const sPurchase = safeDate(purchase_date);
+  const sExpiry = safeDate(expiry_date);
+  if (sPurchase && sExpiry && sExpiry < sPurchase) {
+    req.flash('error', 'Expiry date must be on or after purchase date');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+
   try {
     // Verify license exists before updating; fetch existing key for preservation
     const existing = _showLicenseStmt.get(id);
@@ -243,7 +259,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
 
     const result = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
       seats, used,
-      safeDate(purchase_date), safeDate(expiry_date), cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null, id);
+      sPurchase, sExpiry, cost !== undefined && cost !== '' ? safePositiveFloat(cost) : null, (notes || '').substring(0, MAX_NOTES) || null, id);
     if (result.changes === 0) {
       req.flash('error', 'License not found');
       return res.redirect('/licenses');

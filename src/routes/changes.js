@@ -253,8 +253,10 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
   // Preserve existing actual_start/actual_end when the request omits them
   // (HTML forms may not send these fields at all in some contexts).
-  const sActStart = actual_start !== undefined ? safeDateTimeLocal(actual_start) : existingChange.actual_start;
-  const sActEnd = actual_end !== undefined ? safeDateTimeLocal(actual_end) : existingChange.actual_end;
+  // Also guard against empty strings from unfilled form fields, which would
+  // otherwise overwrite the existing DB value with NULL.
+  const sActStart = (actual_start !== undefined && actual_start !== '') ? safeDateTimeLocal(actual_start) : existingChange.actual_start;
+  const sActEnd = (actual_end !== undefined && actual_end !== '') ? safeDateTimeLocal(actual_end) : existingChange.actual_end;
   if (sActStart && sActEnd && sActEnd < sActStart) {
     req.flash('error', 'Actual end must be on or after actual start');
     return res.redirect(`/changes/${id}/edit`);

@@ -290,12 +290,28 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
     }
+    // Validate spent before allowing negative values to silently preserve
+    if (spent !== undefined && spent !== '') {
+      const parsed = parseFloat(spent);
+      if (Number.isFinite(parsed) && parsed < 0) {
+        req.flash('error', 'Spent cannot be negative');
+        return res.redirect(`/projects/${id}/edit`);
+      }
+    }
     const safeSpent = spent !== undefined && spent !== '' ? safePositiveFloat(spent, null) : null;
     // Preserve the existing spent value when the field is empty OR invalid
     // (e.g. a non-numeric value from a crafted request). An explicit "0"
     // still updates spent to 0 — only absent/garbage input keeps the prior value.
     const preservedSpent = safeSpent !== null ? safeSpent : existingProject.spent;
 
+    // Validate budget before allowing negative values to silently preserve
+    if (budget !== undefined && budget !== '') {
+      const parsed = parseFloat(budget);
+      if (Number.isFinite(parsed) && parsed < 0) {
+        req.flash('error', 'Budget cannot be negative');
+        return res.redirect(`/projects/${id}/edit`);
+      }
+    }
     const safeBudget = budget !== undefined && budget !== '' ? safePositiveFloat(budget, null) : null;
     // Preserve existing budget when not explicitly provided (mirrors spent preservation)
     const preservedBudget = safeBudget !== null ? safeBudget : existingProject.budget;

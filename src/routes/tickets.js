@@ -461,10 +461,10 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     const addComment = db.transaction(() => {
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal.
-        // A truthy check that also excludes the explicit string '0' to match the
-        // knowledge-base is_featured checkbox idiom and stay robust if the value
-        // attr changes.
-        (is_internal && is_internal !== '0' && isPrivileged(req.session.user)) ? 1 : 0);
+        // Guards against HPP array values (e.g. ?is_internal=1&is_internal=0)
+        // via safeQueryValue. A truthy check that also excludes the explicit
+        // string '0' to match the knowledge-base is_featured checkbox idiom.
+        (safeQueryValue(is_internal) && safeQueryValue(is_internal) !== '0' && isPrivileged(req.session.user)) ? 1 : 0);
 
       // Refresh ticket updated_at so it sorts as recently active
       _commentTouchStmt.run(id);

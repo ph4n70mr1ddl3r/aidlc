@@ -365,17 +365,6 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
-  const user = _passwordSelectStmt.get(req.session.user.id);
-  if (!user) {
-    req.flash('error', 'User not found');
-    return res.redirect('/login');
-  }
-
-  if (!(await bcrypt.compare(current_password, user.password))) {
-    req.flash('error', 'Current password is incorrect');
-    return res.redirect('/profile');
-  }
-
   if (typeof confirm_password !== 'string' || !confirm_password) {
     req.flash('error', 'Password confirmation is required');
     return res.redirect('/profile');
@@ -398,6 +387,17 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   const pwError = validatePassword(new_password);
   if (pwError) {
     req.flash('error', pwError);
+    return res.redirect('/profile');
+  }
+
+  const user = _passwordSelectStmt.get(req.session.user.id);
+  if (!user) {
+    req.flash('error', 'User not found');
+    return res.redirect('/login');
+  }
+
+  if (!(await bcrypt.compare(current_password, user.password))) {
+    req.flash('error', 'Current password is incorrect');
     return res.redirect('/profile');
   }
 
