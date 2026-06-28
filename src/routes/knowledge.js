@@ -75,7 +75,7 @@ function resolveSafeFeatured(user, is_featured) {
     return 0;
   }
   // Guard against HPP array values (e.g. ?is_featured=1&is_featured=0)
-  const safeVal = Array.isArray(is_featured) ? is_featured[0] : is_featured;
+  const safeVal = safeQueryValue(is_featured);
   return (safeVal && safeVal !== '0') ? 1 : 0;
 }
 
