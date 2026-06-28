@@ -202,8 +202,8 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const priority = trim(req.body.priority);
   const scheduled_start = req.body.scheduled_start;
   const scheduled_end = req.body.scheduled_end;
-  const actual_start = req.body.actual_start;
-  const actual_end = req.body.actual_end;
+  const actual_start = safeQueryValue(req.body.actual_start);
+  const actual_end = safeQueryValue(req.body.actual_end);
   const impact = trim(req.body.impact);
   const assigned_to = req.body.assigned_to;
 

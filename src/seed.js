@@ -11,6 +11,7 @@ if (process.env.NODE_ENV === 'production') {
 const crypto = require('crypto');
 const db = require('./models/database');
 const bcrypt = require('bcryptjs');
+const { BCRYPT_SALT_ROUNDS } = require('./constants');
 
 // Seed passwords: prefer env vars, otherwise generate strong random passwords.
 // NEVER hardcode default passwords — they would be visible to everyone with repo access.
@@ -80,7 +81,7 @@ const seed = db.transaction(() => {
   `);
 
   for (const u of users) {
-    const hash = bcrypt.hashSync(u.password, 12);
+    const hash = bcrypt.hashSync(u.password, BCRYPT_SALT_ROUNDS);
     insertUser.run(u.username, hash, u.email, u.first_name, u.last_name, u.role, u.department, u.phone);
   }
   console.log(`✅ Created ${users.length} users`);
