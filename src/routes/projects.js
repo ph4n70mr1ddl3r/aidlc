@@ -93,6 +93,26 @@ const _projectInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+/**
+ * Parse and validate a project financial field (budget or spent).
+ * Returns { value, error } where value is a number or existingValue;
+ * error is a string message or null.
+ * When the input is absent/empty/invalid, preserves the existing value.
+ */
+function _safeFinancialField(input, existingValue) {
+  if (input === undefined || input === '') {
+    return { value: existingValue, error: null };
+  }
+  const parsed = safePositiveFloat(input, null);
+  if (parsed === null) {
+    return { value: existingValue, error: null };
+  }
+  if (parsed < 0) {
+    return { value: existingValue, error: 'Value cannot be negative' };
+  }
+  return { value: parsed, error: null };
+}
+
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -290,32 +310,17 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
     }
-    // Validate and parse spent, preserving existing value when absent/invalid.
-    // Use safePositiveFloat for consistent HPP-array rejection — parseFloat
-    // silently coerces arrays to their first element, which is inconsistent
-    // with how all other form fields handle HPP.
-    const safeSpent = spent !== undefined && spent !== ''
-      ? safePositiveFloat(spent, null)
-      : null;
-    if (safeSpent !== null && safeSpent < 0) {
-      req.flash('error', 'Spent cannot be negative');
+    // Validate and parse spent/budget, preserving existing values when absent/invalid.
+    const { value: preservedSpent, error: spentErr } = _safeFinancialField(spent, existingProject.spent);
+    if (spentErr) {
+      req.flash('error', `Spent: ${spentErr}`);
       return res.redirect(`/projects/${id}/edit`);
     }
-    // Preserve the existing spent value when the field is absent or non-numeric.
-    // An explicit "0" still updates spent to 0 — only absent/garbage input
-    // keeps the prior value.
-    const preservedSpent = safeSpent !== null ? safeSpent : existingProject.spent;
-
-    // Validate and parse budget with the same consistent approach.
-    const safeBudget = budget !== undefined && budget !== ''
-      ? safePositiveFloat(budget, null)
-      : null;
-    if (safeBudget !== null && safeBudget < 0) {
-      req.flash('error', 'Budget cannot be negative');
+    const { value: preservedBudget, error: budgetErr } = _safeFinancialField(budget, existingProject.budget);
+    if (budgetErr) {
+      req.flash('error', `Budget: ${budgetErr}`);
       return res.redirect(`/projects/${id}/edit`);
     }
-    // Preserve existing budget when not explicitly provided.
-    const preservedBudget = safeBudget !== null ? safeBudget : existingProject.budget;
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);

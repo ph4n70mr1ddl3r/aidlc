@@ -149,7 +149,7 @@ const staffWriteLimiter = rateLimit({
 // Create staff
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
   const username = trim(req.body.username).toLowerCase();
-  const { password } = req.body;
+  const password = safeQueryValue(req.body.password);
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
@@ -458,7 +458,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect('/profile');
   }
 
-  const { new_password, current_password } = req.body;
+  const new_password = safeQueryValue(req.body.new_password);
+  const current_password = safeQueryValue(req.body.current_password);
   if (!new_password || typeof new_password !== 'string') {
     req.flash('error', 'Password is required');
     return res.redirect(`/staff/${id}`);
@@ -530,7 +531,6 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
   }
 
   try {
-    let changes = 0;
     let notFound = false;
     let alreadyInactive = false;
     const deactivate = db.transaction(() => {
@@ -545,11 +545,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
         return;
       }
 
-      const result = _deactivateStmt.run(id);
-      changes = result.changes;
-      if (changes === 0) {
-        return;
-      }
+      _deactivateStmt.run(id);
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       _unassignTicketsStmt.run(id);
@@ -575,8 +571,6 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       req.flash('error', 'Staff member not found');
     } else if (alreadyInactive) {
       req.flash('info', 'Account is already inactive');
-    } else if (changes === 0) {
-      req.flash('error', 'Staff member not found');
     } else {
       req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes/projects');
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');

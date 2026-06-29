@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -193,7 +193,8 @@ router.get('/login', (req, res) => {
 
 // Login handler
 router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
-  const { username, password } = req.body;
+  const username = safeQueryValue(req.body.username);
+  const password = safeQueryValue(req.body.password);
 
   if (!username || typeof username !== 'string' || !password) {
     req.flash('error', 'Please enter username and password');
