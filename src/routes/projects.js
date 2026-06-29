@@ -481,6 +481,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       });
       updateTask();
       req.flash('success', 'Task updated');
+      invalidateDashboardCache();
     } catch (err) {
       console.error('Project task quick-status error:', err.message);
       req.flash('error', 'Error updating task');

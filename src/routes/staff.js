@@ -53,6 +53,8 @@ const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NU
     WHERE assigned_to = ? AND status != 'done'`);
 const _unassignChangesStmt = db.prepare(`UPDATE change_log SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ?`);
+const _unassignProjectOwnerStmt = db.prepare(`UPDATE projects SET owner_id = NULL, updated_at = datetime('now')
+    WHERE owner_id = ?`);
 
 // Cached prepared statements for staff create/update routes
 const _staffInsertStmt = db.prepare(`
@@ -560,6 +562,9 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // Unassign change-log entries so they don't orphan on an inactive user
       _unassignChangesStmt.run(id);
 
+      // Reassign projects owned by this user so they don't orphan
+      _unassignProjectOwnerStmt.run(id);
+
       for (const projectId of affectedProjects) {
         recalcProjectProgress(db, projectId);
       }
@@ -573,7 +578,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     } else if (changes === 0) {
       req.flash('error', 'Staff member not found');
     } else {
-      req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes');
+      req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes/projects');
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');
       invalidateDashboardCache();
     }

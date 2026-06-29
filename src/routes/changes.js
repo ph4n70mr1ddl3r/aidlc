@@ -259,8 +259,9 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // datetime string from a crafted request must not nullify the existing value.
   const parsedActStart = (actual_start !== undefined && actual_start !== '') ? safeDateTimeLocal(actual_start) : undefined;
   const parsedActEnd = (actual_end !== undefined && actual_end !== '') ? safeDateTimeLocal(actual_end) : undefined;
-  const sActStart = parsedActStart !== undefined ? parsedActStart : existingChange.actual_start;
-  const sActEnd = parsedActEnd !== undefined ? parsedActEnd : existingChange.actual_end;
+  // parsedActStart/parsedActEnd may be null (invalid datetime) — preserve existing value in that case
+  const sActStart = parsedActStart !== undefined && parsedActStart !== null ? parsedActStart : existingChange.actual_start;
+  const sActEnd = parsedActEnd !== undefined && parsedActEnd !== null ? parsedActEnd : existingChange.actual_end;
   if (sActStart && sActEnd && sActEnd < sActStart) {
     req.flash('error', 'Actual end must be on or after actual start');
     return res.redirect(`/changes/${id}/edit`);
