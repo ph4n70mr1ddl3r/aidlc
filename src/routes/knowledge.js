@@ -185,7 +185,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 // Create article
 router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   const title = trim(req.body.title);
-  const content = trim(req.body.content);
+  const content = trim(safeQueryValue(req.body.content));
   const category = trim(req.body.category);
   const tags = trim(req.body.tags);
   const status = trim(req.body.status);
@@ -338,7 +338,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   }
 
   const title = trim(req.body.title);
-  const content = trim(req.body.content);
+  const content = trim(safeQueryValue(req.body.content));
   const category = trim(req.body.category);
   const tags = trim(req.body.tags);
   const status = trim(req.body.status);

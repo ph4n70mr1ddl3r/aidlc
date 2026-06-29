@@ -150,7 +150,7 @@ const staffWriteLimiter = rateLimit({
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
   const username = trim(req.body.username).toLowerCase();
   const { password } = req.body;
-  const email = trim(req.body.email).toLowerCase();
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
   const role = safeQueryValue(req.body.role);
@@ -290,7 +290,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
-  const email = trim(req.body.email).toLowerCase();
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(req.body.first_name);
   const last_name = trim(req.body.last_name);
   const department = trim(req.body.department);
