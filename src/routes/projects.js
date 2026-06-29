@@ -148,9 +148,9 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const description = trim(req.body.description);
   const status = trim(req.body.status);
   const priority = trim(req.body.priority);
-  const start_date = req.body.start_date;
-  const end_date = req.body.end_date;
-  const budget = req.body.budget;
+  const start_date = safeQueryValue(req.body.start_date);
+  const end_date = safeQueryValue(req.body.end_date);
+  const budget = safeQueryValue(req.body.budget);
   const owner_id = safeQueryValue(req.body.owner_id);
 
   if (!name) {

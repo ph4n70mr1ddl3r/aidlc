@@ -86,11 +86,11 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
   const license_type = trim(req.body.license_type);
-  const total_seats = req.body.total_seats;
-  const used_seats = req.body.used_seats;
-  const purchase_date = req.body.purchase_date;
-  const expiry_date = req.body.expiry_date;
-  const cost = req.body.cost;
+  const total_seats = safeQueryValue(req.body.total_seats);
+  const used_seats = safeQueryValue(req.body.used_seats);
+  const purchase_date = safeQueryValue(req.body.purchase_date);
+  const expiry_date = safeQueryValue(req.body.expiry_date);
+  const cost = safeQueryValue(req.body.cost);
   const notes = trim(req.body.notes);
 
   if (!software_name) {
@@ -204,11 +204,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const vendor = trim(req.body.vendor);
   const license_key = trim(req.body.license_key);
   const license_type = trim(req.body.license_type);
-  const total_seats = req.body.total_seats;
-  const used_seats = req.body.used_seats;
-  const purchase_date = req.body.purchase_date;
-  const expiry_date = req.body.expiry_date;
-  const cost = req.body.cost;
+  const total_seats = safeQueryValue(req.body.total_seats);
+  const used_seats = safeQueryValue(req.body.used_seats);
+  const purchase_date = safeQueryValue(req.body.purchase_date);
+  const expiry_date = safeQueryValue(req.body.expiry_date);
+  const cost = safeQueryValue(req.body.cost);
   const notes = trim(req.body.notes);
 
   if (!software_name) {

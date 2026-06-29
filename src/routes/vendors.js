@@ -109,10 +109,10 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const address = trim(req.body.address);
   const website = trim(req.body.website);
   const category = trim(req.body.category);
-  const contract_start = req.body.contract_start;
-  const contract_end = req.body.contract_end;
+  const contract_start = safeQueryValue(req.body.contract_start);
+  const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(req.body.notes);
-  const rating = req.body.rating;
+  const rating = safeQueryValue(req.body.rating);
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -238,10 +238,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const address = trim(req.body.address);
   const website = trim(req.body.website);
   const category = trim(req.body.category);
-  const contract_start = req.body.contract_start;
-  const contract_end = req.body.contract_end;
+  const contract_start = safeQueryValue(req.body.contract_start);
+  const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(req.body.notes);
-  const rating = req.body.rating;
+  const rating = safeQueryValue(req.body.rating);
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
