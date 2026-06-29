@@ -256,10 +256,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const description = trim(req.body.description);
   const status = trim(req.body.status);
   const priority = trim(req.body.priority);
-  const start_date = req.body.start_date;
-  const end_date = req.body.end_date;
-  const budget = req.body.budget;
-  const spent = req.body.spent;
+  const start_date = safeQueryValue(req.body.start_date);
+  const end_date = safeQueryValue(req.body.end_date);
+  const budget = safeQueryValue(req.body.budget);
+  const spent = safeQueryValue(req.body.spent);
   const owner_id = safeQueryValue(req.body.owner_id);
 
   if (!name) {
@@ -295,7 +295,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // silently coerces arrays to their first element, which is inconsistent
     // with how all other form fields handle HPP.
     const safeSpent = spent !== undefined && spent !== ''
-      ? safePositiveFloat(safeQueryValue(spent), null)
+      ? safePositiveFloat(spent, null)
       : null;
     if (safeSpent !== null && safeSpent < 0) {
       req.flash('error', 'Spent cannot be negative');
@@ -308,7 +308,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
     // Validate and parse budget with the same consistent approach.
     const safeBudget = budget !== undefined && budget !== ''
-      ? safePositiveFloat(safeQueryValue(budget), null)
+      ? safePositiveFloat(budget, null)
       : null;
     if (safeBudget !== null && safeBudget < 0) {
       req.flash('error', 'Budget cannot be negative');

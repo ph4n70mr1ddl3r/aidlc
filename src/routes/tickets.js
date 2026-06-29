@@ -183,7 +183,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   const requester_phone = sanitizePhone(req.body.requester_phone);
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
-  const due_date = req.body.due_date;
+  const due_date = safeQueryValue(req.body.due_date);
 
   if (!title || !category || !requester_name || !requester_email) {
     req.flash('error', 'Title, category, requester name, and requester email are required');
@@ -338,7 +338,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const status = trim(req.body.status);
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
-  const due_date = req.body.due_date;
+  const due_date = safeQueryValue(req.body.due_date);
   const resolution_notes = trim(req.body.resolution_notes);
 
   if (!title) {
