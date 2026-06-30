@@ -302,9 +302,9 @@ router.get('/profile', requireAuth, (req, res) => {
 
 // Update profile
 router.put('/profile', requireAuth, (req, res) => {
-  const first_name = trim(req.body.first_name);
-  const last_name = trim(req.body.last_name);
-  const email = trim(req.body.email).toLowerCase();
+  const first_name = trim(safeQueryValue(req.body.first_name));
+  const last_name = trim(safeQueryValue(req.body.last_name));
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const phone = sanitizePhone(req.body.phone);
 
   if (!first_name || !last_name || !email) {
@@ -344,7 +344,9 @@ router.put('/profile', requireAuth, (req, res) => {
 
 // Change password
 router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
-  const { current_password, new_password, confirm_password } = req.body;
+  const current_password = safeQueryValue(req.body.current_password);
+  const new_password = safeQueryValue(req.body.new_password);
+  const confirm_password = safeQueryValue(req.body.confirm_password);
 
   if (!current_password) {
     req.flash('error', 'Current password is required');

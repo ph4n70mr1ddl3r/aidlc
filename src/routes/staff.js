@@ -148,13 +148,13 @@ const staffWriteLimiter = rateLimit({
 
 // Create staff
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
-  const username = trim(req.body.username).toLowerCase();
+  const username = trim(safeQueryValue(req.body.username)).toLowerCase();
   const password = safeQueryValue(req.body.password);
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const first_name = trim(req.body.first_name);
-  const last_name = trim(req.body.last_name);
+  const first_name = trim(safeQueryValue(req.body.first_name));
+  const last_name = trim(safeQueryValue(req.body.last_name));
   const role = safeQueryValue(req.body.role);
-  const department = trim(req.body.department);
+  const department = trim(safeQueryValue(req.body.department));
   const phone = sanitizePhone(req.body.phone);
 
   if (!username || !password || !email || !first_name || !last_name) {
@@ -291,9 +291,9 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const first_name = trim(req.body.first_name);
-  const last_name = trim(req.body.last_name);
-  const department = trim(req.body.department);
+  const first_name = trim(safeQueryValue(req.body.first_name));
+  const last_name = trim(safeQueryValue(req.body.last_name));
+  const department = trim(safeQueryValue(req.body.department));
   const phone = sanitizePhone(req.body.phone);
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
