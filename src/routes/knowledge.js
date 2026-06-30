@@ -184,12 +184,12 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create article
 router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
-  const title = trim(req.body.title);
+  const title = trim(safeQueryValue(req.body.title));
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));
-  const tags = trim(req.body.tags);
+  const tags = trim(safeQueryValue(req.body.tags));
   const status = trim(safeQueryValue(req.body.status));
-  const is_featured = req.body.is_featured;
+  const is_featured = safeQueryValue(req.body.is_featured);
 
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
@@ -337,12 +337,12 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}`);
   }
 
-  const title = trim(req.body.title);
+  const title = trim(safeQueryValue(req.body.title));
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));
-  const tags = trim(req.body.tags);
+  const tags = trim(safeQueryValue(req.body.tags));
   const status = trim(safeQueryValue(req.body.status));
-  const is_featured = req.body.is_featured;
+  const is_featured = safeQueryValue(req.body.is_featured);
 
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');

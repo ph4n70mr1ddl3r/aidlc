@@ -82,16 +82,16 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create license
 router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
-  const software_name = trim(req.body.software_name);
-  const vendor = trim(req.body.vendor);
-  const license_key = trim(req.body.license_key);
+  const software_name = trim(safeQueryValue(req.body.software_name));
+  const vendor = trim(safeQueryValue(req.body.vendor));
+  const license_key = trim(safeQueryValue(req.body.license_key));
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
   const used_seats = safeQueryValue(req.body.used_seats);
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const expiry_date = safeQueryValue(req.body.expiry_date);
   const cost = safeQueryValue(req.body.cost);
-  const notes = trim(req.body.notes);
+  const notes = trim(safeQueryValue(req.body.notes));
 
   if (!software_name) {
     req.flash('error', 'Software name is required');
@@ -200,16 +200,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses');
   }
 
-  const software_name = trim(req.body.software_name);
-  const vendor = trim(req.body.vendor);
-  const license_key = trim(req.body.license_key);
+  const software_name = trim(safeQueryValue(req.body.software_name));
+  const vendor = trim(safeQueryValue(req.body.vendor));
+  const license_key = trim(safeQueryValue(req.body.license_key));
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
   const used_seats = safeQueryValue(req.body.used_seats);
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const expiry_date = safeQueryValue(req.body.expiry_date);
   const cost = safeQueryValue(req.body.cost);
-  const notes = trim(req.body.notes);
+  const notes = trim(safeQueryValue(req.body.notes));
 
   if (!software_name) {
     req.flash('error', 'Software name is required');

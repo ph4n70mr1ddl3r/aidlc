@@ -102,16 +102,16 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create vendor
 router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
-  const name = trim(req.body.name);
-  const contact_person = trim(req.body.contact_person);
+  const name = trim(safeQueryValue(req.body.name));
+  const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(req.body.phone);
-  const address = trim(req.body.address);
-  const website = trim(req.body.website);
+  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const address = trim(safeQueryValue(req.body.address));
+  const website = trim(safeQueryValue(req.body.website));
   const category = trim(safeQueryValue(req.body.category));
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
-  const notes = trim(req.body.notes);
+  const notes = trim(safeQueryValue(req.body.notes));
   const rating = safeQueryValue(req.body.rating);
 
   if (!name) {
@@ -231,16 +231,16 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors');
   }
 
-  const name = trim(req.body.name);
-  const contact_person = trim(req.body.contact_person);
+  const name = trim(safeQueryValue(req.body.name));
+  const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(req.body.phone);
-  const address = trim(req.body.address);
-  const website = trim(req.body.website);
+  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const address = trim(safeQueryValue(req.body.address));
+  const website = trim(safeQueryValue(req.body.website));
   const category = trim(safeQueryValue(req.body.category));
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
-  const notes = trim(req.body.notes);
+  const notes = trim(safeQueryValue(req.body.notes));
   const rating = safeQueryValue(req.body.rating);
 
   if (!name) {

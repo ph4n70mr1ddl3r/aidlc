@@ -108,19 +108,19 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create asset
 router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
-  const name = trim(req.body.name);
+  const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
-  const manufacturer = trim(req.body.manufacturer);
-  const model = trim(req.body.model);
-  const serial_number = trim(req.body.serial_number);
+  const manufacturer = trim(safeQueryValue(req.body.manufacturer));
+  const model = trim(safeQueryValue(req.body.model));
+  const serial_number = trim(safeQueryValue(req.body.serial_number));
   const status = trim(safeQueryValue(req.body.status));
   const condition_rating = trim(safeQueryValue(req.body.condition_rating));
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const purchase_price = safeQueryValue(req.body.purchase_price);
   const warranty_expiry = safeQueryValue(req.body.warranty_expiry);
   const assigned_to = safeQueryValue(req.body.assigned_to);
-  const location = trim(req.body.location);
-  const notes = trim(req.body.notes);
+  const location = trim(safeQueryValue(req.body.location));
+  const notes = trim(safeQueryValue(req.body.notes));
 
   if (!name || !category) {
     req.flash('error', 'Name and category are required');
@@ -249,20 +249,20 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets');
   }
 
-  const asset_tag = trim(req.body.asset_tag);
-  const name = trim(req.body.name);
+  const asset_tag = trim(safeQueryValue(req.body.asset_tag));
+  const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
-  const manufacturer = trim(req.body.manufacturer);
-  const model = trim(req.body.model);
-  const serial_number = trim(req.body.serial_number);
+  const manufacturer = trim(safeQueryValue(req.body.manufacturer));
+  const model = trim(safeQueryValue(req.body.model));
+  const serial_number = trim(safeQueryValue(req.body.serial_number));
   const status = trim(safeQueryValue(req.body.status));
   const condition_rating = trim(safeQueryValue(req.body.condition_rating));
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const purchase_price = safeQueryValue(req.body.purchase_price);
   const warranty_expiry = safeQueryValue(req.body.warranty_expiry);
   const assigned_to = safeQueryValue(req.body.assigned_to);
-  const location = trim(req.body.location);
-  const notes = trim(req.body.notes);
+  const location = trim(safeQueryValue(req.body.location));
+  const notes = trim(safeQueryValue(req.body.notes));
 
   if (!asset_tag || !name || !category) {
     req.flash('error', 'Asset tag, name, and category are required');

@@ -107,9 +107,6 @@ function _safeFinancialField(input, existingValue) {
   if (parsed === null) {
     return { value: existingValue, error: null };
   }
-  if (parsed < 0) {
-    return { value: existingValue, error: 'Value cannot be negative' };
-  }
   return { value: parsed, error: null };
 }
 
