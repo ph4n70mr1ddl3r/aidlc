@@ -221,12 +221,13 @@ router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   const safeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
   const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
 
-  // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
+  // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
 
   try {
-    const result = _articleInsertStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, req.session.user.id, safeStatus, safeFeatured);
+    const result = _articleInsertStmt.run(safeTitle, safeContent, category, safeTags, req.session.user.id, safeStatus, safeFeatured);
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
@@ -374,12 +375,13 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const safeStatus = resolveSafeStatus(req.session.user, status || existing.status, existing.status);
   const safeFeatured = is_featured !== undefined ? resolveSafeFeatured(req.session.user, is_featured) : existing.is_featured;
 
-  // Sanitize tags and title for defense-in-depth (templates escape with <%=, but strip HTML at input too)
+  // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
 
   try {
-    _articleUpdateStmt.run(safeTitle, content.substring(0, MAX_CONTENT), category, safeTags, safeStatus, safeFeatured, id);
+    _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
 
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');

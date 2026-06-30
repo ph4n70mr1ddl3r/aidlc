@@ -75,6 +75,7 @@ const _updateCheckStmt = db.prepare('SELECT status, assigned_to FROM tickets WHE
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
       status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
+      requester_name = ?, requester_email = ?, requester_department = ?, requester_phone = ?,
       resolved_at = CASE WHEN ? THEN datetime('now') WHEN ? THEN NULL ELSE resolved_at END,
       updated_at = datetime('now')
     WHERE id = ?
@@ -340,6 +341,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
   const resolution_notes = trim(req.body.resolution_notes);
+  const requester_name = trim(req.body.requester_name);
+  const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
+  const requester_department = trim(req.body.requester_department);
+  const requester_phone = sanitizePhone(req.body.requester_phone);
 
   if (!title) {
     req.flash('error', 'Title is required');
@@ -403,7 +408,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     }
 
     const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null];
+      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null,
+      (requester_name || '').substring(0, MAX_SHORT_STR), (requester_email || '').substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null];
 
     const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
     const isNowResolved = status === 'resolved' || status === 'closed';

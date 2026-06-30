@@ -76,7 +76,12 @@ router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
   // Whitelist known departments from DB
-  const departments = _departmentsStmt.all().map(r => r.department);
+  let departments = [];
+  try {
+    departments = _departmentsStmt.all().map(r => r.department);
+  } catch (err) {
+    console.error('Staff departments query error:', err.message);
+  }
   const qStatus = safeQueryValue(req.query.status);
   const activeFilter = qStatus === 'active' ? 1 : qStatus === 'inactive' ? 0 : '';
   const filters = buildFilters({
