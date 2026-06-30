@@ -139,9 +139,11 @@ function renderMarkdown(content) {
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qCategory = safeQueryValue(req.query.category);
+  const qStatus = safeQueryValue(req.query.status);
   const filters = buildFilters({
-    'k.category': { value: VALID_CATEGORIES.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
-    'k.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' }
+    'k.category': { value: VALID_CATEGORIES.includes(qCategory) ? qCategory : '' },
+    'k.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' }
   }, ['k.category', 'k.status']);
 
   const where = [...filters.where];

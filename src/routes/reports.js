@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { safeInt } = require('../utils');
+const { safeInt, safeQueryValue } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
@@ -134,7 +134,7 @@ router.get('/', (req, res) => {
 // Ticket Analytics
 router.get('/tickets', (req, res) => {
   try {
-    const period = Math.max(1, Math.min(365, safeInt(req.query.period, 30)));
+    const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
 
     const ticketsByDay = stmts.ticketsByDay.all(period);
     const byCategory = stmts.ticketsByCategory.all(period);
@@ -178,7 +178,7 @@ router.get('/assets', (req, res) => {
 // Staff Performance
 router.get('/staff', (req, res) => {
   try {
-    const period = Math.max(1, Math.min(365, safeInt(req.query.period, 30)));
+    const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
     const performance = stmts.staffPerformance.all(period, period);
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });

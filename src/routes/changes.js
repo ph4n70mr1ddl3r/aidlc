@@ -44,10 +44,13 @@ const _changeUpdateStmt = db.prepare(`
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qStatus = safeQueryValue(req.query.status);
+  const qChangeType = safeQueryValue(req.query.change_type);
+  const qPriority = safeQueryValue(req.query.priority);
   const filters = buildFilters({
-    'c.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
-    'c.change_type': { value: VALID_CHANGE_TYPES.includes(safeQueryValue(req.query.change_type)) ? safeQueryValue(req.query.change_type) : '' },
-    'c.priority': { value: VALID_PRIORITIES.includes(safeQueryValue(req.query.priority)) ? safeQueryValue(req.query.priority) : '' }
+    'c.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
+    'c.change_type': { value: VALID_CHANGE_TYPES.includes(qChangeType) ? qChangeType : '' },
+    'c.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' }
   }, ['c.status', 'c.change_type', 'c.priority']);
 
   const where = [...filters.where];

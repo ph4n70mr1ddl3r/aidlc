@@ -70,9 +70,11 @@ const _vendorInsertStmt = db.prepare(`
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qCategory = safeQueryValue(req.query.category);
+  const qIsActive = safeQueryValue(req.query.is_active);
   const filters = buildFilters({
-    'v.category': { value: VALID_CATEGORIES_VENDOR.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
-    'v.is_active': { value: safeQueryValue(req.query.is_active) === '1' ? 1 : safeQueryValue(req.query.is_active) === '0' ? 0 : '' }
+    'v.category': { value: VALID_CATEGORIES_VENDOR.includes(qCategory) ? qCategory : '' },
+    'v.is_active': { value: qIsActive === '1' ? 1 : qIsActive === '0' ? 0 : '' }
   }, ['v.category', 'v.is_active']);
 
   const where = [...filters.where];

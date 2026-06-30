@@ -49,8 +49,9 @@ const _licenseUpdateStmt = db.prepare(`
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qLicenseType = safeQueryValue(req.query.license_type);
   const filters = buildFilters({
-    'l.license_type': { value: VALID_LICENSE_TYPES.includes(safeQueryValue(req.query.license_type)) ? safeQueryValue(req.query.license_type) : '' }
+    'l.license_type': { value: VALID_LICENSE_TYPES.includes(qLicenseType) ? qLicenseType : '' }
   }, ['l.license_type']);
 
   const where = [...filters.where];

@@ -95,28 +95,24 @@ const _projectInsertStmt = db.prepare(`
 
 /**
  * Parse and validate a project financial field (budget or spent).
- * Returns { value, error } where value is a number or existingValue;
- * error is a string message or null.
- * When the input is absent/empty/invalid, preserves the existing value.
+ * Returns a number or existingValue when the input is absent/invalid.
  */
 function _safeFinancialField(input, existingValue) {
   if (input === undefined || input === '') {
-    return { value: existingValue, error: null };
+    return existingValue;
   }
-  const parsed = safePositiveFloat(input, null);
-  if (parsed === null) {
-    return { value: existingValue, error: null };
-  }
-  return { value: parsed, error: null };
+  return safePositiveFloat(input, existingValue);
 }
 
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qStatus = safeQueryValue(req.query.status);
+  const qPriority = safeQueryValue(req.query.priority);
   const filters = buildFilters({
-    'p.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
-    'p.priority': { value: VALID_PRIORITIES.includes(safeQueryValue(req.query.priority)) ? safeQueryValue(req.query.priority) : '' }
+    'p.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
+    'p.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' }
   }, ['p.status', 'p.priority']);
 
   const where = [...filters.where];
@@ -308,16 +304,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect('/projects');
     }
     // Validate and parse spent/budget, preserving existing values when absent/invalid.
-    const { value: preservedSpent, error: spentErr } = _safeFinancialField(spent, existingProject.spent);
-    if (spentErr) {
-      req.flash('error', `Spent: ${spentErr}`);
-      return res.redirect(`/projects/${id}/edit`);
-    }
-    const { value: preservedBudget, error: budgetErr } = _safeFinancialField(budget, existingProject.budget);
-    if (budgetErr) {
-      req.flash('error', `Budget: ${budgetErr}`);
-      return res.redirect(`/projects/${id}/edit`);
-    }
+    const preservedSpent = _safeFinancialField(spent, existingProject.spent);
+    const preservedBudget = _safeFinancialField(budget, existingProject.budget);
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);

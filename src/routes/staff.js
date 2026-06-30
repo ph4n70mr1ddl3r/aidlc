@@ -83,10 +83,12 @@ router.get('/', (req, res) => {
     console.error('Staff departments query error:', err.message);
   }
   const qStatus = safeQueryValue(req.query.status);
+  const qRole = safeQueryValue(req.query.role);
+  const qDept = safeQueryValue(req.query.department);
   const activeFilter = qStatus === 'active' ? 1 : qStatus === 'inactive' ? 0 : '';
   const filters = buildFilters({
-    'u.role': { value: USER_ROLES.includes(safeQueryValue(req.query.role)) ? safeQueryValue(req.query.role) : '' },
-    'u.department': { value: departments.includes(safeQueryValue(req.query.department)) ? safeQueryValue(req.query.department) : '' },
+    'u.role': { value: USER_ROLES.includes(qRole) ? qRole : '' },
+    'u.department': { value: departments.includes(qDept) ? qDept : '' },
     'u.is_active': { value: activeFilter }
   }, ['u.role', 'u.department', 'u.is_active']);
 
@@ -298,7 +300,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const department = trim(safeQueryValue(req.body.department));
-  const phone = sanitizePhone(req.body.phone);
+  const phone = sanitizePhone(safeQueryValue(req.body.phone));
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);

@@ -64,10 +64,13 @@ const _assetCounterPreviewStmt = db.prepare(`
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qCategory = safeQueryValue(req.query.category);
+  const qStatus = safeQueryValue(req.query.status);
+  const qAssignedTo = safeQueryValue(req.query.assigned_to);
   const filters = buildFilters({
-    'a.category': { value: VALID_CATEGORIES.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
-    'a.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
-    'a.assigned_to': { value: safeQueryValue(req.query.assigned_to) ? safeId(safeQueryValue(req.query.assigned_to)) || '' : '' }
+    'a.category': { value: VALID_CATEGORIES.includes(qCategory) ? qCategory : '' },
+    'a.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
+    'a.assigned_to': { value: qAssignedTo ? safeId(qAssignedTo) || '' : '' }
   }, ['a.category', 'a.status', 'a.assigned_to']);
 
   const where = [...filters.where];

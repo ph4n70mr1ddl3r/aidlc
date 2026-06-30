@@ -305,7 +305,7 @@ router.put('/profile', requireAuth, (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(req.body.phone);
+  const phone = sanitizePhone(safeQueryValue(req.body.phone));
 
   if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');

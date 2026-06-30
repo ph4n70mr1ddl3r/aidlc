@@ -28,9 +28,11 @@ const SORT_MAP = {
 router.get('/', auditLimiter, (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qAction = safeQueryValue(req.query.action);
+  const qEntityType = safeQueryValue(req.query.entity_type);
   const filters = buildFilters({
-    'a.action': { value: ALLOWED_ACTIONS.includes(safeQueryValue(req.query.action)) ? safeQueryValue(req.query.action) : '' },
-    'a.entity_type': { value: ALLOWED_ENTITY_TYPES.includes(safeQueryValue(req.query.entity_type)) ? safeQueryValue(req.query.entity_type) : '' }
+    'a.action': { value: ALLOWED_ACTIONS.includes(qAction) ? qAction : '' },
+    'a.entity_type': { value: ALLOWED_ENTITY_TYPES.includes(qEntityType) ? qEntityType : '' }
   }, ['a.action', 'a.entity_type']);
 
   const where = [...filters.where];

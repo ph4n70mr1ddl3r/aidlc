@@ -124,11 +124,15 @@ const SORT_MAP = {
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
 
+  const qStatus = safeQueryValue(req.query.status);
+  const qPriority = safeQueryValue(req.query.priority);
+  const qCategory = safeQueryValue(req.query.category);
+  const qAssignedTo = safeQueryValue(req.query.assigned_to);
   const filters = buildFilters({
-    't.status': { value: VALID_STATUSES.includes(safeQueryValue(req.query.status)) ? safeQueryValue(req.query.status) : '' },
-    't.priority': { value: VALID_PRIORITIES.includes(safeQueryValue(req.query.priority)) ? safeQueryValue(req.query.priority) : '' },
-    't.category': { value: VALID_CATEGORIES.includes(safeQueryValue(req.query.category)) ? safeQueryValue(req.query.category) : '' },
-    't.assigned_to': { value: safeQueryValue(req.query.assigned_to) ? safeId(safeQueryValue(req.query.assigned_to)) || '' : '' }
+    't.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
+    't.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' },
+    't.category': { value: VALID_CATEGORIES.includes(qCategory) ? qCategory : '' },
+    't.assigned_to': { value: qAssignedTo ? safeId(qAssignedTo) || '' : '' }
   }, ['t.status', 't.priority', 't.category', 't.assigned_to']);
 
   const where = [...filters.where];
