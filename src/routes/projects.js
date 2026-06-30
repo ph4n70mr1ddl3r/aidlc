@@ -161,8 +161,8 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create project
 router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
-  const name = trim(req.body.name);
-  const description = trim(req.body.description);
+  const name = trim(safeQueryValue(req.body.name));
+  const description = trim(safeQueryValue(req.body.description));
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
   const start_date = safeQueryValue(req.body.start_date);
@@ -269,8 +269,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     return res.redirect('/projects');
   }
 
-  const name = trim(req.body.name);
-  const description = trim(req.body.description);
+  const name = trim(safeQueryValue(req.body.name));
+  const description = trim(safeQueryValue(req.body.description));
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
   const start_date = safeQueryValue(req.body.start_date);
@@ -403,8 +403,8 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     return res.redirect('/projects');
   }
 
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
   const status = safeQueryValue(req.body.status);
   const priority = safeQueryValue(req.body.priority);
   const assigned_to = safeQueryValue(req.body.assigned_to);
@@ -491,8 +491,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     return res.redirect(`/projects/${projectId}`);
   }
 
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
 
   if (!title) {
     req.flash('error', 'Task title is required');

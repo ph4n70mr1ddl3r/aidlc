@@ -174,14 +174,14 @@ router.get('/new', (req, res) => {
 
 // Create ticket
 router.post('/', ticketWriteLimiter, (req, res) => {
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
-  const requester_name = trim(req.body.requester_name);
+  const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
-  const requester_department = trim(req.body.requester_department);
-  const requester_phone = sanitizePhone(req.body.requester_phone);
+  const requester_department = trim(safeQueryValue(req.body.requester_department));
+  const requester_phone = sanitizePhone(safeQueryValue(req.body.requester_phone));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
@@ -332,19 +332,19 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets');
   }
 
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
   const status = trim(safeQueryValue(req.body.status));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
-  const resolution_notes = trim(req.body.resolution_notes);
-  const requester_name = trim(req.body.requester_name);
+  const resolution_notes = trim(safeQueryValue(req.body.resolution_notes));
+  const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
-  const requester_department = trim(req.body.requester_department);
-  const requester_phone = sanitizePhone(req.body.requester_phone);
+  const requester_department = trim(safeQueryValue(req.body.requester_department));
+  const requester_phone = sanitizePhone(safeQueryValue(req.body.requester_phone));
 
   if (!title) {
     req.flash('error', 'Title is required');

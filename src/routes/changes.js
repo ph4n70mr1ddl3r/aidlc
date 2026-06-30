@@ -83,14 +83,14 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create change
 router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
   const change_type = trim(safeQueryValue(req.body.change_type));
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
   const scheduled_start = safeQueryValue(req.body.scheduled_start);
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
-  const impact = trim(req.body.impact);
+  const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
 
   if (!title || !change_type) {
@@ -195,8 +195,8 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect('/changes');
   }
 
-  const title = trim(req.body.title);
-  const description = trim(req.body.description);
+  const title = trim(safeQueryValue(req.body.title));
+  const description = trim(safeQueryValue(req.body.description));
   const change_type = trim(safeQueryValue(req.body.change_type));
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
@@ -204,7 +204,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
   const actual_start = safeQueryValue(req.body.actual_start);
   const actual_end = safeQueryValue(req.body.actual_end);
-  const impact = trim(req.body.impact);
+  const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
 
   if (!title) {
