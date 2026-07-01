@@ -161,7 +161,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const last_name = trim(safeQueryValue(req.body.last_name));
   const role = safeQueryValue(req.body.role);
   const department = trim(safeQueryValue(req.body.department));
-  const phone = sanitizePhone(req.body.phone);
+  const phone = sanitizePhone(safeQueryValue(req.body.phone));
 
   if (!username || !password || !email || !first_name || !last_name) {
     req.flash('error', 'All required fields must be filled in');

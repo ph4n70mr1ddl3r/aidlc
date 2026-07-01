@@ -57,7 +57,7 @@
         </select>
         <select name="assigned_to" class="form-control" style="width:160px;">
           <option value="">Unassigned</option>
-          <% staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }) %>
+          <% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }); } %>
         </select>
         <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
       </form>
