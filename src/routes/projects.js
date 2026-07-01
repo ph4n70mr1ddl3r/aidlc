@@ -204,7 +204,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   try {
     const result = _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
-      sStart, sEnd, budget ? safePositiveFloat(budget, 0) : 0, safeOwnerId);
+      sStart, sEnd, safePositiveFloat(budget, 0), safeOwnerId);
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');

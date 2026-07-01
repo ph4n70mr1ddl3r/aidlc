@@ -98,8 +98,8 @@
         <div class="comment <%= c.is_internal ? 'internal' : '' %>">
           <div class="comment-header">
             <div>
-              <span class="comment-author"><%= c.author_name %></span>
-              <span class="text-sm text-muted">(<%= c.author_role %>)</span>
+              <span class="comment-author"><%= c.author_name || 'Unknown' %></span>
+              <span class="text-sm text-muted">(<%= c.author_role || 'Unknown' %>)</span>
               <% if (c.is_internal) { %><span class="badge badge-warning" style="margin-left:8px;">Internal</span><% } %>
             </div>
             <span class="comment-time"><%= formatDateTime(c.created_at) %></span>

@@ -50,7 +50,7 @@
       <div class="card-body" style="text-align:center;">
         <div class="user-avatar" style="width:64px;height:64px;font-size:24px;margin:0 auto 12px;"><%= (staffUser.first_name || '?')[0] %><%= (staffUser.last_name || '?')[0] %></div>
         <h3><%= staffUser.first_name %> <%= staffUser.last_name %></h3>
-        <span class="badge badge-<%= badgeClass(staffUser.role, ROLE_BADGE) %>" style="margin-top:8px;"><%= titleCase(staffUser.role) %></span>
+        <span class="badge badge-<%= badgeClass(staffUser.role || 'staff', ROLE_BADGE) %>" style="margin-top:8px;"><%= titleCase(staffUser.role || 'staff') %></span>
         <div class="text-sm text-muted mt-2"><%= staffUser.department || '' %></div>
       </div>
     </div>
@@ -68,7 +68,7 @@
       <div class="card-header"><h3>Projects</h3></div>
       <div class="card-body">
         <% projectMemberships.forEach(pm => { %>
-        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= titleCase(pm.project_status) %></span> <span class="badge badge-medium"><%= pm.project_role %></span></div>
+        <div style="padding:4px 0;"><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= titleCase(pm.project_status) %></span> <span class="badge badge-medium"><%= pm.project_role || 'member' %></span></div>
         <% }) %>
         <% if (!projectMemberships.length) { %><p class="text-muted text-sm">Not in any projects</p><% } %>
       </div>

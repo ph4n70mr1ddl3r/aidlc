@@ -382,6 +382,28 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  // Validate requester fields — must be present and within length limits
+  if (!requester_name) {
+    req.flash('error', 'Requester name is required');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (requester_name.length > MAX_SHORT_STR) {
+    req.flash('error', `Requester name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (!requester_email) {
+    req.flash('error', 'Requester email is required');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (requester_email.length > MAX_EMAIL) {
+    req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (requester_department && requester_department.length > MAX_SHORT_STR) {
+    req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
   if (updateAssignee && !isActiveUser(db, updateAssignee)) {
