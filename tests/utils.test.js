@@ -873,6 +873,10 @@ describe('pruneAuditLog', () => {
  * Test for isActiveUser function
  */
 describe('isActiveUser', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
   it('should return false for falsy userId', () => {
     expect(utils.isActiveUser({}, null)).toBe(false);
     expect(utils.isActiveUser({}, undefined)).toBe(false);
@@ -893,6 +897,10 @@ describe('isActiveUser', () => {
  * Test for getActiveStaff function
  */
 describe('getActiveStaff', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
   it('should return list of active staff', () => {
     const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
     const stmt = { all: jest.fn(() => staff) };

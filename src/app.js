@@ -405,7 +405,18 @@ app.use((err, req, res, _next) => {
 // ---------------------------------------------------------------------------
 // Start server
 // ---------------------------------------------------------------------------
-const PORT = process.env.PORT || 3000;
+const PORT = (() => {
+  const raw = process.env.PORT;
+  if (raw === undefined || raw === '') {
+    return 3000;
+  }
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 65535) {
+    console.error(`ERROR: PORT must be a number between 1 and 65535, got "${raw}"`);
+    process.exit(1);
+  }
+  return n;
+})();
 
 // Create server explicitly so timeouts can be configured BEFORE listen()
 // starts accepting connections. Although listen() is async and timeouts set
