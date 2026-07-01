@@ -452,7 +452,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // Defensive: handle quick-status-change forms that only send `status`.
   // Uses a dedicated `_quick_status` flag sent by the EJS template so a
   // client cannot force the quick path by omitting the title from a full edit.
-  if (req.body._quick_status) {
+  if (safeQueryValue(req.body._quick_status)) {
     // Quick status update only — preserve existing values
     try {
       const existing = _taskExistsStmt.get(taskId, projectId);

@@ -399,6 +399,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
+  if (!isValidEmail(requester_email)) {
+    req.flash('error', 'Please enter a valid requester email address');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
   if (requester_department && requester_department.length > MAX_SHORT_STR) {
     req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/tickets/${id}/edit`);
