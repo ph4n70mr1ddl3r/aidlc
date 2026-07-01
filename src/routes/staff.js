@@ -159,7 +159,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
-  const role = safeQueryValue(req.body.role);
+  const role = trim(safeQueryValue(req.body.role));
   const department = trim(safeQueryValue(req.body.department));
   const phone = sanitizePhone(safeQueryValue(req.body.phone));
 
