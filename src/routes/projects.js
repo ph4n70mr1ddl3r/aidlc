@@ -98,7 +98,7 @@ const _projectInsertStmt = db.prepare(`
  * Returns a number or existingValue when the input is absent/invalid.
  */
 function _safeFinancialField(input, existingValue) {
-  if (input === undefined || input === '') {
+  if (input === undefined || input === null || input === '') {
     return existingValue;
   }
   return safePositiveFloat(input, existingValue);
