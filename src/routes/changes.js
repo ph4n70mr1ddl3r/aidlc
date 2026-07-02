@@ -246,7 +246,10 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect('/changes');
   }
 
-  const safePriority = priority && VALID_PRIORITIES.includes(priority) ? priority : existingChange.priority;
+  // The earlier guard already redirected when priority is present-but-invalid,
+  // so a truthy priority here is guaranteed valid; fall back to the existing
+  // value when the field is absent (mirrors the create route's `priority || 'medium'`).
+  const safePriority = priority || existingChange.priority;
 
   const sSchedStart = safeDateTimeLocal(scheduled_start);
   const sSchedEnd = safeDateTimeLocal(scheduled_end);

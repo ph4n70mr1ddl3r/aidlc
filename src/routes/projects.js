@@ -592,7 +592,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     if (result.changes === 0) {
       req.flash('info', 'User is already a member of this project');
     } else {
-      req.audit('create', 'project_member', null, `Added member #${user_id} to project #${id}`);
+      req.audit('create', 'project_member', null, `Added member #${safeUserId} to project #${id}`);
       req.flash('success', 'Member added');
     }
   } catch (err) {

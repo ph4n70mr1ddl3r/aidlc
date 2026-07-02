@@ -146,6 +146,10 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', 'Website must be a valid http/https URL');
     return res.redirect('/vendors/new');
   }
+  if (website && website.length > MAX_LONG_STR) {
+    req.flash('error', `Website must be at most ${MAX_LONG_STR} characters`);
+    return res.redirect('/vendors/new');
+  }
 
   if (phone && phone.length > MAX_PHONE) {
     req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
@@ -271,6 +275,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
   if (website && !isValidUrl(website)) {
     req.flash('error', 'Website must be a valid http/https URL');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (website && website.length > MAX_LONG_STR) {
+    req.flash('error', `Website must be at most ${MAX_LONG_STR} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (phone && phone.length > MAX_PHONE) {
