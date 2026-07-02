@@ -50,7 +50,8 @@ jest.mock('../src/routes/dashboard', () => {
 });
 
 const { marked } = require('marked');
-const { renderMarkdown } = require('../src/routes/knowledge');
+const { renderMarkdown, resolveSafeFeatured } = require('../src/routes/knowledge');
+const utils = require('../src/utils');
 
 describe('renderMarkdown', () => {
   beforeEach(() => {
@@ -96,5 +97,42 @@ describe('renderMarkdown', () => {
   it('falls back to a plain-text notice when rendering throws', () => {
     const html = renderMarkdown('__THROW__');
     expect(html).toContain('could not be rendered');
+  });
+});
+
+describe('resolveSafeFeatured (Featured checkbox)', () => {
+  const admin = { role: 'admin' };
+  const manager = { role: 'manager' };
+  const staff = { role: 'staff' };
+
+  // Regression: the "Featured article" checkbox used a hidden-field companion
+  // (<input type="hidden" name="is_featured" value="0">) plus the checkbox
+  // (value="1"). With express.urlencoded({ extended: false }) a checked box
+  // submitted is_featured=0&is_featured=1, which parsed to ['0','1']. The
+  // route ran that through safeQueryValue (first array element wins) -> '0',
+  // so resolveSafeFeatured always returned 0 and the checkbox was unusable.
+  // The form's hidden field was removed; resolveSafeFeatured must now correctly
+  // resolve the plain checkbox value ('1' when checked, absent when not).
+  it('enables featuring for a privileged user who checks the box (regression)', () => {
+    // Simulate the route pipeline: safeQueryValue(req.body.is_featured) -> resolveSafeFeatured
+    const checked = utils.safeQueryValue('1');
+    expect(resolveSafeFeatured(admin, checked)).toBe(1);
+    expect(resolveSafeFeatured(manager, checked)).toBe(1);
+  });
+
+  it('treats an unchecked (absent) box as not featured', () => {
+    const unchecked = utils.safeQueryValue(undefined);
+    expect(resolveSafeFeatured(admin, unchecked)).toBe(0);
+  });
+
+  it('never lets a non-privileged user set the featured flag', () => {
+    expect(resolveSafeFeatured(staff, '1')).toBe(0);
+    expect(resolveSafeFeatured(staff, undefined)).toBe(0);
+    expect(resolveSafeFeatured(null, '1')).toBe(0);
+  });
+
+  it('rejects the legacy hidden-field "0" value', () => {
+    // Defense-in-depth: even if a '0' leaks through, it must not feature.
+    expect(resolveSafeFeatured(admin, '0')).toBe(0);
   });
 });

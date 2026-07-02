@@ -15,7 +15,8 @@
       <div class="form-grid">
         <div class="form-group">
           <label for="asset_tag">Asset Tag *</label>
-          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" required>
+          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" required <% if (!isEdit) { %>readonly style="background:var(--bg);cursor:not-allowed;"<% } %>>
+          <% if (!isEdit) { %><small class="text-muted">Auto-generated when the asset is created.</small><% } %>
         </div>
         <div class="form-group">
           <label for="name">Name *</label>

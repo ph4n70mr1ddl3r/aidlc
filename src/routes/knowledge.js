@@ -373,7 +373,17 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   }
 
   const safeStatus = resolveSafeStatus(req.session.user, status || existing.status, existing.status);
-  const safeFeatured = is_featured !== undefined ? resolveSafeFeatured(req.session.user, is_featured) : existing.is_featured;
+  // resolveSafeFeatured already treats an absent/unchecked field as 0, so the
+  // checkbox no longer needs a hidden "is_featured=0" companion field. That
+  // hidden field conflicted with safeQueryValue (first array element wins):
+  // a checked box submitted is_featured=0 (hidden) + is_featured=1 (checkbox),
+  // which qs parsed to ['0','1'], and safeQueryValue picked '0' — making the
+  // "Featured" checkbox permanently non-functional. Non-privileged authors
+  // editing their own article preserve the existing featured flag instead of
+  // having it stripped by every content edit.
+  const safeFeatured = isPrivileged(req.session.user)
+    ? resolveSafeFeatured(req.session.user, is_featured)
+    : existing.is_featured;
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
@@ -421,3 +431,4 @@ router.delete('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
 module.exports = router;
 // Exposed for unit testing (the route module is mocked in app.test.js).
 module.exports.renderMarkdown = renderMarkdown;
+module.exports.resolveSafeFeatured = resolveSafeFeatured;
