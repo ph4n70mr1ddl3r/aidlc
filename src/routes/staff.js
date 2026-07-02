@@ -50,10 +50,17 @@ const _affectedProjectsStmt = db.prepare(
   );
 const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status != 'done'`);
+// Only unassign SCHEDULED / IN_PROGRESS changes so finished records
+// (completed/failed/cancelled) keep their assignee for historical attribution
+// — the user row is only soft-deleted (is_active=0), so the LEFT JOIN in the
+// show page still resolves the name. Mirrors the selective ticket/task unassign.
 const _unassignChangesStmt = db.prepare(`UPDATE change_log SET assigned_to = NULL, updated_at = datetime('now')
-    WHERE assigned_to = ?`);
+    WHERE assigned_to = ? AND status NOT IN ('completed', 'failed', 'cancelled')`);
+// Only clear ownership of ACTIVE projects (planning/in_progress/on_hold) so
+// they can be reassigned; completed/cancelled projects keep their owner for
+// history (the deactivated user row persists, so owner_name still resolves).
 const _unassignProjectOwnerStmt = db.prepare(`UPDATE projects SET owner_id = NULL, updated_at = datetime('now')
-    WHERE owner_id = ?`);
+    WHERE owner_id = ? AND status NOT IN ('completed', 'cancelled')`);
 
 // Cached prepared statements for staff create/update routes
 const _staffInsertStmt = db.prepare(`

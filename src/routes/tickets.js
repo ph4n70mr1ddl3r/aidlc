@@ -586,7 +586,10 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
     req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
-  const rating = safeInt(req.body.satisfaction_rating, 0);
+  // Wrap in safeQueryValue for HPP consistency with every other req.body field
+  // in the codebase. safeInt already rejects arrays, but the explicit guard
+  // matches the established pattern and stays correct if that ever changes.
+  const rating = safeInt(safeQueryValue(req.body.satisfaction_rating), 0);
   if (rating < 1 || rating > 5) {
     req.flash('error', 'Invalid satisfaction rating');
     return res.redirect(`/tickets/${id}`);
