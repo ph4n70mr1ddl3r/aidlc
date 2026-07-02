@@ -102,6 +102,18 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/licenses/new');
   }
+  if (vendor && vendor.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Vendor must be at most ${MAX_MEDIUM_STR} characters`);
+    return res.redirect('/licenses/new');
+  }
+  if (license_key && license_key.length > MAX_LONG_STR) {
+    req.flash('error', `License key must be at most ${MAX_LONG_STR} characters`);
+    return res.redirect('/licenses/new');
+  }
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
+    return res.redirect('/licenses/new');
+  }
 
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
     req.flash('error', 'Invalid license type');
@@ -221,6 +233,18 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
   if (software_name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (vendor && vendor.length > MAX_MEDIUM_STR) {
+    req.flash('error', `Vendor must be at most ${MAX_MEDIUM_STR} characters`);
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (license_key && license_key.length > MAX_LONG_STR) {
+    req.flash('error', `License key must be at most ${MAX_LONG_STR} characters`);
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
