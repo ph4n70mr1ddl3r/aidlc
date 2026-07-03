@@ -45,7 +45,8 @@ const SESSION_COOKIE = 'itm_sid';
 // Session cookie options (minus maxAge, which is set by SESSION_MAX_AGE).
 // Must match the app.js session config so that res.clearCookie() can delete
 // the cookie correctly in production (where secure:true requires matching
-// options on the Clear-Cookie header).
+// options on the Clear-Cookie header). The secure flag is set to true in
+// production to ensure cookies are only sent over HTTPS.
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',
@@ -81,6 +82,9 @@ const MAX_PASSWORD = 128;         // password max length
 const MAX_SEARCH = 100;           // search box input (list filters)
 const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX
 
+// Audit log
+const MAX_AUDIT_DETAILS = 4000; // max length of audit log details to prevent unbounded row growth
+
 // Bcrypt
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -103,5 +107,6 @@ module.exports = {
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
+  MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS
 };

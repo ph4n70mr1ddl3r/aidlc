@@ -300,7 +300,8 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, must-revalidate, private');
   res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
+  res.set('Expires', 'Thu, 01 Jan 1970 00:00:00 GMT');
+  res.set('Surrogate-Control', 'no-store');
   next();
 });
 

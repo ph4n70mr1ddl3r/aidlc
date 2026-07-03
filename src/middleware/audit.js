@@ -1,4 +1,5 @@
 const db = require('../models/database');
+const { MAX_AUDIT_DETAILS } = require('../constants');
 
 // Cache the prepared statement — audit() is called on every write route
 // and prepare() is relatively expensive.
@@ -22,8 +23,7 @@ function audit({ req, action, entity, entityId, details }) {
     const uid = req && req.session && req.session.user ? req.session.user.id : null;
     const ip = req && req.ip ? req.ip : null;
     // Truncate details to prevent unbounded row growth
-    const MAX_DETAILS_LENGTH = 4000;
-    const safeDetails = details && details.length > MAX_DETAILS_LENGTH ? details.substring(0, MAX_DETAILS_LENGTH) : (details || null);
+    const safeDetails = details && details.length > MAX_AUDIT_DETAILS ? details.substring(0, MAX_AUDIT_DETAILS) : (details || null);
     _auditStmt.run(uid, action, entity, entityId || null, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request

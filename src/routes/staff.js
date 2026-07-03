@@ -383,7 +383,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
 
     // Keep session in sync if user is editing their own record (full reassign to ensure save with resave:false)
     if (Number(id) === Number(req.session.user.id)) {
-      req.session.user = { ...req.session.user, first_name, last_name, email, role: safeRole, department, phone: phone ? phone.substring(0, MAX_PHONE) : null };
+      req.session.user = { ...req.session.user, first_name: first_name.substring(0, MAX_SHORT_STR), last_name: last_name.substring(0, MAX_SHORT_STR), email: email.substring(0, MAX_EMAIL), role: safeRole, department: (department || '').substring(0, MAX_SHORT_STR), phone: phone ? phone.substring(0, MAX_PHONE) : null };
     }
 
     req.flash('success', 'Staff member updated');
