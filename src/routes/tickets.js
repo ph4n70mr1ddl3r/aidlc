@@ -408,6 +408,11 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  if (requester_phone && !isValidPhone(requester_phone)) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
   if (updateAssignee && !isActiveUser(db, updateAssignee)) {

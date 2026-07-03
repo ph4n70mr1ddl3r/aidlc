@@ -7,12 +7,14 @@ const { invalidateDashboardCache } = require('./dashboard');
 // marked v18+ is ESM-only. In Node <22, require('marked') throws.
 // Try CJS require first, fall back to a static mock that logs a warning.
 let marked;
+let markedFallback = false;
 try {
   marked = require('marked');
 } catch {
   console.error('ERROR: marked package failed to load. Run `npm install` or upgrade to Node >= 22.');
   console.error('Falling back to plain-text rendering for knowledge articles.');
   marked = { parse: (content) => content };
+  markedFallback = true;
 }
 const sanitizeHtml = require('sanitize-html');
 const rateLimit = require('express-rate-limit');
@@ -292,7 +294,7 @@ router.get('/:id', (req, res) => {
 
   article.renderedContent = renderMarkdown(article.content);
 
-  res.render('pages/knowledge/show', { title: article.title, article });
+  res.render('pages/knowledge/show', { title: article.title, article, markedFallback });
 });
 
 // Edit article (author or admin/manager only)
@@ -405,10 +407,22 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
 });
 
 // Delete article
-router.delete('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
+router.delete('/:id', kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
+    return res.redirect('/knowledge');
+  }
+
+  // Authorization: allow author (matching edit behavior) or admin/manager
+  const existing = _editArticleStmt.get(id);
+  if (!existing) {
+    req.flash('error', 'Article not found');
+    return res.redirect('/knowledge');
+  }
+  const isOwner = existing.author_id === req.session.user.id;
+  if (!isOwner && !isPrivileged(req.session.user)) {
+    req.flash('error', 'You can only delete your own articles');
     return res.redirect('/knowledge');
   }
 
@@ -432,3 +446,4 @@ module.exports = router;
 // Exposed for unit testing (the route module is mocked in app.test.js).
 module.exports.renderMarkdown = renderMarkdown;
 module.exports.resolveSafeFeatured = resolveSafeFeatured;
+module.exports.markedFallback = markedFallback;

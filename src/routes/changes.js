@@ -257,17 +257,39 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Scheduled end must be on or after scheduled start');
     return res.redirect(`/changes/${id}/edit`);
   }
-  // Preserve existing actual_start/actual_end when the request omits them
-  // (HTML forms may not send these fields at all in some contexts).
-  // Also guard against empty strings from unfilled form fields, which would
-  // otherwise overwrite the existing DB value with NULL.
-  // Only apply safeDateTimeLocal if it returns a valid value — an invalid
-  // datetime string from a crafted request must not nullify the existing value.
-  const parsedActStart = (actual_start !== undefined && actual_start !== '') ? safeDateTimeLocal(actual_start) : undefined;
-  const parsedActEnd = (actual_end !== undefined && actual_end !== '') ? safeDateTimeLocal(actual_end) : undefined;
-  // parsedActStart/parsedActEnd may be null (invalid datetime) — preserve existing value in that case
-  const sActStart = parsedActStart !== undefined && parsedActStart !== null ? parsedActStart : existingChange.actual_start;
-  const sActEnd = parsedActEnd !== undefined && parsedActEnd !== null ? parsedActEnd : existingChange.actual_end;
+  // --- actual_start ---
+  // Preserve existing value when field is absent from the request;
+  // treat empty string as an explicit "clear to NULL";
+  // reject invalid datetime values rather than silently preserving.
+  let sActStart;
+  if (actual_start === undefined) {
+    sActStart = existingChange.actual_start;
+  } else if (actual_start === '') {
+    sActStart = null;
+  } else {
+    const parsed = safeDateTimeLocal(actual_start);
+    if (parsed === null) {
+      req.flash('error', 'Invalid actual start date');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    sActStart = parsed;
+  }
+
+  // --- actual_end ---
+  let sActEnd;
+  if (actual_end === undefined) {
+    sActEnd = existingChange.actual_end;
+  } else if (actual_end === '') {
+    sActEnd = null;
+  } else {
+    const parsed = safeDateTimeLocal(actual_end);
+    if (parsed === null) {
+      req.flash('error', 'Invalid actual end date');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    sActEnd = parsed;
+  }
+
   if (sActStart && sActEnd && sActEnd < sActStart) {
     req.flash('error', 'Actual end must be on or after actual start');
     return res.redirect(`/changes/${id}/edit`);
