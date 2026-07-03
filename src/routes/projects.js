@@ -93,14 +93,6 @@ const _projectInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-/**
- * Parse and validate a project financial field (budget or spent).
- * Returns a number or existingValue when the input is absent/invalid.
- */
-function _safeFinancialField(input, existingValue) {
-  return safePositiveFloat(input, existingValue);
-}
-
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -301,8 +293,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect('/projects');
     }
     // Validate and parse spent/budget, preserving existing values when absent/invalid.
-    const preservedSpent = _safeFinancialField(spent, existingProject.spent);
-    const preservedBudget = _safeFinancialField(budget, existingProject.budget);
+    const preservedSpent = safePositiveFloat(spent, existingProject.spent);
+    const preservedBudget = safePositiveFloat(budget, existingProject.budget);
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);

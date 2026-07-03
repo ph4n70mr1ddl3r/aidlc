@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 if (process.env.NODE_ENV) {
-  process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
+  process.env.NODE_ENV = process.env.NODE_ENV.trim().toLowerCase();
 }
 if (process.env.NODE_ENV === 'production') {
   console.error('ERROR: Refusing to seed database in production');
