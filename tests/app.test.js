@@ -109,7 +109,7 @@ describe('NODE_ENV handling', () => {
 
   it('should normalize NODE_ENV to lowercase', () => {
     const code = require('fs').readFileSync(require.resolve('../src/app'), 'utf8');
-    expect(code).toContain('process.env.NODE_ENV.toLowerCase()');
+    expect(code).toContain('process.env.NODE_ENV.trim().toLowerCase()');
   });
 });
 

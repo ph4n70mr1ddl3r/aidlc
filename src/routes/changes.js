@@ -251,8 +251,36 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // value when the field is absent (mirrors the create route's `priority || 'medium'`).
   const safePriority = priority || existingChange.priority;
 
-  const sSchedStart = safeDateTimeLocal(scheduled_start);
-  const sSchedEnd = safeDateTimeLocal(scheduled_end);
+  // --- scheduled_start ---
+  let sSchedStart;
+  if (scheduled_start === undefined) {
+    sSchedStart = existingChange.scheduled_start;
+  } else if (scheduled_start === '') {
+    sSchedStart = null;
+  } else {
+    const parsed = safeDateTimeLocal(scheduled_start);
+    if (parsed === null) {
+      req.flash('error', 'Invalid scheduled start date');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    sSchedStart = parsed;
+  }
+
+  // --- scheduled_end ---
+  let sSchedEnd;
+  if (scheduled_end === undefined) {
+    sSchedEnd = existingChange.scheduled_end;
+  } else if (scheduled_end === '') {
+    sSchedEnd = null;
+  } else {
+    const parsed = safeDateTimeLocal(scheduled_end);
+    if (parsed === null) {
+      req.flash('error', 'Invalid scheduled end date');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    sSchedEnd = parsed;
+  }
+
   if (sSchedStart && sSchedEnd && sSchedEnd < sSchedStart) {
     req.flash('error', 'Scheduled end must be on or after scheduled start');
     return res.redirect(`/changes/${id}/edit`);

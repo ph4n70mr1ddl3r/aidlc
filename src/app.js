@@ -19,7 +19,7 @@ const crypto = require('crypto');
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'development';
 } else {
-  process.env.NODE_ENV = process.env.NODE_ENV.toLowerCase();
+  process.env.NODE_ENV = process.env.NODE_ENV.trim().toLowerCase();
 }
 
 const utilsModule = require('./utils');
