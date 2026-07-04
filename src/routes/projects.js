@@ -399,6 +399,14 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
+  if (status && !VALID_TASK_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid task status');
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid task priority');
+    return res.redirect(`/projects/${projectId}`);
+  }
 
   try {
     const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -407,7 +415,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       return res.redirect(`/projects/${projectId}`);
     }
     const addTask = db.transaction(() => {
-      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, VALID_TASK_STATUSES.includes(status) ? status : 'todo', VALID_TASK_PRIORITIES.includes(priority) ? priority : 'medium', safeTaskAssignee, safeDate(due_date));
+      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDate(due_date));
 
       recalcProjectProgress(db, projectId);
       return result.lastInsertRowid;
@@ -499,7 +507,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       return res.redirect(`/projects/${projectId}`);
     }
     const updateTask = db.transaction(() => {
-      const params = [title.substring(0, MAX_MEDIUM_STR), description.substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');

@@ -76,7 +76,7 @@ const stmts = {
   assetsByCondition: db.prepare(`
     SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC
   `),
-  assetsTotalValue: db.prepare('SELECT SUM(purchase_price) as total FROM assets'),
+  assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets'),
   // Also include already-expired warranties — they are more urgent than expiring-soon
   warrantyExpiring: db.prepare(`
     SELECT * FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days')

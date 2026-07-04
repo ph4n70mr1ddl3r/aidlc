@@ -210,8 +210,8 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
 
-  if (!title) {
-    req.flash('error', 'Title is required');
+  if (!title || !change_type) {
+    req.flash('error', 'Title and change type are required');
     return res.redirect(`/changes/${id}/edit`);
   }
   if (title.length > MAX_MEDIUM_STR) {

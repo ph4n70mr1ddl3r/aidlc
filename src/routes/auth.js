@@ -321,6 +321,14 @@ router.put('/profile', requireAuth, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/profile');
   }
+  if (first_name.length > MAX_SHORT_STR) {
+    req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect('/profile');
+  }
+  if (last_name.length > MAX_SHORT_STR) {
+    req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
+    return res.redirect('/profile');
+  }
 
   try {
     _profileUpdateStmt.run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
