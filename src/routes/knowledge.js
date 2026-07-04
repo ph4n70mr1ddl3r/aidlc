@@ -79,11 +79,9 @@ function resolveSafeFeatured(user, is_featured) {
   return (is_featured && is_featured !== '0') ? 1 : 0;
 }
 
-// Configure marked options (passed per-call to avoid mutating global state)
-const MARKED_OPTIONS = {
-  breaks: true,
-  gfm: true
-};
+// Markdown options are inlined per-call in renderMarkdown to avoid
+// mutating a shared object (even though marked does not currently
+// mutate the options argument, being defensive costs nothing).
 
 const SANITIZE_HTML_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
@@ -120,7 +118,7 @@ function renderMarkdown(content) {
     // (none here), so it returns a string.  Guard against async extensions by
     // rejecting thenables — otherwise sanitizeHtml would receive a Promise
     // and render "[object Promise]" in the template.
-    const html = marked.parse(content, MARKED_OPTIONS);
+    const html = marked.parse(content, { breaks: true, gfm: true });
     if (html && typeof html.then === 'function') {
       throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
     }

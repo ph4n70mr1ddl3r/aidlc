@@ -293,8 +293,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect('/projects');
     }
     // Validate and parse spent/budget, preserving existing values when absent/invalid.
-    const preservedSpent = safePositiveFloat(spent, existingProject.spent);
-    const preservedBudget = safePositiveFloat(budget, existingProject.budget);
+    const preservedSpent = safePositiveFloat(spent, existingProject.spent ?? 0);
+    const preservedBudget = safePositiveFloat(budget, existingProject.budget ?? 0);
 
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);

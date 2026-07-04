@@ -331,6 +331,7 @@ const healthLimiter = rateLimit({
 });
 app.get('/health', healthLimiter, (req, res) => {
   res.set('Cache-Control', 'no-store');
+  res.set('Surrogate-Control', 'no-store');
   res.type('application/json');
   try {
     const row = healthCheckStmt.get();
