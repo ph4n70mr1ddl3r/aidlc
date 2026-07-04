@@ -48,7 +48,7 @@ describe('validateVendorRating', () => {
   });
 
   it('rejects non-numeric input', () => {
-    expect(validateVendorRating('abc')).toEqual({ value: null, error: 'Rating must be between 1 and 5' });
+    expect(validateVendorRating('abc')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 
   it('rejects arrays from HTTP parameter pollution (regression: parseInt coerced ["3","99"] to 3)', () => {

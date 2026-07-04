@@ -36,6 +36,11 @@ function _validateVendorRating(value) {
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
+  // Reject non-integer strings (e.g. "3.5") and non-numeric input — parseInt
+  // silently truncates "3.5" to 3, which would mask malformed submissions.
+  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
+    return { value: null, error: 'Rating must be a whole number between 1 and 5' };
+  }
   const n = parseInt(value, 10);
   if (!Number.isFinite(n) || n < 1 || n > 5) {
     return { value: null, error: 'Rating must be between 1 and 5' };

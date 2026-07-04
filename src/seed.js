@@ -23,8 +23,8 @@ function _generateSeedPassword(label) {
   return pw;
 }
 
-const SEED_ADMIN_PW = process.env.SEED_ADMIN_PASSWORD || _generateSeedPassword('SEED_ADMIN_PASSWORD');
-const SEED_STAFF_PW = process.env.SEED_PASSWORD || _generateSeedPassword('SEED_PASSWORD');
+const SEED_ADMIN_PW = (process.env.SEED_ADMIN_PASSWORD || '').trim() || _generateSeedPassword('SEED_ADMIN_PASSWORD');
+const SEED_STAFF_PW = (process.env.SEED_PASSWORD || '').trim() || _generateSeedPassword('SEED_PASSWORD');
 
 console.log('Seeding database...\n');
 
