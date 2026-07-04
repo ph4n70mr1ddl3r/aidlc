@@ -33,6 +33,20 @@ const _changeInsertStmt = db.prepare(`
     INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, impact, assigned_to)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+
+function _resolveDateTimeField(newValue, existingValue) {
+  if (newValue === undefined) {
+    return { value: existingValue };
+  }
+  if (newValue === '') {
+    return { value: null };
+  }
+  const parsed = safeDateTimeLocal(newValue);
+  if (parsed === null) {
+    return { error: true };
+  }
+  return { value: parsed };
+}
 const _changeUpdateStmt = db.prepare(`
     UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
       priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
@@ -252,73 +266,39 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const safePriority = priority || existingChange.priority;
 
   // --- scheduled_start ---
-  let sSchedStart;
-  if (scheduled_start === undefined) {
-    sSchedStart = existingChange.scheduled_start;
-  } else if (scheduled_start === '') {
-    sSchedStart = null;
-  } else {
-    const parsed = safeDateTimeLocal(scheduled_start);
-    if (parsed === null) {
-      req.flash('error', 'Invalid scheduled start date');
-      return res.redirect(`/changes/${id}/edit`);
-    }
-    sSchedStart = parsed;
+  const sSchedStart = _resolveDateTimeField(scheduled_start, existingChange.scheduled_start);
+  if (sSchedStart.error) {
+    req.flash('error', 'Invalid scheduled start date');
+    return res.redirect(`/changes/${id}/edit`);
   }
 
   // --- scheduled_end ---
-  let sSchedEnd;
-  if (scheduled_end === undefined) {
-    sSchedEnd = existingChange.scheduled_end;
-  } else if (scheduled_end === '') {
-    sSchedEnd = null;
-  } else {
-    const parsed = safeDateTimeLocal(scheduled_end);
-    if (parsed === null) {
-      req.flash('error', 'Invalid scheduled end date');
-      return res.redirect(`/changes/${id}/edit`);
-    }
-    sSchedEnd = parsed;
+  const sSchedEnd = _resolveDateTimeField(scheduled_end, existingChange.scheduled_end);
+  if (sSchedEnd.error) {
+    req.flash('error', 'Invalid scheduled end date');
+    return res.redirect(`/changes/${id}/edit`);
   }
 
-  if (sSchedStart && sSchedEnd && sSchedEnd < sSchedStart) {
+  if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
     req.flash('error', 'Scheduled end must be on or after scheduled start');
     return res.redirect(`/changes/${id}/edit`);
   }
+
   // --- actual_start ---
-  // Preserve existing value when field is absent from the request;
-  // treat empty string as an explicit "clear to NULL";
-  // reject invalid datetime values rather than silently preserving.
-  let sActStart;
-  if (actual_start === undefined) {
-    sActStart = existingChange.actual_start;
-  } else if (actual_start === '') {
-    sActStart = null;
-  } else {
-    const parsed = safeDateTimeLocal(actual_start);
-    if (parsed === null) {
-      req.flash('error', 'Invalid actual start date');
-      return res.redirect(`/changes/${id}/edit`);
-    }
-    sActStart = parsed;
+  const sActStart = _resolveDateTimeField(actual_start, existingChange.actual_start);
+  if (sActStart.error) {
+    req.flash('error', 'Invalid actual start date');
+    return res.redirect(`/changes/${id}/edit`);
   }
 
   // --- actual_end ---
-  let sActEnd;
-  if (actual_end === undefined) {
-    sActEnd = existingChange.actual_end;
-  } else if (actual_end === '') {
-    sActEnd = null;
-  } else {
-    const parsed = safeDateTimeLocal(actual_end);
-    if (parsed === null) {
-      req.flash('error', 'Invalid actual end date');
-      return res.redirect(`/changes/${id}/edit`);
-    }
-    sActEnd = parsed;
+  const sActEnd = _resolveDateTimeField(actual_end, existingChange.actual_end);
+  if (sActEnd.error) {
+    req.flash('error', 'Invalid actual end date');
+    return res.redirect(`/changes/${id}/edit`);
   }
 
-  if (sActStart && sActEnd && sActEnd < sActStart) {
+  if (sActStart.value && sActEnd.value && sActEnd.value < sActStart.value) {
     req.flash('error', 'Actual end must be on or after actual start');
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -332,7 +312,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 
   try {
     _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
-      sSchedStart, sSchedEnd, sActStart, sActEnd,
+      sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
       (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);

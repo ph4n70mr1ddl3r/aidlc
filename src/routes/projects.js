@@ -571,10 +571,6 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     req.flash('error', 'Invalid project ID');
     return res.redirect('/projects');
   }
-  if (!_projectExistsStmt.get(id)) {
-    req.flash('error', 'Project not found');
-    return res.redirect('/projects');
-  }
   const user_id = safeQueryValue(req.body.user_id);
   const role = safeQueryValue(req.body.role);
   try {
@@ -588,14 +584,29 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       return res.redirect(`/projects/${id}`);
     }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
-    const result = _memberInsertStmt.run(id, safeUserId, safeRole);
-    if (result.changes === 0) {
+
+    // Verify project still exists and add member in a single transaction
+    // to avoid a TOCTOU race where the project is deleted between the
+    // existence check and the INSERT.
+    const addMember = db.transaction(() => {
+      if (!_projectExistsStmt.get(id)) {
+        throw new Error('PROJECT_NOT_FOUND');
+      }
+      return _memberInsertStmt.run(id, safeUserId, safeRole).changes;
+    });
+    const changes = addMember();
+
+    if (changes === 0) {
       req.flash('info', 'User is already a member of this project');
     } else {
       req.audit('create', 'project_member', null, `Added member #${safeUserId} to project #${id}`);
       req.flash('success', 'Member added');
     }
   } catch (err) {
+    if (err.message === 'PROJECT_NOT_FOUND') {
+      req.flash('error', 'Project not found');
+      return res.redirect('/projects');
+    }
     console.error('Project member add error:', err.message);
     req.flash('error', 'Error adding member');
   }
