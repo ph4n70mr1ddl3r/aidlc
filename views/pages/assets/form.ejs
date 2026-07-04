@@ -74,9 +74,9 @@
           <label for="assigned_to">Assigned To</label>
           <select name="assigned_to" id="assigned_to" class="form-control">
             <option value="">Unassigned</option>
-            <% staff.forEach(s => { %>
+            <% if (typeof staff !== 'undefined') { staff.forEach(s => { %>
               <option value="<%= s.id %>" <%= asset.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
-            <% }) %>
+            <% }) } %>
           </select>
         </div>
         <div class="form-group">

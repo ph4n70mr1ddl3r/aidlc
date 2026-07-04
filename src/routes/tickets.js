@@ -212,6 +212,10 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/tickets/new');
   }
+  if (requester_phone && requester_phone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/tickets/new');
+  }
 
   if (requester_name.length > MAX_SHORT_STR) {
     req.flash('error', `Requester name must be at most ${MAX_SHORT_STR} characters`);
@@ -410,6 +414,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 
   if (requester_phone && !isValidPhone(requester_phone)) {
     req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (requester_phone && requester_phone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
 

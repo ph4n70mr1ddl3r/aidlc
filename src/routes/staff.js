@@ -191,6 +191,10 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/staff/new');
   }
+  if (phone && phone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/staff/new');
+  }
   if (first_name.length > MAX_SHORT_STR) {
     req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/staff/new');
@@ -330,6 +334,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  if (phone && phone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
   if (department && department.length > MAX_SHORT_STR) {
