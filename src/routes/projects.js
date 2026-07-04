@@ -343,14 +343,12 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
   }
 
   try {
-    let changes = 0;
     const deleteProject = db.transaction(() => {
       _deleteProjectTasksStmt.run(id);
       _deleteProjectMembersStmt.run(id);
-      const result = _deleteProjectStmt.run(id);
-      changes = result.changes;
+      return _deleteProjectStmt.run(id).changes;
     });
-    deleteProject();
+    const changes = deleteProject();
     if (changes === 0) {
       req.flash('error', 'Project not found');
     } else {
@@ -370,13 +368,6 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   const projectId = safeId(req.params.id);
   if (!projectId) {
     req.flash('error', 'Invalid project ID');
-    return res.redirect('/projects');
-  }
-
-  // Verify the project exists before inserting a task
-  const projectExists = _projectExistsStmt.get(projectId);
-  if (!projectExists) {
-    req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
 
@@ -414,7 +405,13 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       req.flash('error', 'Selected assignee is not available');
       return res.redirect(`/projects/${projectId}`);
     }
+    // Verify project still exists and insert the task in a single transaction
+    // to avoid a TOCTOU race where the project is deleted between the existence
+    // check and the INSERT (mirrors the member-add pattern).
     const addTask = db.transaction(() => {
+      if (!_projectExistsStmt.get(projectId)) {
+        throw new Error('PROJECT_NOT_FOUND');
+      }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDate(due_date));
 
       recalcProjectProgress(db, projectId);
@@ -426,6 +423,10 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     req.flash('success', 'Task added');
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'PROJECT_NOT_FOUND') {
+      req.flash('error', 'Project not found');
+      return res.redirect('/projects');
+    }
     console.error('Project task add error:', err.message);
     req.flash('error', 'Error adding task. Please try again.');
   }
@@ -540,15 +541,14 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
   }
 
   try {
-    let changes = 0;
     const deleteTask = db.transaction(() => {
       const result = _taskDeleteStmt.run(taskId, projectId);
-      changes = result.changes;
-      if (changes > 0) {
+      if (result.changes > 0) {
         recalcProjectProgress(db, projectId);
       }
+      return result.changes;
     });
-    deleteTask();
+    const changes = deleteTask();
 
     if (changes === 0) {
       req.flash('error', 'Task not found');

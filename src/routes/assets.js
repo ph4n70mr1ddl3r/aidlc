@@ -366,12 +366,11 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
 
   try {
-    const deleteStmt = db.transaction(() => {
+    const deleteAsset = db.transaction(() => {
       _deleteDetachTicketsStmt.run(id);
-      const result = _deleteStmt.run(id);
-      return result.changes;
+      return _deleteStmt.run(id).changes;
     });
-    const changes = deleteStmt();
+    const changes = deleteAsset();
     if (changes === 0) {
       req.flash('error', 'Asset not found');
     } else {

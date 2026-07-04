@@ -364,17 +364,29 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
   }
 
   try {
-    const existing = _vendorStatusStmt.get(id);
-    if (!existing) {
+    // Check vendor state and deactivate in a single transaction to avoid a
+    // TOCTOU race with concurrent activate/deactivate requests.
+    const deactivateVendor = db.transaction(() => {
+      const existing = _vendorStatusStmt.get(id);
+      if (!existing) {
+        return { notFound: true };
+      }
+      if (!existing.is_active) {
+        return { alreadyInactive: true };
+      }
+      _deactivateStmt.run(id);
+      return { ok: true };
+    });
+    const result = deactivateVendor();
+
+    if (result.notFound) {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
     }
-    if (!existing.is_active) {
+    if (result.alreadyInactive) {
       req.flash('info', 'Vendor is already inactive');
       return res.redirect(`/vendors/${id}`);
     }
-
-    _deactivateStmt.run(id);
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
     req.flash('success', 'Vendor deactivated');
     invalidateDashboardCache();
@@ -394,17 +406,29 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
   }
 
   try {
-    const existing = _vendorStatusStmt.get(id);
-    if (!existing) {
+    // Check vendor state and reactivate in a single transaction to avoid a
+    // TOCTOU race with concurrent activate/deactivate requests.
+    const reactivateVendor = db.transaction(() => {
+      const existing = _vendorStatusStmt.get(id);
+      if (!existing) {
+        return { notFound: true };
+      }
+      if (existing.is_active) {
+        return { alreadyActive: true };
+      }
+      _reactivateStmt.run(id);
+      return { ok: true };
+    });
+    const result = reactivateVendor();
+
+    if (result.notFound) {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
     }
-    if (existing.is_active) {
+    if (result.alreadyActive) {
       req.flash('info', 'Vendor is already active');
       return res.redirect(`/vendors/${id}`);
     }
-
-    _reactivateStmt.run(id);
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
     req.flash('success', 'Vendor reactivated');
     invalidateDashboardCache();
