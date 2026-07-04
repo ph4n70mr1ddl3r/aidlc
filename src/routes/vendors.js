@@ -421,28 +421,27 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   try {
     // Check for dependent licenses and delete everything in a single transaction
     // to avoid race conditions between the SELECT and DELETE.
-    let licenseCount = 0;
     const deleteVendor = db.transaction(() => {
       // Prevent deleting active vendors — force deactivation first so the user
       // consciously acknowledges the action (mirrors the staff deactivation pattern).
       const vendor = _showVendorStmt.get(id);
       if (!vendor) {
-        return { changes: 0, active: false };
+        return { changes: 0, active: false, licenseCount: 0 };
       }
       if (vendor.is_active) {
-        return { changes: 0, active: true };
+        return { changes: 0, active: true, licenseCount: 0 };
       }
 
       // Nullify vendor references on licenses to avoid orphaned references
       // Use the vendor name directly (already fetched above) instead of a
       // correlated subquery, which is both clearer and slightly faster.
       const dependentLicenses = _licenseDependentsStmt.all(vendor.name);
-      licenseCount = dependentLicenses.length;
+      const licenseCount = dependentLicenses.length;
       if (licenseCount > 0) {
         _deleteDetachLicensesStmt.run(vendor.name);
       }
       const result = _deleteStmt.run(id);
-      return { changes: result.changes, active: false };
+      return { changes: result.changes, active: false, licenseCount };
     });
     const result = deleteVendor();
     if (result.active) {
@@ -452,8 +451,8 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     if (result.changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {
-      req.audit('delete', 'vendor', id, `Deleted vendor${licenseCount > 0 ? ` (detached from ${licenseCount} license(s))` : ''}`);
-      req.flash('success', licenseCount > 0 ? `Vendor deleted. ${licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
+      req.audit('delete', 'vendor', id, `Deleted vendor${result.licenseCount > 0 ? ` (detached from ${result.licenseCount} license(s))` : ''}`);
+      req.flash('success', result.licenseCount > 0 ? `Vendor deleted. ${result.licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
       invalidateDashboardCache();
     }
   } catch (err) {

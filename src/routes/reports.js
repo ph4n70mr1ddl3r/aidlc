@@ -179,6 +179,7 @@ router.get('/assets', (req, res) => {
 router.get('/staff', (req, res) => {
   try {
     const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
+    // Two ? placeholders in the SQL: one for resolved_tickets period, one for completed_tasks period
     const performance = stmts.staffPerformance.all(period, period);
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });

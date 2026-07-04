@@ -621,20 +621,30 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
     req.flash('error', 'Invalid ID');
     return res.redirect('/projects');
   }
-  if (!_projectExistsStmt.get(id)) {
-    req.flash('error', 'Project not found');
-    return res.redirect('/projects');
-  }
 
   try {
-    const result = _memberDeleteStmt.run(memberId, id);
-    if (result.changes === 0) {
+    // Verify project still exists and remove member in a single transaction
+    // to avoid a TOCTOU race where the project is deleted between the
+    // existence check and the DELETE (mirrors the add-member pattern).
+    const removeMember = db.transaction(() => {
+      if (!_projectExistsStmt.get(id)) {
+        throw new Error('PROJECT_NOT_FOUND');
+      }
+      return _memberDeleteStmt.run(memberId, id).changes;
+    });
+    const changes = removeMember();
+
+    if (changes === 0) {
       req.flash('error', 'Member not found');
     } else {
       req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
       req.flash('success', 'Member removed');
     }
   } catch (err) {
+    if (err.message === 'PROJECT_NOT_FOUND') {
+      req.flash('error', 'Project not found');
+      return res.redirect('/projects');
+    }
     console.error('Project member remove error:', err.message);
     req.flash('error', 'Error removing member');
   }
