@@ -355,7 +355,17 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   try {
-    const result = _deleteChangeStmt.run(id);
+    // Verify change exists and delete in a single transaction to avoid a
+    // TOCTOU race where the change is deleted between the earlier existence
+    // check and the DELETE (mirrors the change update transaction pattern).
+    const deleteChange = db.transaction(() => {
+      const existing = _editChangeStmt.get(id);
+      if (!existing) {
+        return { changes: 0 };
+      }
+      return { changes: _deleteChangeStmt.run(id).changes };
+    });
+    const result = deleteChange();
     if (result.changes === 0) {
       req.flash('error', 'Change not found');
     } else {

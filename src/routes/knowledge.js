@@ -391,13 +391,27 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
 
   try {
-    _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
+    // Verify the article still exists and update in a single transaction
+    // to avoid a TOCTOU race where the article is deleted between the earlier
+    // SELECT and the UPDATE (which would silently succeed affecting 0 rows).
+    const updateArticle = db.transaction(() => {
+      const recheck = _editArticleStmt.get(id);
+      if (!recheck) {
+        throw new Error('NOT_FOUND');
+      }
+      _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
+    });
+    updateArticle();
 
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');
     invalidateDashboardCache();
     res.redirect(`/knowledge/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Article not found');
+      return res.redirect('/knowledge');
+    }
     console.error('Article update error:', err.message);
     req.flash('error', 'Error updating article. Please try again.');
     res.redirect(`/knowledge/${id}/edit`);
@@ -425,8 +439,19 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   }
 
   try {
-    const result = _deleteArticleStmt.run(id);
-    if (result.changes === 0) {
+    // Verify the article still exists and delete in a single transaction
+    // to avoid a TOCTOU race where the article is deleted between the
+    // existence check and the DELETE (mirrors the article update pattern).
+    const deleteArticle = db.transaction(() => {
+      const recheck = _editArticleStmt.get(id);
+      if (!recheck) {
+        return { notFound: true };
+      }
+      const result = _deleteArticleStmt.run(id);
+      return { notFound: false, changes: result.changes };
+    });
+    const deleteResult = deleteArticle();
+    if (deleteResult.notFound) {
       req.flash('error', 'Article not found');
     } else {
       req.audit('delete', 'knowledge_article', id, 'Deleted article');

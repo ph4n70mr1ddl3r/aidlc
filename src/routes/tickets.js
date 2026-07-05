@@ -577,34 +577,40 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   }
 
   try {
-    const ticket = _ticketAssigneeStmt.get(id);
-    if (!ticket) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
+    // Verify ticket, check access, and update status in a single transaction
+    // to avoid TOCTOU races: the ticket could be deleted or reassigned between
+    // the access check and the UPDATE (mirrors the updateTicket pattern).
+    const updateStatus = db.transaction(() => {
+      const ticket = _ticketAssigneeStmt.get(id);
+      if (!ticket) {
+        throw new Error('NOT_FOUND');
+      }
 
-    if (!canAccessResource(req, ticket)) {
-      req.flash('error', 'You can only update status of tickets assigned to you');
-      return res.redirect(`/tickets/${id}`);
-    }
+      if (!canAccessResource(req, ticket)) {
+        throw new Error('ACCESS_DENIED');
+      }
 
-    // Use cached prepared statement based on resolved_at handling
-    const isNowResolved = status === 'resolved' || status === 'closed';
-    let stmt;
-    if (isNowResolved) {
-      stmt = _statusResolveStmt;
-    } else {
-      stmt = _statusUnresolveStmt;
-    }
-    const result = stmt.run(status, id);
-    if (result.changes === 0) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
+      const isNowResolved = status === 'resolved' || status === 'closed';
+      const stmt = isNowResolved ? _statusResolveStmt : _statusUnresolveStmt;
+      const result = stmt.run(status, id);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
+    });
+    updateStatus();
+
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
+    if (err.message === 'ACCESS_DENIED') {
+      req.flash('error', 'You can only update status of tickets assigned to you');
+      return res.redirect(`/tickets/${id}`);
+    }
     console.error('Ticket status update error:', err.message);
     req.flash('error', 'Error updating status');
   }
@@ -636,27 +642,39 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
   }
 
   try {
-    // Only allow rating on resolved/closed tickets — prevents rating open tickets
-    // via direct API call even though the template hides the form.
-    const ticket = _satisfactionCheckStmt.get(id);
-    if (!ticket) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
-    if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
-      req.flash('error', 'Can only rate resolved or closed tickets');
-      return res.redirect(`/tickets/${id}`);
-    }
+    // Verify ticket status and update in a single transaction to avoid a TOCTOU
+    // race where the ticket is reopened between the status check and the UPDATE
+    // (mirrors the status update transaction pattern).
+    const rateTicket = db.transaction(() => {
+      const ticket = _satisfactionCheckStmt.get(id);
+      if (!ticket) {
+        throw new Error('NOT_FOUND');
+      }
+      // Only allow rating on resolved/closed tickets — prevents rating open tickets
+      // via direct API call even though the template hides the form.
+      if (ticket.status !== 'resolved' && ticket.status !== 'closed') {
+        throw new Error('NOT_RESOLVED');
+      }
 
-    const result = _satisfactionUpdateStmt.run(rating, id);
-    if (result.changes === 0) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
+      const result = _satisfactionUpdateStmt.run(rating, id);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
+    });
+    rateTicket();
+
     req.audit('update', 'ticket', id, `Satisfaction rated ${rating}/5`);
     req.flash('success', 'Thank you for your feedback!');
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
+    if (err.message === 'NOT_RESOLVED') {
+      req.flash('error', 'Can only rate resolved or closed tickets');
+      return res.redirect(`/tickets/${id}`);
+    }
     console.error('Ticket satisfaction error:', err.message);
     req.flash('error', 'Error submitting rating');
   }

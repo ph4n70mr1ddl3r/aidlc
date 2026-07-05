@@ -314,7 +314,17 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
   }
 
   try {
-    const result = _deleteLicenseStmt.run(id);
+    // Verify license exists and delete in a single transaction to avoid a
+    // TOCTOU race where the license is deleted between the earlier existence
+    // check and the DELETE (mirrors the license update transaction pattern).
+    const deleteLicense = db.transaction(() => {
+      const existing = _showLicenseStmt.get(id);
+      if (!existing) {
+        return { changes: 0 };
+      }
+      return { changes: _deleteLicenseStmt.run(id).changes };
+    });
+    const result = deleteLicense();
     if (result.changes === 0) {
       req.flash('error', 'License not found');
     } else {
