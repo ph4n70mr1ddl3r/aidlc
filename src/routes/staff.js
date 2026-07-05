@@ -39,7 +39,7 @@ const _projectMembershipsStmt = db.prepare(`
     ORDER BY p.updated_at DESC
   `);
 const _staffUserStmt = db.prepare('SELECT id, role, username, is_active FROM users WHERE id = ?');
-const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
+const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
@@ -440,26 +440,39 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
   }
 
   try {
-    const target = _staffUserStmt.get(id);
-    if (!target) {
+    // Verify user state and reactivate in a single transaction to avoid a
+    // TOCTOU race with concurrent deactivate/reactivate requests — mirrors
+    // the deactivate transaction pattern above.
+    const reactivate = db.transaction(() => {
+      const target = _staffUserStmt.get(id);
+      if (!target) {
+        return { notFound: true };
+      }
+      if (target.is_active) {
+        return { alreadyActive: true, username: target.username };
+      }
+
+      _reactivateStmt.run(id);
+      // Clear any login failure lockout so the user can log in immediately
+      // rather than waiting for the lockout to expire (which could persist
+      // across the deactivation/reactivation cycle).
+      if (target.username) {
+        clearLoginFailure(target.username);
+      }
+      if (req.ip) {
+        clearIpLoginFailure(req.ip);
+      }
+      return { ok: true, username: target.username };
+    });
+    const result = reactivate();
+
+    if (result.notFound) {
       req.flash('error', 'Staff member not found');
       return res.redirect('/staff');
     }
-    if (target.is_active) {
+    if (result.alreadyActive) {
       req.flash('info', 'Account is already active');
       return res.redirect(`/staff/${id}`);
-    }
-
-    _reactivateStmt.run(id);
-
-    // Clear any login failure lockout so the user can log in immediately
-    // rather than waiting for the lockout to expire (which could persist
-    // across the deactivation/reactivation cycle).
-    if (target.username) {
-      clearLoginFailure(target.username);
-    }
-    if (req.ip) {
-      clearIpLoginFailure(req.ip);
     }
 
     req.audit('reactivate', 'user', id, 'Reactivated user account');

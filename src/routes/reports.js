@@ -110,7 +110,7 @@ const stmts = {
     ) tOpen ON tOpen.assigned_to = u.id
     LEFT JOIN (
       SELECT assigned_to, COUNT(*) as resolved_tickets,
-        AVG(julianday(resolved_at) - julianday(created_at)) as avg_resolution_days
+        COALESCE(AVG(julianday(resolved_at) - julianday(created_at)), 0) as avg_resolution_days
       FROM tickets WHERE resolved_at IS NOT NULL
         AND resolved_at >= date('now', '-' || ? || ' days')
       GROUP BY assigned_to
