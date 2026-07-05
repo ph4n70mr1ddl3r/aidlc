@@ -272,28 +272,33 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify license exists before updating (separate from the COALESCE/NULLIF
-    // guard that preserves the key when the field is blank on edit).
-    const existing = _showLicenseStmt.get(id);
-    if (!existing) {
-      req.flash('error', 'License not found');
-      return res.redirect('/licenses');
-    }
-
     // If license_key field is blank on edit, COALESCE/NULLIF in the UPDATE SQL
     // preserves the existing key atomically, avoiding a TOCTOU between a prior
     // SELECT (to fetch the key) and the UPDATE below.
     const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || null;
 
-    _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
-      seats, used,
-      sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
+    // Verify license exists and update in a single transaction to avoid a TOCTOU
+    // race where the license is deleted between the existence check and the UPDATE.
+    const updateLicense = db.transaction(() => {
+      const existing = _showLicenseStmt.get(id);
+      if (!existing) {
+        throw new Error('NOT_FOUND');
+      }
+      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
+        seats, used,
+        sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
+    });
+    updateLicense();
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');
     invalidateDashboardCache();
     res.redirect(`/licenses/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'License not found');
+      return res.redirect('/licenses');
+    }
     console.error('License update error:', err.message);
     req.flash('error', 'Error updating license. Please try again.');
     res.redirect(`/licenses/${id}/edit`);

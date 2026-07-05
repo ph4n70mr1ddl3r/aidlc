@@ -315,38 +315,46 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (updateAssignee && !isActiveUser(db, updateAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect(`/assets/${id}/edit`);
-  }
 
   try {
-    // Verify asset exists before updating
-    const existing = _assetExistsStmt.get(id);
-    if (!existing) {
-      req.flash('error', 'Asset not found');
-      return res.redirect('/assets');
-    }
+    // Verify asset exists, validate assignee, and update in a single transaction
+    // to avoid TOCTOU races: the asset could be deleted or the assignee deactivated
+    // between the checks and the UPDATE.
+    const updateAsset = db.transaction(() => {
+      if (!_assetExistsStmt.get(id)) {
+        throw new Error('NOT_FOUND');
+      }
+      if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
 
-    const result = _updateStmt.run(
-      asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
-      (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
-      (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
-      safeDate(purchase_date), safePositiveFloat(purchase_price),
-      safeDate(warranty_expiry), updateAssignee,
-      (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
-    );
-
-    if (result.changes === 0) {
-      req.flash('error', 'Asset not found');
-      return res.redirect('/assets');
-    }
+      const result = _updateStmt.run(
+        asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
+        (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
+        (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
+        safeDate(purchase_date), safePositiveFloat(purchase_price),
+        safeDate(warranty_expiry), updateAssignee,
+        (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
+      );
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
+    });
+    updateAsset();
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');
     invalidateDashboardCache();
     res.redirect(`/assets/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Asset not found');
+      return res.redirect('/assets');
+    }
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/assets/${id}/edit`);
+    }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {

@@ -351,6 +351,9 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   // Fetch the target user to check their current role
+  // (permission checks that depend on the fetched data must stay outside the
+  // transaction since they redirect; the UPDATE itself is wrapped in a transaction
+  // to prevent a TOCTOU race where the user is deleted between the check and UPDATE).
   const targetUser = _staffUserStmt.get(id);
   if (!targetUser) {
     req.flash('error', 'Staff member not found');
@@ -383,8 +386,17 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   try {
-    _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
-      (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
+    // Verify the user still exists and update in a single transaction to avoid
+    // a TOCTOU race where the user is deleted between the check and the UPDATE.
+    const updateStaff = db.transaction(() => {
+      const recheck = _staffUserStmt.get(id);
+      if (!recheck) {
+        throw new Error('NOT_FOUND');
+      }
+      _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
+        (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
+    });
+    updateStaff();
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();
@@ -397,6 +409,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('success', 'Staff member updated');
     res.redirect(`/staff/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Staff member not found');
+      return res.redirect('/staff');
+    }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Email address is already in use');
     } else {

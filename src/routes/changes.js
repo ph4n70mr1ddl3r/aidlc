@@ -150,20 +150,28 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect('/changes/new');
-  }
 
   try {
-    const result = _changeInsertStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
-      sStart, sEnd, (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee);
+    // Validate assignee and insert in a single transaction to avoid a TOCTOU
+    // race where the assignee is deactivated between the check and the INSERT.
+    const createChange = db.transaction(() => {
+      if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
+      return _changeInsertStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+        sStart, sEnd, (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee);
+    });
+    const result = createChange();
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
     invalidateDashboardCache();
     res.redirect('/changes');
   } catch (err) {
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect('/changes/new');
+    }
     console.error('Change create error:', err.message);
     req.flash('error', 'Error creating change. Please try again.');
     res.redirect('/changes/new');
@@ -253,73 +261,85 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect(`/changes/${id}/edit`);
   }
 
-  // Fetch existing record to preserve unchanged fields
-  const existingChange = _editChangeStmt.get(id);
-  if (!existingChange) {
-    req.flash('error', 'Change not found');
-    return res.redirect('/changes');
-  }
-
-  // The earlier guard already redirected when priority is present-but-invalid,
-  // so a truthy priority here is guaranteed valid; fall back to the existing
-  // value when the field is absent (mirrors the create route's `priority || 'medium'`).
-  const safePriority = priority || existingChange.priority;
-
-  // --- scheduled_start ---
-  const sSchedStart = _resolveDateTimeField(scheduled_start, existingChange.scheduled_start);
-  if (sSchedStart.error) {
-    req.flash('error', 'Invalid scheduled start date');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
-  // --- scheduled_end ---
-  const sSchedEnd = _resolveDateTimeField(scheduled_end, existingChange.scheduled_end);
-  if (sSchedEnd.error) {
-    req.flash('error', 'Invalid scheduled end date');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
-  if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
-    req.flash('error', 'Scheduled end must be on or after scheduled start');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
-  // --- actual_start ---
-  const sActStart = _resolveDateTimeField(actual_start, existingChange.actual_start);
-  if (sActStart.error) {
-    req.flash('error', 'Invalid actual start date');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
-  // --- actual_end ---
-  const sActEnd = _resolveDateTimeField(actual_end, existingChange.actual_end);
-  if (sActEnd.error) {
-    req.flash('error', 'Invalid actual end date');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
-  if (sActStart.value && sActEnd.value && sActEnd.value < sActStart.value) {
-    req.flash('error', 'Actual end must be on or after actual start');
-    return res.redirect(`/changes/${id}/edit`);
-  }
-
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect(`/changes/${id}/edit`);
-  }
 
   try {
-    _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
-      sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
-      (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
+    // Fetch existing record, validate assignee, and update in a single transaction
+    // to avoid TOCTOU races: the change could be modified/deleted or the assignee
+    // deactivated between the fetch/checks and the UPDATE.
+    const updateChange = db.transaction(() => {
+      const existingChange = _editChangeStmt.get(id);
+      if (!existingChange) {
+        throw new Error('NOT_FOUND');
+      }
+
+      if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
+
+      // The earlier guard already redirected when priority is present-but-invalid,
+      // so a truthy priority here is guaranteed valid; fall back to the existing
+      // value when the field is absent (mirrors the create route's `priority || 'medium'`).
+      const safePriority = priority || existingChange.priority;
+
+      // --- scheduled_start ---
+      const sSchedStart = _resolveDateTimeField(scheduled_start, existingChange.scheduled_start);
+      if (sSchedStart.error) {
+        return { error: 'Invalid scheduled start date', redirect: `/changes/${id}/edit` };
+      }
+
+      // --- scheduled_end ---
+      const sSchedEnd = _resolveDateTimeField(scheduled_end, existingChange.scheduled_end);
+      if (sSchedEnd.error) {
+        return { error: 'Invalid scheduled end date', redirect: `/changes/${id}/edit` };
+      }
+
+      if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
+        return { error: 'Scheduled end must be on or after scheduled start', redirect: `/changes/${id}/edit` };
+      }
+
+      // --- actual_start ---
+      const sActStart = _resolveDateTimeField(actual_start, existingChange.actual_start);
+      if (sActStart.error) {
+        return { error: 'Invalid actual start date', redirect: `/changes/${id}/edit` };
+      }
+
+      // --- actual_end ---
+      const sActEnd = _resolveDateTimeField(actual_end, existingChange.actual_end);
+      if (sActEnd.error) {
+        return { error: 'Invalid actual end date', redirect: `/changes/${id}/edit` };
+      }
+
+      if (sActStart.value && sActEnd.value && sActEnd.value < sActStart.value) {
+        return { error: 'Actual end must be on or after actual start', redirect: `/changes/${id}/edit` };
+      }
+
+      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+        sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
+        (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
+      return null;
+    });
+    const errResult = updateChange();
+
+    if (errResult) {
+      req.flash('error', errResult.error);
+      return res.redirect(errResult.redirect);
+    }
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
     invalidateDashboardCache();
     res.redirect(`/changes/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Change not found');
+      return res.redirect('/changes');
+    }
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/changes/${id}/edit`);
+    }
     console.error('Change update error:', err.message);
     req.flash('error', 'Error updating change. Please try again.');
     res.redirect(`/changes/${id}/edit`);

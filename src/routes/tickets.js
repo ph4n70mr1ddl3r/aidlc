@@ -241,24 +241,23 @@ router.post('/', ticketWriteLimiter, (req, res) => {
 
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (safeAssignee && !isActiveUser(db, safeAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect('/tickets/new');
-  }
-
-  // Validate linked asset exists
   const safeAssetId = asset_id ? safeId(asset_id) : null;
-  if (safeAssetId) {
-    const assetExists = _assetExistsStmt.get(safeAssetId);
-    if (!assetExists) {
-      req.flash('error', 'Selected asset does not exist');
-      return res.redirect('/tickets/new');
-    }
-  }
 
   // Generate ticket number atomically using dedicated counter table.
   // Use UTC date for consistency with DB datetime('now') which stores UTC.
+  // Asset existence and assignee active checks are inside the transaction
+  // to avoid TOCTOU races between the checks and the INSERT.
   const createTicket = db.transaction(() => {
+    // Validate assignee is still active inside the transaction so a concurrent
+    // deactivation between the check and the INSERT is not possible.
+    if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+      throw new Error('ASSIGNEE_NOT_AVAILABLE');
+    }
+    // Validate linked asset still exists inside the transaction
+    if (safeAssetId && !_assetExistsStmt.get(safeAssetId)) {
+      throw new Error('ASSET_NOT_FOUND');
+    }
+
     const now = new Date();
     const todayStr = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
     const row = _ticketCounterStmt.get(todayStr);
@@ -279,6 +278,14 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     res.redirect('/tickets');
   } catch (err) {
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect('/tickets/new');
+    }
+    if (err.message === 'ASSET_NOT_FOUND') {
+      req.flash('error', 'Selected asset does not exist');
+      return res.redirect('/tickets/new');
+    }
     console.error('Ticket create error:', err.message);
     req.flash('error', 'Error creating ticket. Please check your input and try again.');
     res.redirect('/tickets/new');
@@ -423,24 +430,13 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (updateAssignee && !isActiveUser(db, updateAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
-
-  // Validate linked asset exists
   const updateAssetId = asset_id ? safeId(asset_id) : null;
-  if (updateAssetId) {
-    const assetExists = _assetExistsStmt.get(updateAssetId);
-    if (!assetExists) {
-      req.flash('error', 'Selected asset does not exist');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
-  }
 
   try {
-    // Verify ticket exists and update in a single transaction to avoid a TOCTOU
-    // race where the ticket is deleted between the existence check and the UPDATE.
+    // Verify ticket still exists, validate assignee/asset, check access, and
+    // update in a single transaction to avoid TOCTOU races: the ticket could be
+    // deleted, the assignee deactivated, or the asset deleted between the
+    // separate checks and the UPDATE.
     const updateTicket = db.transaction(() => {
       const ticket = _updateCheckStmt.get(id);
       if (!ticket) {
@@ -448,6 +444,12 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       }
       if (!canAccessResource(req, ticket)) {
         throw new Error('ACCESS_DENIED');
+      }
+      if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
+      if (updateAssetId && !_assetExistsStmt.get(updateAssetId)) {
+        throw new Error('ASSET_NOT_FOUND');
       }
 
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
@@ -478,6 +480,14 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED') {
       req.flash('error', 'You can only update tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
+    }
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    if (err.message === 'ASSET_NOT_FOUND') {
+      req.flash('error', 'Selected asset does not exist');
+      return res.redirect(`/tickets/${id}/edit`);
     }
     console.error('Ticket update error:', err.message);
     req.flash('error', 'Error updating ticket. Please try again.');
