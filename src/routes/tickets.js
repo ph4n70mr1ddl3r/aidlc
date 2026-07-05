@@ -439,33 +439,46 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   }
 
   try {
-    const ticket = _updateCheckStmt.get(id);
-    if (!ticket) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
+    // Verify ticket exists and update in a single transaction to avoid a TOCTOU
+    // race where the ticket is deleted between the existence check and the UPDATE.
+    const updateTicket = db.transaction(() => {
+      const ticket = _updateCheckStmt.get(id);
+      if (!ticket) {
+        throw new Error('NOT_FOUND');
+      }
+      if (!canAccessResource(req, ticket)) {
+        throw new Error('ACCESS_DENIED');
+      }
 
-    if (!canAccessResource(req, ticket)) {
-      req.flash('error', 'You can only update tickets assigned to you');
-      return res.redirect(`/tickets/${id}`);
-    }
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
+        updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null,
+        (requester_name || '').substring(0, MAX_SHORT_STR), (requester_email || '').substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null];
 
-    const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-      updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null,
-      (requester_name || '').substring(0, MAX_SHORT_STR), (requester_email || '').substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null];
+      const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
+      const isNowResolved = status === 'resolved' || status === 'closed';
+      const shouldSet = isNowResolved && !wasResolved ? 1 : 0;
+      const shouldClear = !isNowResolved && wasResolved ? 1 : 0;
 
-    const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-    const isNowResolved = status === 'resolved' || status === 'closed';
-    const shouldSet = isNowResolved && !wasResolved ? 1 : 0;
-    const shouldClear = !isNowResolved && wasResolved ? 1 : 0;
-
-    _updateTicketStmt.run(...params, shouldSet, shouldClear, id);
+      const result = _updateTicketStmt.run(...params, shouldSet, shouldClear, id);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
+    });
+    updateTicket();
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
     invalidateDashboardCache();
     res.redirect(`/tickets/${id}`);
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
+    if (err.message === 'ACCESS_DENIED') {
+      req.flash('error', 'You can only update tickets assigned to you');
+      return res.redirect(`/tickets/${id}`);
+    }
     console.error('Ticket update error:', err.message);
     req.flash('error', 'Error updating ticket. Please try again.');
     res.redirect(`/tickets/${id}/edit`);
@@ -497,14 +510,14 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
   }
 
   try {
-    // Verify ticket exists before adding comment
-    const ticket = _commentExistStmt.get(id);
-    if (!ticket) {
-      req.flash('error', 'Ticket not found');
-      return res.redirect('/tickets');
-    }
-
+    // Verify ticket exists and add comment in a single transaction to avoid
+    // a TOCTOU race where the ticket is deleted between the existence check
+    // and the INSERT (mirrors the task-add / member-add patterns).
     const addComment = db.transaction(() => {
+      const ticket = _commentExistStmt.get(id);
+      if (!ticket) {
+        throw new Error('NOT_FOUND');
+      }
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal.
         // Guards against HPP array values via safeQueryValue on is_internal.
@@ -521,6 +534,10 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     req.flash('success', 'Comment added');
     invalidateDashboardCache();
   } catch (err) {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Ticket not found');
+      return res.redirect('/tickets');
+    }
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');
   }

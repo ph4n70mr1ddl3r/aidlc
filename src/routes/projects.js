@@ -286,16 +286,6 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify project exists before updating
-    const existingProject = _projectBudgetSpentStmt.get(id);
-    if (!existingProject) {
-      req.flash('error', 'Project not found');
-      return res.redirect('/projects');
-    }
-    // Validate and parse spent/budget, preserving existing values when absent/invalid.
-    const preservedSpent = safePositiveFloat(spent, existingProject.spent ?? 0);
-    const preservedBudget = safePositiveFloat(budget, existingProject.budget ?? 0);
-
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
     if (sStart && sEnd && sEnd < sStart) {
@@ -303,14 +293,27 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect(`/projects/${id}/edit`);
     }
 
-    // Validate owner is an active user
     const safeOwnerId = owner_id ? safeId(owner_id) : null;
-    if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
-      req.flash('error', 'Selected owner is not available');
-      return res.redirect(`/projects/${id}/edit`);
-    }
 
+    // Verify project exists, validate owner, and update in a single transaction
+    // to avoid TOCTOU races: the project could be deleted or the owner deactivated
+    // between the checks and the UPDATE.
     const updateProject = db.transaction(() => {
+      // Fetch existing budget/spent inside the transaction to preserve values
+      // when the submitted fields are absent, eliminating a TOCTOU race where
+      // budget/spent are modified between the SELECT and the UPDATE.
+      const existingProject = _projectBudgetSpentStmt.get(id);
+      if (!existingProject) {
+        throw new Error('NOT_FOUND');
+      }
+
+      const preservedSpent = safePositiveFloat(spent, existingProject.spent ?? 0);
+      const preservedBudget = safePositiveFloat(budget, existingProject.budget ?? 0);
+
+      if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
+        throw new Error('OWNER_NOT_AVAILABLE');
+      }
+
       const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
         preservedBudget, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
@@ -327,6 +330,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
+    }
+    if (err.message === 'OWNER_NOT_AVAILABLE') {
+      req.flash('error', 'Selected owner is not available');
+      return res.redirect(`/projects/${id}/edit`);
     }
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
@@ -401,16 +408,17 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
 
   try {
     const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
-    if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
-      req.flash('error', 'Selected assignee is not available');
-      return res.redirect(`/projects/${projectId}`);
-    }
-    // Verify project still exists and insert the task in a single transaction
-    // to avoid a TOCTOU race where the project is deleted between the existence
-    // check and the INSERT (mirrors the member-add pattern).
+    // Verify project still exists, validate assignee, and insert the task in a
+    // single transaction to avoid TOCTOU races: the project could be deleted or
+    // the assignee deactivated between the existence/active checks and the INSERT.
     const addTask = db.transaction(() => {
       if (!_projectExistsStmt.get(projectId)) {
         throw new Error('PROJECT_NOT_FOUND');
+      }
+      // Validate assignee is still active inside the transaction so a concurrent
+      // deactivation between the check and the INSERT is not possible.
+      if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDate(due_date));
 
@@ -426,6 +434,10 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     if (err.message === 'PROJECT_NOT_FOUND') {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
+    }
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task add error:', err.message);
     req.flash('error', 'Error adding task. Please try again.');
@@ -503,11 +515,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
 
   try {
     const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
-    if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
-      req.flash('error', 'Selected assignee is not available');
-      return res.redirect(`/projects/${projectId}`);
-    }
+    // Validate assignee inside the transaction so a concurrent deactivation
+    // between the check and the UPDATE is not possible.
     const updateTask = db.transaction(() => {
+      if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
@@ -523,6 +536,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Task not found');
+      return res.redirect(`/projects/${projectId}`);
+    }
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
       return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task update error:', err.message);
@@ -579,18 +596,17 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       req.flash('error', 'Invalid user');
       return res.redirect(`/projects/${id}`);
     }
-    if (!isActiveUser(db, safeUserId)) {
-      req.flash('error', 'Selected user is not available');
-      return res.redirect(`/projects/${id}`);
-    }
     const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
 
-    // Verify project still exists and add member in a single transaction
-    // to avoid a TOCTOU race where the project is deleted between the
-    // existence check and the INSERT.
+    // Verify project still exists, validate user is active, and add member in a
+    // single transaction to avoid TOCTOU races: the project could be deleted or
+    // the user deactivated between the checks and the INSERT.
     const addMember = db.transaction(() => {
       if (!_projectExistsStmt.get(id)) {
         throw new Error('PROJECT_NOT_FOUND');
+      }
+      if (!isActiveUser(db, safeUserId)) {
+        throw new Error('USER_NOT_AVAILABLE');
       }
       return _memberInsertStmt.run(id, safeUserId, safeRole).changes;
     });
@@ -606,6 +622,10 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     if (err.message === 'PROJECT_NOT_FOUND') {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
+    }
+    if (err.message === 'USER_NOT_AVAILABLE') {
+      req.flash('error', 'Selected user is not available');
+      return res.redirect(`/projects/${id}`);
     }
     console.error('Project member add error:', err.message);
     req.flash('error', 'Error adding member');

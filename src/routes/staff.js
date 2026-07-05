@@ -552,18 +552,16 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
   }
 
   try {
-    let notFound = false;
-    let alreadyInactive = false;
+    // Check is_active and deactivate in a single transaction to avoid a TOCTOU
+    // race with concurrent activate/deactivate requests. Returns an object
+    // describing the outcome instead of mutating outer-scope variables.
     const deactivate = db.transaction(() => {
-      // Check is_active inside the transaction to avoid TOCTOU race
       const target = _staffUserStmt.get(id);
       if (!target) {
-        notFound = true;
-        return;
+        return { notFound: true };
       }
       if (!target.is_active) {
-        alreadyInactive = true;
-        return;
+        return { alreadyInactive: true };
       }
 
       _deactivateStmt.run(id);
@@ -585,12 +583,13 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       for (const projectId of affectedProjects) {
         recalcProjectProgress(db, projectId);
       }
+      return { ok: true };
     });
-    deactivate();
+    const result = deactivate();
 
-    if (notFound) {
+    if (result.notFound) {
       req.flash('error', 'Staff member not found');
-    } else if (alreadyInactive) {
+    } else if (result.alreadyInactive) {
       req.flash('info', 'Account is already inactive');
     } else {
       req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes/projects');
