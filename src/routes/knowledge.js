@@ -4,8 +4,9 @@ const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
-// marked v18+ is ESM-only. In Node <22, require('marked') throws.
-// Try CJS require first, fall back to a static mock that logs a warning.
+// marked v15 is the last CJS-compatible major version.
+// The package.json pins ^15.0.7 to ensure compatibility with Node 18.
+// If loading fails, fall back to a static mock that logs a warning.
 let marked;
 let markedFallback = false;
 try {
@@ -114,7 +115,7 @@ function renderMarkdown(content) {
     return '';
   }
   try {
-    // marked.parse() is synchronous unless async extensions are registered
+    // marked v15 .parse() is synchronous unless async extensions are registered
     // (none here), so it returns a string.  Guard against async extensions by
     // rejecting thenables — otherwise sanitizeHtml would receive a Promise
     // and render "[object Promise]" in the template.

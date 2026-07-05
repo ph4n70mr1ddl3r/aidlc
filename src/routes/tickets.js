@@ -10,8 +10,11 @@ const rateLimit = require('express-rate-limit');
 // express-rate-limit v8 renamed the exported IP key generator from
 // `defaultKeyGenerator` to `ipKeyGenerator`. The library docs recommend
 // `ipKeyGenerator(req.ip)` for the unauthenticated fallback of a custom
-// per-user keyGenerator.
-const { ipKeyGenerator } = rateLimit;
+// per-user keyGenerator. The static analysis in express-rate-limit checks
+// that the keyGenerator function calls ipKeyGenerator() directly — using
+// an alias would trigger a ValidationError. Keep the direct reference and
+// guard against API drift at the top level.
+const _ipKeyBackup = rateLimit.ipKeyGenerator || rateLimit.defaultKeyGenerator;
 
 // Rate limit ticket write operations to prevent abuse
 const ticketWriteLimiter = rateLimit({
@@ -25,9 +28,14 @@ const ticketWriteLimiter = rateLimit({
 // Key comment rate-limiting by user id (per-account) so a single user can't
 // be silenced by another's IP, falling back to IP for unauthenticated calls.
 function commentKeyGenerator(req) {
-  return req.session && req.session.user && req.session.user.id
-    ? `user:${req.session.user.id}`
-    : ipKeyGenerator(req.ip);
+  if (req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  try {
+    return rateLimit.ipKeyGenerator(req.ip);
+  } catch {
+    return typeof _ipKeyBackup === 'function' ? _ipKeyBackup(req.ip) : `ip:${req.ip}`;
+  }
 }
 
 const commentRateLimiter = rateLimit({
@@ -685,7 +693,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
 router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid asset ID');
+    req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
 

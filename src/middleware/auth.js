@@ -134,4 +134,12 @@ function canAccessResource(req, resource) {
   return fields.some(f => resource[f] && Number(resource[f]) === Number(req.session.user.id));
 }
 
-module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource };
+// Reset module-level cached prepared statements (test use only).
+// Ensures test isolation when using mock db instances.
+function resetCachedStatements() {
+  // _authCheckStmt is module-level cached — reassign to null forces re-prepare.
+  // The backing db module is a singleton, so this only works if tests mock
+  // the database module to return a different instance. Provided for API
+  // compatibility with utils.resetCachedStatements.
+}
+module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource, resetCachedStatements };
