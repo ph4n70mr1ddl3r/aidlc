@@ -170,14 +170,16 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   // Validate assignee is an active user
   const createAssignee = assigned_to ? safeId(assigned_to) : null;
-  if (createAssignee && !isActiveUser(db, createAssignee)) {
-    req.flash('error', 'Selected assignee is not available');
-    return res.redirect('/assets/new');
-  }
 
   try {
-    // Generate asset tag atomically using dedicated counter table
+    // Generate asset tag atomically and validate assignee inside a single
+    // transaction to avoid a TOCTOU race where the assignee is deactivated
+    // between the check and the INSERT (mirrors the ticket/change patterns).
     const createAsset = db.transaction(() => {
+      if (createAssignee && !isActiveUser(db, createAssignee)) {
+        throw new Error('ASSIGNEE_NOT_AVAILABLE');
+      }
+
       const counterRow = _assetCounterGetStmt.get();
       const asset_tag = ('AST-' + String(counterRow.next_seq).padStart(3, '0')).substring(0, MAX_ASSET_TAG);
 
@@ -197,6 +199,10 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     res.redirect('/assets');
   } catch (err) {
+    if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
+      req.flash('error', 'Selected assignee is not available');
+      return res.redirect('/assets/new');
+    }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Asset tag or serial number already exists');
     } else {

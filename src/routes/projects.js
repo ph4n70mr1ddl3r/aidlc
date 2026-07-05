@@ -186,20 +186,29 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   // Validate owner is an active user
   const safeOwnerId = owner_id ? safeId(owner_id) : null;
-  if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
-    req.flash('error', 'Selected owner is not available');
-    return res.redirect('/projects/new');
-  }
 
   try {
-    const result = _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
-      sStart, sEnd, safePositiveFloat(budget, 0), safeOwnerId);
+    // Validate owner and insert in a single transaction to avoid a TOCTOU
+    // race where the owner is deactivated between the check and the INSERT
+    // (mirrors the ticket/change/create patterns).
+    const createProject = db.transaction(() => {
+      if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
+        throw new Error('OWNER_NOT_AVAILABLE');
+      }
+      return _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
+        sStart, sEnd, safePositiveFloat(budget, 0), safeOwnerId);
+    });
+    const result = createProject();
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     invalidateDashboardCache();
     res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
+    if (err.message === 'OWNER_NOT_AVAILABLE') {
+      req.flash('error', 'Selected owner is not available');
+      return res.redirect('/projects/new');
+    }
     console.error('Project create error:', err.message);
     req.flash('error', 'Error creating project. Please try again.');
     res.redirect('/projects/new');
