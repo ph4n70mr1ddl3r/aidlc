@@ -685,12 +685,22 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
 router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
-    req.flash('error', 'Invalid ticket ID');
+    req.flash('error', 'Invalid asset ID');
     return res.redirect('/tickets');
   }
 
   try {
-    const result = _deleteTicketStmt.run(id);
+    // Verify ticket exists and delete in a single transaction to avoid a
+    // TOCTOU race where the ticket is deleted between the earlier existence
+    // check and the DELETE (mirrors the ticket update transaction pattern).
+    const deleteTicket = db.transaction(() => {
+      const ticket = _editTicketStmt.get(id);
+      if (!ticket) {
+        return { changes: 0 };
+      }
+      return { changes: _deleteTicketStmt.run(id).changes };
+    });
+    const result = deleteTicket();
     if (result.changes === 0) {
       req.flash('error', 'Ticket not found');
     } else {

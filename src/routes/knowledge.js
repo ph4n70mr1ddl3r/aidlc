@@ -399,7 +399,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       if (!recheck) {
         throw new Error('NOT_FOUND');
       }
-      _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
+      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
     });
     updateArticle();
 
