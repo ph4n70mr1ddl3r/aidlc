@@ -604,11 +604,30 @@ function isExpiringSoon(dateStr, withinDays = 30) {
   return d !== null && d >= 0 && d <= withinDays;
 }
 
-// Cached prepared statements for countQuery — one per base table + where combination.
-// NOTE: better-sqlite3 does NOT cache prepared statements internally (calling
-// db.prepare() with the same SQL twice returns two distinct Statement objects,
-// each re-compiling the SQL). Caching the Statement here therefore avoids that
-// recompilation on every request.
+/**
+ * Touch a key in a Map to implement an LRU-like eviction strategy.
+ * Deletes and re-inserts the entry so it moves to the end of the
+ * Map's insertion-order iteration, making it the most recently used.
+ * If the cache has reached its capacity, evicts the oldest entry.
+ */
+function _touchCache(cache, key, maxSize, prepareFn) {
+  let stmt = cache.get(key);
+  if (stmt) {
+    cache.delete(key);
+    cache.set(key, stmt);
+  } else {
+    if (cache.size >= maxSize) {
+      const keyToEvict = cache.keys().next().value;
+      if (keyToEvict !== undefined) {
+        cache.delete(keyToEvict);
+      }
+    }
+    stmt = prepareFn();
+    cache.set(key, stmt);
+  }
+  return stmt;
+}
+
 const _countQueryCache = new Map();
 const _COUNT_CACHE_MAX = 500;
 const _SAFE_TABLE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -618,20 +637,9 @@ function countQuery(db, baseTable, alias, whereClause, params) {
   }
   const safeAlias = alias ? ` ${quoteColumn(alias)}` : '';
   const key = `${baseTable}|${alias}|${whereClause}`;
-  let stmt = _countQueryCache.get(key);
-  if (stmt) {
-    _countQueryCache.delete(key);
-    _countQueryCache.set(key, stmt);
-  } else {
-    if (_countQueryCache.size >= _COUNT_CACHE_MAX) {
-      const keyToEvict = _countQueryCache.keys().next().value;
-      if (keyToEvict !== undefined) {
-        _countQueryCache.delete(keyToEvict);
-      }
-    }
-    stmt = db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
-    _countQueryCache.set(key, stmt);
-  }
+  const stmt = _touchCache(_countQueryCache, key, _COUNT_CACHE_MAX, () => {
+    return db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
+  });
   try {
     const result = stmt.get(...params);
     return result ? result.c : 0;
@@ -650,20 +658,9 @@ function countQuery(db, baseTable, alias, whereClause, params) {
 const _selectQueryCache = new Map();
 const _SELECT_CACHE_MAX = 500;
 function selectQuery(db, sql, params) {
-  let stmt = _selectQueryCache.get(sql);
-  if (stmt) {
-    _selectQueryCache.delete(sql);
-    _selectQueryCache.set(sql, stmt);
-  } else {
-    if (_selectQueryCache.size >= _SELECT_CACHE_MAX) {
-      const keyToEvict = _selectQueryCache.keys().next().value;
-      if (keyToEvict !== undefined) {
-        _selectQueryCache.delete(keyToEvict);
-      }
-    }
-    stmt = db.prepare(sql);
-    _selectQueryCache.set(sql, stmt);
-  }
+  const stmt = _touchCache(_selectQueryCache, sql, _SELECT_CACHE_MAX, () => {
+    return db.prepare(sql);
+  });
   try {
     return stmt.all(...params);
   } catch (err) {

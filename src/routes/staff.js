@@ -386,12 +386,20 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify the user still exists and update in a single transaction to avoid
-    // a TOCTOU race where the user is deleted between the check and the UPDATE.
+    // Verify the user still exists, recheck admin protection, and update in a
+    // single transaction to avoid TOCTOU races: the user could be deleted or
+    // their role changed between the outer checks and the UPDATE. Rechecking
+    // the role inside the transaction prevents a concurrent admin role downgrade
+    // from letting a manager bypass the admin protection.
     const updateStaff = db.transaction(() => {
       const recheck = _staffUserStmt.get(id);
       if (!recheck) {
         throw new Error('NOT_FOUND');
+      }
+      // Recheck admin protection inside the transaction so a concurrent role
+      // change between the outer check and the UPDATE cannot bypass the guard.
+      if (req.session.user.role !== 'admin' && recheck.role === 'admin') {
+        throw new Error('ACCESS_DENIED_ADMIN');
       }
       _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
         (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
@@ -411,6 +419,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Staff member not found');
+      return res.redirect('/staff');
+    }
+    if (err.message === 'ACCESS_DENIED_ADMIN') {
+      req.flash('error', 'You cannot modify administrator accounts');
       return res.redirect('/staff');
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {

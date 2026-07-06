@@ -1,6 +1,9 @@
 require('dotenv').config();
 
-if (process.env.NODE_ENV) {
+// Normalize NODE_ENV early — matches the pattern in app.js.
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+} else {
   process.env.NODE_ENV = process.env.NODE_ENV.trim().toLowerCase();
 }
 if (process.env.NODE_ENV === 'production') {

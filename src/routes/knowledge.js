@@ -395,15 +395,21 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
 
   try {
-    // Verify the article still exists and update in a single transaction
-    // to avoid a TOCTOU race where the article is deleted between the earlier
-    // SELECT and the UPDATE (which would silently succeed affecting 0 rows).
-    // Also re-compute safeFeatured and safeStatus from the recheck row to
-    // prevent a concurrent admin action from being silently overwritten.
+    // Verify the article still exists, recheck authorization, and update in a
+    // single transaction to avoid TOCTOU races: the article could be deleted or
+    // the user's role changed between the outer checks and the UPDATE.
+    // Rechecking authorization inside the transaction prevents a concurrent
+    // role change from bypassing the edit restriction.
     const updateArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
         throw new Error('NOT_FOUND');
+      }
+      // Recheck authorization inside the transaction so a concurrent role
+      // change between the outer check and the UPDATE cannot bypass it.
+      const txnIsOwner = recheck.author_id === req.session.user.id;
+      if (!txnIsOwner && !isPrivileged(req.session.user)) {
+        throw new Error('ACCESS_DENIED');
       }
       const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
@@ -422,6 +428,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Article not found');
       return res.redirect('/knowledge');
+    }
+    if (err.message === 'ACCESS_DENIED') {
+      req.flash('error', 'You can only edit your own articles');
+      return res.redirect(`/knowledge/${id}`);
     }
     console.error('Article update error:', err.message);
     req.flash('error', 'Error updating article. Please try again.');
