@@ -373,18 +373,11 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status || existing.status, existing.status);
-  // resolveSafeFeatured already treats an absent/unchecked field as 0, so the
-  // checkbox no longer needs a hidden "is_featured=0" companion field. That
-  // hidden field conflicted with safeQueryValue (first array element wins):
-  // a checked box submitted is_featured=0 (hidden) + is_featured=1 (checkbox),
-  // which qs parsed to ['0','1'], and safeQueryValue picked '0' — making the
-  // "Featured" checkbox permanently non-functional. Non-privileged authors
-  // editing their own article preserve the existing featured flag instead of
-  // having it stripped by every content edit.
-  const safeFeatured = isPrivileged(req.session.user)
-    ? resolveSafeFeatured(req.session.user, is_featured)
-    : existing.is_featured;
+  // resolveSafeFeatured / safeStatus are now computed inside the transaction
+  // from the rechecked row to avoid a TOCTOU where a concurrent admin action
+  // (e.g. promoting is_featured or changing status) is silently overwritten.
+  // The outer existing.is_featured / existing.status are only used for the
+  // authorisation guard above and the date-helpers inside the transaction.
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
@@ -395,12 +388,18 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     // Verify the article still exists and update in a single transaction
     // to avoid a TOCTOU race where the article is deleted between the earlier
     // SELECT and the UPDATE (which would silently succeed affecting 0 rows).
+    // Also re-compute safeFeatured and safeStatus from the recheck row to
+    // prevent a concurrent admin action from being silently overwritten.
     const updateArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
         throw new Error('NOT_FOUND');
       }
-      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, safeStatus, safeFeatured, id);
+      const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
+      const txnSafeFeatured = isPrivileged(req.session.user)
+        ? resolveSafeFeatured(req.session.user, is_featured)
+        : recheck.is_featured;
+      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, txnSafeStatus, txnSafeFeatured, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
