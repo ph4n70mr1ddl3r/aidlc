@@ -73,9 +73,9 @@ function resolveSafeStatus(user, status, existingStatus) {
   return status || 'draft';
 }
 
-function resolveSafeFeatured(user, is_featured) {
+function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   if (!isPrivileged(user)) {
-    return 0;
+    return existingFeatured;
   }
   return (is_featured && is_featured !== '0') ? 1 : 0;
 }
@@ -396,9 +396,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
       const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
-      const txnSafeFeatured = isPrivileged(req.session.user)
-        ? resolveSafeFeatured(req.session.user, is_featured)
-        : recheck.is_featured;
+      const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
       const result = _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, txnSafeStatus, txnSafeFeatured, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');

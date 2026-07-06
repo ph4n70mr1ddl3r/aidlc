@@ -7,7 +7,7 @@ const _authVerifiedSym = Symbol('authVerified');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
-const _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
+let _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
 
 /**
  * Verify the session user is still active in the database.
@@ -137,9 +137,6 @@ function canAccessResource(req, resource) {
 // Reset module-level cached prepared statements (test use only).
 // Ensures test isolation when using mock db instances.
 function resetCachedStatements() {
-  // _authCheckStmt is module-level cached — reassign to null forces re-prepare.
-  // The backing db module is a singleton, so this only works if tests mock
-  // the database module to return a different instance. Provided for API
-  // compatibility with utils.resetCachedStatements.
+  _authCheckStmt = null;
 }
 module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource, resetCachedStatements };
