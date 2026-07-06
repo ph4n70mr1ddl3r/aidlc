@@ -7,7 +7,13 @@ const _authVerifiedSym = Symbol('authVerified');
 
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
-let _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
+let _authCheckStmt = null;
+function _getAuthCheckStmt() {
+  if (!_authCheckStmt) {
+    _authCheckStmt = db.prepare('SELECT id, is_active, role, password_changed_at FROM users WHERE id = ?');
+  }
+  return _authCheckStmt;
+}
 
 /**
  * Verify the session user is still active in the database.
@@ -32,7 +38,7 @@ function _verifySessionUser(req, res) {
   }
 
   try {
-    const row = _authCheckStmt.get(req.session.user.id);
+    const row = _getAuthCheckStmt().get(req.session.user.id);
     if (!row || !row.is_active) {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
       req.session.destroy((err) => {

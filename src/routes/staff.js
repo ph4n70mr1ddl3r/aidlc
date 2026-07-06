@@ -544,7 +544,13 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   }
 
   const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
-  _passwordResetStmt.run(hashed, id);
+  try {
+    _passwordResetStmt.run(hashed, id);
+  } catch (err) {
+    console.error('Staff password reset DB error:', err.message);
+    req.flash('error', 'Error resetting password. Please try again.');
+    return res.redirect(`/staff/${id}`);
+  }
 
   // Clear any login failure lockout for this user so the password reset
   // takes effect immediately instead of waiting for lockout expiry.
