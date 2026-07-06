@@ -63,11 +63,14 @@ function resolveSafeStatus(user, status, existingStatus) {
   if (isPrivileged(user)) {
     return status || 'draft';
   }
-  // Non-privileged owners editing their own article must not promote status
-  // (e.g. draft -> published). They may keep the existing status or demote to
-  // draft (unpublish). When the status field is absent from the request the
-  // caller passes existing.status, so the check below preserves it unchanged.
-  if (existingStatus && status !== existingStatus && status !== 'draft') {
+  // Non-privileged users must not promote status (e.g. draft -> published).
+  // When editing an existing article, they may keep the existing status or
+  // demote to draft (unpublish). When creating a new article (existingStatus
+  // is null), force draft regardless of what status was submitted.
+  if (!existingStatus) {
+    return 'draft';
+  }
+  if (status !== existingStatus && status !== 'draft') {
     return existingStatus;
   }
   return status || 'draft';
@@ -75,6 +78,13 @@ function resolveSafeStatus(user, status, existingStatus) {
 
 function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   if (!isPrivileged(user)) {
+    return existingFeatured;
+  }
+  // When the is_featured field is absent from the request (unchecked checkbox,
+  // which browsers omit entirely), preserve the existing value to prevent
+  // an edit from silently un-featuring the article. Checkboxes with a hidden
+  // `value="0"` field send `0` when unchecked, which is handled below.
+  if (is_featured === undefined || is_featured === '') {
     return existingFeatured;
   }
   return (is_featured && is_featured !== '0') ? 1 : 0;
