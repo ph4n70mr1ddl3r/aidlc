@@ -181,7 +181,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       }
 
       const counterRow = _assetCounterGetStmt.get();
-      const asset_tag = ('AST-' + String(counterRow.next_seq).padStart(3, '0')).substring(0, MAX_ASSET_TAG);
+      const asset_tag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
 
       const result = _insertStmt.run(
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,

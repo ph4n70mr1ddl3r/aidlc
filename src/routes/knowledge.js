@@ -490,4 +490,5 @@ module.exports = router;
 // Exposed for unit testing (the route module is mocked in app.test.js).
 module.exports.renderMarkdown = renderMarkdown;
 module.exports.resolveSafeFeatured = resolveSafeFeatured;
+module.exports.resolveSafeStatus = resolveSafeStatus;
 module.exports.markedFallback = markedFallback;

@@ -64,6 +64,7 @@ const _licenseSyncStmt = db.prepare('UPDATE licenses SET vendor = ?, updated_at 
 const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE LOWER(vendor) = LOWER(?)');
 const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
+const _vendorNameExistsStmt = db.prepare('SELECT 1 FROM vendors WHERE LOWER(name) = LOWER(?) AND id != ?');
 
 // Cached prepared statements for vendor create route
 const _vendorInsertStmt = db.prepare(`
@@ -335,6 +336,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).
       if (existing.name !== name) {
+        // Prevent renaming to a name already used by another vendor (case-insensitive),
+        // which would make LOWER() license lookups ambiguous and could corrupt data.
+        if (_vendorNameExistsStmt.get(name, id)) {
+          throw new Error('NAME_EXISTS');
+        }
         _licenseSyncStmt.run(name, existing.name);
       }
     });
@@ -348,6 +354,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Vendor not found');
       return res.redirect('/vendors');
+    }
+    if (err.message === 'NAME_EXISTS') {
+      req.flash('error', 'Another vendor with this name already exists');
+      return res.redirect(`/vendors/${id}/edit`);
     }
     console.error('Vendor update error:', err.message);
     req.flash('error', 'Error updating vendor. Please try again.');

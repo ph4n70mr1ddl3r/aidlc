@@ -50,7 +50,7 @@ jest.mock('../src/routes/dashboard', () => {
 });
 
 const { marked } = require('marked');
-const { renderMarkdown, resolveSafeFeatured } = require('../src/routes/knowledge');
+const { renderMarkdown, resolveSafeFeatured, resolveSafeStatus } = require('../src/routes/knowledge');
 const utils = require('../src/utils');
 
 describe('renderMarkdown', () => {
@@ -134,5 +134,42 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
   it('rejects the legacy hidden-field "0" value', () => {
     // Defense-in-depth: even if a '0' leaks through, it must not feature.
     expect(resolveSafeFeatured(admin, '0')).toBe(0);
+  });
+});
+
+describe('resolveSafeStatus', () => {
+  const admin = { role: 'admin' };
+  const staff = { role: 'staff' };
+
+  it('privileged user can set any valid status', () => {
+    expect(resolveSafeStatus(admin, 'published', 'draft')).toBe('published');
+    expect(resolveSafeStatus(admin, 'draft', 'published')).toBe('draft');
+  });
+
+  it('privileged user defaults to draft when status absent on create', () => {
+    expect(resolveSafeStatus(admin, null, null)).toBe('draft');
+    expect(resolveSafeStatus(admin, undefined, 'published')).toBe('draft');
+  });
+
+  it('non-privileged user creating article (no existingStatus) gets forced to draft', () => {
+    expect(resolveSafeStatus(staff, 'published', null)).toBe('draft');
+    expect(resolveSafeStatus(staff, 'archived', null)).toBe('draft');
+  });
+
+  it('non-privileged user cannot promote status on existing article', () => {
+    // Trying to go draft -> published should keep existing status
+    expect(resolveSafeStatus(staff, 'published', 'draft')).toBe('draft');
+  });
+
+  it('non-privileged user can keep the same status', () => {
+    expect(resolveSafeStatus(staff, 'published', 'published')).toBe('published');
+  });
+
+  it('non-privileged user can demote to draft (unpublish)', () => {
+    expect(resolveSafeStatus(staff, 'draft', 'published')).toBe('draft');
+  });
+
+  it('non-privileged user without status input gets existing status preserved', () => {
+    expect(resolveSafeStatus(staff, undefined, 'published')).toBe('published');
   });
 });
