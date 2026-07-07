@@ -451,6 +451,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
+  let targetUsername = null;
   try {
     // Verify user state and reactivate in a single transaction to avoid a
     // TOCTOU race with concurrent deactivate/reactivate requests — mirrors
@@ -461,20 +462,12 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
         return { notFound: true };
       }
       if (target.is_active) {
-        return { alreadyActive: true, username: target.username };
+        return { alreadyActive: true };
       }
 
       _reactivateStmt.run(id);
-      // Clear any login failure lockout so the user can log in immediately
-      // rather than waiting for the lockout to expire (which could persist
-      // across the deactivation/reactivation cycle).
-      if (target.username) {
-        clearLoginFailure(target.username);
-      }
-      if (req.ip) {
-        clearIpLoginFailure(req.ip);
-      }
-      return { ok: true, username: target.username };
+      targetUsername = target.username;
+      return { ok: true };
     });
     const result = reactivate();
 
@@ -485,6 +478,15 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     if (result.alreadyActive) {
       req.flash('info', 'Account is already active');
       return res.redirect(`/staff/${id}`);
+    }
+
+    // Clear login failure lockout outside the transaction so in-memory state
+    // is not cleared if the DB transaction fails (mirrors auth.js login handler).
+    if (targetUsername) {
+      clearLoginFailure(targetUsername);
+    }
+    if (req.ip) {
+      clearIpLoginFailure(req.ip);
     }
 
     req.audit('reactivate', 'user', id, 'Reactivated user account');

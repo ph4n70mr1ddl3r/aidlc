@@ -300,7 +300,6 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
@@ -325,12 +324,35 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
 
+      // Preserve existing values for optional fields when the submitted value
+      // is absent, preventing a partial form submission from nulling out data.
+      const safeContactPerson = contact_person !== undefined && contact_person !== ''
+        ? contact_person.substring(0, MAX_SHORT_STR) : existing.contact_person;
+      const safeEmail = email !== undefined && email !== ''
+        ? email.substring(0, MAX_EMAIL) : existing.email;
+      const safePhone = phone !== undefined && phone !== null && phone !== ''
+        ? phone.substring(0, MAX_PHONE) : existing.phone;
+      const safeAddress = address !== undefined && address !== ''
+        ? address.substring(0, MAX_ADDRESS) : existing.address;
+      const safeWebsite = website !== undefined && website !== ''
+        ? website.substring(0, MAX_LONG_STR) : existing.website;
+      const safeCategory = category !== undefined && category !== ''
+        ? (VALID_CATEGORIES_VENDOR.includes(category) ? category : existing.category)
+        : existing.category;
+      const safeNotes = notes !== undefined && notes !== ''
+        ? notes.substring(0, MAX_NOTES) : existing.notes;
+      const safeRatingVal = rating !== undefined && rating !== '' && rating !== null
+        ? safeRating
+        : existing.rating;
+
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
-        (website || '').substring(0, MAX_LONG_STR) || null, safeCategory,
-        sContractStart, sContractEnd, (notes || '').substring(0, MAX_NOTES) || null,
-        safeRating,
+      _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), safeContactPerson, safeEmail, safePhone, safeAddress,
+        safeWebsite, safeCategory,
+        sContractStart !== null ? sContractStart : existing.contract_start,
+        sContractEnd !== null ? sContractEnd : existing.contract_end,
+        safeNotes,
+        safeRatingVal,
         existing.is_active ? 1 : 0, id);
 
       // Sync name change to license references (licenses.vendor is a text field
