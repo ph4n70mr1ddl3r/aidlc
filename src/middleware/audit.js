@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { MAX_AUDIT_DETAILS } = require('../constants');
+const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES, MAX_AUDIT_DETAILS } = require('../constants');
 
 // Cache the prepared statement — audit() is called on every write route
 // and prepare() is relatively expensive. Lazily initialized so tests can
@@ -35,6 +35,17 @@ function resetCachedStatements() {
  */
 function audit({ req, action, entity, entityId, details }) {
   try {
+    // Validate action and entity against allowlists to prevent inconsistent data
+    // in the audit_log table from typos or unexpected caller values.
+    if (!ALLOWED_ACTIONS.includes(action)) {
+      console.error(`Audit log error: invalid action "${action}"`);
+      return;
+    }
+    if (!ALLOWED_ENTITY_TYPES.includes(entity)) {
+      console.error(`Audit log error: invalid entity "${entity}"`);
+      return;
+    }
+
     const uid = req && req.session && req.session.user ? req.session.user.id : null;
     const ip = req && req.ip ? req.ip : null;
     // Truncate details to prevent unbounded row growth

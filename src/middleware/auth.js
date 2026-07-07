@@ -24,7 +24,7 @@ function _getAuthCheckStmt() {
  * @returns {boolean} true if user is valid, false if redirect was sent
  */
 function _verifySessionUser(req, res) {
-  if (!req.session.user) {
+  if (!req.session || !req.session.user) {
     req.flash('error', 'Please log in to access this page');
     res.redirect('/login');
     return false;
