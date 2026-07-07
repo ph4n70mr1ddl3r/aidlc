@@ -188,25 +188,31 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
-  // Check for duplicate vendor name (case-insensitive) before inserting.
-  // Consistent with the LOWER() check in the update route and avoids ambiguous
-  // LOWER() license lookups when deleting / detaching by vendor name.
-  if (name && _vendorNameCreateExistsStmt.get(name)) {
-    req.flash('error', 'A vendor with this name already exists');
-    return res.redirect('/vendors/new');
-  }
-
   try {
-    const result = _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
-      (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
-      (notes || '').substring(0, MAX_NOTES) || null, safeRating);
+    // Check for duplicate name (case-insensitive) AND insert inside a single
+    // transaction. vendors.name has no UNIQUE constraint (uniqueness is enforced
+    // case-insensitively in app code via LOWER()), so a check performed outside
+    // a transaction would be vulnerable to a TOCTOU race: two concurrent
+    // requests with the same name could both pass the check and insert,
+    // producing duplicate vendors and corrupting LOWER() license lookups.
+    // Mirrors the update route's transactional check.
+    const createVendor = db.transaction(() => {
+      if (_vendorNameCreateExistsStmt.get(name)) {
+        throw new Error('NAME_EXISTS');
+      }
+      return _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
+        (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
+        (notes || '').substring(0, MAX_NOTES) || null, safeRating);
+    });
+
+    const result = createVendor();
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
     invalidateDashboardCache();
     res.redirect('/vendors');
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (err.message === 'NAME_EXISTS') {
       req.flash('error', 'A vendor with this name already exists');
     } else {
       console.error('Vendor create error:', err.message);
@@ -354,9 +360,13 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         : existing.category;
       const safeNotes = notes !== undefined && notes !== ''
         ? notes.substring(0, MAX_NOTES) : existing.notes;
-      const safeRatingVal = rating !== undefined && rating !== '' && rating !== null
-        ? safeRating
-        : existing.rating;
+      // An array (HTTP parameter pollution) must be treated as "no value" to
+      // match _validateVendorRating's documented intent — a truthy array would
+      // otherwise route through the safeRating (null) branch and silently null
+      // out the existing rating instead of preserving it. rating is the only
+      // field here that bypasses trim()/sanitizePhone() (which normalize arrays).
+      const ratingProvided = !Array.isArray(rating) && rating !== undefined && rating !== '' && rating !== null;
+      const safeRatingVal = ratingProvided ? safeRating : existing.rating;
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.
