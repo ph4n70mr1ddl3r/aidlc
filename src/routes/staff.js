@@ -603,6 +603,8 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
+  let targetUsername = null;
+
   try {
     // Check is_active and deactivate in a single transaction to avoid a TOCTOU
     // race with concurrent activate/deactivate requests. Returns an object
@@ -635,6 +637,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       for (const projectId of affectedProjects) {
         recalcProjectProgress(db, projectId);
       }
+      targetUsername = target.username;
       return { ok: true };
     });
     const result = deactivate();
@@ -644,6 +647,16 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     } else if (result.alreadyInactive) {
       req.flash('info', 'Account is already inactive');
     } else {
+      // Clear login failure lockout for this user so stale in-memory lockout
+      // does not persist after reactivation. Consistent with the reactivate and
+      // password-reset routes which also clear login failures.
+      if (targetUsername) {
+        clearLoginFailure(targetUsername);
+      }
+      if (req.ip) {
+        clearIpLoginFailure(req.ip);
+      }
+
       req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes/projects');
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');
       invalidateDashboardCache();

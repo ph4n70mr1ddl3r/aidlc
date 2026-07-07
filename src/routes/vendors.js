@@ -65,6 +65,7 @@ const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM license
 const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 const _vendorNameExistsStmt = db.prepare('SELECT 1 FROM vendors WHERE LOWER(name) = LOWER(?) AND id != ?');
+const _vendorNameCreateExistsStmt = db.prepare('SELECT 1 FROM vendors WHERE LOWER(name) = LOWER(?)');
 
 // Cached prepared statements for vendor create route
 const _vendorInsertStmt = db.prepare(`
@@ -187,6 +188,14 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
+  // Check for duplicate vendor name (case-insensitive) before inserting.
+  // Consistent with the LOWER() check in the update route and avoids ambiguous
+  // LOWER() license lookups when deleting / detaching by vendor name.
+  if (name && _vendorNameCreateExistsStmt.get(name)) {
+    req.flash('error', 'A vendor with this name already exists');
+    return res.redirect('/vendors/new');
+  }
+
   try {
     const result = _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
       (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
@@ -197,8 +206,12 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     res.redirect('/vendors');
   } catch (err) {
-    console.error('Vendor create error:', err.message);
-    req.flash('error', 'Error creating vendor. Please try again.');
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      req.flash('error', 'A vendor with this name already exists');
+    } else {
+      console.error('Vendor create error:', err.message);
+      req.flash('error', 'Error creating vendor. Please try again.');
+    }
     res.redirect('/vendors/new');
   }
 });
@@ -345,6 +358,15 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         ? safeRating
         : existing.rating;
 
+      // Prevent renaming to a name already used by another vendor (case-insensitive),
+      // which would make LOWER() license lookups ambiguous and could corrupt data.
+      // Must check BEFORE the UPDATE so the transaction does not throw after
+      // already applying the write (even though SQLite rollback would undo it,
+      // checking first is semantically correct and avoids wasted work).
+      if (existing.name !== name && _vendorNameExistsStmt.get(name, id)) {
+        throw new Error('NAME_EXISTS');
+      }
+
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
       _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), safeContactPerson, safeEmail, safePhone, safeAddress,
@@ -358,11 +380,6 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).
       if (existing.name !== name) {
-        // Prevent renaming to a name already used by another vendor (case-insensitive),
-        // which would make LOWER() license lookups ambiguous and could corrupt data.
-        if (_vendorNameExistsStmt.get(name, id)) {
-          throw new Error('NAME_EXISTS');
-        }
         _licenseSyncStmt.run(name, existing.name);
       }
     });
