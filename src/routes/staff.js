@@ -569,6 +569,9 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   if (targetUser.username) {
     clearLoginFailure(targetUser.username);
   }
+  if (req.ip) {
+    clearIpLoginFailure(req.ip);
+  }
 
   req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
   req.flash('success', 'Password reset successfully');
