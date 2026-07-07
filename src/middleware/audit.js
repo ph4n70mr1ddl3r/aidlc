@@ -2,11 +2,26 @@ const db = require('../models/database');
 const { MAX_AUDIT_DETAILS } = require('../constants');
 
 // Cache the prepared statement — audit() is called on every write route
-// and prepare() is relatively expensive.
-const _auditStmt = db.prepare(`
-  INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
+// and prepare() is relatively expensive. Lazily initialized so tests can
+// reset the cached statement via resetCachedStatements().
+let _auditStmt = null;
+function _getAuditStmt() {
+  if (!_auditStmt) {
+    _auditStmt = db.prepare(`
+      INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+  }
+  return _auditStmt;
+}
+
+/**
+ * Reset the module-level cached prepared statement (test use only).
+ * Ensures test isolation when using mock db instances.
+ */
+function resetCachedStatements() {
+  _auditStmt = null;
+}
 
 /**
  * Log an auditable action to the database.
@@ -24,7 +39,7 @@ function audit({ req, action, entity, entityId, details }) {
     const ip = req && req.ip ? req.ip : null;
     // Truncate details to prevent unbounded row growth
     const safeDetails = details && details.length > MAX_AUDIT_DETAILS ? details.substring(0, MAX_AUDIT_DETAILS) : (details || null);
-    _auditStmt.run(uid, action, entity, entityId || null, safeDetails, ip);
+    _getAuditStmt().run(uid, action, entity, entityId || null, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request
     console.error('Audit log error:', err.message);
@@ -43,4 +58,4 @@ function auditMiddleware(req, res, next) {
   next();
 }
 
-module.exports = { audit, auditMiddleware };
+module.exports = { audit, auditMiddleware, resetCachedStatements };
