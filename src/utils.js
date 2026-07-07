@@ -498,6 +498,10 @@ function getActiveStaff(db) {
   return _getActiveStaffStmt(db).all();
 }
 
+// Cached prepared statements for pruneAuditLog — called on every startup.
+let _pruneCutoffStmt = null;
+let _pruneDeleteStmt = null;
+
 /**
  * Prune old audit log entries beyond the retention period.
  * Call on startup (if PRUNE_AUDIT_DAYS is set) or from a scheduled job.
@@ -509,10 +513,14 @@ function pruneAuditLog(db, retentionDays) {
   if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
     return 0;
   }
-  const cutoff = db.prepare("SELECT datetime('now', ? || ' days') AS cutoff").get(`-${retentionDays}`).cutoff;
-  const result = db.prepare(
-    'DELETE FROM audit_log WHERE created_at < ?'
-  ).run(cutoff);
+  if (!_pruneCutoffStmt) {
+    _pruneCutoffStmt = db.prepare("SELECT datetime('now', ? || ' days') AS cutoff");
+  }
+  if (!_pruneDeleteStmt) {
+    _pruneDeleteStmt = db.prepare('DELETE FROM audit_log WHERE created_at < ?');
+  }
+  const cutoff = _pruneCutoffStmt.get(`-${retentionDays}`).cutoff;
+  const result = _pruneDeleteStmt.run(cutoff);
   return result.changes;
 }
 
@@ -699,6 +707,8 @@ function resetCachedStatements() {
   _progressSelectStmt = null;
   _progressUpdateStmt = null;
   _activeStaffStmt = null;
+  _pruneCutoffStmt = null;
+  _pruneDeleteStmt = null;
   _countQueryCache.clear();
   _selectQueryCache.clear();
 }

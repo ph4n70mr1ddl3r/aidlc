@@ -9,9 +9,22 @@ const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 
-// Cached prepared statements — login runs frequently and db.prepare() is expensive.
-const _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
-const _updateLastLoginStmt = db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?');
+// Lazily initialized so tests can reset cached statements via resetCachedStatements()
+// (consistent with the lazy-init pattern in audit.js and middleware/auth.js).
+let _loginStmt = null;
+function _getLoginStmt() {
+  if (!_loginStmt) {
+    _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
+  }
+  return _loginStmt;
+}
+let _updateLastLoginStmt = null;
+function _getUpdateLastLoginStmt() {
+  if (!_updateLastLoginStmt) {
+    _updateLastLoginStmt = db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?');
+  }
+  return _updateLastLoginStmt;
+}
 
 // Apply login rate limiter only to POST /login
 const loginRateLimiter = rateLimit({
@@ -220,7 +233,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  const user = _loginStmt.get(safeUsername);
+  const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing
   // side-channel. If the user doesn't exist, compare against a dummy hash so the
@@ -237,7 +250,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   // Update last login
-  _updateLastLoginStmt.run(user.id);
+  _getUpdateLastLoginStmt().run(user.id);
 
   // Clear any login failure tracking for this account and IP
   clearLoginFailure(safeUsername);
@@ -282,18 +295,42 @@ router.post('/logout', (req, res) => {
   });
 });
 
-// Cached prepared statements for profile routes
-const _profileSelectStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at, created_at, updated_at FROM users WHERE id = ?');
-const _profileUpdateStmt = db.prepare(`
-  UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
-  WHERE id = ?
-`);
-const _passwordSelectStmt = db.prepare('SELECT password FROM users WHERE id = ?');
-const _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
+// Lazily initialized for test isolation (consistent with the login stmts and audit.js).
+let _profileSelectStmt = null;
+function _getProfileSelectStmt() {
+  if (!_profileSelectStmt) {
+    _profileSelectStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at, created_at, updated_at FROM users WHERE id = ?');
+  }
+  return _profileSelectStmt;
+}
+let _profileUpdateStmt = null;
+function _getProfileUpdateStmt() {
+  if (!_profileUpdateStmt) {
+    _profileUpdateStmt = db.prepare(`
+      UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `);
+  }
+  return _profileUpdateStmt;
+}
+let _passwordSelectStmt = null;
+function _getPasswordSelectStmt() {
+  if (!_passwordSelectStmt) {
+    _passwordSelectStmt = db.prepare('SELECT password FROM users WHERE id = ?');
+  }
+  return _passwordSelectStmt;
+}
+let _passwordUpdateStmt = null;
+function _getPasswordUpdateStmt() {
+  if (!_passwordUpdateStmt) {
+    _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
+  }
+  return _passwordUpdateStmt;
+}
 
 // Profile page
 router.get('/profile', requireAuth, (req, res) => {
-  const profileUser = _profileSelectStmt.get(req.session.user.id);
+  const profileUser = _getProfileSelectStmt().get(req.session.user.id);
   if (!profileUser) {
     req.flash('error', 'Profile not found');
     return res.redirect('/login');
@@ -332,7 +369,7 @@ router.put('/profile', requireAuth, (req, res) => {
   }
 
   try {
-    _profileUpdateStmt.run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
+    _getProfileUpdateStmt().run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
 
     // Update session (full reassign to ensure express-session detects the change with resave:false)
     req.session.user = { ...req.session.user, first_name, last_name, email, phone: phone ? phone.substring(0, MAX_PHONE) : null };
@@ -402,7 +439,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
-  const user = _passwordSelectStmt.get(req.session.user.id);
+  const user = _getPasswordSelectStmt().get(req.session.user.id);
   if (!user) {
     req.flash('error', 'User not found');
     return res.redirect('/login');
@@ -414,7 +451,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   }
 
   const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
-  _passwordUpdateStmt.run(hashed, req.session.user.id);
+  _getPasswordUpdateStmt().run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
   invalidateDashboardCache();
@@ -438,7 +475,7 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
   // Fetch fresh user data (without password) for the new session
-  const freshUser = _profileSelectStmt.get(userId);
+  const freshUser = _getProfileSelectStmt().get(userId);
   if (freshUser) {
     req.session.user = freshUser;
   }
@@ -446,7 +483,22 @@ router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
   res.redirect('/profile');
 }));
 
+/**
+ * Reset module-level cached prepared statements (test use only).
+ * Ensures test isolation when using mock db instances — consistent with
+ * the same-named export in middleware/auth.js, audit.js, and utils.js.
+ */
+function resetCachedStatements() {
+  _loginStmt = null;
+  _updateLastLoginStmt = null;
+  _profileSelectStmt = null;
+  _profileUpdateStmt = null;
+  _passwordSelectStmt = null;
+  _passwordUpdateStmt = null;
+}
+
 module.exports = router;
 module.exports.stopLoginFailureCleanup = stopLoginFailureCleanup;
 module.exports.clearLoginFailure = clearLoginFailure;
 module.exports.clearIpLoginFailure = clearIpLoginFailure;
+module.exports.resetCachedStatements = resetCachedStatements;
