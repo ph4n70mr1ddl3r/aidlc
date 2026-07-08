@@ -35,7 +35,7 @@ const _changeInsertStmt = db.prepare(`
   `);
 
 function _resolveDateTimeField(newValue, existingValue) {
-  if (newValue === undefined) {
+  if (newValue === undefined || newValue === null) {
     return { value: existingValue };
   }
   if (newValue === '') {

@@ -636,7 +636,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // Unassign change-log entries so they don't orphan on an inactive user
       _unassignChangesStmt.run(id);
 
-      // Reassign projects owned by this user so they don't orphan
+      // Unassign projects owned by this user so they don't orphan
       _unassignProjectOwnerStmt.run(id);
 
       for (const projectId of affectedProjects) {
