@@ -33,6 +33,12 @@ function _validateVendorRating(value) {
   if (Array.isArray(value)) {
     return { value: null, error: null };
   }
+  // Normalise leading/trailing whitespace so " 3 " is treated as "3" rather
+  // than rejected by the numeric pattern check below.  parseInt handles both,
+  // but the regex guard runs first and would otherwise reject the input.
+  if (typeof value === 'string') {
+    value = value.trim();
+  }
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
@@ -360,12 +366,9 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         : existing.category;
       const safeNotes = notes !== undefined && notes !== ''
         ? notes.substring(0, MAX_NOTES) : existing.notes;
-      // An array (HTTP parameter pollution) must be treated as "no value" to
-      // match _validateVendorRating's documented intent — a truthy array would
-      // otherwise route through the safeRating (null) branch and silently null
-      // out the existing rating instead of preserving it. rating is the only
-      // field here that bypasses trim()/sanitizePhone() (which normalize arrays).
-      const ratingProvided = !Array.isArray(rating) && rating !== undefined && rating !== '' && rating !== null;
+      // If the rating field was absent from the request, preserve the existing
+      // value so a partial form submission does not unintentionally clear it.
+      const ratingProvided = rating !== undefined && rating !== '' && rating !== null;
       const safeRatingVal = ratingProvided ? safeRating : existing.rating;
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),

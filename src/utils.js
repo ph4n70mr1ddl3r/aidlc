@@ -622,6 +622,8 @@ function isExpiringSoon(dateStr, withinDays = 30) {
  * Deletes and re-inserts the entry so it moves to the end of the
  * Map's insertion-order iteration, making it the most recently used.
  * If the cache has reached its capacity, evicts the oldest entry.
+ * Calls prepareFn BEFORE evicting so that if it throws the cache is
+ * not left one entry short.
  */
 function _touchCache(cache, key, maxSize, prepareFn) {
   let stmt = cache.get(key);
@@ -629,13 +631,13 @@ function _touchCache(cache, key, maxSize, prepareFn) {
     cache.delete(key);
     cache.set(key, stmt);
   } else {
+    stmt = prepareFn();
     if (cache.size >= maxSize) {
       const keyToEvict = cache.keys().next().value;
       if (keyToEvict !== undefined) {
         cache.delete(keyToEvict);
       }
     }
-    stmt = prepareFn();
     cache.set(key, stmt);
   }
   return stmt;
