@@ -93,6 +93,12 @@ describe('paginationBaseUrl', () => {
     expect(result).toContain('entity_type=ticket');
     expect(result).not.toContain('page');
   });
+
+  it('should return path when query is empty', () => {
+    const req = { query: {}, path: '/test' };
+    const result = utils.paginationBaseUrl(req);
+    expect(result).toBe('/test');
+  });
 });
 
 /**
@@ -399,6 +405,15 @@ describe('titleCase', () => {
     expect(utils.titleCase(123)).toBe('');
     expect(utils.titleCase('')).toBe('');
   });
+
+  it('should handle acronym with lowercase suffix (SOPs, APIv2)', () => {
+    expect(utils.titleCase('sops_guidelines')).toBe('SOPs Guidelines');
+    expect(utils.titleCase('api_v2_docs')).toBe('API V2 Docs');
+  });
+
+  it('should not split words containing acronyms (SOPHISTICATED)', () => {
+    expect(utils.titleCase('sophisticated_approach')).toBe('Sophisticated Approach');
+  });
 });
 
 /**
@@ -625,6 +640,14 @@ describe('safeDateTimeLocal', () => {
   it('should return null for invalid datetime', () => {
     expect(utils.safeDateTimeLocal('not-valid')).toBeNull();
   });
+
+  it('should return null for undefined', () => {
+    expect(utils.safeDateTimeLocal(undefined)).toBeNull();
+  });
+
+  it('should return null for empty string', () => {
+    expect(utils.safeDateTimeLocal('')).toBeNull();
+  });
 });
 
 /**
@@ -663,14 +686,18 @@ describe('formatDate', () => {
 
   it('should format date-only string', () => {
     const result = utils.formatDate('2024-01-15');
-    expect(typeof result).toBe('string');
-    expect(result).not.toBe('-');
+    expect(result).toContain('2024');
+    expect(result).toContain('15');
   });
 
-  it('should format datetime string', () => {
+  it('should format ISO datetime with T separator', () => {
     const result = utils.formatDate('2024-01-15T14:30:00');
-    expect(typeof result).toBe('string');
-    expect(result).not.toBe('-');
+    expect(result).toContain('2024');
+    expect(result).toContain('15');
+  });
+
+  it('should return dash for invalid input', () => {
+    expect(utils.formatDate('not-a-date')).toBe('-');
   });
 });
 
@@ -685,8 +712,9 @@ describe('formatDateTime', () => {
 
   it('should format a datetime string', () => {
     const result = utils.formatDateTime('2024-01-15T14:30:00');
-    expect(typeof result).toBe('string');
-    expect(result).not.toBe('-');
+    expect(result).toContain('2024');
+    expect(result).toContain('15');
+    expect(result).toMatch(/\d:\d{2}/);
   });
 
   it('should return dash for invalid input', () => {
@@ -765,6 +793,14 @@ describe('countQuery', () => {
     const mockDb = { prepare: jest.fn(() => stmt) };
     utils.countQuery(mockDb, t, 'u', '1=1', []);
     expect(mockDb.prepare).toHaveBeenCalledWith('SELECT COUNT(*) as c FROM ' + t + ' "u" WHERE 1=1');
+  });
+
+  it('should return 0 when no rows match', () => {
+    const t = 'tbl_empty_' + Date.now();
+    const stmt = { get: jest.fn(() => ({ c: 0 })) };
+    const mockDb = { prepare: jest.fn(() => stmt) };
+    const result = utils.countQuery(mockDb, t, '', '1=0', []);
+    expect(result).toBe(0);
   });
 
   it('should generate correct SQL without alias', () => {
@@ -948,47 +984,6 @@ describe('recalcProjectProgress', () => {
 });
 
 /**
- * Test for countQuery with empty result
- */
-describe('countQuery with no matches', () => {
-  it('should return 0 when no rows match', () => {
-    const t = 'tbl_empty_' + Date.now();
-    const stmt = { get: jest.fn(() => ({ c: 0 })) };
-    const mockDb = { prepare: jest.fn(() => stmt) };
-    const result = utils.countQuery(mockDb, t, '', '1=0', []);
-    expect(result).toBe(0);
-  });
-});
-
-/**
- * Additional edge case tests for formatDate
- */
-describe('formatDate with T-separator datetime', () => {
-  it('should handle ISO datetime with T separator', () => {
-    const result = utils.formatDate('2024-01-15T14:30:00');
-    expect(typeof result).toBe('string');
-    expect(result).not.toBe('-');
-  });
-
-  it('should return dash for invalid input', () => {
-    expect(utils.formatDate('not-a-date')).toBe('-');
-  });
-});
-
-/**
- * Additional safeDateTimeLocal edge cases
- */
-describe('safeDateTimeLocal edge cases', () => {
-  it('should return null for undefined', () => {
-    expect(utils.safeDateTimeLocal(undefined)).toBeNull();
-  });
-
-  it('should return null for empty string', () => {
-    expect(utils.safeDateTimeLocal('')).toBeNull();
-  });
-});
-
-/**
  * Test for daysUntil function
  */
 describe('daysUntil', () => {
@@ -1101,17 +1096,6 @@ describe('badge constants', () => {
 });
 
 /**
- * Test for paginationBaseUrl with no query params
- */
-describe('paginationBaseUrl edge cases', () => {
-  it('should return path when query is empty', () => {
-    const req = { query: {}, path: '/test' };
-    const result = utils.paginationBaseUrl(req);
-    expect(result).toBe('/test');
-  });
-});
-
-/**
  * Test for resetCachedStatements function
  */
 describe('resetCachedStatements', () => {
@@ -1139,19 +1123,5 @@ describe('resetCachedStatements', () => {
     utils.resetCachedStatements();
     utils.selectQuery(mockDb, sql, [10, 0]);
     expect(mockDb.prepare).toHaveBeenCalledTimes(2);
-  });
-});
-
-/**
- * Test for titleCase with acronym suffixes
- */
-describe('titleCase with acronym suffixes', () => {
-  it('should handle acronym with lowercase suffix (SOPs, APIv2)', () => {
-    expect(utils.titleCase('sops_guidelines')).toBe('SOPs Guidelines');
-    expect(utils.titleCase('api_v2_docs')).toBe('API V2 Docs');
-  });
-
-  it('should not split words containing acronyms (SOPHISTICATED)', () => {
-    expect(utils.titleCase('sophisticated_approach')).toBe('Sophisticated Approach');
   });
 });

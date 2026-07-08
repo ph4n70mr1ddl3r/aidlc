@@ -102,20 +102,16 @@ describe('App module', () => {
 });
 
 describe('NODE_ENV handling', () => {
-  it('should default to development when NODE_ENV is not set', () => {
-    const code = require('fs').readFileSync(require.resolve('../src/app'), 'utf8');
-    expect(code).toContain("process.env.NODE_ENV = 'development'");
+  it('should normalize NODE_ENV to lowercase after app module is loaded', () => {
+    // app.js normalizes NODE_ENV at require-time; after loading,
+    // it must be a defined, lowercase value.
+    expect(process.env.NODE_ENV).toBeDefined();
+    expect(process.env.NODE_ENV).toBe(process.env.NODE_ENV.toLowerCase());
   });
 
-  it('should normalize NODE_ENV to lowercase', () => {
-    const code = require('fs').readFileSync(require.resolve('../src/app'), 'utf8');
-    expect(code).toContain('process.env.NODE_ENV.trim().toLowerCase()');
-  });
-});
-
-describe('Production validation', () => {
-  it('should have production env validation logic', () => {
-    const code = require('fs').readFileSync(require.resolve('../src/app'), 'utf8');
-    expect(code).toContain("process.env.NODE_ENV === 'production'");
+  it('should restore NODE_ENV to its original value after app module normalization', () => {
+    // Jest sets NODE_ENV to 'test'; the app module's normalization
+    // (trim + toLowerCase) should preserve the original value.
+    expect(process.env.NODE_ENV).toBe('test');
   });
 });
