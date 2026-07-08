@@ -612,6 +612,21 @@ describe('isValidDateTimeLocal', () => {
   it('should reject missing time', () => {
     expect(utils.isValidDateTimeLocal('2024-01-15')).toBe(false);
   });
+
+  it('should accept datetime with seconds', () => {
+    expect(utils.isValidDateTimeLocal('2024-01-15T14:30:00')).toBe(true);
+    expect(utils.isValidDateTimeLocal('2024-01-15T00:00:00')).toBe(true);
+  });
+
+  it('should accept space-separated datetime', () => {
+    expect(utils.isValidDateTimeLocal('2024-01-15 14:30')).toBe(true);
+    expect(utils.isValidDateTimeLocal('2023-12-31 23:59')).toBe(true);
+  });
+
+  it('should accept space-separated datetime with seconds', () => {
+    expect(utils.isValidDateTimeLocal('2024-01-15 14:30:00')).toBe(true);
+    expect(utils.isValidDateTimeLocal('2024-01-15 00:00:00')).toBe(true);
+  });
 });
 
 /**
@@ -647,6 +662,20 @@ describe('safeDateTimeLocal', () => {
 
   it('should return null for empty string', () => {
     expect(utils.safeDateTimeLocal('')).toBeNull();
+  });
+
+  it('should strip seconds from datetime input', () => {
+    expect(utils.safeDateTimeLocal('2024-01-15T14:30:00')).toBe('2024-01-15 14:30');
+    expect(utils.safeDateTimeLocal('2024-02-20T09:15:45')).toBe('2024-02-20 09:15');
+  });
+
+  it('should normalize space separator without seconds', () => {
+    expect(utils.safeDateTimeLocal('2024-01-15 14:30')).toBe('2024-01-15 14:30');
+    expect(utils.safeDateTimeLocal('2024-01-15 00:00')).toBe('2024-01-15 00:00');
+  });
+
+  it('should normalize space separator with seconds', () => {
+    expect(utils.safeDateTimeLocal('2024-01-15 14:30:00')).toBe('2024-01-15 14:30');
   });
 });
 

@@ -18,6 +18,7 @@ module.exports = [
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'no-var': 'error',
       'prefer-const': 'error',
+      'no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
       'no-undef': 'error',
       'no-redeclare': 'error',
       'no-shadow': 'warn',

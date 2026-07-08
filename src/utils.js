@@ -316,22 +316,26 @@ function isValidDate(value) {
 
 /**
  * Validate a datetime string in YYYY-MM-DDTHH:MM format (from datetime-local input).
+ * Also accepts YYYY-MM-DD HH:MM and YYYY-MM-DDTHH:MM:SS (seconds are stripped
+ * by safeDateTimeLocal to match SQLite's space-separated format without seconds).
  * Returns true if valid.
  */
 function isValidDateTimeLocal(value) {
   if (!value || typeof value !== 'string') {
     return false;
   }
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+  if (!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(value)) {
     return false;
   }
-  const d = new Date(value);
+  // Normalize to YYYY-MM-DDTHH:MM:SS for reliable Date parsing
+  const iso = value.replace(' ', 'T');
+  const isoForParse = iso.length === 16 ? iso + ':00' : iso;
+  const d = new Date(isoForParse);
   if (isNaN(d.getTime())) {
     return false;
   }
-  const [datePart, timePart] = value.split('T');
-  const [y, mo, da] = datePart.split('-').map(Number);
-  const [h, mi] = timePart.split(':').map(Number);
+  const [y, mo, da] = iso.slice(0, 10).split('-').map(Number);
+  const [h, mi] = iso.slice(11, 16).split(':').map(Number);
   return d.getFullYear() === y && d.getMonth() === mo - 1 && d.getDate() === da &&
     d.getHours() === h && d.getMinutes() === mi;
 }
@@ -351,7 +355,11 @@ function safeDateTimeLocal(value) {
   // datetime() output (which uses space format). The HTML datetime-local input
   // sends YYYY-MM-DDTHH:MM, but storing with space avoids string-comparison bugs
   // when compared against datetime('now') and similar functions.
-  return isValidDateTimeLocal(value) ? value.replace('T', ' ') : null;
+  // Strip seconds (":SS") if present, leaving "HH:MM".
+  if (!isValidDateTimeLocal(value)) {
+    return null;
+  }
+  return value.replace('T', ' ').replace(/(:\d{2}):\d{2}$/, '$1');
 }
 
 /**

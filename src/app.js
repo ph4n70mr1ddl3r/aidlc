@@ -415,7 +415,12 @@ const PORT = (() => {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n) || n < 1 || n > 65535) {
     console.error(`ERROR: PORT must be a number between 1 and 65535, got "${raw}"`);
-    process.exit(1);
+    // Only exit when running directly — tests that require() this module
+    // should not be killed by a misconfigured environment variable.
+    if (require.main === module) {
+      process.exit(1);
+    }
+    return 3000;
   }
   return n;
 })();
@@ -485,8 +490,10 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
-  // In production, exit after an unhandled rejection to prevent undefined state.
-  // The process is in an indeterminate state and continuing may cause silent data corruption.
+  // Always set exit code — the process is in an indeterminate state and
+  // continuing may cause silent data corruption. In production, also schedule
+  // a hard exit after a grace period so the process doesn't hang.
+  process.exitCode = 1;
   if (process.env.NODE_ENV === 'production') {
     const timer = setTimeout(() => process.exit(1), 1000);
     timer.unref();
