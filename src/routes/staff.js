@@ -559,7 +559,12 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
   try {
-    _passwordResetStmt.run(hashed, id);
+    const result = _passwordResetStmt.run(hashed, id);
+    if (result.changes === 0) {
+      console.error('Staff password reset: user not found (possibly deleted concurrently)');
+      req.flash('error', 'Staff member not found');
+      return res.redirect('/staff');
+    }
   } catch (err) {
     console.error('Staff password reset DB error:', err.message);
     req.flash('error', 'Error resetting password. Please try again.');
