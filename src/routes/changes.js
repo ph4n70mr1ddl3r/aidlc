@@ -286,46 +286,40 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       // --- scheduled_start ---
       const sSchedStart = _resolveDateTimeField(scheduled_start, existingChange.scheduled_start);
       if (sSchedStart.error) {
-        return { error: 'Invalid scheduled start date', redirect: `/changes/${id}/edit` };
+        throw new Error('INVALID_SCHEDULED_START');
       }
 
       // --- scheduled_end ---
       const sSchedEnd = _resolveDateTimeField(scheduled_end, existingChange.scheduled_end);
       if (sSchedEnd.error) {
-        return { error: 'Invalid scheduled end date', redirect: `/changes/${id}/edit` };
+        throw new Error('INVALID_SCHEDULED_END');
       }
 
       if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
-        return { error: 'Scheduled end must be on or after scheduled start', redirect: `/changes/${id}/edit` };
+        throw new Error('SCHEDULED_END_BEFORE_START');
       }
 
       // --- actual_start ---
       const sActStart = _resolveDateTimeField(actual_start, existingChange.actual_start);
       if (sActStart.error) {
-        return { error: 'Invalid actual start date', redirect: `/changes/${id}/edit` };
+        throw new Error('INVALID_ACTUAL_START');
       }
 
       // --- actual_end ---
       const sActEnd = _resolveDateTimeField(actual_end, existingChange.actual_end);
       if (sActEnd.error) {
-        return { error: 'Invalid actual end date', redirect: `/changes/${id}/edit` };
+        throw new Error('INVALID_ACTUAL_END');
       }
 
       if (sActStart.value && sActEnd.value && sActEnd.value < sActStart.value) {
-        return { error: 'Actual end must be on or after actual start', redirect: `/changes/${id}/edit` };
+        throw new Error('ACTUAL_END_BEFORE_START');
       }
 
       _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
         (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
-      return null;
     });
-    const errResult = updateChange();
-
-    if (errResult) {
-      req.flash('error', errResult.error);
-      return res.redirect(errResult.redirect);
-    }
+    updateChange();
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
@@ -338,6 +332,12 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    if (err.message === 'INVALID_SCHEDULED_START' || err.message === 'INVALID_SCHEDULED_END' ||
+        err.message === 'SCHEDULED_END_BEFORE_START' || err.message === 'INVALID_ACTUAL_START' ||
+        err.message === 'INVALID_ACTUAL_END' || err.message === 'ACTUAL_END_BEFORE_START') {
+      req.flash('error', err.message === 'SCHEDULED_END_BEFORE_START' ? 'Scheduled end must be on or after scheduled start' : err.message === 'ACTUAL_END_BEFORE_START' ? 'Actual end must be on or after actual start' : 'Invalid date format');
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);

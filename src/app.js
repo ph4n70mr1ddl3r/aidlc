@@ -168,6 +168,11 @@ if (process.env.SESSION_STORE) {
   console.warn('WARNING: No SESSION_STORE configured — using MemoryStore which is NOT suitable for production. Set SESSION_STORE to a persistent store (e.g. connect-sqlite3).');
 }
 
+// Cookie parser must come before session middleware — express-session does not
+// depend on it, but downstream middleware (CSRF) reads signed cookies set by
+// session. Placing it first ensures req.cookies is populated for all middleware.
+app.use(cookieParser());
+
 app.use(session({
   name: SESSION_COOKIE,
   secret: sessionSecret,
@@ -182,11 +187,6 @@ app.use(session({
 }));
 
 app.use(flash());
-
-// ---------------------------------------------------------------------------
-// Cookie parser (required for CSRF)
-// ---------------------------------------------------------------------------
-app.use(cookieParser());
 
 // ---------------------------------------------------------------------------
 // CSRF Protection (separate secret from session)
@@ -211,7 +211,7 @@ const csrfConfig = doubleCsrf({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true
   },
-  getCsrfTokenFromRequest: (req) => req.body._csrf || req.headers['x-csrf-token'],
+  getCsrfTokenFromRequest: (req) => req.body?._csrf || req.headers['x-csrf-token'],
   size: 64
 });
 app.use(csrfConfig.doubleCsrfProtection);
@@ -484,13 +484,17 @@ function shutdown(signal) {
   server.close(() => {
     clearTimeout(forceExitTimer);
     console.log('HTTP server closed.');
+    let dbClosed = true;
     try {
       db.close();
     } catch (err) {
       console.error('Error closing database:', err.message);
+      dbClosed = false;
     }
-    console.log('Database connection closed.');
-    process.exit(0);
+    if (dbClosed) {
+      console.log('Database connection closed.');
+    }
+    process.exit(dbClosed ? 0 : 1);
   });
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));

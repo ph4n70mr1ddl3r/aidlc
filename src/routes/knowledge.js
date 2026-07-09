@@ -292,13 +292,15 @@ router.get('/:id', (req, res) => {
       console.error('View count update error:', err.message);
     }
     viewed.push(id);
-    // Evict oldest entries (front of array) if the tracking set exceeds the cap
-    if (viewed.length > MAX_VIEWED_ARTICLES) {
-      viewed.splice(0, viewed.length - MAX_VIEWED_ARTICLES);
-    }
+    // Evict oldest entries (front of array) if the tracking set exceeds the cap.
+    // Perform on a copy before reassignment to avoid a brief window where the
+    // mutated array in the session lacks the reassignment's modified flag.
+    const trimmed = viewed.length > MAX_VIEWED_ARTICLES
+      ? viewed.slice(-MAX_VIEWED_ARTICLES)
+      : viewed;
     // Reassign to trigger session.modified flag (resave:false won't persist
     // in-place array mutations)
-    req.session[VIEWED_KEY] = [...viewed];
+    req.session[VIEWED_KEY] = trimmed;
   }
 
   article.renderedContent = renderMarkdown(article.content);

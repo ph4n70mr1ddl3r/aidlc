@@ -137,7 +137,7 @@ function canAccessResource(req, resource) {
   // Check all ownership fields — a resource may have multiple populated
   // and we must return true if any of them match the current user.
   const fields = ['assigned_to', 'owner_id', 'user_id', 'author_id'];
-  return fields.some(f => resource[f] && Number(resource[f]) === Number(req.session.user.id));
+  return fields.some(f => resource[f] != null && Number(resource[f]) === Number(req.session.user.id));
 }
 
 // Reset module-level cached prepared statements (test use only).
