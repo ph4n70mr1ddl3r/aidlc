@@ -83,14 +83,22 @@ function purgeStaleEntries(map) {
     return;
   }
   const staleThreshold = Date.now() - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+  // Evict stale entries first (older than the lockout window), then fall back
+  // to oldest-entry eviction for entries that are too recent to be stale.
+  // Map iteration order is insertion-order, so we walk from oldest to newest.
+  const entriesToDelete = [];
   for (const [key, val] of map) {
-    if (map.size < MAX_LOGIN_FAILURES_MAP_SIZE - 100) {
-      break;
-    }
     if (val.lastAttempt < staleThreshold) {
-      map.delete(key);
+      entriesToDelete.push(key);
     }
   }
+  for (const key of entriesToDelete) {
+    map.delete(key);
+    if (map.size < MAX_LOGIN_FAILURES_MAP_SIZE) {
+      return;
+    }
+  }
+  // Still over capacity — evict oldest non-locked entries
   while (map.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
     const oldest = map.keys().next().value;
     if (oldest === undefined) {
@@ -98,9 +106,6 @@ function purgeStaleEntries(map) {
     }
     const entry = map.get(oldest);
     if (entry && entry.lockedUntil && Date.now() < entry.lockedUntil) {
-      // Cannot evict a currently-locked entry — stop here.
-      // Reaching this means every remaining entry is either locked or
-      // too recent to be stale, so further attempts would loop forever.
       break;
     }
     map.delete(oldest);
@@ -190,7 +195,9 @@ if (loginFailureCleanup.unref) {
  * from firing after db.close() has been called.
  */
 function stopLoginFailureCleanup() {
-  clearInterval(loginFailureCleanup);
+  if (loginFailureCleanup) {
+    clearInterval(loginFailureCleanup);
+  }
 }
 
 // Login page

@@ -138,7 +138,7 @@ function renderMarkdown(content) {
     // If markdown/sanitization fails, escape the raw content and wrap in a
     // visible error notice so the user knows rendering failed instead of
     // seeing a blank page.
-    console.error('Markdown render error:', err.message);
+    console.error('Markdown render error:', String(err));
     const escaped = sanitizeHtml(content, STRIP_HTML_OPTIONS);
     return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
   }
