@@ -390,7 +390,9 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // single transaction to avoid TOCTOU races: the user could be deleted or
     // their role changed between the outer checks and the UPDATE. Rechecking
     // the role inside the transaction prevents a concurrent admin role downgrade
-    // from letting a manager bypass the admin protection.
+    // from letting a manager bypass the admin protection, AND prevents a
+    // concurrent admin role-upgrade from being silently overwritten by the
+    // stale `safeRole` value from the outer check.
     const updateStaff = db.transaction(() => {
       const recheck = _staffUserStmt.get(id);
       if (!recheck) {
@@ -400,6 +402,11 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // change between the outer check and the UPDATE cannot bypass the guard.
       if (req.session.user.role !== 'admin' && recheck.role === 'admin') {
         throw new Error('ACCESS_DENIED_ADMIN');
+      }
+      // Prevent a stale `safeRole` (computed from req.body before the
+      // transaction) from silently overwriting a concurrent admin role change.
+      if (recheck.role !== targetUser.role) {
+        throw new Error('ROLE_CHANGED');
       }
       _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
         (department || '').substring(0, MAX_SHORT_STR), phone ? phone.substring(0, MAX_PHONE) : null, id);
@@ -424,6 +431,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED_ADMIN') {
       req.flash('error', 'You cannot modify administrator accounts');
       return res.redirect('/staff');
+    }
+    if (err.message === 'ROLE_CHANGED') {
+      req.flash('error', 'This account\'s role changed since the form was loaded. Please review and try again.');
+      return res.redirect(`/staff/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'Email address is already in use');

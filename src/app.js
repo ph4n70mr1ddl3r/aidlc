@@ -412,11 +412,18 @@ const PORT = (() => {
   if (raw === undefined || raw === '') {
     return 3000;
   }
+  // Reject non-numeric strings — parseInt('3000abc') silently returns 3000,
+  // which would mislead operators into thinking an invalid value is accepted.
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) {
+    console.error(`ERROR: PORT must be a positive integer, got "${raw}"`);
+    if (require.main === module) {
+      process.exit(1);
+    }
+    return 3000;
+  }
   const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1 || n > 65535) {
-    console.error(`ERROR: PORT must be a number between 1 and 65535, got "${raw}"`);
-    // Only exit when running directly — tests that require() this module
-    // should not be killed by a misconfigured environment variable.
+  if (n < 1 || n > 65535) {
+    console.error(`ERROR: PORT must be between 1 and 65535, got "${raw}"`);
     if (require.main === module) {
       process.exit(1);
     }
