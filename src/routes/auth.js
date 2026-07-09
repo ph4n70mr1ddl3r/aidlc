@@ -104,17 +104,17 @@ function purgeStaleEntries(map) {
       return;
     }
   }
-  // Still over capacity — evict oldest non-locked entries
-  while (map.size >= MAX_LOGIN_FAILURES_MAP_SIZE) {
-    const oldest = map.keys().next().value;
-    if (oldest === undefined) {
-      break;
+  // Still over capacity — evict oldest non-locked entries.
+  // If the absolute oldest entry is locked (active lockout), skip it
+  // and evict the next unlocked entry so the map doesn't grow unbounded.
+  // We use a simple linear scan since the eviction only triggers when the
+  // map is at capacity (10k entries) and stops as soon as one entry is freed.
+  for (const [key, val] of map) {
+    if (val && val.lockedUntil && Date.now() < val.lockedUntil) {
+      continue;
     }
-    const entry = map.get(oldest);
-    if (entry && entry.lockedUntil && Date.now() < entry.lockedUntil) {
-      break;
-    }
-    map.delete(oldest);
+    map.delete(key);
+    break;
   }
 }
 

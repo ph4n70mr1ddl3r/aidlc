@@ -7,15 +7,6 @@ const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
 
-// express-rate-limit v8 renamed the exported IP key generator from
-// `defaultKeyGenerator` to `ipKeyGenerator`. The library docs recommend
-// `ipKeyGenerator(req.ip)` for the unauthenticated fallback of a custom
-// per-user keyGenerator. The static analysis in express-rate-limit checks
-// that the keyGenerator function calls ipKeyGenerator() directly — using
-// an alias would trigger a ValidationError. Keep the direct reference and
-// guard against API drift at the top level.
-const _ipKeyBackup = rateLimit.ipKeyGenerator || rateLimit.defaultKeyGenerator;
-
 // Rate limit ticket write operations to prevent abuse
 const ticketWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -27,15 +18,20 @@ const ticketWriteLimiter = rateLimit({
 
 // Key comment rate-limiting by user id (per-account) so a single user can't
 // be silenced by another's IP, falling back to IP for unauthenticated calls.
+// The IP fallback uses the library's ipKeyGenerator to ensure IPv6 subnet
+// handling and pass the library's keyGenerator validation check.
 function commentKeyGenerator(req) {
   if (req.session && req.session.user && req.session.user.id) {
     return `user:${req.session.user.id}`;
   }
-  try {
-    return rateLimit.ipKeyGenerator(req.ip);
-  } catch {
-    return typeof _ipKeyBackup === 'function' ? _ipKeyBackup(req.ip) : `ip:${req.ip}`;
+  if (req.ip) {
+    try {
+      return rateLimit.ipKeyGenerator(req.ip);
+    } catch {
+      // ipKeyGenerator not available (pre-v8 express-rate-limit), fall through
+    }
   }
+  return req.ip || 'unknown';
 }
 
 const commentRateLimiter = rateLimit({
