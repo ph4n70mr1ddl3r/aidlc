@@ -285,7 +285,7 @@ router.get('/:id', (req, res) => {
     req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed.includes(id) && article.author_id !== req.session.user.id) {
+  if (!viewed.includes(id) && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       _viewCountStmt.run(id);
     } catch (err) {
@@ -293,13 +293,10 @@ router.get('/:id', (req, res) => {
     }
     viewed.push(id);
     // Evict oldest entries (front of array) if the tracking set exceeds the cap.
-    // Perform on a copy before reassignment to avoid a brief window where the
-    // mutated array in the session lacks the reassignment's modified flag.
-    const trimmed = viewed.length > MAX_VIEWED_ARTICLES
-      ? viewed.slice(-MAX_VIEWED_ARTICLES)
-      : viewed;
-    // Reassign to trigger session.modified flag (resave:false won't persist
-    // in-place array mutations)
+    // Always create a copy via slice() so the reassignment guarantees a new
+    // reference, triggering the session.modified flag — resave:false won't
+    // persist in-place array mutations against the same reference.
+    const trimmed = viewed.slice(-MAX_VIEWED_ARTICLES);
     req.session[VIEWED_KEY] = trimmed;
   }
 
