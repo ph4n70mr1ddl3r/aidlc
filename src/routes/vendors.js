@@ -349,27 +349,42 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
 
-      // Preserve existing values for optional fields when the submitted value
-      // is absent, preventing a partial form submission from nulling out data.
-      const safeContactPerson = contact_person !== undefined && contact_person !== ''
-        ? contact_person.substring(0, MAX_SHORT_STR) : existing.contact_person;
-      const safeEmail = email !== undefined && email !== ''
-        ? email.substring(0, MAX_EMAIL) : existing.email;
-      const safePhone = phone !== undefined && phone !== null && phone !== ''
-        ? phone.substring(0, MAX_PHONE) : existing.phone;
-      const safeAddress = address !== undefined && address !== ''
-        ? address.substring(0, MAX_ADDRESS) : existing.address;
-      const safeWebsite = website !== undefined && website !== ''
-        ? website.substring(0, MAX_LONG_STR) : existing.website;
-      const safeCategory = category !== undefined && category !== ''
-        ? (VALID_CATEGORIES_VENDOR.includes(category) ? category : existing.category)
+      // For each optional field: if the field was present in the request body
+      // (even empty), use the submitted value (empty -> null to allow clearing).
+      // If the field was absent (partial submission), preserve the existing value.
+      const rawContactPerson = safeQueryValue(req.body.contact_person);
+      const safeContactPerson = rawContactPerson !== undefined
+        ? (contact_person !== '' ? contact_person.substring(0, MAX_SHORT_STR) : null)
+        : existing.contact_person;
+      const rawEmail = safeQueryValue(req.body.email);
+      const safeEmail = rawEmail !== undefined
+        ? (email !== '' ? email.substring(0, MAX_EMAIL) : null)
+        : existing.email;
+      const rawPhone = safeQueryValue(req.body.phone);
+      const safePhone = rawPhone !== undefined
+        ? (phone !== null ? phone.substring(0, MAX_PHONE) : null)
+        : existing.phone;
+      const rawAddress = safeQueryValue(req.body.address);
+      const safeAddress = rawAddress !== undefined
+        ? (address !== '' ? address.substring(0, MAX_ADDRESS) : null)
+        : existing.address;
+      const rawWebsite = safeQueryValue(req.body.website);
+      const safeWebsite = rawWebsite !== undefined
+        ? (website !== '' ? website.substring(0, MAX_LONG_STR) : null)
+        : existing.website;
+      const rawCategory = safeQueryValue(req.body.category);
+      const safeCategory = rawCategory !== undefined
+        ? (category !== ''
+          ? (VALID_CATEGORIES_VENDOR.includes(category) ? category : existing.category)
+          : null)
         : existing.category;
-      const safeNotes = notes !== undefined && notes !== ''
-        ? notes.substring(0, MAX_NOTES) : existing.notes;
-      // If the rating field was absent from the request, preserve the existing
-      // value so a partial form submission does not unintentionally clear it.
-      const ratingProvided = rating !== undefined && rating !== '' && rating !== null;
-      const safeRatingVal = ratingProvided ? safeRating : existing.rating;
+      const rawNotes = safeQueryValue(req.body.notes);
+      const safeNotes = rawNotes !== undefined
+        ? (notes !== '' ? notes.substring(0, MAX_NOTES) : null)
+        : existing.notes;
+      const rawRating = safeQueryValue(req.body.rating);
+      const ratingProvided = rawRating !== undefined && rawRating !== '' && rawRating !== null;
+      const safeRatingVal = ratingProvided ? safeRating : (rawRating !== undefined ? null : existing.rating);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.

@@ -291,13 +291,11 @@ router.get('/:id', (req, res) => {
     } catch (err) {
       console.error('View count update error:', err.message);
     }
-    viewed.push(id);
-    // Evict oldest entries (front of array) if the tracking set exceeds the cap.
-    // Always create a copy via slice() so the reassignment guarantees a new
-    // reference, triggering the session.modified flag — resave:false won't
-    // persist in-place array mutations against the same reference.
-    const trimmed = viewed.slice(-MAX_VIEWED_ARTICLES);
-    req.session[VIEWED_KEY] = trimmed;
+    // Prepend the new article and cap the tracking set by evicting the oldest
+    // entry. Use concat (non-mutating) instead of push so that the reassignment
+    // below triggers the session.modified flag — resave:false won't persist
+    // in-place array mutations against the same reference.
+    req.session[VIEWED_KEY] = viewed.concat(id).slice(-MAX_VIEWED_ARTICLES);
   }
 
   article.renderedContent = renderMarkdown(article.content);
