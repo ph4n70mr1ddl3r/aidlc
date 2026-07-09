@@ -30,16 +30,12 @@ db.pragma('busy_timeout = 5000');
 db.pragma('synchronous = NORMAL');
 
 // ---------------------------------------------------------------------------
-// Initialize schema (only run once even if module is required multiple times)
+// Initialize schema (safe to call multiple times — CREATE TABLE IF NOT EXISTS
+// makes every statement idempotent, and require() caching ensures initSchema()
+// is only called once in production. The guard flag is omitted to keep the
+// module simple; re-entrancy is handled by SQL semantics.)
 // ---------------------------------------------------------------------------
-let schemaInitialized = false;
-
 function initSchema() {
-  if (schemaInitialized) {
-    return;
-  }
-  schemaInitialized = true;
-
   db.exec(`
     -- ========================
     -- USERS / AUTH

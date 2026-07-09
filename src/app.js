@@ -515,6 +515,7 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   // Always exit after an uncaught exception — the process is in an undefined state.
+  process.exitCode = 1;
   const timer = setTimeout(() => process.exit(1), 1000);
   timer.unref();
 });

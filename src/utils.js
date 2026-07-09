@@ -561,7 +561,9 @@ function titleCase(value) {
       const prefix = upper.slice(0, i);
       if (ACRONYMS.has(prefix)) {
         const next = word[i];
-        if (next >= 'A' && next <= 'Z') {
+        // Guard against end-of-string (undefined) and uppercase continuation
+        // (e.g. "SOPHISTICATED" should not match acronym "SOP").
+        if (next !== undefined && next >= 'A' && next <= 'Z') {
           continue;
         }
         if (word === word.toLowerCase() && word.length - i > 2) {
