@@ -61,11 +61,13 @@ router.get('/', (req, res) => {
   const qStatus = safeQueryValue(req.query.status);
   const qChangeType = safeQueryValue(req.query.change_type);
   const qPriority = safeQueryValue(req.query.priority);
+  const qAssignedTo = safeQueryValue(req.query.assigned_to);
   const filters = buildFilters({
     'c.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
     'c.change_type': { value: VALID_CHANGE_TYPES.includes(qChangeType) ? qChangeType : '' },
-    'c.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' }
-  }, ['c.status', 'c.change_type', 'c.priority']);
+    'c.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' },
+    'c.assigned_to': { value: qAssignedTo ? safeId(qAssignedTo) || '' : '' }
+  }, ['c.status', 'c.change_type', 'c.priority', 'c.assigned_to']);
 
   const where = [...filters.where];
   const params = [...filters.params];
@@ -85,8 +87,10 @@ router.get('/', (req, res) => {
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
+  const staff = getActiveStaff(db);
+
   res.render('pages/changes/index', {
-    title: 'Change Log', changes, filters: req.query,
+    title: 'Change Log', changes, staff, filters: req.query,
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
