@@ -24,6 +24,8 @@ router.use(requireAuth, auditMiddleware);
  *   - value is the parsed integer (1-5) or null for empty/optional fields
  *   - error is a string message or null if valid
  */
+const _MAX_RATING_INPUT = 10; // Reject absurdly long rating strings early
+
 function _validateVendorRating(value) {
   // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
   // which parseInt() would silently coerce to its first element ("3,5" -> 3).
@@ -32,6 +34,10 @@ function _validateVendorRating(value) {
   // error, consistent with how those sanitizers fall back on arrays.
   if (Array.isArray(value)) {
     return { value: null, error: null };
+  }
+  // Reject absurdly long rating strings to prevent resource exhaustion
+  if (typeof value === 'string' && value.length > _MAX_RATING_INPUT) {
+    return { value: null, error: 'Rating must be between 1 and 5' };
   }
   // Normalise leading/trailing whitespace so " 3 " is treated as "3" rather
   // than rejected by the numeric pattern check below.  parseInt handles both,

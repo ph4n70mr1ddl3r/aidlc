@@ -532,6 +532,13 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       if (!ticket) {
         throw new Error('NOT_FOUND');
       }
+      // Recheck commenter is still active inside the transaction so a
+      // concurrent deactivation between the earlier _verifySessionUser call
+      // and this INSERT cannot bypass the active-user check.
+      if (!isActiveUser(db, req.session.user.id)) {
+        throw new Error('USER_INACTIVE');
+      }
+
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal.
         // Guards against HPP array values via safeQueryValue on is_internal.
@@ -551,6 +558,10 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
+    }
+    if (err.message === 'USER_INACTIVE') {
+      req.flash('error', 'Your account is no longer active');
+      return res.redirect('/login');
     }
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');
