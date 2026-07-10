@@ -363,7 +363,7 @@ app.use((err, req, res, _next) => {
   if (process.env.NODE_ENV !== 'production') {
     console.error(err.stack);
   } else {
-    console.error('Unhandled error:', err.message || err);
+    console.error('Unhandled error:', (err && err.message) || String(err));
   }
 
   // Handle JSON requests (e.g. AJAX endpoints) gracefully

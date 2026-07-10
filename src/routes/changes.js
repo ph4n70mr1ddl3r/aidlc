@@ -35,6 +35,11 @@ const _changeInsertStmt = db.prepare(`
   `);
 
 function _resolveDateTimeField(newValue, existingValue) {
+  // Reject arrays from HTTP parameter pollution for consistency with the
+  // array guards in safeId / safeInt / safePositiveFloat throughout the codebase.
+  if (Array.isArray(newValue)) {
+    return { value: existingValue };
+  }
   if (newValue === undefined || newValue === null) {
     return { value: existingValue };
   }

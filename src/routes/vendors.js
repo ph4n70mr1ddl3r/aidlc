@@ -26,22 +26,23 @@ router.use(requireAuth, auditMiddleware);
  */
 const _MAX_RATING_INPUT = 10; // Reject absurdly long rating strings early
 
-function _validateVendorRating(value) {
+function _validateVendorRating(rawValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
   // which parseInt() would silently coerce to its first element ("3,5" -> 3).
   // Mirrors the array guards in safeId / safeInt / safePositiveFloat. Rating is
   // optional, so treat a malformed (array) input as "no value" rather than an
   // error, consistent with how those sanitizers fall back on arrays.
-  if (Array.isArray(value)) {
+  if (Array.isArray(rawValue)) {
     return { value: null, error: null };
   }
   // Reject absurdly long rating strings to prevent resource exhaustion
-  if (typeof value === 'string' && value.length > _MAX_RATING_INPUT) {
+  if (typeof rawValue === 'string' && rawValue.length > _MAX_RATING_INPUT) {
     return { value: null, error: 'Rating must be between 1 and 5' };
   }
   // Normalise leading/trailing whitespace so " 3 " is treated as "3" rather
   // than rejected by the numeric pattern check below.  parseInt handles both,
   // but the regex guard runs first and would otherwise reject the input.
+  let value = rawValue;
   if (typeof value === 'string') {
     value = value.trim();
   }
