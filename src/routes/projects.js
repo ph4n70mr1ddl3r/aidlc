@@ -485,7 +485,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         return res.redirect(`/projects/${projectId}`);
       }
       const updateTask = db.transaction(() => {
-        _taskQuickStatusStmt.run(safeStatus, safeStatus === 'done' ? 1 : 0, taskId, projectId);
+        const result = _taskQuickStatusStmt.run(safeStatus, safeStatus === 'done' ? 1 : 0, taskId, projectId);
+        if (result.changes === 0) {
+          throw new Error('NOT_FOUND');
+        }
         recalcProjectProgress(db, projectId);
       });
       updateTask();
