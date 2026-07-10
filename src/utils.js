@@ -6,7 +6,7 @@ const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAG
 const _ps = parseInt(process.env.PAGE_SIZE, 10);
 // Override DEFAULT_PAGE_SIZE from env if set, capped at MAX_PAGE_SIZE
 const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_SIZE) : null;
-const PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
+let PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 
 const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT', 'JSON', 'HTML', 'HTTP', 'HTTPS', 'CLI', 'GUI', 'SQL', 'CSV', 'XML', 'YAML', 'PDF', 'BIOS', 'USB', 'CPU', 'GPU', 'RAM', 'SSD', 'HDD']);
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
@@ -728,6 +728,21 @@ function resetCachedStatements() {
   _pruneDeleteStmt = null;
   _countQueryCache.clear();
   _selectQueryCache.clear();
+  _resetPageSize();
 }
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements };
+/**
+ * Reset the env-derived PAGE_SIZE (test use only).
+ * Called by resetCachedStatements(), but also exported separately so tests
+ * that change process.env.PAGE_SIZE can re-derive it without clearing all
+ * cached prepared statements.
+ */
+function _resetPageSize() {
+  const p = parseInt(process.env.PAGE_SIZE, 10);
+  const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
+  PAGE_SIZE = env || DEFAULT_PAGE_SIZE;
+}
+// Public alias so tests can call it directly
+const resetPageSize = _resetPageSize;
+
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };

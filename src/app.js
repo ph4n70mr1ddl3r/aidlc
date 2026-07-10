@@ -547,14 +547,12 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
-  // Always set exit code — the process is in an indeterminate state and
-  // continuing may cause silent data corruption. In production, also schedule
-  // a hard exit after a grace period so the process doesn't hang.
+  // Always exit — Node.js defaults to handling unhandled rejections as
+  // uncaught exceptions (crash) since v15, and continuing with an
+  // indeterminate state may cause silent data corruption.
   process.exitCode = 1;
-  if (process.env.NODE_ENV === 'production') {
-    const timer = setTimeout(() => process.exit(1), 1000);
-    timer.unref();
-  }
+  const timer = setTimeout(() => process.exit(1), 1000);
+  timer.unref();
 });
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
