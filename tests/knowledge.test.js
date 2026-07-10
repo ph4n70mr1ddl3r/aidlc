@@ -135,6 +135,11 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
     // Defense-in-depth: even if a '0' leaks through, it must not feature.
     expect(resolveSafeFeatured(admin, '0')).toBe(0);
   });
+
+  it('treats boolean false the same as absent (not featured)', () => {
+    expect(resolveSafeFeatured(admin, false)).toBe(0);
+    expect(resolveSafeFeatured(manager, false)).toBe(0);
+  });
 });
 
 describe('resolveSafeStatus', () => {

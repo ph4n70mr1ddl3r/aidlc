@@ -51,6 +51,12 @@ describe('validateVendorRating', () => {
     expect(validateVendorRating('abc')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 
+  it('trims whitespace before parsing', () => {
+    expect(validateVendorRating(' 3 ')).toEqual({ value: 3, error: null });
+    expect(validateVendorRating('4 ')).toEqual({ value: 4, error: null });
+    expect(validateVendorRating(' 5')).toEqual({ value: 5, error: null });
+  });
+
   it('rejects arrays from HTTP parameter pollution (regression: parseInt coerced ["3","99"] to 3)', () => {
     // Before the fix, parseInt(["3","99"]) === parseInt("3,99") === 3, so a
     // crafted ?rating[]=3&rating[]=99 payload was silently accepted. The array
