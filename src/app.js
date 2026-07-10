@@ -57,16 +57,30 @@ if (process.env.NODE_ENV === 'production') {
 // ---------------------------------------------------------------------------
 const db = require('./models/database');
 
-// Prune stale audit log entries on startup if PRUNE_AUDIT_DAYS is configured.
+// Prune stale audit log entries on startup if PRUNE_AUDIT_DAYS is configured,
+// and schedule periodic pruning to prevent unbounded growth between restarts.
 // This prevents unbounded audit_log growth which degrades query performance
 // over time. Set PRUNE_AUDIT_DAYS=365 in .env to auto-delete entries older
-// than 1 year on each server start.
+// than 1 year. Default interval is 24 hours; override with PRUNE_AUDIT_INTERVAL_MS.
 const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
-if (Number.isFinite(pruneDays) && pruneDays > 0) {
-  const pruned = utilsModule.pruneAuditLog(db, pruneDays);
-  if (pruned > 0) {
-    console.log(`Pruned ${pruned} audit log entries older than ${pruneDays} days`);
+const pruneIntervalMs = parseInt(process.env.PRUNE_AUDIT_INTERVAL_MS, 10) || 86_400_000; // 24h
+let _pruneInterval = null;
+function runAuditPrune() {
+  if (Number.isFinite(pruneDays) && pruneDays > 0) {
+    try {
+      const pruned = utilsModule.pruneAuditLog(db, pruneDays);
+      if (pruned > 0) {
+        console.log(`Pruned ${pruned} audit log entries older than ${pruneDays} days`);
+      }
+    } catch (err) {
+      console.error('Audit log pruning error:', err.message);
+    }
   }
+}
+runAuditPrune();
+if (Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
+  _pruneInterval = setInterval(runAuditPrune, pruneIntervalMs);
+  _pruneInterval.unref();
 }
 
 const app = express();
@@ -283,9 +297,35 @@ app.use((req, res, next) => {
   res.locals.CONDITION_BADGE = utilsModule.CONDITION_BADGE;
   res.locals.CHANGE_TYPE_BADGE = utilsModule.CHANGE_TYPE_BADGE;
   res.locals.ROLE_BADGE = utilsModule.ROLE_BADGE;
-  // Expose validation constants to all templates so EJS forms stay in sync
-  // with the single source of truth in constants.js.
-  res.locals.CONSTANTS = constantsModule;
+  // Expose specific validation constants to all templates so EJS forms stay in sync
+  // with the single source of truth in constants.js.  Only expose what templates
+  // actually reference — avoids leaking internal values (BCRYPT_SALT_ROUNDS,
+  // SESSION_COOKIE_OPTIONS, etc.) into the render context.
+  const { TICKET_CATEGORIES, TICKET_STATUSES, TICKET_PRIORITIES,
+    ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
+    PROJECT_STATUSES, PROJECT_PRIORITIES,
+    TASK_STATUSES, TASK_PRIORITIES, MEMBER_ROLES,
+    VENDOR_CATEGORIES, CHANGE_TYPES, CHANGE_STATUSES,
+    CHANGE_PRIORITIES, KB_CATEGORIES, KB_STATUSES,
+    LICENSE_TYPES, USER_ROLES, ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
+    MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_CONTENT, MAX_LONG_STR, MAX_DESC,
+    MAX_NOTES, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD,
+    MAX_USERNAME, MAX_ASSET_TAG, MAX_SEARCH, MAX_PAGE,
+    DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+  } = constantsModule;
+  res.locals.CONSTANTS = {
+    TICKET_CATEGORIES, TICKET_STATUSES, TICKET_PRIORITIES,
+    ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
+    PROJECT_STATUSES, PROJECT_PRIORITIES,
+    TASK_STATUSES, TASK_PRIORITIES, MEMBER_ROLES,
+    VENDOR_CATEGORIES, CHANGE_TYPES, CHANGE_STATUSES,
+    CHANGE_PRIORITIES, KB_CATEGORIES, KB_STATUSES,
+    LICENSE_TYPES, USER_ROLES, ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
+    MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_CONTENT, MAX_LONG_STR, MAX_DESC,
+    MAX_NOTES, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD,
+    MAX_USERNAME, MAX_ASSET_TAG, MAX_SEARCH, MAX_PAGE,
+    DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+  };
   next();
 });
 
@@ -470,8 +510,11 @@ function shutdown(signal) {
   }
   _shuttingDown = true;
   console.log(`\n${signal} received — shutting down gracefully…`);
-  // Stop login failure cleanup interval before closing DB
+  // Stop periodic intervals before closing DB
   stopLoginFailureCleanup();
+  if (_pruneInterval) {
+    clearInterval(_pruneInterval);
+  }
   // Drop idle keep-alive connections so server.close() doesn't hang waiting
   // for them to time out. closeIdleConnections() lets in-flight requests
   // finish gracefully (bounded by the force-exit timer below); the broader

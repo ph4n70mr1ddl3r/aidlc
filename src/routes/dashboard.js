@@ -16,7 +16,7 @@ router.use(requireAuth, auditMiddleware);
 // one request at a time. An async DB driver would need a "refreshing" lock
 // to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
-const DASHBOARD_TTL_MS = 30_000;
+const DASHBOARD_TTL_MS = parseInt(process.env.DASHBOARD_TTL_MS, 10) || 30_000;
 let dashboardCache = { timestamp: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)

@@ -347,6 +347,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_changes_priority ON change_log(priority);
     CREATE INDEX IF NOT EXISTS idx_changes_type ON change_log(change_type);
     CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
+    CREATE INDEX IF NOT EXISTS idx_vendors_name_lower ON vendors(LOWER(name));
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor_lower ON licenses(LOWER(vendor));
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
