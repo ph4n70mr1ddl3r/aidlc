@@ -234,8 +234,16 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
+  // Reject overly long usernames to provide clear feedback instead of silently
+  // truncating — the stmt lookup below uses exact match, so truncation would
+  // only ever produce a no-match result and a generic "Invalid" response.
+  if (typeof username === 'string' && username.length > MAX_USERNAME) {
+    req.flash('error', 'Invalid username or password');
+    return res.redirect('/login');
+  }
+
   // Check account-level lockout (prevents brute-force across IP rotation)
-  const safeUsername = username.substring(0, MAX_USERNAME).toLowerCase();
+  const safeUsername = (typeof username === 'string' ? username : '').substring(0, MAX_USERNAME).toLowerCase();
   const clientIp = req.ip || 'unknown';
   if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
     // Use the same generic message as normal login failure to prevent

@@ -63,7 +63,7 @@ const db = require('./models/database');
 // over time. Set PRUNE_AUDIT_DAYS=365 in .env to auto-delete entries older
 // than 1 year. Default interval is 24 hours; override with PRUNE_AUDIT_INTERVAL_MS.
 const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
-const pruneIntervalMs = parseInt(process.env.PRUNE_AUDIT_INTERVAL_MS, 10) || 86_400_000; // 24h
+const pruneIntervalMs = parseInt(process.env.PRUNE_AUDIT_INTERVAL_MS, 10) ?? 86_400_000; // 24h
 let _pruneInterval = null;
 function runAuditPrune() {
   if (Number.isFinite(pruneDays) && pruneDays > 0) {
