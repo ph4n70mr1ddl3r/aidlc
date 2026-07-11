@@ -169,6 +169,17 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
   const safeCondition = condition_rating || 'good';
 
+  // Validate date ordering — warranty cannot expire before purchase, otherwise
+  // logically impossible records can be stored. Mirrors the end≥start / expiry≥
+  // purchase checks in projects, vendors, licenses, and changes (the only other
+  // entities that carry two user-supplied dates).
+  const sPurchase = safeDate(purchase_date);
+  const sWarranty = safeDate(warranty_expiry);
+  if (sPurchase && sWarranty && sWarranty < sPurchase) {
+    req.flash('error', 'Warranty expiry must be on or after purchase date');
+    return res.redirect('/assets/new');
+  }
+
   // Validate assignee is an active user
   const createAssignee = assigned_to ? safeId(assigned_to) : null;
 
@@ -187,9 +198,9 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       const result = _insertStmt.run(
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
         (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
-        status, safeCondition, safeDate(purchase_date),
+        status, safeCondition, sPurchase,
         safePositiveFloat(purchase_price),
-        safeDate(warranty_expiry), createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
+        sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
       return { asset_tag, id: result.lastInsertRowid };
     });
@@ -320,6 +331,15 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
   const safeCondition = condition_rating || 'good';
 
+  // Validate date ordering — warranty cannot expire before purchase (mirrors
+  // the create route and the projects/vendors/licenses/changes checks).
+  const sPurchase = safeDate(purchase_date);
+  const sWarranty = safeDate(warranty_expiry);
+  if (sPurchase && sWarranty && sWarranty < sPurchase) {
+    req.flash('error', 'Warranty expiry must be on or after purchase date');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+
   // Validate assignee is an active user
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
 
@@ -339,8 +359,8 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
         (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
         (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
-        safeDate(purchase_date), safePositiveFloat(purchase_price),
-        safeDate(warranty_expiry), updateAssignee,
+        sPurchase, safePositiveFloat(purchase_price),
+        sWarranty, updateAssignee,
         (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
       );
       if (result.changes === 0) {
