@@ -17,6 +17,33 @@ const licenseWriteLimiter = rateLimit({
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
+/**
+ * Resolve total_seats / used_seats from a form submission.
+ * On UPDATE, pass the existing row so an ABSENT field (partial submission)
+ * preserves the stored value instead of resetting seats to 1/0 — mirrors the
+ * spent/budget preservation in projects.js and the optional-field handling in
+ * vendors.js / changes.js. On CREATE, pass null so absent fields default to
+ * 1 total / 0 used.
+ *
+ * safeInt rejects arrays from HTTP parameter pollution (parseInt would coerce
+ * ["3","9"] to 3), so a polluted payload falls back to the existing/default
+ * count rather than silently storing a coerced value.
+ * @returns {{ seats: number, used: number, error: string|null }}
+ */
+function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
+  const fallbackTotal = existing && existing.total_seats != null ? existing.total_seats : 1;
+  const fallbackUsed = existing && existing.used_seats != null ? existing.used_seats : 0;
+  const seats = Math.max(1, safeInt(totalSeatsRaw, fallbackTotal));
+  const used = safeInt(usedSeatsRaw, fallbackUsed);
+  if (used < 0) {
+    return { seats, used, error: 'Used seats cannot be negative' };
+  }
+  if (used > seats) {
+    return { seats, used, error: 'Used seats cannot exceed total seats' };
+  }
+  return { seats, used, error: null };
+}
+
 // Rate limit license key reveal to prevent bulk exfiltration
 // (higher limit than write operations since this is just a read)
 const licenseKeyLimiter = rateLimit({
@@ -121,14 +148,9 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses/new');
   }
 
-  const seats = Math.max(1, safeInt(total_seats, 1));
-  const used = safeInt(used_seats, 0);
-  if (used < 0) {
-    req.flash('error', 'Used seats cannot be negative');
-    return res.redirect('/licenses/new');
-  }
-  if (used > seats) {
-    req.flash('error', 'Used seats cannot exceed total seats');
+  const { seats, used, error: seatError } = _resolveSeats(total_seats, used_seats, null);
+  if (seatError) {
+    req.flash('error', seatError);
     return res.redirect('/licenses/new');
   }
 
@@ -253,17 +275,6 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
 
-  const seats = Math.max(1, safeInt(total_seats, 1));
-  const used = safeInt(used_seats, 0);
-  if (used < 0) {
-    req.flash('error', 'Used seats cannot be negative');
-    return res.redirect(`/licenses/${id}/edit`);
-  }
-  if (used > seats) {
-    req.flash('error', 'Used seats cannot exceed total seats');
-    return res.redirect(`/licenses/${id}/edit`);
-  }
-
   // Validate date ordering
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
@@ -285,8 +296,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (!existing) {
         throw new Error('NOT_FOUND');
       }
+      // Resolve seats against the freshly-read row so an absent field on a
+      // partial submission preserves the stored count instead of resetting it
+      // (mirrors projects.js spent/budget). Validated inside the transaction so
+      // the used>seats check runs against the resolved values, not stale 1/0.
+      const resolved = _resolveSeats(total_seats, used_seats, existing);
+      if (resolved.error) {
+        throw Object.assign(new Error('SEAT_VALIDATION'), { flash: resolved.error });
+      }
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
-        seats, used,
+        resolved.seats, resolved.used,
         sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
     });
     updateLicense();
@@ -299,6 +318,10 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'License not found');
       return res.redirect('/licenses');
+    }
+    if (err.message === 'SEAT_VALIDATION' && err.flash) {
+      req.flash('error', err.flash);
+      return res.redirect(`/licenses/${id}/edit`);
     }
     console.error('License update error:', err.message);
     req.flash('error', 'Error updating license. Please try again.');
@@ -341,3 +364,5 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
 });
 
 module.exports = router;
+// Exposed for unit testing (mirrors the pattern in vendors.js / changes.js).
+module.exports.resolveSeats = _resolveSeats;

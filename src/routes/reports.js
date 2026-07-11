@@ -77,9 +77,15 @@ const stmts = {
   `),
   assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets'),
   // Also include already-expired warranties — they are more urgent than expiring-soon
+  // Separate COUNT for the stat card — the list query below is capped (LIMIT)
+  // to bound rendering cost on large inventories, so warrantyExpiring.length
+  // would undercount. Mirrors the dashboard's defensive LIMIT 20.
+  warrantyExpiringCount: db.prepare(`
+    SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days')
+  `),
   warrantyExpiring: db.prepare(`
     SELECT * FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days')
-    ORDER BY warranty_expiry ASC
+    ORDER BY warranty_expiry ASC LIMIT 500
   `),
   ageDistribution: db.prepare(`
     SELECT 
@@ -160,12 +166,13 @@ router.get('/assets', (req, res) => {
     const byStatus = stmts.assetsByStatus.all();
     const byCondition = stmts.assetsByCondition.all();
     const totalValue = stmts.assetsTotalValue.get();
+    const warrantyCount = stmts.warrantyExpiringCount.get().c;
     const warrantyExpiring = stmts.warrantyExpiring.all();
     const ageDistribution = stmts.ageDistribution.all();
 
     res.render('pages/reports/assets', {
       title: 'Asset Report', byCategory, byStatus, byCondition,
-      totalValue, warrantyExpiring, ageDistribution
+      totalValue, warrantyCount, warrantyExpiring, ageDistribution
     });
   } catch (err) {
     console.error('Asset report error:', err.message);
