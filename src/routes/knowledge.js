@@ -235,7 +235,15 @@ router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  if (!safeTitle) {
+    req.flash('error', 'Title is required after removing invalid content');
+    return res.redirect('/knowledge/new');
+  }
   const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+  if (!safeContent) {
+    req.flash('error', 'Content is required after removing invalid content');
+    return res.redirect('/knowledge/new');
+  }
 
   try {
     const result = _articleInsertStmt.run(safeTitle, safeContent, category, safeTags, req.session.user.id, safeStatus, safeFeatured);
@@ -389,7 +397,15 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  if (!safeTitle) {
+    req.flash('error', 'Title is required after removing invalid content');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
   const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+  if (!safeContent) {
+    req.flash('error', 'Content is required after removing invalid content');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
 
   try {
     // Verify the article still exists, recheck authorization, and update in a
