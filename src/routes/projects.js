@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery, safeQueryValue } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -132,7 +132,8 @@ router.get('/', (req, res) => {
   `, [...params, limit, offset]);
 
   res.render('pages/projects/index', {
-    title: 'Projects', projects, filters: req.query,
+    title: 'Projects', projects,
+    filters: safeFilters(req.query, ['search', 'status', 'priority', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

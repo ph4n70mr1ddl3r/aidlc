@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -94,7 +94,8 @@ router.get('/', (req, res) => {
   const staff = getActiveStaff(db);
 
   res.render('pages/assets/index', {
-    title: 'Assets', assets, staff, filters: req.query,
+    title: 'Assets', assets, staff,
+    filters: safeFilters(req.query, ['search', 'status', 'category', 'assigned_to', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
@@ -381,6 +382,9 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   try {
     const deleteAsset = db.transaction(() => {
+      if (!_assetExistsStmt.get(id)) {
+        return 0;
+      }
       _deleteDetachTicketsStmt.run(id);
       return _deleteStmt.run(id).changes;
     });

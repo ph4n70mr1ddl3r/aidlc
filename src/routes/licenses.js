@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -70,7 +70,8 @@ router.get('/', (req, res) => {
   `, [...params, limit, offset]);
 
   res.render('pages/licenses/index', {
-    title: 'Software Licenses', licenses, filters: req.query,
+    title: 'Software Licenses', licenses,
+    filters: safeFilters(req.query, ['search', 'license_type', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

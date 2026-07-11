@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue, safeFilters } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // marked v15 is the last CJS-compatible major version.
@@ -187,7 +187,8 @@ router.get('/', (req, res) => {
   `, [...params, limit, offset]);
 
   res.render('pages/knowledge/index', {
-    title: 'Knowledge Base', articles, filters: req.query,
+    title: 'Knowledge Base', articles,
+    filters: safeFilters(req.query, ['search', 'category', 'status']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

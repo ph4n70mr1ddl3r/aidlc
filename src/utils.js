@@ -21,6 +21,26 @@ function safeQueryValue(value) {
 }
 
 /**
+ * Build a sanitized filters object from req.query for template rendering.
+ * Each known parameter is run through safeQueryValue to strip HPP arrays,
+ * preventing array values from leaking into the template context where
+ * they would break === comparisons and produce misleading comma-separated
+ * output in form fields.
+ * @param {Object} query - req.query
+ * @param {string[]} allowed - List of known filter parameter names
+ * @returns {Object}
+ */
+function safeFilters(query, allowed) {
+  const filters = {};
+  for (const key of allowed) {
+    if (Object.prototype.hasOwnProperty.call(query, key)) {
+      filters[key] = safeQueryValue(query[key]);
+    }
+  }
+  return filters;
+}
+
+/**
  * Parse pagination params from query string
  */
 function paginate(req) {
@@ -745,4 +765,4 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };

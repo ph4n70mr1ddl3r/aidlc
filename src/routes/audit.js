@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
-const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
@@ -54,7 +54,8 @@ router.get('/', auditLimiter, (req, res) => {
   `, [...params, limit, offset]);
 
   res.render('pages/audit/index', {
-    title: 'Audit Log', entries, filters: req.query,
+    title: 'Audit Log', entries,
+    filters: safeFilters(req.query, ['action', 'entity_type', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
