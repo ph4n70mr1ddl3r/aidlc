@@ -457,13 +457,20 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify the article still exists and delete in a single transaction
-    // to avoid a TOCTOU race where the article is deleted between the
-    // existence check and the DELETE (mirrors the article update pattern).
+    // Verify the article still exists, recheck authorization, and delete in a
+    // single transaction to avoid TOCTOU races: the article could be deleted or
+    // the user's role / article authorship changed between the existence/auth
+    // checks and the DELETE (mirrors the article update transaction pattern).
     const deleteArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
         return { notFound: true };
+      }
+      // Recheck authorization inside the transaction so a concurrent role
+      // change between the outer check and the DELETE cannot bypass it.
+      const txnIsOwner = recheck.author_id === req.session.user.id;
+      if (!txnIsOwner && !isPrivileged(req.session.user)) {
+        throw new Error('ACCESS_DENIED');
       }
       const result = _deleteArticleStmt.run(id);
       return { notFound: false, changes: result.changes };
