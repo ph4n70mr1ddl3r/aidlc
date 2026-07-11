@@ -76,17 +76,23 @@ const stmts = {
     SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC
   `),
   assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets'),
-  // Also include already-expired warranties — they are more urgent than expiring-soon
+  // Also include already-expired warranties — they are more urgent than expiring-soon.
+  // Exclude disposed assets: a disposed asset's warranty is no longer actionable,
+  // so surfacing it in the "expiring soon" alert/list is noise. Mirrors the
+  // dashboard's expiringWarranties query.
   // Separate COUNT for the stat card — the list query below is capped (LIMIT)
   // to bound rendering cost on large inventories, so warrantyExpiring.length
   // would undercount. Mirrors the dashboard's defensive LIMIT 20.
   warrantyExpiringCount: db.prepare(`
-    SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days')
+    SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
   `),
   warrantyExpiring: db.prepare(`
-    SELECT * FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days')
+    SELECT * FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
     ORDER BY warranty_expiry ASC LIMIT 500
   `),
+  // ORDER BY age_group sorts the buckets LEXICOGRAPHICALLY, which puts '< 1 year'
+  // LAST (because '<' is ASCII 60, after the digits '1'..'4'). Use an explicit
+  // CASE mapping so the buckets appear in natural age order (newest first).
   ageDistribution: db.prepare(`
     SELECT 
       CASE 
@@ -98,7 +104,15 @@ const stmts = {
       END as age_group,
       COUNT(*) as count
     FROM assets WHERE purchase_date IS NOT NULL
-    GROUP BY age_group ORDER BY age_group
+    GROUP BY age_group
+    ORDER BY CASE age_group
+      WHEN '< 1 year' THEN 1
+      WHEN '1-2 years' THEN 2
+      WHEN '2-3 years' THEN 3
+      WHEN '3-4 years' THEN 4
+      WHEN '4+ years' THEN 5
+      ELSE 99
+    END
   `),
   // Staff Performance
   staffPerformance: db.prepare(`
@@ -197,3 +211,7 @@ router.get('/staff', (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing against a real in-memory DB (mirrors the test-export
+// pattern in tickets.js / vendors.js / knowledge.js). Guards the age-bucket
+// ordering and the disposed-asset warranty exclusion against regression.
+module.exports.__stmts = stmts;

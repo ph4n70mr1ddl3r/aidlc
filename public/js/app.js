@@ -45,6 +45,31 @@ document.addEventListener('submit', function (e) {
   if (e.defaultPrevented) {
     return;
   }
+  // A disabled form control is excluded from the submitted form data (HTML spec:
+  // "constructing the entry list" skips disabled fields — including the submitter
+  // button itself). Forms whose submit button carries a name/value would therefore
+  // LOSE that value when the buttons are disabled below. The ticket satisfaction
+  // star buttons rely on exactly this pattern (<button type="submit"
+  // name="satisfaction_rating" value="N">), so without preservation the server
+  // receives no satisfaction_rating and rejects the request.
+  //
+  // Mirror the submitter's name/value into a hidden input BEFORE disabling so the
+  // value survives regardless of when the browser builds the entry list. Removing
+  // any previously-injected hidden input first keeps re-submits (e.g. after a
+  // failed attempt that was re-enabled) from sending a stale/duplicate value.
+  const submitter = e.submitter;
+  if (submitter && submitter.name) {
+    const prev = form.querySelector('input[type="hidden"][data-submitter-preserve]');
+    if (prev) {
+      prev.parentNode.removeChild(prev);
+    }
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = submitter.name;
+    hidden.value = submitter.value;
+    hidden.setAttribute('data-submitter-preserve', '');
+    form.appendChild(hidden);
+  }
   // Disable ALL submit buttons in the form, not just the first one.
   // Some forms have multiple action buttons (e.g. save + status change).
   const btns = form.querySelectorAll('button[type="submit"]');

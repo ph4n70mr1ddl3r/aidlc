@@ -79,9 +79,13 @@ const stmts = {
   `),
   // Include already-expired warranties — they are more urgent than expiring-soon.
   // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
+  // Exclude disposed assets: their warranties are no longer actionable, so showing
+  // them here would produce misleading "expiring soon" alerts. Mirrors the
+  // reports warrantyExpiring query.
   expiringWarranties: db.prepare(`
     SELECT * FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
+      AND status != 'disposed'
     ORDER BY warranty_expiry ASC
     LIMIT 20
   `),
@@ -194,3 +198,7 @@ router.get('/', (req, res) => {
 
 module.exports = router;
 module.exports.invalidateDashboardCache = invalidateDashboardCache;
+// Exposed for unit testing against a real in-memory DB (mirrors the test-export
+// pattern in tickets.js / vendors.js). Guards the disposed-asset warranty
+// exclusion in expiringWarranties against regression.
+module.exports.__stmts = stmts;
