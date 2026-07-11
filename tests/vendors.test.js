@@ -27,7 +27,7 @@ jest.mock('../src/routes/dashboard', () => {
   return router;
 });
 
-const { validateVendorRating } = require('../src/routes/vendors');
+const { validateVendorRating, resolveClearableDate } = require('../src/routes/vendors');
 
 describe('validateVendorRating', () => {
   it('parses a valid integer rating in range', () => {
@@ -63,5 +63,35 @@ describe('validateVendorRating', () => {
     // guard mirrors safeId / safeInt / safePositiveFloat.
     expect(validateVendorRating(['3', '99'])).toEqual({ value: null, error: null });
     expect(validateVendorRating(['1'])).toEqual({ value: null, error: null });
+  });
+});
+
+describe('resolveClearableDate (contract date clearing)', () => {
+  // Regression: the vendor update route used `parsed !== null ? parsed : existing`,
+  // so an empty submitted contract date fell back to the existing value — it was
+  // impossible to clear a contract date via the edit form. The helper now
+  // distinguishes absent (preserve existing) from empty (clear to null),
+  // matching every other optional field on the form and the create route.
+  it('preserves the existing value when the field is absent', () => {
+    expect(resolveClearableDate(undefined, '2024-01-01')).toBe('2024-01-01');
+  });
+
+  it('clears the date (null) when an empty value is submitted', () => {
+    expect(resolveClearableDate('', '2024-01-01')).toBeNull();
+  });
+
+  it('accepts a new valid date', () => {
+    expect(resolveClearableDate('2025-06-30', '2024-01-01')).toBe('2025-06-30');
+  });
+
+  it('treats an invalid date the same as empty (clear to null), matching the create route', () => {
+    expect(resolveClearableDate('not-a-date', '2024-01-01')).toBeNull();
+  });
+
+  it('preserves existing when given an array (parameter pollution)', () => {
+    // Mirrors the array guards across the codebase: a polluted
+    // ?contract_start[]=a&contract_start[]=b payload must not silently clear
+    // the stored date (safeDate would otherwise null out a non-string input).
+    expect(resolveClearableDate(['2025-01-01'], '2024-01-01')).toBe('2024-01-01');
   });
 });

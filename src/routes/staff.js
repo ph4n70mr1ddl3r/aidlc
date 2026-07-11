@@ -27,9 +27,14 @@ const _assignedTasksStmt = db.prepare(`
     ORDER BY pt.due_date ASC
     LIMIT 10
   `);
+// Cap the result set — a user could be assigned many assets (unlike the
+// status-filtered ticket/task queries above), and this summary view must not
+// load/render an unbounded number of rows. Mirrors the LIMIT on the sibling
+// _assignedTicketsStmt / _assignedTasksStmt queries.
 const _assignedAssetsStmt = db.prepare(`
     SELECT id, asset_tag, name, category, status
     FROM assets WHERE assigned_to = ?
+    LIMIT 50
   `);
 const _projectMembershipsStmt = db.prepare(`
     SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status

@@ -48,6 +48,7 @@ const seed = db.transaction(() => {
     DELETE FROM audit_log;
     DELETE FROM users;
     DELETE FROM ticket_counter;
+    DELETE FROM asset_counter;
     -- Reset AUTOINCREMENT sequences for all application tables.
     -- sqlite_sequence is a SQLite internal table; delete from it per-table
     -- (rather than one multi-name IN clause) to stay robust across schema

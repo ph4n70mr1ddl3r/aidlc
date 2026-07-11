@@ -61,12 +61,30 @@ function _validateVendorRating(rawValue) {
   return { value: n, error: null };
 }
 
+/**
+ * Resolve an optional DATE field on update: preserve the existing value only
+ * when the field is ABSENT from the request (partial submission). An empty or
+ * invalid submitted value CLEARS the field (null), consistent with the create
+ * route and every other optional field on the update form. Without this an
+ * empty submitted date silently fell back to existing, making it impossible
+ * to clear a contract date via the edit form.
+ * Mirrors the absent-vs-empty distinction in changes.js _resolveDateTimeField.
+ */
+function _resolveClearableDate(rawValue, existingValue) {
+  // Reject arrays from HTTP parameter pollution (e.g. ?contract_end[]=a&contract_end[]=b)
+  // so a polluted payload does not silently clear a date. Mirrors the array
+  // guards in safeId / safeInt / safePositiveFloat and changes.js _resolveDateTimeField.
+  if (Array.isArray(rawValue) || rawValue === undefined) {
+    return existingValue;
+  }
+  return safeDate(rawValue);
+}
+
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _vendorStatusStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE vendors SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE vendors SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');
-const _vendorUpdateCheckStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE vendors SET name = ?, contact_person = ?, email = ?, phone = ?, address = ?,
       website = ?, category = ?, contract_start = ?, contract_end = ?, notes = ?, rating = ?,
@@ -352,7 +370,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     const updateVendor = db.transaction(() => {
       // Verify vendor exists and fetch current state inside the transaction
       // to avoid a TOCTOU race with concurrent activate/deactivate requests.
-      const existing = _vendorUpdateCheckStmt.get(id);
+      const existing = _showVendorStmt.get(id);
       if (!existing) {
         throw new Error('NOT_FOUND');
       }
@@ -403,12 +421,20 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         throw new Error('NAME_EXISTS');
       }
 
+      // Resolve contract dates: preserve existing only when the field is ABSENT
+      // from the request (partial submission). An empty submitted value clears
+      // the date (null), consistent with the create route and every other
+      // optional field. Previously an empty value fell back to existing, making
+      // it impossible to clear a contract date via the edit form.
+      const safeContractStartVal = _resolveClearableDate(contract_start, existing.contract_start);
+      const safeContractEndVal = _resolveClearableDate(contract_end, existing.contract_end);
+
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
       _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), safeContactPerson, safeEmail, safePhone, safeAddress,
         safeWebsite, safeCategory,
-        sContractStart !== null ? sContractStart : existing.contract_start,
-        sContractEnd !== null ? sContractEnd : existing.contract_end,
+        safeContractStartVal,
+        safeContractEndVal,
         safeNotes,
         safeRatingVal,
         existing.is_active ? 1 : 0, id);
@@ -579,3 +605,4 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 module.exports = router;
 // Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
 module.exports.validateVendorRating = _validateVendorRating;
+module.exports.resolveClearableDate = _resolveClearableDate;

@@ -151,8 +151,23 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
   const safePriority = priority || 'medium';
 
-  const sStart = safeDateTimeLocal(scheduled_start);
-  const sEnd = safeDateTimeLocal(scheduled_end);
+  // Validate datetimes via the same resolver the update route uses so create
+  // and edit behave identically for malformed input. Previously an invalid
+  // datetime was silently stored as NULL (no date) here while the update route
+  // rejected it — an inconsistency that let a direct POST create a change with
+  // a silently-dropped date.
+  const sStartRes = _resolveDateTimeField(scheduled_start, null);
+  if (sStartRes.error) {
+    req.flash('error', 'Invalid scheduled start date');
+    return res.redirect('/changes/new');
+  }
+  const sEndRes = _resolveDateTimeField(scheduled_end, null);
+  if (sEndRes.error) {
+    req.flash('error', 'Invalid scheduled end date');
+    return res.redirect('/changes/new');
+  }
+  const sStart = sStartRes.value;
+  const sEnd = sEndRes.value;
   if (sStart && sEnd && sEnd < sStart) {
     req.flash('error', 'Scheduled end must be on or after scheduled start');
     return res.redirect('/changes/new');
@@ -391,3 +406,5 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
+module.exports.resolveDateTimeField = _resolveDateTimeField;
