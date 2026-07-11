@@ -136,4 +136,40 @@ describe('templates render without ReferenceError', () => {
       expect(v).not.toContain(' ');
     }
   });
+
+  // Regression test for a real bug that shipped undetected: a stray `<% } %>`
+  // after the "My Active Tickets" block prematurely closed the template's
+  // render scope, so four of the five dynamic dashboard sections
+  // (Team Workload, Upcoming Changes, Recent Tickets, Tickets by Category)
+  // silently rendered only their static skeleton with none of their data.
+  // The dashboard was the only major page not covered by this suite, which
+  // is why the bug escaped. Render the template the same way the route does
+  // and assert each section emits its dynamic content.
+  it('dashboard renders all five dynamic list sections (not just My Tickets)', () => {
+    const html = render('dashboard.ejs', {
+      ...baseLocals(),
+      title: 'Dashboard',
+      ticketStats: { open: 1, in_progress: 1, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 2 },
+      assetStats: { total: 4, in_use: 2, in_storage: 1, in_repair: 1 },
+      projectStats: { total: 1, in_progress: 1, planning: 0, completed: 0, on_hold: 0 },
+      staffCount: { total: 3 },
+      expiringWarranties: [],
+      licenseAlerts: [],
+      myTickets: [{ id: 1, ticket_number: 'TK-DASH-MY', title: 'My active ticket', priority: 'high', status: 'open', created_at: '2024-01-01 09:00' }],
+      staffWorkload: [{ id: 2, name: 'Alice Workload', role: 'staff', open_tickets: 2 }],
+      upcomingChanges: [{ id: 1, title: 'Upcoming change alpha', scheduled_start: '2099-01-01 10:00' }],
+      recentTickets: [{ id: 3, ticket_number: 'TK-DASH-RECENT', title: 'Recent ticket', category: 'network', priority: 'low', status: 'open', assigned_name: 'Bob', created_at: '2024-01-02 09:00' }],
+      ticketsByCategory: [{ category: 'network', count: 3 }]
+    });
+    // My Active Tickets
+    expect(html).toContain('TK-DASH-MY');
+    // Team Workload
+    expect(html).toContain('Alice Workload');
+    // Upcoming Changes
+    expect(html).toContain('Upcoming change alpha');
+    // Recent Tickets
+    expect(html).toContain('TK-DASH-RECENT');
+    // Active Tickets by Category — titleCase('network') === 'Network'
+    expect(html).toContain('Network');
+  });
 });

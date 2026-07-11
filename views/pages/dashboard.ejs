@@ -96,7 +96,7 @@
                 <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
                 <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
               </tr>
-        <% }); } %>
+        <% }); %>
             </tbody>
           </table>
         </div>
@@ -121,7 +121,7 @@
                    style="width: <%= Math.min(s.open_tickets * 15, 100) %>%"></div>
             </div>
           </div>
-        <% }) %>
+        <% }) } %>
       </div>
     </div>
 
@@ -183,11 +183,10 @@
         <div class="text-sm text-muted" style="text-transform:capitalize;"><%= titleCase(c.category) %></div>
         <div class="text-sm text-muted"><%= pct %>%</div>
       </div>
-      <% }) %>
+      <% }) } %>
     </div>
   </div>
 </div>
-<% } %>
 
 <%- include('../partials/nav-close') %>
 <%- include('../partials/footer') %>
