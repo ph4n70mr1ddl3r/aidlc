@@ -533,6 +533,26 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(['1.5'], 0)).toBe(0);
     expect(utils.safePositiveFloat(['1.5', '2.5'])).toBeNull();
   });
+
+  // Regression: parseFloat() silently accepts trailing garbage, so a malformed
+  // monetary value like "1,000" was stored as 1 and "100abc" as 100.
+  // safePositiveFloat must reject these so budget/cost/price fields are not
+  // corrupted (mirrors the strict regex in safeInt).
+  it('should reject strings with trailing/leading garbage', () => {
+    expect(utils.safePositiveFloat('100abc')).toBeNull();
+    expect(utils.safePositiveFloat('100abc', 0)).toBe(0);
+    expect(utils.safePositiveFloat('1,000')).toBeNull();
+    expect(utils.safePositiveFloat('1,000', 50)).toBe(50);
+    expect(utils.safePositiveFloat('$100')).toBeNull();
+    expect(utils.safePositiveFloat('abc100')).toBeNull();
+  });
+
+  it('should accept integer, decimal, and leading-dot values', () => {
+    expect(utils.safePositiveFloat('100')).toBe(100);
+    expect(utils.safePositiveFloat('0.5')).toBe(0.5);
+    expect(utils.safePositiveFloat('.5')).toBe(0.5);
+    expect(utils.safePositiveFloat('100.00')).toBe(100);
+  });
 });
 
 /**

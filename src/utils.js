@@ -243,6 +243,13 @@ function safePositiveFloat(value, fallback = null) {
   if (Array.isArray(value)) {
     return fallback;
   }
+  // Reject strings with trailing/leading garbage so malformed monetary values
+  // are not silently stored. parseFloat("1,000") === 1 and
+  // parseFloat("100abc") === 100, both of which would corrupt budget/cost/
+  // price fields. Mirrors the strict regex validation in safeInt.
+  if (typeof value === 'string' && !/^[+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+    return fallback;
+  }
   const n = parseFloat(value);
   if (!Number.isFinite(n) || n < 0) {
     return fallback;

@@ -13,6 +13,25 @@ document.querySelectorAll('.flash').forEach(function (el) {
   }, 5000);
 });
 
+// Confirmation dialogs: <form data-confirm="message">
+// MUST be registered before the double-submit handler below: submit listeners
+// on the same target fire in registration order, so this handler gets to call
+// preventDefault() (when the user cancels the confirm() dialog) BEFORE the
+// disable-handler checks e.defaultPrevented. Without this ordering the disable
+// handler always sees defaultPrevented === false and greys out the buttons even
+// when the user cancels — leaving them disabled until the next
+// visibilitychange/pageshow event.
+document.addEventListener('submit', function (e) {
+  const form = e.target;
+  if (form.tagName !== 'FORM') {
+    return;
+  }
+  const msg = form.getAttribute('data-confirm');
+  if (msg && !confirm(msg)) {
+    e.preventDefault();
+  }
+});
+
 // Prevent double-submit on all forms that submit via POST/PUT/DELETE
 // (any form with a CSRF token is a mutating form)
 let formReenableAttached = false;
@@ -89,18 +108,6 @@ document.addEventListener('click', function (e) {
     if (sidebar) {
       sidebar.classList.toggle('open');
     }
-  }
-});
-
-// Confirmation dialogs: <form data-confirm="message">
-document.addEventListener('submit', function (e) {
-  const form = e.target;
-  if (form.tagName !== 'FORM') {
-    return;
-  }
-  const msg = form.getAttribute('data-confirm');
-  if (msg && !confirm(msg)) {
-    e.preventDefault();
   }
 });
 
