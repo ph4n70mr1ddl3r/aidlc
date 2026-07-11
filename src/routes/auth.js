@@ -243,7 +243,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   // Check account-level lockout (prevents brute-force across IP rotation)
-  const safeUsername = (typeof username === 'string' ? username : '').substring(0, MAX_USERNAME).toLowerCase();
+  const safeUsername = (typeof username === 'string' ? username : '').toLowerCase();
   const clientIp = req.ip || 'unknown';
   if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
     // Use the same generic message as normal login failure to prevent

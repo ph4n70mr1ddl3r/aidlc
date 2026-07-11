@@ -8,7 +8,7 @@ const _ps = parseInt(process.env.PAGE_SIZE, 10);
 const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_SIZE) : null;
 let PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 
-const ACRONYMS = new Set(['SOP', 'FAQ', 'SLA', 'VPN', 'IP', 'MFA', 'HVAC', 'CDN', 'API', 'DNS', 'SSL', 'SSH', 'LDAP', 'DHCP', 'NAT', 'JSON', 'HTML', 'HTTP', 'HTTPS', 'CLI', 'GUI', 'SQL', 'CSV', 'XML', 'YAML', 'PDF', 'BIOS', 'USB', 'CPU', 'GPU', 'RAM', 'SSD', 'HDD']);
+const ACRONYMS = new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IoT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVMe', 'OAuth', 'PCIe', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']);
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
 /**
@@ -157,12 +157,14 @@ function validatePassword(password) {
   return null;
 }
 
+const _USERNAME_RE = new RegExp(`^[a-zA-Z0-9._-]{2,${MAX_USERNAME}}$`);
+
 /**
  * Validate that a string is a safe username (alphanumeric, dashes, underscores, dots).
  * Returns true if valid.
  */
 function isValidUsername(username) {
-  return typeof username === 'string' && new RegExp(`^[a-zA-Z0-9._-]{2,${MAX_USERNAME}}$`).test(username);
+  return typeof username === 'string' && _USERNAME_RE.test(username);
 }
 
 /**
