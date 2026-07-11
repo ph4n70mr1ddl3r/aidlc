@@ -120,6 +120,10 @@ const STRIP_HTML_OPTIONS = {
   allowedSchemesAppliedToAttributes: ['href', 'src']
 };
 
+function _escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderMarkdown(content) {
   if (!content || typeof content !== 'string') {
     return '';
@@ -139,8 +143,9 @@ function renderMarkdown(content) {
     // visible error notice so the user knows rendering failed instead of
     // seeing a blank page.
     console.error('Markdown render error:', String(err));
-    const escaped = sanitizeHtml(content, STRIP_HTML_OPTIONS);
-    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escaped}</pre>`;
+    const text = sanitizeHtml(content, STRIP_HTML_OPTIONS);
+    const safe = _escapeHtml(text);
+    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${safe}</pre>`;
   }
 }
 
