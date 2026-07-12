@@ -368,7 +368,8 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       return res.redirect(`/changes/${id}/edit`);
     }
     if (err.message.startsWith('INVALID_')) {
-      req.flash('error', 'Invalid date format');
+      const dateField = err.message.replace('INVALID_', '').toLowerCase().replace(/_/g, ' ');
+      req.flash('error', `Invalid ${dateField}`);
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);

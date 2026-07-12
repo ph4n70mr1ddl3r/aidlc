@@ -39,8 +39,8 @@ if (process.env.NODE_ENV === 'production') {
     'dev-session-secret-change-for-production',
     'dev-session-secret-not-for-production',
     'dev-csrf-secret-change-for-production',
-    'generate-a-random-string-here',
-    'generate-another-random-string-here'
+    'CHANGE_ME_TO_A_RANDOM_STRING_AT_LEAST_32_CHARS',
+    'CHANGE_ME_TO_A_RANDOM_STRING_AT_LEAST_32_CHARS_TOO'
   ];
   if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET) || process.env.SESSION_SECRET.length < 32) {
     console.error('ERROR: SESSION_SECRET must be set to a strong random value (>= 32 chars) in production');

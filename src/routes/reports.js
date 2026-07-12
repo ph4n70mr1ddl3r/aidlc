@@ -1,10 +1,11 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
 const { safeInt, safeQueryValue } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
-router.use(requireAuth, requireAdminOrManager);
+router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
 // Rate limit report endpoints — aggregation queries are expensive and could
 // be abused for DoS even behind admin/manager auth.
@@ -154,6 +155,7 @@ router.get('/', (req, res) => {
 router.get('/tickets', (req, res) => {
   try {
     const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
+    req.audit('read', 'ticket', null, 'Viewed ticket analytics report');
 
     const ticketsByDay = stmts.ticketsByDay.all(period);
     const byCategory = stmts.ticketsByCategory.all(period);
@@ -176,6 +178,7 @@ router.get('/tickets', (req, res) => {
 // Asset Report
 router.get('/assets', (req, res) => {
   try {
+    req.audit('read', 'asset', null, 'Viewed asset report');
     const byCategory = stmts.assetsByCategory.all();
     const byStatus = stmts.assetsByStatus.all();
     const byCondition = stmts.assetsByCondition.all();
@@ -199,6 +202,7 @@ router.get('/assets', (req, res) => {
 router.get('/staff', (req, res) => {
   try {
     const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
+    req.audit('read', 'user', null, 'Viewed staff performance report');
     // Two ? placeholders in the SQL: one for resolved_tickets period, one for completed_tasks period
     const performance = stmts.staffPerformance.all(period, period);
 
