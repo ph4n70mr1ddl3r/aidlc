@@ -740,9 +740,9 @@ function badgeClass(value, mapping) {
   return (mapping && Object.prototype.hasOwnProperty.call(mapping, value)) ? mapping[value] : value;
 }
 
-const CONDITION_BADGE = { new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' };
-const CHANGE_TYPE_BADGE = { security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' };
-const ROLE_BADGE = { admin: 'critical', manager: 'high', staff: 'medium' };
+const CONDITION_BADGE = Object.freeze({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
+const CHANGE_TYPE_BADGE = Object.freeze({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
+const ROLE_BADGE = Object.freeze({ admin: 'critical', manager: 'high', staff: 'medium' });
 
 /**
  * Reset module-level cached prepared statements (test use only).

@@ -359,10 +359,16 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Selected assignee is not available');
       return res.redirect(`/changes/${id}/edit`);
     }
-    if (err.message === 'INVALID_SCHEDULED_START' || err.message === 'INVALID_SCHEDULED_END' ||
-        err.message === 'SCHEDULED_END_BEFORE_START' || err.message === 'INVALID_ACTUAL_START' ||
-        err.message === 'INVALID_ACTUAL_END' || err.message === 'ACTUAL_END_BEFORE_START') {
-      req.flash('error', err.message === 'SCHEDULED_END_BEFORE_START' ? 'Scheduled end must be on or after scheduled start' : err.message === 'ACTUAL_END_BEFORE_START' ? 'Actual end must be on or after actual start' : 'Invalid date format');
+    if (err.message === 'SCHEDULED_END_BEFORE_START') {
+      req.flash('error', 'Scheduled end must be on or after scheduled start');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    if (err.message === 'ACTUAL_END_BEFORE_START') {
+      req.flash('error', 'Actual end must be on or after actual start');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    if (err.message.startsWith('INVALID_')) {
+      req.flash('error', 'Invalid date format');
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);

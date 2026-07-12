@@ -322,6 +322,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
   }
+  if (email.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect(`/staff/${id}/edit`);
+  }
   if (!isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/staff/${id}/edit`);
@@ -332,10 +336,6 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
   if (last_name.length > MAX_SHORT_STR) {
     req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
-    return res.redirect(`/staff/${id}/edit`);
-  }
-  if (email.length > MAX_EMAIL) {
-    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
   if (phone && !isValidPhone(phone)) {

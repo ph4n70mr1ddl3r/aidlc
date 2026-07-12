@@ -362,6 +362,10 @@ app.use('/licenses', require('./routes/licenses'));
 app.use('/reports', require('./routes/reports'));
 app.use('/audit', require('./routes/audit'));
 
+// Return 204 No Content for favicon.ico to prevent browser favicon requests
+// from generating 404 errors in the access log.
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // Health check (unauthenticated) — rate-limited to prevent abuse
 const healthCheckStmt = db.prepare('SELECT 1 AS ok');
 const healthLimiter = rateLimit({
