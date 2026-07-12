@@ -17,21 +17,16 @@ const ticketWriteLimiter = rateLimit({
 });
 
 // Key comment rate-limiting by user id (per-account) so a single user can't
-// be silenced by another's IP, falling back to IP for unauthenticated calls.
-// The IP fallback uses the library's ipKeyGenerator to ensure IPv6 subnet
-// handling and pass the library's keyGenerator validation check.
+// be silenced by another's IP. All ticket routes require authentication so
+// the session branch is always taken — the IP fallback exists for defense
+// in depth if auth-middleware ordering ever changes.
+// Uses rateLimit.ipKeyGenerator for the IP fallback so express-rate-limit v8
+// can apply proper IPv6 subnet prefixing and pass its keyGenerator validation.
 function commentKeyGenerator(req) {
   if (req.session && req.session.user && req.session.user.id) {
     return `user:${req.session.user.id}`;
   }
-  if (req.ip) {
-    try {
-      return rateLimit.ipKeyGenerator(req.ip);
-    } catch {
-      // ipKeyGenerator not available (pre-v8 express-rate-limit), fall through
-    }
-  }
-  return req.ip || 'unknown';
+  return rateLimit.ipKeyGenerator(req.ip);
 }
 
 const commentRateLimiter = rateLimit({

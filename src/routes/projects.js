@@ -473,31 +473,45 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // Uses a dedicated `_quick_status` flag sent by the EJS template so a
   // client cannot force the quick path by omitting the title from a full edit.
   if (safeQueryValue(req.body._quick_status)) {
-    // Quick status update only — preserve existing values
+    // Quick status update only — read current status and update atomically
+    // inside a single transaction to avoid a TOCTOU where a concurrent change
+    // between the read and the UPDATE is silently overwritten.
     try {
-      const existing = _taskExistsStmt.get(taskId, projectId);
-      if (!existing) {
-        req.flash('error', 'Task not found');
-        return res.redirect(`/projects/${projectId}`);
-      }
-      const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
-      if (safeStatus === existing.status) {
-        req.flash('info', 'Status unchanged');
-        return res.redirect(`/projects/${projectId}`);
-      }
       const updateTask = db.transaction(() => {
+        const existing = _taskExistsStmt.get(taskId, projectId);
+        if (!existing) {
+          throw new Error('NOT_FOUND');
+        }
+        const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
+        if (safeStatus === existing.status) {
+          return { unchanged: true };
+        }
         const result = _taskQuickStatusStmt.run(safeStatus, safeStatus === 'done' ? 1 : 0, taskId, projectId);
         if (result.changes === 0) {
           throw new Error('NOT_FOUND');
         }
         recalcProjectProgress(db, projectId);
+        return { unchanged: false, status: safeStatus };
       });
-      updateTask();
-      req.flash('success', 'Task updated');
-      invalidateDashboardCache();
+      const result = updateTask();
+      if (result.unchanged) {
+        req.flash('info', 'Status unchanged');
+      } else {
+        // Audit the quick-status change — previously this path silently skipped
+        // audit logging, so a task toggled to 'done' via the project page left
+        // no trail even though the full edit route logged 'update' for the same
+        // entity. The full-update branch below already audits; this mirrors it.
+        req.audit('update', 'project_task', taskId, `Quick status change to ${result.status}`);
+        req.flash('success', 'Task updated');
+        invalidateDashboardCache();
+      }
     } catch (err) {
-      console.error('Project task quick-status error:', err.message);
-      req.flash('error', 'Error updating task');
+      if (err.message === 'NOT_FOUND') {
+        req.flash('error', 'Task not found');
+      } else {
+        console.error('Project task quick-status error:', err.message);
+        req.flash('error', 'Error updating task');
+      }
     }
     return res.redirect(`/projects/${projectId}`);
   }
