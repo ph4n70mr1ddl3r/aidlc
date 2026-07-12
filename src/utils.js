@@ -9,6 +9,7 @@ const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_
 let PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 
 const ACRONYMS = new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IoT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVMe', 'OAuth', 'PCIe', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']);
+const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
 /**
@@ -586,7 +587,7 @@ function titleCase(value) {
     // Check that the next character in the ORIGINAL word is not uppercase,
     // otherwise a word like "SOPHISTICATED" would be incorrectly split
     // into "SOP" + "HISTICATED".
-    for (let i = Math.min(upper.length, 4); i >= 1; i--) {
+    for (let i = Math.min(upper.length, _MAX_ACRONYM_LENGTH); i >= 1; i--) {
       const prefix = upper.slice(0, i);
       if (ACRONYMS.has(prefix)) {
         const next = word[i];

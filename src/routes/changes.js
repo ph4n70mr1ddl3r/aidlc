@@ -367,9 +367,15 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Actual end must be on or after actual start');
       return res.redirect(`/changes/${id}/edit`);
     }
-    if (err.message.startsWith('INVALID_')) {
-      const dateField = err.message.replace('INVALID_', '').toLowerCase().replace(/_/g, ' ');
-      req.flash('error', `Invalid ${dateField}`);
+    const INVALID_DATE_FIELDS = {
+      INVALID_SCHEDULED_START: 'scheduled start',
+      INVALID_SCHEDULED_END: 'scheduled end',
+      INVALID_ACTUAL_START: 'actual start',
+      INVALID_ACTUAL_END: 'actual end'
+    };
+    const dateFieldName = INVALID_DATE_FIELDS[err.message];
+    if (dateFieldName) {
+      req.flash('error', `Invalid ${dateFieldName}`);
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);
