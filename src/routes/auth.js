@@ -390,11 +390,15 @@ router.put('/profile', requireAuth, (req, res) => {
     return res.redirect('/profile');
   }
 
+  const safeFirstName = first_name.substring(0, MAX_SHORT_STR);
+  const safeLastName = last_name.substring(0, MAX_SHORT_STR);
+  const safeEmail = email.substring(0, MAX_EMAIL);
+  const safePhone = phone ? phone.substring(0, MAX_PHONE) : null;
   try {
-    _getProfileUpdateStmt().run(first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), email.substring(0, MAX_EMAIL), phone ? phone.substring(0, MAX_PHONE) : null, req.session.user.id);
+    _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, req.session.user.id);
 
     // Update session (full reassign to ensure express-session detects the change with resave:false)
-    req.session.user = { ...req.session.user, first_name, last_name, email, phone: phone ? phone.substring(0, MAX_PHONE) : null };
+    req.session.user = { ...req.session.user, first_name: safeFirstName, last_name: safeLastName, email: safeEmail, phone: safePhone };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     invalidateDashboardCache();

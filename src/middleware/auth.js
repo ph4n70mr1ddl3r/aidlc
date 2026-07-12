@@ -42,6 +42,9 @@ function _verifySessionUser(req, res) {
     if (!row || !row.is_active) {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
       req.session.destroy((err) => {
+        if (res.headersSent) {
+          return;
+        }
         if (err) {
           console.error('Session destroy error (deactivated):', err.message);
         }
@@ -52,6 +55,9 @@ function _verifySessionUser(req, res) {
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
       req.session.destroy((err) => {
+        if (res.headersSent) {
+          return;
+        }
         if (err) {
           console.error('Session destroy error (password changed):', err.message);
         }
