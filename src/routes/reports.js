@@ -137,7 +137,7 @@ const stmts = {
     LEFT JOIN (
       SELECT assigned_to, COUNT(*) as completed_tasks
       FROM project_tasks WHERE status = 'done'
-        AND completed_at >= date('now', '-' || ? || ' days')
+        AND COALESCE(completed_at, updated_at) >= date('now', '-' || ? || ' days')
       GROUP BY assigned_to
     ) ptDone ON ptDone.assigned_to = u.id
     WHERE u.is_active = 1

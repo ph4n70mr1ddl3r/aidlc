@@ -159,7 +159,8 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect('/assets/new');
   }
-  if (!VALID_STATUSES.includes(status)) {
+  const safeStatus = status || 'in_storage';
+  if (!VALID_STATUSES.includes(safeStatus)) {
     req.flash('error', 'Invalid status');
     return res.redirect('/assets/new');
   }
@@ -198,7 +199,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       const result = _insertStmt.run(
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
         (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
-        status, safeCondition, sPurchase,
+        safeStatus, safeCondition, sPurchase,
         safePositiveFloat(purchase_price),
         sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );

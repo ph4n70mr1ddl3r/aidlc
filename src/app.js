@@ -79,7 +79,7 @@ function runAuditPrune() {
   }
 }
 runAuditPrune();
-if (Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
+if (Number.isFinite(pruneDays) && pruneDays > 0 && Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
   _pruneInterval = setInterval(runAuditPrune, pruneIntervalMs);
   _pruneInterval.unref();
 }
