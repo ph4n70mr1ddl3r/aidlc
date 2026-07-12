@@ -367,7 +367,13 @@ app.use('/audit', require('./routes/audit'));
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health check (unauthenticated) — rate-limited to prevent abuse
-const healthCheckStmt = db.prepare('SELECT 1 AS ok');
+let _healthCheckStmt = null;
+function _getHealthCheckStmt() {
+  if (!_healthCheckStmt) {
+    _healthCheckStmt = db.prepare('SELECT 1 AS ok');
+  }
+  return _healthCheckStmt;
+}
 const healthLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
@@ -379,7 +385,7 @@ app.get('/health', healthLimiter, (req, res) => {
   res.set('Surrogate-Control', 'no-store');
   res.type('application/json');
   try {
-    const row = healthCheckStmt.get();
+    const row = _getHealthCheckStmt().get();
     if (!row || row.ok !== 1) {
       throw new Error('DB sanity check failed');
     }

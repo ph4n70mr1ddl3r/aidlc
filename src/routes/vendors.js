@@ -409,8 +409,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         ? (notes !== '' ? notes.substring(0, MAX_NOTES) : null)
         : existing.notes;
       const rawRating = safeQueryValue(req.body.rating);
-      const ratingProvided = rawRating !== undefined && rawRating !== '' && rawRating !== null;
-      const safeRatingVal = ratingProvided ? safeRating : (rawRating !== undefined ? null : existing.rating);
+      const ratingAbsent = rawRating === undefined;
+      const safeRatingVal = ratingAbsent ? existing.rating : (rawRating !== '' && rawRating !== null ? safeRating : null);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.

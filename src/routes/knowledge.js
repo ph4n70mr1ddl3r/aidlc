@@ -11,8 +11,8 @@ let marked;
 let markedFallback = false;
 try {
   marked = require('marked');
-} catch {
-  console.error('ERROR: marked package failed to load. Run `npm install` or upgrade to Node >= 22.');
+} catch (err) {
+  console.error(`ERROR: marked package failed to load: ${err.message}. Run \`npm install\` to ensure marked >=12 <16 is installed (CJS compatible).`);
   console.error('Falling back to plain-text rendering for knowledge articles.');
   marked = { parse: (content) => content };
   markedFallback = true;

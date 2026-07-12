@@ -47,16 +47,17 @@ const ipLoginFailures = new Map(); // ip -> { count, lockedUntil, lastAttempt }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
-// Lazy-init dummy hash on first login attempt — bcrypt.hashSync at cost 12 takes
-// ~200-300ms and blocks the event loop. Generating it at module load would delay
-// server startup; deferring to first use ensures the server is ready sooner, and
-// the cost is paid only if someone actually tries to log in.
-let _dummyHash = null;
+// Lazy-init async dummy hash on first login attempt — bcrypt at cost 12 takes
+// ~200-300ms. Using the async variant avoids blocking the event loop on the
+// first login. Generating it at module load would delay server startup;
+// deferring to first use ensures the server is ready sooner, and the cost
+// is paid only if someone actually tries to log in.
+let _dummyHashPromise = null;
 function _getDummyHash() {
-  if (!_dummyHash) {
-    _dummyHash = bcrypt.hashSync('dummy', BCRYPT_SALT_ROUNDS);
+  if (!_dummyHashPromise) {
+    _dummyHashPromise = bcrypt.hash('dummy', BCRYPT_SALT_ROUNDS);
   }
-  return _dummyHash;
+  return _dummyHashPromise;
 }
 
 function checkLockout(map, key) {
@@ -259,7 +260,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Always perform a bcrypt comparison to prevent username enumeration via timing
   // side-channel. If the user doesn't exist, compare against a dummy hash so the
   // CPU cost is identical whether the username is valid or not.
-  const hashToCompare = user ? user.password : _getDummyHash();
+  const hashToCompare = user ? user.password : await _getDummyHash();
   const passwordMatch = await bcrypt.compare(password, hashToCompare);
 
   if (!user || !passwordMatch) {
