@@ -435,8 +435,8 @@ app.use((err, req, res, _next) => {
     try {
       if (ref) {
         const refUrl = new URL(ref);
-        const expectedHost = req.get('Host');
-        if (refUrl.hostname === (expectedHost || '').split(':')[0] && refUrl.protocol === (req.secure ? 'https:' : 'http:')) {
+        const expectedHost = req.hostname;
+        if (refUrl.hostname === expectedHost && refUrl.protocol === (req.secure ? 'https:' : 'http:')) {
           return res.redirect(refUrl.pathname);
         }
       }
@@ -444,16 +444,18 @@ app.use((err, req, res, _next) => {
     return res.redirect('/');
   }
 
+  const errMsg = (err && err.message) || String(err);
+
   if (wantsJson) {
     const detail = process.env.NODE_ENV === 'production'
       ? 'Something went wrong.'
-      : err.message;
+      : errMsg;
     return res.status(500).json({ error: detail });
   }
 
   const detail = process.env.NODE_ENV === 'production'
     ? 'Something went wrong.'
-    : err.message;
+    : errMsg;
   res.status(500).render('pages/error', { title: 'Error', error: { message: detail } });
 });
 
