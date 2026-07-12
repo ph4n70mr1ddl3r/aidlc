@@ -42,7 +42,17 @@ const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for frequently-executed queries.
-const _assetListStmt = db.prepare('SELECT id, asset_tag, name FROM assets ORDER BY name');
+// Cap the Related-Asset dropdown to bound memory/render cost on large
+// inventories — every other list/sidebar query in the app is capped (e.g.
+// staff _assignedAssetsStmt LIMIT 50, reports warrantyExpiring LIMIT 500).
+// The edit route below ensures the currently-linked asset is still
+// represented as "selected" when it falls outside this cap, so re-saving
+// can never silently unlink an asset.
+const _ASSET_DROPDOWN_LIMIT = 1000;
+const _assetListStmt = db.prepare(`SELECT id, asset_tag, name FROM assets ORDER BY name LIMIT ${_ASSET_DROPDOWN_LIMIT}`);
+// Fetch a single asset's dropdown columns — used by the edit route to guarantee
+// the linked asset appears in the <select> even past the LIMIT above.
+const _assetByIdStmt = db.prepare('SELECT id, asset_tag, name FROM assets WHERE id = ?');
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showTicketStmt = db.prepare(`
@@ -118,6 +128,23 @@ const SORT_MAP = {
   priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC",
   default: 't.created_at DESC'
 };
+
+/**
+ * Guarantee the ticket's linked asset appears in the Related-Asset dropdown
+ * even when it falls outside the _ASSET_DROPDOWN_LIMIT cap. Without this, a
+ * linked asset beyond the cap is absent from the <select>, so it does not
+ * render as "selected" and re-saving the form silently unlinks it (data loss).
+ * Returns a new array (does not mutate the input). Pure/exported for testing.
+ * @param {Array} assets - the capped list from _assetListStmt
+ * @param {Object|null} linkedAsset - the linked asset row from _assetByIdStmt
+ * @returns {Array}
+ */
+function ensureLinkedAssetInList(assets, linkedAsset) {
+  if (linkedAsset && !assets.some(a => a.id === linkedAsset.id)) {
+    return [linkedAsset, ...assets];
+  }
+  return assets;
+}
 
 // List tickets (paginated)
 router.get('/', (req, res) => {
@@ -335,7 +362,14 @@ router.get('/:id/edit', (req, res) => {
   }
 
   const staff = getActiveStaff(db);
-  const assets = _assetListStmt.all();
+  let assets = _assetListStmt.all();
+  // Ensure the currently-linked asset appears in the dropdown even when it
+  // falls outside the _ASSET_DROPDOWN_LIMIT cap (large inventory). Without
+  // this, a linked asset beyond the cap would not render as "selected", and
+  // re-saving the form would silently unlink it (data loss).
+  if (ticket.asset_id) {
+    assets = ensureLinkedAssetInList(assets, _assetByIdStmt.get(ticket.asset_id));
+  }
   res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff, assets, isEdit: true });
 });
 
@@ -729,3 +763,4 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
 module.exports = router;
 // Exposed for unit testing (the route module is mocked in app.test.js).
 module.exports.commentKeyGenerator = commentKeyGenerator;
+module.exports.ensureLinkedAssetInList = ensureLinkedAssetInList;

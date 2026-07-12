@@ -28,7 +28,7 @@ jest.mock('../src/routes/dashboard', () => {
   return router;
 });
 
-const { commentKeyGenerator } = require('../src/routes/tickets');
+const { commentKeyGenerator, ensureLinkedAssetInList } = require('../src/routes/tickets');
 const { ipKeyGenerator } = require('express-rate-limit');
 
 describe('commentKeyGenerator', () => {
@@ -49,5 +49,34 @@ describe('commentKeyGenerator', () => {
     const req = { ip: '198.51.100.7' };
     expect(() => commentKeyGenerator(req)).not.toThrow();
     expect(commentKeyGenerator(req)).toBe('198.51.100.7');
+  });
+});
+
+describe('ensureLinkedAssetInList', () => {
+  // Regression guard for the asset-dropdown cap: when the Related-Asset
+  // <select> is bounded by _ASSET_DROPDOWN_LIMIT, a ticket linked to an asset
+  // past the cap must still have that asset merged into the list — otherwise
+  // it does not render as "selected" and re-saving silently unlinks it.
+  it('prepends the linked asset when it is absent from the capped list', () => {
+    const assets = [{ id: 1, asset_tag: 'AST-001', name: 'A' }, { id: 2, asset_tag: 'AST-002', name: 'B' }];
+    const linked = { id: 1500, asset_tag: 'AST-1500', name: 'Beyond cap' };
+    const result = ensureLinkedAssetInList(assets, linked);
+    expect(result[0]).toBe(linked);
+    expect(result).toHaveLength(3);
+    // Original list is not mutated (immutable for the render context).
+    expect(assets).toHaveLength(2);
+  });
+
+  it('returns the list unchanged when the linked asset is already present', () => {
+    const assets = [{ id: 1, asset_tag: 'AST-001', name: 'A' }, { id: 2, asset_tag: 'AST-002', name: 'B' }];
+    const result = ensureLinkedAssetInList(assets, assets[1]);
+    expect(result).toBe(assets);
+    expect(result).toHaveLength(2);
+  });
+
+  it('returns the list unchanged when there is no linked asset', () => {
+    const assets = [{ id: 1, asset_tag: 'AST-001', name: 'A' }];
+    expect(ensureLinkedAssetInList(assets, null)).toBe(assets);
+    expect(ensureLinkedAssetInList(assets, undefined)).toBe(assets);
   });
 });

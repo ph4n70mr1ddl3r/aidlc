@@ -55,7 +55,15 @@ const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
 let _dummyHashPromise = null;
 function _getDummyHash() {
   if (!_dummyHashPromise) {
-    _dummyHashPromise = bcrypt.hash('dummy', BCRYPT_SALT_ROUNDS);
+    // Reset the cache on rejection so a transient bcrypt failure during this
+    // one-time generation (e.g. OOM) does not permanently poison the cache.
+    // Otherwise every subsequent unknown-username login would await the same
+    // rejected promise, throw a 500 instead of rendering the login form, and
+    // permanently defeat the username-enumeration timing defense.
+    _dummyHashPromise = bcrypt.hash('dummy', BCRYPT_SALT_ROUNDS).catch((err) => {
+      _dummyHashPromise = null;
+      throw err;
+    });
   }
   return _dummyHashPromise;
 }
