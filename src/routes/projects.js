@@ -472,7 +472,9 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // Defensive: handle quick-status-change forms that only send `status`.
   // Uses a dedicated `_quick_status` flag sent by the EJS template so a
   // client cannot force the quick path by omitting the title from a full edit.
-  if (safeQueryValue(req.body._quick_status)) {
+  // Uses explicit '1' check to mirror the is_featured checkbox idiom in
+  // knowledge.js — prevents accidental truthy matches on arbitrary strings.
+  if (safeQueryValue(req.body._quick_status) === '1') {
     // Quick status update only — read current status and update atomically
     // inside a single transaction to avoid a TOCTOU where a concurrent change
     // between the read and the UPDATE is silently overwritten.

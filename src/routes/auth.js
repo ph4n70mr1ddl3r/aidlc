@@ -417,7 +417,14 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
       });
     });
 
-    req.session.user = { id: userId, first_name: safeFirstName, last_name: safeLastName, email: safeEmail, phone: safePhone };
+    // Fetch fresh user data from DB for the new session (consistent with
+    // the password-change route) — avoids an incomplete session user object
+    // that could cause issues for code reading role/username/department before
+    // the auth middleware syncs them.
+    const freshUser = _getProfileSelectStmt().get(userId);
+    if (freshUser) {
+      req.session.user = freshUser;
+    }
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     invalidateDashboardCache();
