@@ -80,7 +80,9 @@ const MAX_ADDRESS = 500;          // vendor address
 const MIN_PASSWORD = 12;          // password minimum length
 const MAX_PASSWORD = 128;         // password max length
 const MAX_SEARCH = 100;           // search box input (list filters)
-const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX
+const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX (incl. prefix)
+const ASSET_TAG_PREFIX = 'AST-';  // asset tag prefix followed by 3 digits
+const ASSET_TAG_RE = /^AST-\d{3}$/;
 
 // Audit log
 const MAX_AUDIT_DETAILS = 4000; // max length of audit log details to prevent unbounded row growth
@@ -105,7 +107,7 @@ module.exports = {
   SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE,
   ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
-  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG,
+  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSET_TAG_RE,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS

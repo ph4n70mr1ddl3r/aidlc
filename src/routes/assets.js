@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, isValidAssetTag } = require('../utils');
-const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -104,10 +104,10 @@ router.get('/', (req, res) => {
 // New asset form
 router.get('/new', requireAdminOrManager, (req, res) => {
   const staff = getActiveStaff(db);
-  let previewTag = 'AST-001';
+  let previewTag = ASSET_TAG_PREFIX + '001';
   try {
     const previewRow = _assetCounterPreviewStmt.get();
-    previewTag = 'AST-' + String(previewRow.next_seq).padStart(3, '0');
+    previewTag = ASSET_TAG_PREFIX + String(previewRow.next_seq).padStart(3, '0');
   } catch (err) {
     console.error('Asset counter preview error:', err.message);
   }
@@ -198,7 +198,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       }
 
       const counterRow = _assetCounterGetStmt.get();
-      const asset_tag = 'AST-' + String(counterRow.next_seq).padStart(3, '0');
+      const asset_tag = ASSET_TAG_PREFIX + String(counterRow.next_seq).padStart(3, '0');
 
       const result = _insertStmt.run(
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,

@@ -283,7 +283,15 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
       hashToCompare = '$2a$12$rRwcV.MhMWwNXyFq5lifxelB6zjYQAPULYY75bM83gXG.2d0JfXQW';
     }
   }
-  const passwordMatch = await bcrypt.compare(password, hashToCompare);
+  let passwordMatch;
+  try {
+    passwordMatch = await bcrypt.compare(password, hashToCompare);
+  } catch (err) {
+    // bcrypt.compare can throw on unexpected input (e.g. malformed hash, OOM).
+    console.error('bcrypt.compare error during login:', err.message);
+    req.flash('error', 'An error occurred during login. Please try again.');
+    return res.redirect('/login');
+  }
 
   if (!user || !passwordMatch) {
     recordLoginFailure(safeUsername, clientIp);
