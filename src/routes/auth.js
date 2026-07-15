@@ -280,7 +280,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
       // If bcrypt hash generation fails (e.g. OOM), fall back to a hardcoded
       // hash so the login page renders normally instead of crashing with a 500.
       // This sacrifices timing-attack resistance for availability in edge cases.
-      hashToCompare = '$2a$12$dummyhash0000000000000000000000000000000000000000000000000';
+      hashToCompare = '$2a$12$rRwcV.MhMWwNXyFq5lifxelB6zjYQAPULYY75bM83gXG.2d0JfXQW';
     }
   }
   const passwordMatch = await bcrypt.compare(password, hashToCompare);
