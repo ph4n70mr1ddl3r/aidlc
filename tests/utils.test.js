@@ -62,6 +62,51 @@ describe('safeQueryValue', () => {
 });
 
 /**
+ * Test for safeFilters function (HPP defense for template filter state)
+ */
+describe('safeFilters', () => {
+  it('should return only allowed keys from query', () => {
+    const query = { search: 'test', status: 'open', injected: 'evil', page: '2' };
+    const result = utils.safeFilters(query, ['search', 'status', 'sort']);
+    expect(result).toEqual({ search: 'test', status: 'open' });
+    expect(result.injected).toBeUndefined();
+    expect(result.page).toBeUndefined();
+  });
+
+  it('should extract first value for array params (HPP defense)', () => {
+    const query = { status: ['open', 'closed'], search: 'test' };
+    const result = utils.safeFilters(query, ['status', 'search']);
+    expect(result).toEqual({ status: 'open', search: 'test' });
+  });
+
+  it('should return empty object when no allowed keys match', () => {
+    const query = { page: '2', limit: '10' };
+    const result = utils.safeFilters(query, ['search', 'status']);
+    expect(result).toEqual({});
+  });
+
+  it('should return empty object for empty query', () => {
+    const result = utils.safeFilters({}, ['search', 'status']);
+    expect(result).toEqual({});
+  });
+
+  it('should preserve null/undefined values from query', () => {
+    const query = { search: null, status: undefined };
+    const result = utils.safeFilters(query, ['search', 'status']);
+    expect(result.search).toBeNull();
+    expect(result.status).toBeUndefined();
+  });
+
+  it('should not include keys not present in query but allowed', () => {
+    const query = { search: 'test' };
+    const result = utils.safeFilters(query, ['search', 'status', 'sort']);
+    expect(result).toEqual({ search: 'test' });
+    expect(result.status).toBeUndefined();
+    expect(result.sort).toBeUndefined();
+  });
+});
+
+/**
  * Test for paginationBaseUrl function
  */
 describe('paginationBaseUrl', () => {

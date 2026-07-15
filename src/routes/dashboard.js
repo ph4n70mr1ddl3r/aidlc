@@ -196,8 +196,19 @@ router.get('/', (req, res) => {
   res.render('pages/dashboard', { title: 'Dashboard', ...data });
 });
 
+/**
+ * Reset the dashboard cache and module-level state (test use only).
+ * Ensures test isolation when using mock db instances — consistent with
+ * the same-named export in middleware/auth.js, audit.js, utils.js, etc.
+ * Resets the TTL cache to force a fresh query on the next request.
+ */
+function resetCachedStatements() {
+  dashboardCache = { timestamp: 0, data: null };
+}
+
 module.exports = router;
 module.exports.invalidateDashboardCache = invalidateDashboardCache;
+module.exports.resetCachedStatements = resetCachedStatements;
 // Exposed for unit testing against a real in-memory DB (mirrors the test-export
 // pattern in tickets.js / vendors.js). Guards the disposed-asset warranty
 // exclusion in expiringWarranties against regression.

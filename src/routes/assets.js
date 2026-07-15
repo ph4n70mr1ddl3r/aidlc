@@ -104,9 +104,13 @@ router.get('/', (req, res) => {
 // New asset form
 router.get('/new', requireAdminOrManager, (req, res) => {
   const staff = getActiveStaff(db);
-  // Preview tag only — use read-only SELECT to avoid incrementing the counter
-  const previewRow = _assetCounterPreviewStmt.get();
-  const previewTag = 'AST-' + String(previewRow.next_seq).padStart(3, '0');
+  let previewTag = 'AST-001';
+  try {
+    const previewRow = _assetCounterPreviewStmt.get();
+    previewTag = 'AST-' + String(previewRow.next_seq).padStart(3, '0');
+  } catch (err) {
+    console.error('Asset counter preview error:', err.message);
+  }
   res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: previewTag }, staff, isEdit: false });
 });
 
