@@ -122,12 +122,12 @@ const _ticketInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-const SORT_MAP = {
+const SORT_MAP = Object.freeze({
   newest: 't.created_at DESC',
   oldest: 't.created_at ASC',
   priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC",
   default: 't.created_at DESC'
-};
+});
 
 /**
  * Guarantee the ticket's linked asset appears in the Related-Asset dropdown

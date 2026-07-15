@@ -19,11 +19,11 @@ const auditLimiter = rateLimit({
   legacyHeaders: false
 });
 
-const SORT_MAP = {
+const SORT_MAP = Object.freeze({
   newest: 'a.created_at DESC',
   oldest: 'a.created_at ASC',
   default: 'a.created_at DESC'
-};
+});
 
 router.get('/', auditLimiter, (req, res) => {
   const { page, limit, offset } = paginate(req);

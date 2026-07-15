@@ -52,6 +52,13 @@ function _resolveDateTimeField(newValue, existingValue) {
   }
   return { value: parsed };
 }
+const INVALID_DATE_FIELDS = Object.freeze({
+  INVALID_SCHEDULED_START: 'scheduled start',
+  INVALID_SCHEDULED_END: 'scheduled end',
+  INVALID_ACTUAL_START: 'actual start',
+  INVALID_ACTUAL_END: 'actual end'
+});
+
 const _changeUpdateStmt = db.prepare(`
     UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
       priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
@@ -367,12 +374,6 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Actual end must be on or after actual start');
       return res.redirect(`/changes/${id}/edit`);
     }
-    const INVALID_DATE_FIELDS = {
-      INVALID_SCHEDULED_START: 'scheduled start',
-      INVALID_SCHEDULED_END: 'scheduled end',
-      INVALID_ACTUAL_START: 'actual start',
-      INVALID_ACTUAL_END: 'actual end'
-    };
     const dateFieldName = INVALID_DATE_FIELDS[err.message];
     if (dateFieldName) {
       req.flash('error', `Invalid ${dateFieldName}`);

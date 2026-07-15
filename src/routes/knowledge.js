@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // marked v15 is the last CJS-compatible major version.
@@ -137,8 +137,7 @@ function renderMarkdown(content) {
   } catch (err) {
     console.error('Markdown render error:', String(err));
     const text = sanitizeHtml(content, STRIP_HTML_OPTIONS);
-    const safe = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${safe}</pre>`;
+    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(text)}</pre>`;
   }
 }
 
