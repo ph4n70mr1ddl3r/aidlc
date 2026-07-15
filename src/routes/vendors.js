@@ -388,7 +388,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         : existing.email;
       const rawPhone = safeQueryValue(req.body.phone);
       const safePhone = rawPhone !== undefined
-        ? (phone !== null ? phone.substring(0, MAX_PHONE) : null)
+        ? (phone ? phone.substring(0, MAX_PHONE) : null)
         : existing.phone;
       const rawAddress = safeQueryValue(req.body.address);
       const safeAddress = rawAddress !== undefined

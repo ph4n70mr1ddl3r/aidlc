@@ -228,9 +228,6 @@ router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  const safeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
-  const safeFeatured = resolveSafeFeatured(req.session.user, is_featured);
-
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
   const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
@@ -245,7 +242,15 @@ router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
   }
 
   try {
-    const result = _articleInsertStmt.run(safeTitle, safeContent, category, safeTags, req.session.user.id, safeStatus, safeFeatured);
+    // Resolve safeStatus/safeFeatured inside a transaction to avoid a TOCTOU
+    // race where the user's role is changed between the resolution and the INSERT
+    // (mirrors the update route pattern where these are resolved inside the txn).
+    const createArticle = db.transaction(() => {
+      const txnSafeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
+      const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured);
+      return _articleInsertStmt.run(safeTitle, safeContent, category, safeTags, req.session.user.id, txnSafeStatus, txnSafeFeatured);
+    });
+    const result = createArticle();
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
