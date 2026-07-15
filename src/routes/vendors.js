@@ -400,9 +400,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         : existing.website;
       const rawCategory = safeQueryValue(req.body.category);
       const safeCategory = rawCategory !== undefined
-        ? (category !== ''
-          ? (VALID_CATEGORIES_VENDOR.includes(category) ? category : existing.category)
-          : null)
+        ? (category !== '' ? category : null)
         : existing.category;
       const rawNotes = safeQueryValue(req.body.notes);
       const safeNotes = rawNotes !== undefined

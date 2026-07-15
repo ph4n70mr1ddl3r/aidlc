@@ -268,7 +268,21 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Always perform a bcrypt comparison to prevent username enumeration via timing
   // side-channel. If the user doesn't exist, compare against a dummy hash so the
   // CPU cost is identical whether the username is valid or not.
-  const hashToCompare = user ? user.password : await _getDummyHash();
+  // Guard against _getDummyHash() rejection (e.g. transient bcrypt failure) so
+  // an unknown-username login attempt does not crash the login handler.
+  let hashToCompare;
+  if (user) {
+    hashToCompare = user.password;
+  } else {
+    try {
+      hashToCompare = await _getDummyHash();
+    } catch {
+      // If bcrypt hash generation fails (e.g. OOM), fall back to a hardcoded
+      // hash so the login page renders normally instead of crashing with a 500.
+      // This sacrifices timing-attack resistance for availability in edge cases.
+      hashToCompare = '$2a$12$dummyhash0000000000000000000000000000000000000000000000000';
+    }
+  }
   const passwordMatch = await bcrypt.compare(password, hashToCompare);
 
   if (!user || !passwordMatch) {
