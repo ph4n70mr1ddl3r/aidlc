@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, isValidAssetTag } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -294,7 +294,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (!/^AST-\d{3,}$/.test(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
+  if (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
     req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }

@@ -133,6 +133,7 @@ app.use(helmet({
 // ---------------------------------------------------------------------------
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+app.set('view cache', process.env.NODE_ENV === 'production');
 
 // ---------------------------------------------------------------------------
 // Core middleware

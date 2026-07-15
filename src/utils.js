@@ -11,6 +11,7 @@ let PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
 const ACRONYMS = new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IoT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVMe', 'OAuth', 'PCIe', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']);
 const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
+const ASSET_TAG_RE = /^AST-\d{3,}$/;
 
 /**
  * Safely extract a scalar value from a query parameter, guarding against
@@ -368,6 +369,20 @@ function isValidDateTimeLocal(value) {
   const [h, mi] = iso.slice(11, 16).split(':').map(Number);
   return d.getFullYear() === y && d.getMonth() === mo - 1 && d.getDate() === da &&
     d.getHours() === h && d.getMinutes() === mi;
+}
+
+/**
+ * Validate an asset tag (e.g. AST-001). Returns true if valid.
+ */
+function isValidAssetTag(value) {
+  return typeof value === 'string' && ASSET_TAG_RE.test(value);
+}
+
+/**
+ * Sanitize an asset tag: return the value if valid, or null.
+ */
+function safeAssetTag(value) {
+  return isValidAssetTag(value) ? value : null;
 }
 
 /**
@@ -775,4 +790,4 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, safeAssetTag, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };

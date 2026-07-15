@@ -369,7 +369,7 @@ router.get('/profile', requireAuth, (req, res) => {
 });
 
 // Update profile
-router.put('/profile', requireAuth, (req, res) => {
+router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -403,10 +403,21 @@ router.put('/profile', requireAuth, (req, res) => {
   const safeEmail = email.substring(0, MAX_EMAIL);
   const safePhone = phone ? phone.substring(0, MAX_PHONE) : null;
   try {
-    _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, req.session.user.id);
+    const userId = req.session.user.id;
+    _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
 
-    // Update session (full reassign to ensure express-session detects the change with resave:false)
-    req.session.user = { ...req.session.user, first_name: safeFirstName, last_name: safeLastName, email: safeEmail, phone: safePhone };
+    // Regenerate session to prevent fixation — consistent with the password-change route
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    req.session.user = { id: userId, first_name: safeFirstName, last_name: safeLastName, email: safeEmail, phone: safePhone };
 
     audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
     invalidateDashboardCache();
@@ -420,7 +431,7 @@ router.put('/profile', requireAuth, (req, res) => {
   }
 
   res.redirect('/profile');
-});
+}));
 
 // Change password
 router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {

@@ -12,6 +12,7 @@
     "seed": "node src/seed.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:check": "eslint . && jest --passWithNoTests",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
