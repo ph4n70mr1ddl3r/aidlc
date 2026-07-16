@@ -174,7 +174,7 @@ router.get('/tickets', (req, res) => {
   } catch (err) {
     console.error('Ticket report error:', err.message);
     req.flash('error', 'Error generating ticket report');
-    res.redirect('/reports');
+    return res.redirect('/reports');
   }
 });
 
@@ -197,7 +197,7 @@ router.get('/assets', (req, res) => {
   } catch (err) {
     console.error('Asset report error:', err.message);
     req.flash('error', 'Error generating asset report');
-    res.redirect('/reports');
+    return res.redirect('/reports');
   }
 });
 
@@ -213,7 +213,7 @@ router.get('/staff', (req, res) => {
   } catch (err) {
     console.error('Staff report error:', err.message);
     req.flash('error', 'Error generating staff report');
-    res.redirect('/reports');
+    return res.redirect('/reports');
   }
 });
 

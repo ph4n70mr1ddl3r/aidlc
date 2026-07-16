@@ -1173,6 +1173,28 @@ describe('isExpiringSoon', () => {
 });
 
 /**
+ * Test for escapeHtml function
+ */
+describe('escapeHtml', () => {
+  it('should escape HTML special characters', () => {
+    expect(utils.escapeHtml('<script>alert("xss")</script>')).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    expect(utils.escapeHtml("it's a test")).toBe('it&#39;s a test');
+    expect(utils.escapeHtml('safe text')).toBe('safe text');
+  });
+
+  it('should escape ampersand first to prevent double-encoding', () => {
+    expect(utils.escapeHtml('&amp;')).toBe('&amp;amp;');
+  });
+
+  it('should return empty string for non-string input', () => {
+    expect(utils.escapeHtml(null)).toBe('');
+    expect(utils.escapeHtml(undefined)).toBe('');
+    expect(utils.escapeHtml(123)).toBe('');
+    expect(utils.escapeHtml({})).toBe('');
+  });
+});
+
+/**
  * Test for badge constants
  */
 describe('badge constants', () => {
