@@ -212,7 +212,13 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
-  const requester_phone = sanitizePhone(safeQueryValue(req.body.requester_phone));
+  const rawRequesterPhone = safeQueryValue(req.body.requester_phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawRequesterPhone === 'string' && rawRequesterPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/tickets/new');
+  }
+  const requester_phone = sanitizePhone(rawRequesterPhone);
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
@@ -237,10 +243,6 @@ router.post('/', ticketWriteLimiter, (req, res) => {
 
   if (requester_phone && !isValidPhone(requester_phone)) {
     req.flash('error', 'Please enter a valid phone number');
-    return res.redirect('/tickets/new');
-  }
-  if (requester_phone && requester_phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect('/tickets/new');
   }
 
@@ -393,7 +395,13 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
-  const requester_phone = sanitizePhone(safeQueryValue(req.body.requester_phone));
+  const rawRequesterPhone = safeQueryValue(req.body.requester_phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawRequesterPhone === 'string' && rawRequesterPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  const requester_phone = sanitizePhone(rawRequesterPhone);
 
   if (!title) {
     req.flash('error', 'Title is required');
@@ -455,10 +463,6 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 
   if (requester_phone && !isValidPhone(requester_phone)) {
     req.flash('error', 'Please enter a valid phone number');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
-  if (requester_phone && requester_phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
 

@@ -27,7 +27,7 @@ jest.mock('../src/routes/dashboard', () => {
   return router;
 });
 
-const { validateVendorRating, resolveClearableDate } = require('../src/routes/vendors');
+const { validateVendorRating, resolveClearableDate, resolveOptionalTextField } = require('../src/routes/vendors');
 
 describe('validateVendorRating', () => {
   it('parses a valid integer rating in range', () => {
@@ -93,5 +93,31 @@ describe('resolveClearableDate (contract date clearing)', () => {
     // ?contract_start[]=a&contract_start[]=b payload must not silently clear
     // the stored date (safeDate would otherwise null out a non-string input).
     expect(resolveClearableDate(['2025-01-01'], '2024-01-01')).toBe('2024-01-01');
+  });
+});
+
+describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
+  it('preserves existing value when rawValue is absent (undefined)', () => {
+    expect(resolveOptionalTextField(undefined, 'submitted', 100, 'existing')).toBe('existing');
+  });
+
+  it('clears field to null when processedValue is empty/null', () => {
+    expect(resolveOptionalTextField('', '', 100, 'existing')).toBeNull();
+    expect(resolveOptionalTextField(' ', '', 100, 'existing')).toBeNull();
+    expect(resolveOptionalTextField('submitted', null, 100, 'existing')).toBeNull();
+  });
+
+  it('accepts a new value and truncates to maxLen', () => {
+    expect(resolveOptionalTextField('submitted', 'submitted', 5, 'existing')).toBe('submi');
+  });
+
+  it('returns the value unchanged when maxLen is null', () => {
+    expect(resolveOptionalTextField('hardware', 'hardware', null, 'existing')).toBe('hardware');
+  });
+
+  it('preserves existing when rawValue is an array (parameter pollution)', () => {
+    // Mirrors the array guards across the codebase: a polluted payload must not
+    // silently clear stored data.
+    expect(resolveOptionalTextField(['a'], 'a', null, 'existing')).toBe('existing');
   });
 });

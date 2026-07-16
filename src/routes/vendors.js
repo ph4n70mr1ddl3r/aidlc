@@ -80,6 +80,35 @@ function _resolveClearableDate(rawValue, existingValue) {
   return safeDate(rawValue);
 }
 
+/**
+ * Resolve an optional text field on update: preserve the existing value when
+ * the field is ABSENT from the request (partial submission). An empty submitted
+ * value CLEARS the field (null), consistent with the create route.
+ * When present and non-empty, the value is truncated to maxLen (if provided).
+ * Extracted to eliminate the repeated raw !== undefined ? ... pattern (appeared
+ * 8 times across the update route for contact_person, email, phone, address,
+ * website, category, notes, and rating).
+ * @param {*} rawValue - The raw submitted value (from safeQueryValue)
+ * @param {string|null} processedValue - The already-processed value (trimmed,
+ *   sanitized, lowercased, etc.) or null if the value should be cleared
+ * @param {number|null} maxLen - Max string length to truncate to, or null for
+ *   non-string fields (category, rating)
+ * @param {*} existingValue - The current value from the DB
+ * @returns {*|null}
+ */
+function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingValue) {
+  // Reject arrays from HTTP parameter pollution so a polluted payload does not
+  // silently clear or corrupt stored data. Mirrors the array guards in safeId,
+  // safeInt, safePositiveFloat, and _resolveClearableDate.
+  if (Array.isArray(rawValue) || rawValue === undefined) {
+    return existingValue;
+  }
+  if (processedValue !== null && processedValue !== '') {
+    return maxLen ? processedValue.substring(0, maxLen) : processedValue;
+  }
+  return null;
+}
+
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
 const _vendorStatusStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
@@ -146,7 +175,13 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const name = trim(safeQueryValue(req.body.name));
   const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const rawPhone = safeQueryValue(req.body.phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/vendors/new');
+  }
+  const phone = sanitizePhone(rawPhone);
   const address = trim(safeQueryValue(req.body.address));
   const website = trim(safeQueryValue(req.body.website));
   const category = trim(safeQueryValue(req.body.category));
@@ -187,11 +222,6 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
   if (website && website.length > MAX_LONG_STR) {
     req.flash('error', `Website must be at most ${MAX_LONG_STR} characters`);
-    return res.redirect('/vendors/new');
-  }
-
-  if (phone && phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect('/vendors/new');
   }
 
@@ -297,7 +327,13 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const name = trim(safeQueryValue(req.body.name));
   const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const rawPhone = safeQueryValue(req.body.phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  const phone = sanitizePhone(rawPhone);
   const address = trim(safeQueryValue(req.body.address));
   const website = trim(safeQueryValue(req.body.website));
   const category = trim(safeQueryValue(req.body.category));
@@ -338,10 +374,6 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', `Website must be at most ${MAX_LONG_STR} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (phone && phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
-    return res.redirect(`/vendors/${id}/edit`);
-  }
 
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
@@ -378,37 +410,26 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // For each optional field: if the field was present in the request body
       // (even empty), use the submitted value (empty -> null to allow clearing).
       // If the field was absent (partial submission), preserve the existing value.
+      // Uses _resolveOptionalTextField to eliminate 8-way duplication of the
+      // raw-undefined check pattern.
       const rawContactPerson = safeQueryValue(req.body.contact_person);
-      const safeContactPerson = rawContactPerson !== undefined
-        ? (contact_person !== '' ? contact_person.substring(0, MAX_SHORT_STR) : null)
-        : existing.contact_person;
+      const safeContactPerson = _resolveOptionalTextField(rawContactPerson, contact_person || null, MAX_SHORT_STR, existing.contact_person);
       const rawEmail = safeQueryValue(req.body.email);
-      const safeEmail = rawEmail !== undefined
-        ? (email !== '' ? email.substring(0, MAX_EMAIL) : null)
-        : existing.email;
-      const rawPhone = safeQueryValue(req.body.phone);
-      const safePhone = rawPhone !== undefined
-        ? (phone ? phone.substring(0, MAX_PHONE) : null)
-        : existing.phone;
+      const safeEmail = _resolveOptionalTextField(rawEmail, email || null, MAX_EMAIL, existing.email);
+      const reqPhone = safeQueryValue(req.body.phone);
+      const safePhone = _resolveOptionalTextField(reqPhone, phone || null, MAX_PHONE, existing.phone);
       const rawAddress = safeQueryValue(req.body.address);
-      const safeAddress = rawAddress !== undefined
-        ? (address !== '' ? address.substring(0, MAX_ADDRESS) : null)
-        : existing.address;
+      const safeAddress = _resolveOptionalTextField(rawAddress, address || null, MAX_ADDRESS, existing.address);
       const rawWebsite = safeQueryValue(req.body.website);
-      const safeWebsite = rawWebsite !== undefined
-        ? (website !== '' ? website.substring(0, MAX_LONG_STR) : null)
-        : existing.website;
+      const safeWebsite = _resolveOptionalTextField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
       const rawCategory = safeQueryValue(req.body.category);
-      const safeCategory = rawCategory !== undefined
-        ? (category !== '' ? category : null)
-        : existing.category;
+      const safeCategory = _resolveOptionalTextField(rawCategory, category || null, null, existing.category);
       const rawNotes = safeQueryValue(req.body.notes);
-      const safeNotes = rawNotes !== undefined
-        ? (notes !== '' ? notes.substring(0, MAX_NOTES) : null)
-        : existing.notes;
+      const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
       const rawRating = safeQueryValue(req.body.rating);
-      const ratingAbsent = rawRating === undefined;
-      const safeRatingVal = ratingAbsent ? existing.rating : (rawRating !== '' && rawRating !== null ? safeRating : null);
+      const safeRatingVal = rawRating !== undefined
+        ? (rawRating !== '' && rawRating !== null ? safeRating : null)
+        : existing.rating;
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.
@@ -604,3 +625,4 @@ module.exports = router;
 // Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
 module.exports.validateVendorRating = _validateVendorRating;
 module.exports.resolveClearableDate = _resolveClearableDate;
+module.exports.resolveOptionalTextField = _resolveOptionalTextField;

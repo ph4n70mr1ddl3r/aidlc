@@ -174,7 +174,13 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const last_name = trim(safeQueryValue(req.body.last_name));
   const role = trim(safeQueryValue(req.body.role));
   const department = trim(safeQueryValue(req.body.department));
-  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const rawPhone = safeQueryValue(req.body.phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/staff/new');
+  }
+  const phone = sanitizePhone(rawPhone);
 
   if (!username || !password || !email || !first_name || !last_name) {
     req.flash('error', 'All required fields must be filled in');
@@ -195,10 +201,6 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
-    return res.redirect('/staff/new');
-  }
-  if (phone && phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
     return res.redirect('/staff/new');
   }
   if (first_name.length > MAX_SHORT_STR) {
@@ -422,9 +424,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();
 
-    // Keep session in sync if user is editing their own record (full reassign to ensure save with resave:false)
+    // Keep session in sync if user is editing their own record — fetch fresh
+    // data from the DB (consistent with the auth.js password-change route) so
+    // the session user object is a complete mirror of the current DB row instead
+    // of a hand-patched subset that could diverge if new columns are added.
     if (Number(id) === Number(req.session.user.id)) {
-      req.session.user = { ...req.session.user, first_name: first_name.substring(0, MAX_SHORT_STR), last_name: last_name.substring(0, MAX_SHORT_STR), email: email.substring(0, MAX_EMAIL), role: safeRole, department: (department || '').substring(0, MAX_SHORT_STR) || null, phone: phone ? phone.substring(0, MAX_PHONE) : null };
+      const fresh = _showStaffStmt.get(id);
+      if (fresh) {
+        req.session.user = fresh;
+      }
     }
 
     req.flash('success', 'Staff member updated');

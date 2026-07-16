@@ -394,7 +394,13 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
-  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const rawPhone = safeQueryValue(req.body.phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/profile');
+  }
+  const phone = sanitizePhone(rawPhone);
 
   if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');
@@ -406,10 +412,6 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
-  if (phone && phone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
-    return res.redirect('/profile');
-  }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/profile');
