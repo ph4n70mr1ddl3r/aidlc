@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
@@ -187,12 +187,12 @@ router.get('/', (req, res) => {
 });
 
 // New article
-router.get('/new', requireAdminOrManager, (req, res) => {
+router.get('/new', (req, res) => {
   res.render('pages/knowledge/form', { title: 'New Article', article: {}, isEdit: false });
 });
 
 // Create article
-router.post('/', requireAdminOrManager, kbWriteLimiter, (req, res) => {
+router.post('/', kbWriteLimiter, (req, res) => {
   const title = trim(safeQueryValue(req.body.title));
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));

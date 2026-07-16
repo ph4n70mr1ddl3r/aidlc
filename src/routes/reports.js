@@ -13,7 +13,10 @@ router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 const reportLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 30,
-  message: 'Too many report requests. Please try again later.',
+  handler: (req, res) => {
+    req.flash('error', 'Too many report requests. Please try again later.');
+    res.redirect('/reports');
+  },
   standardHeaders: true,
   legacyHeaders: false
 });
