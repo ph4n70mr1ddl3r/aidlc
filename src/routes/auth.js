@@ -407,6 +407,10 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
     return res.redirect('/profile');
   }
 
+  if (phone && phone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect('/profile');
+  }
   if (phone && !isValidPhone(phone)) {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/profile');
