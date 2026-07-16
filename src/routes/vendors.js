@@ -325,8 +325,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   const name = trim(safeQueryValue(req.body.name));
-  const contact_person = trim(safeQueryValue(req.body.contact_person));
-  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
+  const rawContactPerson = safeQueryValue(req.body.contact_person);
+  const contact_person = trim(rawContactPerson);
+  const rawEmail = safeQueryValue(req.body.email);
+  const email = trim(rawEmail).toLowerCase();
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
@@ -334,12 +336,16 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect(`/vendors/${id}/edit`);
   }
   const phone = sanitizePhone(rawPhone);
-  const address = trim(safeQueryValue(req.body.address));
-  const website = trim(safeQueryValue(req.body.website));
-  const category = trim(safeQueryValue(req.body.category));
+  const rawAddress = safeQueryValue(req.body.address);
+  const address = trim(rawAddress);
+  const rawWebsite = safeQueryValue(req.body.website);
+  const website = trim(rawWebsite);
+  const rawCategory = safeQueryValue(req.body.category);
+  const category = trim(rawCategory);
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
-  const notes = trim(safeQueryValue(req.body.notes));
+  const rawNotes = safeQueryValue(req.body.notes);
+  const notes = trim(rawNotes);
   const rating = safeQueryValue(req.body.rating);
 
   if (!name) {
@@ -411,23 +417,16 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // (even empty), use the submitted value (empty -> null to allow clearing).
       // If the field was absent (partial submission), preserve the existing value.
       // Uses _resolveOptionalTextField to eliminate 8-way duplication of the
-      // raw-undefined check pattern.
-      const rawContactPerson = safeQueryValue(req.body.contact_person);
+      // raw-undefined check pattern. The raw* variables are captured from the
+      // outer scope, avoiding redundant safeQueryValue calls inside the txn.
       const safeContactPerson = _resolveOptionalTextField(rawContactPerson, contact_person || null, MAX_SHORT_STR, existing.contact_person);
-      const rawEmail = safeQueryValue(req.body.email);
       const safeEmail = _resolveOptionalTextField(rawEmail, email || null, MAX_EMAIL, existing.email);
-      const reqPhone = safeQueryValue(req.body.phone);
-      const safePhone = _resolveOptionalTextField(reqPhone, phone || null, MAX_PHONE, existing.phone);
-      const rawAddress = safeQueryValue(req.body.address);
+      const safePhone = _resolveOptionalTextField(rawPhone, phone || null, MAX_PHONE, existing.phone);
       const safeAddress = _resolveOptionalTextField(rawAddress, address || null, MAX_ADDRESS, existing.address);
-      const rawWebsite = safeQueryValue(req.body.website);
       const safeWebsite = _resolveOptionalTextField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
-      const rawCategory = safeQueryValue(req.body.category);
       const safeCategory = _resolveOptionalTextField(rawCategory, category || null, null, existing.category);
-      const rawNotes = safeQueryValue(req.body.notes);
       const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
-      const rawRating = safeQueryValue(req.body.rating);
-      const safeRatingVal = _resolveOptionalTextField(rawRating, safeRating, null, existing.rating);
+      const safeRatingVal = _resolveOptionalTextField(rating, safeRating, null, existing.rating);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.

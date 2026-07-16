@@ -64,8 +64,7 @@ const _licenseInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 const _licenseUpdateStmt = db.prepare(`
-    UPDATE licenses SET software_name = ?, vendor = ?,
-      license_key = COALESCE(NULLIF(?, ''), license_key),
+    UPDATE licenses SET software_name = ?, vendor = ?, license_key = ?,
       license_type = ?,
       total_seats = ?, used_seats = ?, purchase_date = ?, expiry_date = ?, cost = ?, notes = ?,
       updated_at = datetime('now')
@@ -306,9 +305,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       }
       // Use sentinel to allow clearing the license key. When the form sends
       // the literal string '_CLEAR_' as the key value, null it out instead of
-      // preserving the existing key via COALESCE. This matches the absent-vs-empty
-      // clearing pattern used for vendor contract dates and change datetimes.
-      const resolvedKey = safeKey === '_CLEAR_' ? null : safeKey;
+      // preserving the existing key (which the old COALESCE/NULLIF pattern was
+      // supposed to do but actually didn't because NULLIF(null, '') returns
+      // null and COALESCE(null, license_key) preserves the existing value).
+      // Now we resolve explicitly: absent/empty → preserve, _CLEAR_ → clear.
+      const resolvedKey = safeKey === '_CLEAR_' ? null : (safeKey !== null ? safeKey : existing.license_key);
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,
         sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
