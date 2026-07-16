@@ -120,6 +120,9 @@ function quoteColumn(col) {
  * @returns {{ where: string[], params: any[] }}
  */
 function buildFilters(filters, allowedColumns, allowedOperators = ['=', '!=', '<', '>', '<=', '>=']) {
+  if (!allowedColumns || allowedColumns.length === 0) {
+    throw new Error('buildFilters: allowedColumns must be non-empty');
+  }
   const where = [];
   const params = [];
   for (const [column, config] of Object.entries(filters)) {
@@ -248,8 +251,15 @@ function safePositiveFloat(value, fallback = null) {
   // are not silently stored. parseFloat("1,000") === 1 and
   // parseFloat("100abc") === 100, both of which would corrupt budget/cost/
   // price fields. Mirrors the strict regex validation in safeInt.
-  if (typeof value === 'string' && !/^[+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
-    return fallback;
+  // Strip a leading '+' so "+100" is normalized to 100 rather than stored
+  // with a '+' prefix that could confuse downstream consumers.
+  if (typeof value === 'string') {
+    if (!/^[+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+      return fallback;
+    }
+    if (value.startsWith('+')) {
+      value = value.slice(1);
+    }
   }
   const n = parseFloat(value);
   if (!Number.isFinite(n) || n < 0) {

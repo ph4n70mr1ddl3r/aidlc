@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, escapeHtml } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -47,26 +47,14 @@ const ipLoginFailures = new Map(); // ip -> { count, lockedUntil, lastAttempt }
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
-// Lazy-init async dummy hash on first login attempt — bcrypt at cost 12 takes
-// ~200-300ms. Using the async variant avoids blocking the event loop on the
-// first login. Generating it at module load would delay server startup;
-// deferring to first use ensures the server is ready sooner, and the cost
-// is paid only if someone actually tries to log in.
-let _dummyHashPromise = null;
-function _getDummyHash() {
-  if (!_dummyHashPromise) {
-    // Reset the cache on rejection so a transient bcrypt failure during this
-    // one-time generation (e.g. OOM) does not permanently poison the cache.
-    // Otherwise every subsequent unknown-username login would await the same
-    // rejected promise, throw a 500 instead of rendering the login form, and
-    // permanently defeat the username-enumeration timing defense.
-    _dummyHashPromise = bcrypt.hash('dummy', BCRYPT_SALT_ROUNDS).catch((err) => {
-      _dummyHashPromise = null;
-      throw err;
-    });
-  }
-  return _dummyHashPromise;
-}
+// Pre-compute a dummy hash synchronously at module load for the username-
+// enumeration timing defense. Using the async variant avoids blocking the
+// event loop during login, but the sync call here happens only once at
+// startup so it does not affect request latency. A pre-computed hash
+// eliminates the hardcoded fallback whose password ("dummy") was publicly
+// known, and avoids the complexity of a cached promise with rejection
+// recovery that previously fell back to a known-plaintext hash.
+const DUMMY_HASH = bcrypt.hashSync('dummy', BCRYPT_SALT_ROUNDS);
 
 function checkLockout(map, key) {
   const entry = map.get(key);
@@ -256,23 +244,9 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing
-  // side-channel. If the user doesn't exist, compare against a dummy hash so the
-  // CPU cost is identical whether the username is valid or not.
-  // Guard against _getDummyHash() rejection (e.g. transient bcrypt failure) so
-  // an unknown-username login attempt does not crash the login handler.
-  let hashToCompare;
-  if (user) {
-    hashToCompare = user.password;
-  } else {
-    try {
-      hashToCompare = await _getDummyHash();
-    } catch {
-      // If bcrypt hash generation fails (e.g. OOM), fall back to a hardcoded
-      // hash so the login page renders normally instead of crashing with a 500.
-      // This sacrifices timing-attack resistance for availability in edge cases.
-      hashToCompare = '$2a$12$rRwcV.MhMWwNXyFq5lifxelB6zjYQAPULYY75bM83gXG.2d0JfXQW';
-    }
-  }
+  // side-channel. If the user doesn't exist, compare against a pre-computed dummy
+  // hash so the CPU cost is identical whether the username is valid or not.
+  const hashToCompare = user ? user.password : DUMMY_HASH;
   let passwordMatch;
   try {
     passwordMatch = await bcrypt.compare(password, hashToCompare);
@@ -328,7 +302,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
   req.session.user = sessionUser;
   audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
-  req.flash('success', `Welcome back, ${user.first_name}!`);
+  req.flash('success', `Welcome back, ${escapeHtml(user.first_name)}!`);
   res.redirect('/dashboard');
 }));
 

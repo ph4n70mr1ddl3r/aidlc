@@ -12,7 +12,7 @@ const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
-const _showStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, created_at, updated_at FROM users WHERE id = ?');
+const _showStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at, created_at, updated_at FROM users WHERE id = ?');
 const _assignedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE assigned_to = ?

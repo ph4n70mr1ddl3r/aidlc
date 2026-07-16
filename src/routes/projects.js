@@ -86,6 +86,8 @@ const _taskDeleteStmt = db.prepare('DELETE FROM project_tasks WHERE id = ? AND p
 // Cached prepared statements for member routes
 const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
 const _memberDeleteStmt = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?');
+const _memberByIdStmt = db.prepare('SELECT id, role FROM project_members WHERE id = ? AND project_id = ?');
+const _leadMemberCountStmt = db.prepare("SELECT COUNT(*) as lead_count FROM project_members WHERE project_id = ? AND role = 'lead'");
 
 // Cached prepared statement for project select by ID (used in edit route)
 const _selectProjectByIdStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
@@ -674,12 +676,24 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
   }
 
   try {
-    // Verify project still exists and remove member in a single transaction
-    // to avoid a TOCTOU race where the project is deleted between the
-    // existence check and the DELETE (mirrors the add-member pattern).
+    // Verify project still exists, prevent removing the last lead, and remove
+    // member in a single transaction to avoid a TOCTOU race where the project
+    // is deleted between the existence check and the DELETE (mirrors the
+    // add-member pattern). Guard against removing the only lead member so a
+    // project never becomes leaderless.
     const removeMember = db.transaction(() => {
       if (!_projectExistsStmt.get(id)) {
         throw new Error('PROJECT_NOT_FOUND');
+      }
+      // Check if the member being removed is the last lead. Fetch the member
+      // directly (not via _showMembersStmt which has LIMIT) to guarantee the
+      // lookup succeeds for any project size.
+      const memberRow = _memberByIdStmt.get(memberId, id);
+      if (memberRow && memberRow.role === 'lead') {
+        const { lead_count } = _leadMemberCountStmt.get(id);
+        if (lead_count <= 1) {
+          throw new Error('LAST_LEAD');
+        }
       }
       return _memberDeleteStmt.run(memberId, id).changes;
     });
@@ -695,6 +709,10 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
     if (err.message === 'PROJECT_NOT_FOUND') {
       req.flash('error', 'Project not found');
       return res.redirect('/projects');
+    }
+    if (err.message === 'LAST_LEAD') {
+      req.flash('error', 'Cannot remove the last lead member of the project');
+      return res.redirect(`/projects/${id}`);
     }
     console.error('Project member remove error:', err.message);
     req.flash('error', 'Error removing member');

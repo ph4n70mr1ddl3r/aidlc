@@ -34,19 +34,19 @@ const _changeInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-function _resolveDateTimeField(newValue, existingValue) {
+function _resolveDateTimeField(submittedValue, existingValue) {
   // Reject arrays from HTTP parameter pollution for consistency with the
   // array guards in safeId / safeInt / safePositiveFloat throughout the codebase.
-  if (Array.isArray(newValue)) {
+  if (Array.isArray(submittedValue)) {
     return { value: existingValue };
   }
-  if (newValue === undefined || newValue === null) {
+  if (submittedValue === undefined || submittedValue === null) {
     return { value: existingValue };
   }
-  if (newValue === '') {
+  if (submittedValue === '') {
     return { value: null };
   }
-  const parsed = safeDateTimeLocal(newValue);
+  const parsed = safeDateTimeLocal(submittedValue);
   if (parsed === null) {
     return { error: true };
   }
