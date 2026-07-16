@@ -38,12 +38,14 @@ const _showTasksStmt = db.prepare(`
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
     ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
+    LIMIT 200
   `);
 const _showMembersStmt = db.prepare(`
     SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
     FROM project_members pm
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
+    LIMIT 100
   `);
 const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');

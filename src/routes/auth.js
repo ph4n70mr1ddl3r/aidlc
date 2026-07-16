@@ -251,18 +251,8 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  // Check account-level lockout (prevents brute-force across IP rotation)
   const safeUsername = (typeof username === 'string' ? username : '').toLowerCase();
   const clientIp = req.ip || 'unknown';
-  if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
-    // Use the same generic message as normal login failure to prevent
-    // username enumeration (an attacker comparing "locked" vs "invalid"
-    // responses to discover which accounts exist).
-    audit({ req, action: 'login_blocked', entity: 'user', entityId: null, details: `Login blocked for username: ${safeUsername} (account or IP lockout)` });
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
   const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing
@@ -290,6 +280,15 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     // bcrypt.compare can throw on unexpected input (e.g. malformed hash, OOM).
     console.error('bcrypt.compare error during login:', err.message);
     req.flash('error', 'An error occurred during login. Please try again.');
+    return res.redirect('/login');
+  }
+
+  // Check lockout AFTER bcrypt compare (not before) to prevent timing-based
+  // username enumeration. A locked-account response must take the same
+  // ~200-300ms as a live-account wrong-password response.
+  if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
+    audit({ req, action: 'login_blocked', entity: 'user', entityId: null, details: `Login blocked for username: ${safeUsername} (account or IP lockout)` });
+    req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
 
@@ -457,7 +456,7 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
     req.flash('success', 'Profile updated successfully');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Email address is already in use');
+      req.flash('error', 'An account with this email address already exists');
     } else {
       req.flash('error', 'Error updating profile. Please try again.');
     }

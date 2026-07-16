@@ -106,7 +106,7 @@ const _commentInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?)
   `);
 const _commentTouchStmt = db.prepare('UPDATE tickets SET updated_at = datetime(\'now\') WHERE id = ?');
-const _commentExistStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
+const _commentExistsStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
 
 // Cached statements for ticket create route (used inside transaction)
 const _ticketCounterStmt = db.prepare(`
@@ -558,7 +558,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     // a TOCTOU race where the ticket is deleted between the existence check
     // and the INSERT (mirrors the task-add / member-add patterns).
     const addComment = db.transaction(() => {
-      const ticket = _commentExistStmt.get(id);
+      const ticket = _commentExistsStmt.get(id);
       if (!ticket) {
         throw new Error('NOT_FOUND');
       }

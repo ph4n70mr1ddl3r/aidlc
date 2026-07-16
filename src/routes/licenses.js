@@ -304,7 +304,12 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (resolved.error) {
         throw Object.assign(new Error('SEAT_VALIDATION'), { flash: resolved.error });
       }
-      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, safeKey, license_type || null,
+      // Use sentinel to allow clearing the license key. When the form sends
+      // the literal string '_CLEAR_' as the key value, null it out instead of
+      // preserving the existing key via COALESCE. This matches the absent-vs-empty
+      // clearing pattern used for vendor contract dates and change datetimes.
+      const resolvedKey = safeKey === '_CLEAR_' ? null : safeKey;
+      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,
         sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
     });

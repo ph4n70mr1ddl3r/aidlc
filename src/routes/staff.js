@@ -243,7 +243,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     res.redirect('/staff');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Username or email address is already in use');
+      req.flash('error', 'An account with this username or email address already exists');
     } else {
       console.error('Staff create error:', err.message);
       req.flash('error', 'Error creating staff member. Please try again.');
@@ -443,7 +443,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       return res.redirect(`/staff/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'Email address is already in use');
+      req.flash('error', 'An account with this email address already exists');
     } else {
       console.error('Staff update error:', err.message);
       req.flash('error', 'Error updating staff. Please try again.');
@@ -643,7 +643,8 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       _unassignTicketsStmt.run(id);
 
-      // Unassign non-done project tasks and recalculate affected project progress
+      // Collect affected project IDs before the unassign so the N+1
+      // progress recalculation loop (below) uses the pre-unassign state.
       const affectedProjects = _affectedProjectsStmt.all(id).map(r => r.project_id);
 
       _unassignTasksStmt.run(id);
@@ -654,10 +655,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // Unassign projects owned by this user so they don't orphan
       _unassignProjectOwnerStmt.run(id);
 
-      for (const projectId of affectedProjects) {
-        recalcProjectProgress(db, projectId);
-      }
-      return { ok: true, username: target.username };
+      return { ok: true, username: target.username, affectedProjects };
     });
     const result = deactivate();
 
@@ -666,6 +664,19 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     } else if (result.alreadyInactive) {
       req.flash('info', 'Account is already inactive');
     } else {
+      // Recalculate project progress outside the transaction so SQLite's
+      // write lock is not held across multiple sequential queries. The
+      // project progress was read as of the transaction's snapshot, so
+      // the recalc reflects the post-unassign state correctly even though
+      // the queries execute after the commit.
+      for (const projectId of result.affectedProjects) {
+        try {
+          recalcProjectProgress(db, projectId);
+        } catch (err) {
+          console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+        }
+      }
+
       // Clear login failure lockout for this user so stale in-memory lockout
       // does not persist after reactivation. Consistent with the reactivate and
       // password-reset routes which also clear login failures.
