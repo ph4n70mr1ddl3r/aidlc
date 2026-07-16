@@ -319,7 +319,13 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const department = trim(safeQueryValue(req.body.department));
-  const phone = sanitizePhone(safeQueryValue(req.body.phone));
+  const rawPhone = safeQueryValue(req.body.phone);
+  // Reject overly long phone input before expensive sanitization
+  if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
+    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+    return res.redirect(`/staff/${id}/edit`);
+  }
+  const phone = sanitizePhone(rawPhone);
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);

@@ -427,9 +427,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       const rawNotes = safeQueryValue(req.body.notes);
       const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
       const rawRating = safeQueryValue(req.body.rating);
-      const safeRatingVal = rawRating !== undefined
-        ? (rawRating !== '' && rawRating !== null ? safeRating : null)
-        : existing.rating;
+      const safeRatingVal = _resolveOptionalTextField(rawRating, safeRating, null, existing.rating);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.
