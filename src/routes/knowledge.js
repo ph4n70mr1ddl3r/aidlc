@@ -272,7 +272,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
   } catch (err) {
     console.error('Article create error:', err.message);
     req.flash('error', 'Error creating article. Please try again.');
-    res.redirect('/knowledge/new');
+    return res.redirect('/knowledge/new');
   }
 });
 

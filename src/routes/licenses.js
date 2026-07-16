@@ -173,7 +173,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   } catch (err) {
     console.error('License create error:', err.message);
     req.flash('error', 'Error creating license. Please try again.');
-    res.redirect('/licenses/new');
+    return res.redirect('/licenses/new');
   }
 });
 

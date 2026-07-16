@@ -280,7 +280,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       console.error('Vendor create error:', err.message);
       req.flash('error', 'Error creating vendor. Please try again.');
     }
-    res.redirect('/vendors/new');
+    return res.redirect('/vendors/new');
   }
 });
 

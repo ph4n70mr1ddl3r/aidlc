@@ -250,7 +250,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
       console.error('Staff create error:', err.message);
       req.flash('error', 'Error creating staff member. Please try again.');
     }
-    res.redirect('/staff/new');
+    return res.redirect('/staff/new');
   }
 }));
 
@@ -391,10 +391,11 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // but setting it to 1 would inadvertently reactivate a deactivated user.
   // The UPDATE SQL uses is_active = is_active (self-assign) to prevent a TOCTOU
   // race where is_active fetched earlier could be stale.
-  if (!targetUser.is_active) {
-    req.flash('info', 'This account is deactivated. Editing will not reactivate it — use the Reactivate button on the show page.');
-  }
 
+  // Capture the deactivation state from inside the transaction (recheck) rather
+  // than the stale outer fetch, so the informational flash reflects the actual
+  // row state at update time (consistent with the role recheck below).
+  let wasInactive = false;
   try {
     // Verify the user still exists, recheck admin protection, and update in a
     // single transaction to avoid TOCTOU races: the user could be deleted or
@@ -418,10 +419,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       if (recheck.role !== targetUser.role) {
         throw new Error('ROLE_CHANGED');
       }
+      wasInactive = !recheck.is_active;
       _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
         (department || '').substring(0, MAX_SHORT_STR) || null, phone ? phone.substring(0, MAX_PHONE) : null, id);
     });
     updateStaff();
+
+    if (wasInactive) {
+      req.flash('info', 'This account is deactivated. Editing will not reactivate it — use the Reactivate button on the show page.');
+    }
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
     invalidateDashboardCache();
