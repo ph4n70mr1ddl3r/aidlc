@@ -1,9 +1,13 @@
 const js = require('@eslint/js');
+const stylistic = require('@stylistic/eslint-plugin');
 const globals = require('globals');
 
 module.exports = [
   js.configs.recommended,
   {
+    plugins: {
+      '@stylistic': stylistic
+    },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
@@ -23,19 +27,19 @@ module.exports = [
       'no-redeclare': 'error',
       'no-shadow': 'warn',
       'curly': ['error', 'all'],
-      'brace-style': ['error', '1tbs'],
-      'semi': ['error', 'always'],
-      'quotes': ['error', 'single', { avoidEscape: true }],
-      'comma-dangle': ['error', 'never'],
-      'no-trailing-spaces': 'error',
-      'eol-last': 'error',
-      'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
-      'arrow-spacing': 'error',
-      'space-before-function-paren': ['error', { anonymous: 'always', named: 'never', asyncArrow: 'always' }],
-      'keyword-spacing': 'error',
-      'space-infix-ops': 'error',
-      'object-curly-spacing': ['error', 'always'],
-      'array-bracket-spacing': ['error', 'never']
+      '@stylistic/brace-style': ['error', '1tbs'],
+      '@stylistic/semi': ['error', 'always'],
+      '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
+      '@stylistic/comma-dangle': ['error', 'never'],
+      '@stylistic/no-trailing-spaces': 'error',
+      '@stylistic/eol-last': 'error',
+      '@stylistic/no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
+      '@stylistic/arrow-spacing': 'error',
+      '@stylistic/space-before-function-paren': ['error', { anonymous: 'always', named: 'never', asyncArrow: 'always' }],
+      '@stylistic/keyword-spacing': 'error',
+      '@stylistic/space-infix-ops': 'error',
+      '@stylistic/object-curly-spacing': ['error', 'always'],
+      '@stylistic/array-bracket-spacing': ['error', 'never']
     }
   },
   {
