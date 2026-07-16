@@ -188,7 +188,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(safeQueryValue(req.body.notes));
-  const rating = safeQueryValue(req.body.rating);
+  const rawRating = safeQueryValue(req.body.rating);
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -244,7 +244,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = _validateVendorRating(rating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(rawRating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
@@ -346,7 +346,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const contract_end = safeQueryValue(req.body.contract_end);
   const rawNotes = safeQueryValue(req.body.notes);
   const notes = trim(rawNotes);
-  const rating = safeQueryValue(req.body.rating);
+  const rawRating = safeQueryValue(req.body.rating);
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -398,7 +398,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = _validateVendorRating(rating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(rawRating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);
@@ -426,7 +426,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       const safeWebsite = _resolveOptionalTextField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
       const safeCategory = _resolveOptionalTextField(rawCategory, category || null, null, existing.category);
       const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
-      const safeRatingVal = _resolveOptionalTextField(rating, safeRating, null, existing.rating);
+      const safeRatingVal = _resolveOptionalTextField(rawRating, safeRating, null, existing.rating);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.
