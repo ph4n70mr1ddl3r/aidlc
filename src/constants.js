@@ -80,9 +80,12 @@ const MAX_ADDRESS = 500;          // vendor address
 const MIN_PASSWORD = 12;          // password minimum length
 const MAX_PASSWORD = 128;         // password max length
 const MAX_SEARCH = 100;           // search box input (list filters)
-const MAX_ASSET_TAG = 50;         // asset tag format AST-XXX (incl. prefix)
-const ASSET_TAG_PREFIX = 'AST-';  // asset tag prefix followed by 3 digits
-const ASSET_TAG_RE = /^AST-\d{3}$/;
+const MAX_ASSET_TAG = 50;         // asset tag format AST-<digits> (incl. prefix)
+const ASSET_TAG_PREFIX = 'AST-';  // asset tag prefix followed by digits
+// Require at least 3 digits so the auto-incrementing counter never produces a
+// tag that later fails validation once it exceeds AST-999 (next_seq 1000 yields
+// AST-1000). Keep the lower bound at 3 to preserve the canonical AST-XXX format.
+const ASSET_TAG_RE = /^AST-\d{3,}$/;
 
 // Audit log
 const MAX_AUDIT_DETAILS = 4000; // max length of audit log details to prevent unbounded row growth

@@ -11,7 +11,7 @@ describe('Asset tag validation', () => {
 
   it('rejects malformed asset tags', () => {
     expect(isValidAssetTag('AST-01')).toBe(false);
-    expect(isValidAssetTag('AST-1234')).toBe(false);
+    expect(isValidAssetTag('AST-1234')).toBe(true);
     expect(isValidAssetTag('ast-001')).toBe(false);
     expect(isValidAssetTag('XYZ-001')).toBe(false);
     expect(isValidAssetTag('AST001')).toBe(false);
@@ -46,7 +46,7 @@ describe('Asset constants', () => {
     expect(ASSET_TAG_PREFIX).toBe('AST-');
     expect(ASSET_TAG_RE.test('AST-001')).toBe(true);
     expect(ASSET_TAG_RE.test('AST-999')).toBe(true);
-    expect(ASSET_TAG_RE.test('AST-1234')).toBe(false);
+    expect(ASSET_TAG_RE.test('AST-1234')).toBe(true);
     expect(ASSET_TAG_RE.test('AST-01')).toBe(false);
   });
 
