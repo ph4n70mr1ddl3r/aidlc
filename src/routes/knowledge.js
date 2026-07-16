@@ -136,8 +136,13 @@ function renderMarkdown(content) {
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
     console.error('Markdown render error:', String(err));
-    const text = sanitizeHtml(content, STRIP_HTML_OPTIONS);
-    return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(text)}</pre>`;
+    try {
+      const text = sanitizeHtml(content, STRIP_HTML_OPTIONS);
+      return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(text)}</pre>`;
+    } catch (innerErr) {
+      console.error('Secondary sanitize error:', String(innerErr));
+      return '<div class="alert alert-info">Article content could not be rendered.</div>';
+    }
   }
 }
 
@@ -228,13 +233,22 @@ router.post('/', kbWriteLimiter, (req, res) => {
   }
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  let safeTags = null;
+  let safeTitle = '';
+  let safeContent = '';
+  try {
+    safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
+    safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+    safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+  } catch (sanitizeErr) {
+    console.error('HTML sanitization error:', sanitizeErr.message);
+    req.flash('error', 'Error processing input. Please try again.');
+    return res.redirect('/knowledge/new');
+  }
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect('/knowledge/new');
   }
-  const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
   if (!safeContent) {
     req.flash('error', 'Content is required after removing invalid content');
     return res.redirect('/knowledge/new');
@@ -398,13 +412,22 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // authorisation guard above and the date-helpers inside the transaction.
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  const safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
-  const safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+  let safeTags = null;
+  let safeTitle = '';
+  let safeContent = '';
+  try {
+    safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
+    safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
+    safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+  } catch (sanitizeErr) {
+    console.error('HTML sanitization error:', sanitizeErr.message);
+    req.flash('error', 'Error processing input. Please try again.');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  const safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
   if (!safeContent) {
     req.flash('error', 'Content is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);

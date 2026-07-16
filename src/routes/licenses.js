@@ -206,12 +206,17 @@ router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => 
     return res.status(400).json({ error: 'Invalid license ID' });
   }
 
-  const license = _showLicenseStmt.get(id);
-  if (!license) {
-    return res.status(404).json({ error: 'License not found' });
+  try {
+    const license = _showLicenseStmt.get(id);
+    if (!license) {
+      return res.status(404).json({ error: 'License not found' });
+    }
+    req.audit('read', 'license', id, `Revealed license key for ${license.software_name}`);
+    res.json({ key: license.license_key || '' });
+  } catch (err) {
+    console.error('License key reveal error:', err.message);
+    res.status(500).json({ error: 'Error retrieving license key' });
   }
-  req.audit('read', 'license', id, `Revealed license key for ${license.software_name}`);
-  res.json({ key: license.license_key || '' });
 });
 
 // Edit license
