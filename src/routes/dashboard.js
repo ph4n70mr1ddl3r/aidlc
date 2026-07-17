@@ -171,13 +171,13 @@ function getDashboardData(user) {
     assetStats: { ...EMPTY_DEFAULTS.assetStats, ...(shared.assetStats || {}) },
     projectStats: { ...EMPTY_DEFAULTS.projectStats, ...(shared.projectStats || {}) },
     staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
-    recentTickets: [...(shared.recentTickets || EMPTY_DEFAULTS.recentTickets)],
-    expiringWarranties: [...(shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties)],
-    upcomingChanges: [...(shared.upcomingChanges || EMPTY_DEFAULTS.upcomingChanges)],
-    ticketsByCategory: [...(shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory)],
-    staffWorkload: [...(shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload)],
-    licenseAlerts: [...(shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts)],
-    myTickets: [...myTickets]
+    recentTickets: (shared.recentTickets || EMPTY_DEFAULTS.recentTickets).map(r => ({ ...r })),
+    expiringWarranties: (shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties).map(r => ({ ...r })),
+    upcomingChanges: (shared.upcomingChanges || EMPTY_DEFAULTS.upcomingChanges).map(r => ({ ...r })),
+    ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
+    staffWorkload: (shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload).map(r => ({ ...r })),
+    licenseAlerts: (shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts).map(r => ({ ...r })),
+    myTickets: myTickets.map(r => ({ ...r }))
   };
   return result;
 }

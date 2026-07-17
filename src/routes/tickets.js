@@ -341,6 +341,16 @@ router.get('/:id', (req, res) => {
   // receive internal comments even if the template rendering fails.
   const comments = isPrivileged(req.session.user) ? rawComments : rawComments.filter(c => !c.is_internal);
 
+  // Redact end-user (requester) PII for non-privileged viewers. Requester
+  // email/phone/department belong to non-staff end users and must not be
+  // exposed to every authenticated staff member who opens a ticket URL.
+  // Privileged users (admin/manager) still see full requester details.
+  if (!isPrivileged(req.session.user)) {
+    delete ticket.requester_email;
+    delete ticket.requester_phone;
+    delete ticket.requester_department;
+  }
+
   res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket, comments });
 });
 
