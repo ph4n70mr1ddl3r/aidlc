@@ -62,6 +62,28 @@ function _validateVendorRating(rawValue) {
 }
 
 /**
+ * Resolve a vendor RATING on update. Rating is a discrete 1-5 value (or null),
+ * not free text: an ABSENT field (partial API submission) preserves the existing
+ * rating, and an EMPTY submitted value (the form's number input sends '' when
+ * blank) ALSO preserves it — so editing any other vendor field never wipes a
+ * previously set rating. Only a present, non-empty, validated value replaces it.
+ * @param {*} rawValue - The raw submitted value (from safeQueryValue)
+ * @param {number|null} validatedRating - The parsed rating from _validateVendorRating,
+ *   or null when the field was empty/invalid-but-optional
+ * @param {number|null} existingRating - The current rating from the DB
+ * @returns {number|null}
+ */
+function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating) {
+  if (rawValue === undefined) {
+    return existingRating;
+  }
+  if (validatedRating === null) {
+    return existingRating;
+  }
+  return validatedRating;
+}
+
+/**
  * Resolve an optional DATE field on update: preserve the existing value only
  * when the field is ABSENT from the request (partial submission). An empty or
  * invalid submitted value CLEARS the field (null), consistent with the create
@@ -431,7 +453,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       const safeWebsite = _resolveOptionalTextField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
       const safeCategory = _resolveOptionalTextField(rawCategory, category || null, null, existing.category);
       const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
-      const safeRatingVal = _resolveOptionalTextField(rawRating, safeRating, null, existing.rating);
+      // Rating is a discrete 1-5 value, not free text. An empty submitted
+      // value (the form's number input sends '' when blank) must preserve the
+      // existing rating rather than clear it, so editing any other field on the
+      // vendor does not wipe a previously set rating.
+      const safeRatingVal = _resolveVendorRatingOnUpdate(rawRating, safeRating, existing.rating);
 
       // Prevent renaming to a name already used by another vendor (case-insensitive),
       // which would make LOWER() license lookups ambiguous and could corrupt data.
@@ -632,5 +658,6 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 module.exports = router;
 // Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
 module.exports.validateVendorRating = _validateVendorRating;
+module.exports.resolveVendorRatingOnUpdate = _resolveVendorRatingOnUpdate;
 module.exports.resolveClearableDate = _resolveClearableDate;
 module.exports.resolveOptionalTextField = _resolveOptionalTextField;

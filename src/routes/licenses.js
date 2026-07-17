@@ -294,8 +294,6 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     // TOCTOU between a prior SELECT and the UPDATE). We no longer rely on a
     // magic '_CLEAR_' string value, which any user could accidentally submit
     // as their key and wipe it.
-    const safeKey = clearKey ? null : ((license_key || '').substring(0, MAX_LONG_STR) || null);
-
     // Verify license exists and update in a single transaction to avoid a TOCTOU
     // race where the license is deleted between the existence check and the UPDATE.
     const updateLicense = db.transaction(() => {
@@ -315,7 +313,9 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // a blank field preserves the existing value; a non-empty field replaces
       // it. (The old '_CLEAR_' magic-string sentinel was removed because any
       // user could submit it as a literal key value and wipe the stored key.)
-      const resolvedKey = clearKey ? null : (safeKey !== null ? safeKey : existing.license_key);
+      const resolvedKey = clearKey
+        ? null
+        : (license_key ? license_key.substring(0, MAX_LONG_STR) || null : existing.license_key);
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,
         sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);

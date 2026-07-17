@@ -27,7 +27,7 @@ jest.mock('../src/routes/dashboard', () => {
   return router;
 });
 
-const { validateVendorRating, resolveClearableDate, resolveOptionalTextField } = require('../src/routes/vendors');
+const { validateVendorRating, resolveClearableDate, resolveOptionalTextField, resolveVendorRatingOnUpdate } = require('../src/routes/vendors');
 
 describe('validateVendorRating', () => {
   it('parses a valid integer rating in range', () => {
@@ -119,5 +119,27 @@ describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
     // Mirrors the array guards across the codebase: a polluted payload must not
     // silently clear stored data.
     expect(resolveOptionalTextField(['a'], 'a', null, 'existing')).toBe('existing');
+  });
+});
+
+describe('resolveVendorRatingOnUpdate (rating preservation)', () => {
+  // Regression: the vendor update route previously cleared an existing rating
+  // whenever the form's number input submitted an empty string (rawValue === ''),
+  // because it routed rating through the generic "empty text clears" path. Since
+  // rating is a discrete 1-5 value, an empty submission must PRESERVE the stored
+  // rating so editing any other vendor field does not wipe it.
+  it('preserves the existing rating when the field is absent (partial submission)', () => {
+    expect(resolveVendorRatingOnUpdate(undefined, 4, 3)).toBe(3);
+    expect(resolveVendorRatingOnUpdate(undefined, null, 5)).toBe(5);
+  });
+
+  it('preserves the existing rating when an empty value is submitted', () => {
+    expect(resolveVendorRatingOnUpdate('', null, 3)).toBe(3);
+    expect(resolveVendorRatingOnUpdate('  ', null, 5)).toBe(5);
+  });
+
+  it('replaces the rating with a validated non-empty value', () => {
+    expect(resolveVendorRatingOnUpdate('4', 4, 2)).toBe(4);
+    expect(resolveVendorRatingOnUpdate('1', 1, 5)).toBe(1);
   });
 });
