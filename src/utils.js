@@ -756,6 +756,22 @@ function selectQuery(db, sql, params) {
 }
 
 /**
+ * Determine whether the client prefers a JSON response over HTML.
+ * Uses Express content negotiation directly: req.accepts returns the preferred
+ * type ('json' or 'html') when both are acceptable, or the single matching type
+ * when only one is acceptable. This is the correct idiom — a client sending the
+ * wildcard Accept header (fetch/XHR/browsers) negotiates to 'json' when json is
+ * offered, whereas the fragile check `req.accepts('html') === false && req.accepts('json')`
+ * wrongly returned false under a wildcard Accept header and served HTML error
+ * pages to AJAX callers.
+ * @param {import('express').Request} req
+ * @returns {boolean}
+ */
+function prefersJson(req) {
+  return Boolean(req && typeof req.accepts === 'function') && req.accepts(['json', 'html']) === 'json';
+}
+
+/**
  * Check if a user has admin or manager privileges.
  * Centralizes the repeated role-check pattern across routes.
  * @param {Object} user - Session user object with a `role` property
@@ -806,4 +822,4 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };

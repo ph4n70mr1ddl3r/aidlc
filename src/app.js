@@ -23,6 +23,7 @@ if (!process.env.NODE_ENV) {
 }
 
 const utilsModule = require('./utils');
+const { prefersJson } = utilsModule;
 const constantsModule = require('./constants');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
@@ -418,8 +419,10 @@ app.use((err, req, res, _next) => {
     console.error('Unhandled error:', (err && err.message) || String(err));
   }
 
-  // Handle JSON requests (e.g. AJAX endpoints) gracefully
-  const wantsJson = req.accepts('html') === false && req.accepts('json');
+  // Handle JSON requests (e.g. AJAX endpoints) gracefully.
+  // prefersJson() uses content negotiation so AJAX callers (Accept: */* or
+  // application/json) correctly receive JSON instead of an HTML error page.
+  const wantsJson = prefersJson(req);
 
   if (err.code === 'EBADCSRFTOKEN') {
     if (wantsJson) {

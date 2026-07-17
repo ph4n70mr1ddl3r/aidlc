@@ -508,6 +508,45 @@ describe('isPrivileged', () => {
 });
 
 /**
+ * Test for prefersJson content negotiation.
+ * Regression: the error handler must serve JSON to AJAX clients. The previous
+ * check (req.accepts('html') === false && req.accepts('json')) returned false
+ * under a wildcard Accept header (fetch/XHR/browsers) and served HTML error
+ * pages instead.
+ */
+describe('prefersJson', () => {
+  const makeReq = (accept) => ({ accepts: (_types) => {
+    // Minimal reimplementation of Express header q-value negotiation for the
+    // two candidates we care about, sufficient to exercise our predicate.
+    if (accept === undefined) {
+      return 'html'; // missing Accept header → everything acceptable
+    }
+    const lower = accept.toLowerCase();
+    if (lower.includes('application/json') || lower === '*/*') {
+      return 'json';
+    }
+    return 'html';
+  } });
+
+  it('returns true for Accept: application/json', () => {
+    expect(utils.prefersJson(makeReq('application/json'))).toBe(true);
+  });
+
+  it('returns true for Accept: */* (fetch/XHR/browsers) — regression case', () => {
+    expect(utils.prefersJson(makeReq('*/*'))).toBe(true);
+  });
+
+  it('returns false for Accept: text/html', () => {
+    expect(utils.prefersJson(makeReq('text/html'))).toBe(false);
+  });
+
+  it('returns false when req or req.accepts is missing', () => {
+    expect(utils.prefersJson(null)).toBe(false);
+    expect(utils.prefersJson({})).toBe(false);
+  });
+});
+
+/**
  * Test for addSearch function
  */
 describe('addSearch', () => {
