@@ -64,6 +64,11 @@ function paginationBaseUrl(req) {
   for (const key of known) {
     const v = req.query[key];
     if (v !== undefined) {
+      // Guard against HPP arrays (e.g. ?sort[]=a&sort[]=b) the same way the
+      // list routes sanitize every other query parameter. safeSort/
+      // buildFilters whitelist their inputs downstream, but paginationBaseUrl
+      // emits the raw value into the URL, so arrays must be stripped to avoid
+      // leaking comma-joined junk into rendered links.
       q[key] = safeQueryValue(v);
     }
   }
@@ -262,6 +267,9 @@ function safePositiveFloat(value, fallback = null) {
     }
   }
   const n = parseFloat(value);
+  // Reject Infinity/-Infinity (parseFloat("Infinity") === Infinity and would
+  // pass the n < 0 check) — SQLite rejects non-finite values on write, but we
+  // should fail closed here rather than rely on a downstream DB error.
   if (!Number.isFinite(n) || n < 0) {
     return fallback;
   }
@@ -289,7 +297,13 @@ function safeInt(value, fallback = 0) {
     return fallback;
   }
   const n = parseInt(value, 10);
-  return Number.isFinite(n) ? n : fallback;
+  // Reject Infinity/-Infinity — parseInt("Infinity") === Infinity and would
+  // otherwise slip past the Number.isFinite check below and be stored as a
+  // non-finite value. Fail closed rather than rely on a downstream error.
+  if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return n;
 }
 
 /**

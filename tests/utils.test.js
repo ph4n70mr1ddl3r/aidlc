@@ -362,6 +362,15 @@ describe('safeInt', () => {
     expect(utils.safeInt(42)).toBe(42);
     expect(utils.safeInt(0, 10)).toBe(0);
   });
+
+  it('should reject Infinity (defense-in-depth)', () => {
+    // Regression: parseInt("Infinity") === Infinity, which passed the original
+    // Number.isFinite guard. Fail closed instead of relying on a downstream
+    // SQLite non-finite rejection.
+    expect(utils.safeInt('Infinity', 0)).toBe(0);
+    expect(utils.safeInt('Infinity')).toBe(0);
+    expect(utils.safeInt(Infinity, 7)).toBe(7);
+  });
 });
 
 /**
@@ -636,6 +645,14 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat('0.5')).toBe(0.5);
     expect(utils.safePositiveFloat('.5')).toBe(0.5);
     expect(utils.safePositiveFloat('100.00')).toBe(100);
+  });
+
+  it('should reject Infinity (defense-in-depth)', () => {
+    // Regression: parseFloat("Infinity") === Infinity, which passed the
+    // original negative-only guard. Reject non-finite values explicitly.
+    expect(utils.safePositiveFloat('Infinity')).toBeNull();
+    expect(utils.safePositiveFloat('Infinity', 0)).toBe(0);
+    expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 });
 
