@@ -246,6 +246,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(safeQueryValue(req.body.software_name));
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
+  const clearKey = req.body.clear_key === 'on' || req.body.clear_key === '1' || req.body.clear_key === 'true';
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
   const used_seats = safeQueryValue(req.body.used_seats);
@@ -288,10 +289,12 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   try {
-    // If license_key field is blank on edit, COALESCE/NULLIF in the UPDATE SQL
-    // preserves the existing key atomically, avoiding a TOCTOU between a prior
-    // SELECT (to fetch the key) and the UPDATE below.
-    const safeKey = (license_key || '').substring(0, MAX_LONG_STR) || null;
+    // Resolve the new key. An explicit "clear key" checkbox wipes the stored
+    // key; otherwise a blank field preserves the existing value (avoiding a
+    // TOCTOU between a prior SELECT and the UPDATE). We no longer rely on a
+    // magic '_CLEAR_' string value, which any user could accidentally submit
+    // as their key and wipe it.
+    const safeKey = clearKey ? null : ((license_key || '').substring(0, MAX_LONG_STR) || null);
 
     // Verify license exists and update in a single transaction to avoid a TOCTOU
     // race where the license is deleted between the existence check and the UPDATE.
@@ -308,13 +311,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (resolved.error) {
         throw Object.assign(new Error('SEAT_VALIDATION'), { flash: resolved.error });
       }
-      // Use sentinel to allow clearing the license key. When the form sends
-      // the literal string '_CLEAR_' as the key value, null it out instead of
-      // preserving the existing key (which the old COALESCE/NULLIF pattern was
-      // supposed to do but actually didn't because NULLIF(null, '') returns
-      // null and COALESCE(null, license_key) preserves the existing value).
-      // Now we resolve explicitly: absent/empty → preserve, _CLEAR_ → clear.
-      const resolvedKey = safeKey === '_CLEAR_' ? null : (safeKey !== null ? safeKey : existing.license_key);
+      // Resolve the license key: an explicit clear_key checkbox wipes it;
+      // a blank field preserves the existing value; a non-empty field replaces
+      // it. (The old '_CLEAR_' magic-string sentinel was removed because any
+      // user could submit it as a literal key value and wipe the stored key.)
+      const resolvedKey = clearKey ? null : (safeKey !== null ? safeKey : existing.license_key);
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,
         sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
