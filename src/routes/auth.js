@@ -9,6 +9,26 @@ const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 
+// Rate limit password-related endpoints to prevent brute-force
+const passwordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many password attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+  // Count all requests — password routes return 302 redirects for both
+  // success and failure, so skipSuccessfulRequests would never count anything.
+});
+
+// Rate limit profile updates (separate from password changes)
+const profileLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: 'Too many profile update attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Lazily initialized so tests can reset cached statements via resetCachedStatements()
 // (consistent with the lazy-init pattern in audit.js and middleware/auth.js).
 let _loginStmt = null;
@@ -364,7 +384,7 @@ router.get('/profile', requireAuth, (req, res) => {
 });
 
 // Update profile
-router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
+router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -442,7 +462,7 @@ router.put('/profile', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 // Change password
-router.put('/profile/password', requireAuth, asyncHandler(async (req, res) => {
+router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async (req, res) => {
   const current_password = safeQueryValue(req.body.current_password);
   const new_password = safeQueryValue(req.body.new_password);
   const confirm_password = safeQueryValue(req.body.confirm_password);

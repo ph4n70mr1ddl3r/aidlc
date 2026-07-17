@@ -88,11 +88,11 @@ describe('resolveClearableDate (contract date clearing)', () => {
     expect(resolveClearableDate('not-a-date', '2024-01-01')).toBeNull();
   });
 
-  it('preserves existing when given an array (parameter pollution)', () => {
-    // Mirrors the array guards across the codebase: a polluted
-    // ?contract_start[]=a&contract_start[]=b payload must not silently clear
-    // the stored date (safeDate would otherwise null out a non-string input).
-    expect(resolveClearableDate(['2025-01-01'], '2024-01-01')).toBe('2024-01-01');
+  it('rejects arrays (parameter pollution) as invalid input', () => {
+    // A polluted ?contract_start[]=a&contract_start[]=b payload must not be
+    // silently accepted (preserving or clearing the stored date); it is invalid
+    // input and must surface as an error so the update fails closed.
+    expect(resolveClearableDate(['2025-01-01'], '2024-01-01')).toEqual({ error: true });
   });
 });
 

@@ -58,7 +58,7 @@ describe('resolveDateTimeField', () => {
     });
 
     it('rejects arrays from HTTP parameter pollution', () => {
-      expect(resolveDateTimeField(['2024-01-15T10:00'], null)).toEqual({ value: null });
+      expect(resolveDateTimeField(['2024-01-15T10:00'], null)).toEqual({ error: true });
     });
   });
 
@@ -82,8 +82,8 @@ describe('resolveDateTimeField', () => {
       expect(resolveDateTimeField('garbage', existing)).toEqual({ error: true });
     });
 
-    it('rejects arrays (parameter pollution) by preserving existing', () => {
-      expect(resolveDateTimeField(['2024-02-20T09:30'], existing)).toEqual({ value: existing });
+    it('rejects arrays (parameter pollution) as invalid input', () => {
+      expect(resolveDateTimeField(['2024-02-20T09:30'], existing)).toEqual({ error: true });
     });
   });
 });

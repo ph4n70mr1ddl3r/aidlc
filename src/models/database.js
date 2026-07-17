@@ -21,9 +21,20 @@ try {
   process.exit(1);
 }
 
-// Enable WAL mode for better performance
-db.pragma('journal_mode = WAL');
+// Enable WAL mode for better performance. Assert the result: on filesystems
+// that don't support WAL the pragma silently "succeeds" but returns a
+// different mode, which would change the concurrency/durability assumptions.
+const journalMode = db.pragma('journal_mode = WAL', { simple: true });
+if (journalMode !== 'wal') {
+  console.warn(`WARNING: SQLite WAL mode not enabled (got "${journalMode}"). Concurrency/durability assumptions may not hold.`);
+}
+// Referential integrity must be ON or every FK-backed cascade/cleanup in the
+// routes silently stops enforcing. Assert it actually turned on.
 db.pragma('foreign_keys = ON');
+const fkEnabled = db.pragma('foreign_keys', { simple: true });
+if (fkEnabled !== 1) {
+  console.warn('WARNING: SQLite foreign_keys pragma did not enable (got ' + JSON.stringify(fkEnabled) + '). Referential integrity is disabled.');
+}
 // Wait up to 5 seconds if the database is locked by another writer
 db.pragma('busy_timeout = 5000');
 // NORMAL is safe with WAL and much faster than FULL

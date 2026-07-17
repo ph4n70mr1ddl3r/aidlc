@@ -72,9 +72,14 @@ function _validateVendorRating(rawValue) {
  */
 function _resolveClearableDate(rawValue, existingValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?contract_end[]=a&contract_end[]=b)
-  // so a polluted payload does not silently clear a date. Mirrors the array
-  // guards in safeId / safeInt / safePositiveFloat and changes.js _resolveDateTimeField.
-  if (Array.isArray(rawValue) || rawValue === undefined) {
+  // so a polluted payload does not silently preserve/clear a date. Mirrors the
+  // array guards in safeId / safeInt / safePositiveFloat and changes.js
+  // _resolveDateTimeField. An array is invalid input and must surface as an
+  // error rather than silently falling back to the existing value.
+  if (Array.isArray(rawValue)) {
+    return { error: true };
+  }
+  if (rawValue === undefined) {
     return existingValue;
   }
   return safeDate(rawValue);
@@ -444,6 +449,12 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // it impossible to clear a contract date via the edit form.
       const safeContractStartVal = _resolveClearableDate(contract_start, existing.contract_start);
       const safeContractEndVal = _resolveClearableDate(contract_end, existing.contract_end);
+      if (safeContractStartVal && safeContractStartVal.error) {
+        throw new Error('INVALID_CONTRACT_START');
+      }
+      if (safeContractEndVal && safeContractEndVal.error) {
+        throw new Error('INVALID_CONTRACT_END');
+      }
 
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.

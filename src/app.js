@@ -241,28 +241,6 @@ app.use(csrfConfig.doubleCsrfProtection);
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-// Rate limit password-related endpoints to prevent brute-force
-const passwordLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
-  message: 'Too many password attempts. Please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false
-  // Count all requests — password routes return 302 redirects for both
-  // success and failure, so skipSuccessfulRequests would never count anything.
-});
-app.put('/profile/password', passwordLimiter);
-
-// Rate limit profile updates (separate from password changes)
-const profileLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
-  message: 'Too many profile update attempts. Please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false
-});
-app.put('/profile', profileLimiter);
-
 // Rate limit write endpoints to prevent spam
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

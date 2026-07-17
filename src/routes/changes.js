@@ -37,8 +37,10 @@ const _changeInsertStmt = db.prepare(`
 function _resolveDateTimeField(submittedValue, existingValue) {
   // Reject arrays from HTTP parameter pollution for consistency with the
   // array guards in safeId / safeInt / safePositiveFloat throughout the codebase.
+  // An array is invalid input, not a "preserve existing" signal, so it must
+  // surface as a validation error rather than silently keeping the old value.
   if (Array.isArray(submittedValue)) {
-    return { value: existingValue };
+    return { error: true };
   }
   if (submittedValue === undefined || submittedValue === null) {
     return { value: existingValue };
