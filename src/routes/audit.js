@@ -1,11 +1,12 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
-router.use(requireAuth, requireAdminOrManager);
+router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
 // Rate limit the audit log endpoint — the LEFT JOIN over a fast-growing
 // audit_log table is expensive and could be abused for DoS even behind
@@ -26,6 +27,12 @@ const SORT_MAP = Object.freeze({
 });
 
 router.get('/', auditLimiter, (req, res) => {
+  // Record that the audit trail was accessed — a compromised privileged
+  // account reading the full audit log should leave a trace of its own.
+  if (typeof req.audit === 'function') {
+    req.audit('read', 'audit_log', null, 'Viewed audit log');
+  }
+
   const { page, limit, offset } = paginate(req);
 
   const qAction = safeQueryValue(req.query.action);

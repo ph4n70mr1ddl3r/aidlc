@@ -59,7 +59,7 @@ const SESSION_MAX_AGE = 24 * 60 * 60 * 1000;
 
 // Audit log filter whitelists — kept in constants so they stay in sync
 // if new actions or entity types are added across route files.
-const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'read', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment'];
+const ALLOWED_ACTIONS = ['create', 'update', 'delete', 'read', 'login', 'logout', 'login_failed', 'login_blocked', 'login_rate_limited', 'deactivate', 'reactivate', 'comment', 'access_denied'];
 const ALLOWED_ENTITY_TYPES = ['user', 'ticket', 'asset', 'project', 'project_task', 'project_member', 'vendor', 'knowledge_article', 'license', 'change'];
 
 // ---------------------------------------------------------------------------

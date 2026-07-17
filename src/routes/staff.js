@@ -135,6 +135,22 @@ router.get('/', (req, res) => {
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
+  // PII disclosure control: mirror the protection on the GET /:id show route.
+  // Non-privileged users (regular staff) must not be able to harvest other
+  // employees' email/phone via the directory listing. Only privileged users
+  // (admin/manager) and the user themselves receive those fields; everyone
+  // else gets them zeroed out before rendering.
+  const viewer = req.session.user;
+  const viewerPrivileged = isPrivileged(viewer);
+  if (!viewerPrivileged) {
+    for (const s of staff) {
+      if (Number(s.id) !== Number(viewer.id)) {
+        s.email = null;
+        s.phone = null;
+      }
+    }
+  }
+
   res.render('pages/staff/index', {
     title: 'Staff', staff, departments,
     filters: safeFilters(req.query, ['search', 'status', 'role', 'department', 'sort']),

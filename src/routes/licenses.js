@@ -246,7 +246,8 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(safeQueryValue(req.body.software_name));
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
-  const clearKey = req.body.clear_key === 'on' || req.body.clear_key === '1' || req.body.clear_key === 'true';
+  const clearKeyVal = safeQueryValue(req.body.clear_key);
+  const clearKey = clearKeyVal === 'on' || clearKeyVal === '1' || clearKeyVal === 'true';
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
   const used_seats = safeQueryValue(req.body.used_seats);

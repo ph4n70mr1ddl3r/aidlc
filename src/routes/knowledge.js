@@ -304,6 +304,9 @@ router.get('/:id', (req, res) => {
   if (article.status !== 'published') {
     const isOwner = article.author_id === req.session.user.id;
     if (!isOwner && !isPrivileged(req.session.user)) {
+      if (typeof req.audit === 'function') {
+        req.audit('access_denied', 'knowledge_article', id, 'Unauthorized view of non-published article');
+      }
       req.flash('error', 'Article not found');
       return res.redirect('/knowledge');
     }
@@ -352,6 +355,9 @@ router.get('/:id/edit', (req, res) => {
 
   const isOwner = article.author_id === req.session.user.id;
   if (!isOwner && !isPrivileged(req.session.user)) {
+    if (typeof req.audit === 'function') {
+      req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
+    }
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
   }
