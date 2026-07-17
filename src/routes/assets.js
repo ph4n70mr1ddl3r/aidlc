@@ -275,6 +275,12 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets');
   }
 
+  const existingAsset = _editStmt.get(id);
+  if (!existingAsset) {
+    req.flash('error', 'Asset not found');
+    return res.redirect('/assets');
+  }
+
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));
   const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
@@ -326,7 +332,12 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (!VALID_STATUSES.includes(status)) {
+  // Preserve the existing status on a partial submit (e.g. an empty status
+  // field) instead of rejecting the whole update. This matches the
+  // preserve-existing convention used by the vendor/project/license routes and
+  // keeps the asset's current status when a caller omits the field.
+  const safeStatus = VALID_STATUSES.includes(status) ? status : (existingAsset ? existingAsset.status : 'in_storage');
+  if (!VALID_STATUSES.includes(safeStatus)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/assets/${id}/edit`);
   }
@@ -363,7 +374,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       const result = _updateStmt.run(
         asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
         (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
-        (serial_number || '').substring(0, MAX_SHORT_STR) || null, status, safeCondition,
+        (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, safeCondition,
         sPurchase, safePositiveFloat(purchase_price),
         sWarranty, updateAssignee,
         (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id

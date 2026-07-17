@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -229,9 +229,10 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
 
-  // Only admins can create admin accounts (managers must not escalate privileges)
-  if (role === 'admin' && req.session.user.role !== 'admin') {
-    req.flash('error', 'Only administrators can create admin accounts');
+  // Only admins can create privileged accounts (manager/admin). Managers must
+  // not be able to escalate privileges by creating new manager accounts.
+  if (role !== 'staff' && req.session.user.role !== 'admin') {
+    req.flash('error', 'Only administrators can create manager or admin accounts');
     return res.redirect('/staff/new');
   }
 
@@ -259,6 +260,15 @@ router.get('/:id', (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');
+    return res.redirect('/staff');
+  }
+
+  // PII disclosure control: only privileged users (admin/manager) or the user
+  // themselves may view a staff profile. A regular staff member enumerating
+  // IDs must not be able to read other employees' email/phone/department.
+  const isSelf = Number(id) === Number(req.session.user.id);
+  if (!isPrivileged(req.session.user) && !isSelf) {
+    req.flash('error', 'You do not have permission to view that staff member');
     return res.redirect('/staff');
   }
 
@@ -370,9 +380,12 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
-  // Only admins can assign the admin role
-  if (safeRole === 'admin' && req.session.user.role !== 'admin') {
-    req.flash('error', 'Only administrators can assign the admin role');
+  // Only admins can assign privileged roles (manager/admin). A manager must
+  // not be able to escalate a staff user to manager (or another admin), which
+  // would grant near-admin capabilities. Managers are limited to editing
+  // staff-role users.
+  if (safeRole !== 'staff' && req.session.user.role !== 'admin') {
+    req.flash('error', 'Only administrators can assign the manager or admin role');
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
@@ -380,9 +393,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'You cannot change your own role');
     return res.redirect(`/staff/${id}/edit`);
   }
-  // Managers cannot edit or deactivate admin accounts
-  if (req.session.user.role !== 'admin' && targetUser.role === 'admin') {
-    req.flash('error', 'You cannot modify administrator accounts');
+  // Managers cannot edit or deactivate admin accounts, nor other managers
+  // (only admins may manage manager accounts).
+  if (req.session.user.role !== 'admin' && targetUser.role !== 'staff') {
+    req.flash('error', 'You cannot modify administrator or manager accounts');
     return res.redirect('/staff');
   }
   // Preserve existing is_active on edit. Deactivation must go through the
@@ -409,9 +423,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       if (!recheck) {
         throw new Error('NOT_FOUND');
       }
-      // Recheck admin protection inside the transaction so a concurrent role
-      // change between the outer check and the UPDATE cannot bypass the guard.
-      if (req.session.user.role !== 'admin' && recheck.role === 'admin') {
+      // Recheck admin/manager protection inside the transaction so a concurrent
+      // role change between the outer check and the UPDATE cannot bypass the
+      // guard (managers must not modify admin or manager accounts).
+      if (req.session.user.role !== 'admin' && recheck.role !== 'staff') {
         throw new Error('ACCESS_DENIED_ADMIN');
       }
       // Prevent a stale `safeRole` (computed from req.body before the
