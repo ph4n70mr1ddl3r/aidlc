@@ -95,13 +95,15 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
 // mutate the options argument, being defensive costs nothing).
 
 const SANITIZE_HTML_OPTIONS = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del', 'input']),
+  // NOTE: 'input' is intentionally NOT allowed. A published KB article that
+  // renders interactive form controls is a stored HTML/UI-injection vector
+  // (e.g. a hidden checkbox or file-input appearing in an article body).
+  allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del']),
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     img: ['src', 'alt', 'title'],
     a: ['href', 'name', 'target', 'rel', 'title'],
-    code: ['class'],
-    input: ['type', 'checked', 'disabled']
+    code: ['class']
   },
   // Force rel="noopener noreferrer" on all links for defense-in-depth
   // against reverse tabnabbing, even though marked doesn't emit target="_blank".
@@ -237,9 +239,15 @@ router.post('/', kbWriteLimiter, (req, res) => {
   let safeTitle = '';
   let safeContent = '';
   try {
-    safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
-    safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
-    safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+    // Sanitize first, then truncate. Truncating before sanitizing would let a
+    // value sitting exactly at the limit grow past it once sanitizeHtml escapes
+    // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
+    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
+    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
+    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
+    if (safeTags) {
+      safeTags = safeTags.substring(0, MAX_LONG_STR) || null;
+    }
   } catch (sanitizeErr) {
     console.error('HTML sanitization error:', sanitizeErr.message);
     req.flash('error', 'Error processing input. Please try again.');
@@ -416,9 +424,15 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   let safeTitle = '';
   let safeContent = '';
   try {
-    safeTags = sanitizeHtml((tags || '').substring(0, MAX_LONG_STR), STRIP_HTML_OPTIONS) || null;
-    safeTitle = sanitizeHtml(title.substring(0, MAX_MEDIUM_STR), STRIP_HTML_OPTIONS);
-    safeContent = sanitizeHtml(content.substring(0, MAX_CONTENT), STRIP_HTML_OPTIONS);
+    // Sanitize first, then truncate. Truncating before sanitizing would let a
+    // value sitting exactly at the limit grow past it once sanitizeHtml escapes
+    // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
+    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
+    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
+    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
+    if (safeTags) {
+      safeTags = safeTags.substring(0, MAX_LONG_STR) || null;
+    }
   } catch (sanitizeErr) {
     console.error('HTML sanitization error:', sanitizeErr.message);
     req.flash('error', 'Error processing input. Please try again.');

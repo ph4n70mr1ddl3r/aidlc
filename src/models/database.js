@@ -286,7 +286,7 @@ function initSchema() {
       details TEXT,
       ip_address TEXT,
       created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -327,6 +327,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_changes_status ON change_log(status);
     CREATE INDEX IF NOT EXISTS idx_licenses_expiry ON licenses(expiry_date);
     CREATE INDEX IF NOT EXISTS idx_tickets_resolved ON tickets(resolved_at);
+    CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets(category);
     CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
     CREATE INDEX IF NOT EXISTS idx_users_department ON users(department);
     CREATE INDEX IF NOT EXISTS idx_assets_warranty ON assets(warranty_expiry);

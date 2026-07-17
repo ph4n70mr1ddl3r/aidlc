@@ -68,10 +68,13 @@ describe('renderMarkdown', () => {
     expect(html).not.toContain('could not be rendered');
   });
 
-  it('renders GitHub task list checkboxes', () => {
+  it('renders GitHub task list checkboxes without interactive <input> elements', () => {
     const html = renderMarkdown('- [x] done');
-    expect(html).toContain('<input');
-    expect(html).toMatch(/checked/i);
+    // Interactive form controls must NOT be emitted into rendered articles —
+    // they are a stored HTML/UI-injection vector. The checkbox is rendered as
+    // a plain list item instead.
+    expect(html).not.toContain('<input');
+    expect(html).toMatch(/done/);
   });
 
   it('returns empty string for empty / non-string input (and does not call marked)', () => {
