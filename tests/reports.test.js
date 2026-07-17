@@ -93,3 +93,27 @@ describe('warranty expiry alerts exclude disposed assets', () => {
     expect(list).toEqual(['dash-active']);
   });
 });
+
+describe('resolveReportPeriod HPP fail-closed', () => {
+  const { resolveReportPeriod } = require('../src/routes/reports');
+
+  it('clamps HPP array period to the upper bound', () => {
+    // safeQueryValue takes the first element, which is then clamped to 365 —
+    // an HPP array cannot push the value past the safe upper bound.
+    expect(resolveReportPeriod(['999', '1'])).toBe(365);
+  });
+
+  it('clamps out-of-range values to [1, 365]', () => {
+    expect(resolveReportPeriod('9999')).toBe(365);
+    expect(resolveReportPeriod('0')).toBe(1);
+    expect(resolveReportPeriod('-5')).toBe(1);
+  });
+
+  it('accepts a valid in-range value', () => {
+    expect(resolveReportPeriod('90')).toBe(90);
+  });
+
+  it('falls back to default for non-numeric junk', () => {
+    expect(resolveReportPeriod('abc')).toBe(30);
+  });
+});

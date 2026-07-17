@@ -2,6 +2,24 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { safeInt, safeQueryValue } = require('../utils');
+
+/**
+ * Parse the `period` report query parameter, clamps to [1, 365], and fails
+ * closed on HTTP parameter pollution. An array (e.g. ?period[]=999&period[]=1)
+ * is rejected and falls back to the default rather than silently using the
+ * first element — consistent with the array-rejection guards in safeId /
+ * safeInt / safePositiveFloat and the HPP defense used across the codebase.
+ * @param {*} raw
+ * @param {number} fallback
+ * @returns {number}
+ */
+function resolveReportPeriod(raw, fallback = 30) {
+  const v = safeQueryValue(raw);
+  if (Array.isArray(v)) {
+    return fallback;
+  }
+  return Math.max(1, Math.min(365, safeInt(v, fallback)));
+}
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
@@ -157,7 +175,7 @@ router.get('/', (req, res) => {
 // Ticket Analytics
 router.get('/tickets', (req, res) => {
   try {
-    const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
+    const period = resolveReportPeriod(req.query.period);
     req.audit('read', 'ticket', null, 'Viewed ticket analytics report');
 
     const ticketsByDay = stmts.ticketsByDay.all(period);
@@ -204,7 +222,7 @@ router.get('/assets', (req, res) => {
 // Staff Performance
 router.get('/staff', (req, res) => {
   try {
-    const period = Math.max(1, Math.min(365, safeInt(safeQueryValue(req.query.period), 30)));
+    const period = resolveReportPeriod(req.query.period);
     req.audit('read', 'user', null, 'Viewed staff performance report');
     // Two ? placeholders in the SQL: one for resolved_tickets period, one for completed_tasks period
     const performance = stmts.staffPerformance.all(period, period);
@@ -218,6 +236,8 @@ router.get('/staff', (req, res) => {
 });
 
 module.exports = router;
+// Exposed for unit testing the HPP fail-closed period parsing.
+module.exports.resolveReportPeriod = resolveReportPeriod;
 // Exposed for unit testing against a real in-memory DB (mirrors the test-export
 // pattern in tickets.js / vendors.js / knowledge.js). Guards the age-bucket
 // ordering and the disposed-asset warranty exclusion against regression.
