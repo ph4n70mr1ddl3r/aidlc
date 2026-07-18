@@ -294,7 +294,13 @@ const writeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors'], (req, res, next) => {
+// Privileged export/aggregation endpoints (/audit, /reports) already enforce
+// requireAdminOrManager and carry their own per-route limiters, but this adds a
+// uniform write-rate backstop against abuse of state-changing calls on those
+// mounts as well (previously only the listed mounts were covered — a gap noted
+// in prior review passes). Reads (GET) are intentionally left unthrottled here
+// since the per-route limiters already cover the expensive report/audit queries.
+app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors', '/audit', '/reports'], (req, res, next) => {
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
     return writeLimiter(req, res, next);
   }

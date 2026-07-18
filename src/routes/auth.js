@@ -237,6 +237,15 @@ router.get('/login', (req, res) => {
 
 // Login handler
 router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
+  // Fail-closed HTTP parameter pollution guard: a polluted username[]= or
+  // password[]= is an array, not a scalar. safeQueryValue would silently
+  // collapse it to the first element (fail-open), so reject explicitly to stay
+  // consistent with every other write route's HPP defense.
+  if (Array.isArray(req.body.username) || Array.isArray(req.body.password)) {
+    req.flash('error', 'Please enter username and password');
+    return res.redirect('/login');
+  }
+
   const username = safeQueryValue(req.body.username);
   const password = safeQueryValue(req.body.password);
 

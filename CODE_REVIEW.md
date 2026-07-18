@@ -249,3 +249,46 @@ and regression-tested:
 - `npx jest` — 270 passed / 270 total (added 11 HPP regression cases + 2 login
   timing-oracle regression cases).
 - `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-07-18 (sixth pass)
+
+A sixth independent pass (full source re-read + a dedicated template/EJS audit
+agent over all 42 views and `public/js/app.js`, plus targeted greps confirming
+no raw `req.body/query/params` values reach SQL) found no SQL injection, IDOR,
+CSRF, XSS, auth, or TOCTOU defects. The codebase's defense-in-depth model is
+internally consistent. The following genuine, previously-unaddressed gaps were
+closed (no exploitable defects were outstanding — these are consistency /
+defense-in-depth additions):
+
+### Fixes applied
+- **`app.js` — write-rate backstop omitted `/audit` and `/reports` (LOW).**
+  Prior passes noted these privileged export/aggregation mounts were not covered
+  by the global `writeLimiter` mount list (they relied solely on their own
+  per-route limiters). Added both to the write-limited mount list so state-
+  changing calls on those mounts are uniformly throttled.
+- **`auth.js` — login route omitted fail-closed HPP rejection (LOW).** Every
+  other write route rejects HTTP parameter pollution arrays; the login handler
+  read `username`/`password` through `safeQueryValue`, which silently collapses
+  a `username[]=a&username[]=b` array to its first element (fail-open). The
+  timing-oracle defense already neutralized any exploitation, but the omission
+  was inconsistent with the rest of the codebase. Added an explicit array
+  rejection before `safeQueryValue`, matching the adopted pattern.
+
+### False positives / non-defects reconfirmed
+- **All 42 EJS templates**: the only dynamic (`<%-`) interpolation is
+  `article.renderedContent`, which is server-side sanitized via `sanitize-html`;
+  every state-changing form carries `_csrf`; `target=_blank` links use
+  `rel="noopener noreferrer"` + a scheme regex. No XSS/CSRF/link defects.
+- **`public/js/app.js`**: no injection of unsanitized DOM/user input; CSRF token
+  handling is correct.
+- No raw `req.body/query/params` values flow into SQL (grep-verified).
+
+### Test coverage gaps closed
+- `tests/auth-login.test.js` extended with two cases asserting the login handler
+  fail-closed rejects `username`/`password` array payloads (redirect to
+  `/login` + error flash, and `bcrypt.compare` is never reached).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 272 passed / 272 total (added 2 login HPP regression cases).
+- `.env.example` contains only placeholders; no secrets committed.

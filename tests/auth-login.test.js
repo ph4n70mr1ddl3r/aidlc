@@ -89,4 +89,19 @@ describe('login HPP/timing-oracle defense', () => {
     const { redirectedTo } = runLogin({ username: 'someone', password: '' });
     expect(redirectedTo).not.toBeNull();
   });
+
+  it('rejects HTTP parameter pollution arrays on username/password (fail-closed)', () => {
+    bcrypt.compare.mockClear();
+    const { redirectedTo, flashCalls } = runLogin({ username: ['a', 'b'], password: 'secret' });
+    expect(redirectedTo).toBe('/login');
+    expect(bcrypt.compare).not.toHaveBeenCalled();
+    expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+  });
+
+  it('rejects HTTP parameter pollution arrays on password', () => {
+    bcrypt.compare.mockClear();
+    const { redirectedTo } = runLogin({ username: 'someone', password: ['x', 'y'] });
+    expect(redirectedTo).toBe('/login');
+    expect(bcrypt.compare).not.toHaveBeenCalled();
+  });
 });
