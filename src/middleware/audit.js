@@ -48,8 +48,13 @@ function audit({ req, action, entity, entityId, details }) {
 
     const uid = req && req.session && req.session.user ? req.session.user.id : null;
     const ip = req && req.ip ? req.ip : null;
-    // Truncate details to prevent unbounded row growth
-    const safeDetails = details && details.length > MAX_AUDIT_DETAILS ? details.substring(0, MAX_AUDIT_DETAILS) : (details || null);
+    // Coerce details to a string before the length check — a future caller
+    // passing a non-string (object/number) would otherwise make `details.length`
+    // undefined (always passing the truncation guard) or throw on `.substring`.
+    // Normalizing here keeps the audit_log.details column consistent and crash-free.
+    const safeDetails = details == null ? null
+      : String(details).length > MAX_AUDIT_DETAILS ? String(details).substring(0, MAX_AUDIT_DETAILS)
+      : String(details);
     _getAuditStmt().run(uid, action, entity, entityId || null, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request

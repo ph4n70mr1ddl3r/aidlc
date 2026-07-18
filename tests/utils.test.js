@@ -162,10 +162,10 @@ describe('safeSort', () => {
     expect(result).toBe('first_name DESC');
   });
 
-  it('should return first value when default is invalid', () => {
+  it('should fail closed when default is invalid (no silent first-key fallback)', () => {
     const allowedMap = { asc: 'first_name ASC', desc: 'first_name DESC' };
-    const result = utils.safeSort('invalid', allowedMap, 'invalid_default');
-    expect(result).toBe('first_name ASC');
+    expect(() => utils.safeSort('invalid', allowedMap, 'invalid_default'))
+      .toThrow('safeSort: defaultKey "invalid_default" is not a valid sort key');
   });
 
   it('should throw for empty map', () => {

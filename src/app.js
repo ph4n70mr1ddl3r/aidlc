@@ -154,7 +154,24 @@ app.use(helmet({
     maxAge: 365 * 24 * 60 * 60,
     includeSubDomains: true,
     preload: true
-  } : false
+  } : false,
+  // Permissions-Policy: disable powerful browser features the app never uses
+  // (camera, microphone, geolocation, USB, etc.). Even though this is a
+  // server-rendered internal tool, restricting these reduces the impact of any
+  // future XSS that attempted to leverage device APIs. Helmet does not set a
+  // Permissions-Policy by default, so we add one explicitly.
+  permissionsPolicy: {
+    camera: [],
+    microphone: [],
+    geolocation: [],
+    usb: [],
+    bluetooth: [],
+    payment: [],
+    midi: [],
+    gyroscope: [],
+    accelerometer: [],
+    magnetometer: []
+  }
 }));
 
 // ---------------------------------------------------------------------------

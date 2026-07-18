@@ -87,11 +87,16 @@ function safeSort(value, allowedMap, defaultKey) {
   if (Object.prototype.hasOwnProperty.call(allowedMap, value)) {
     return allowedMap[value];
   }
-  // Guard against missing defaultKey — fall back to the first entry in the map
-  if (Object.prototype.hasOwnProperty.call(allowedMap, defaultKey)) {
-    return allowedMap[defaultKey];
+  // Fail closed if the supplied defaultKey is not a valid key in the map. The
+  // previous implementation silently fell back to `keys[0]` (an arbitrary
+  // first entry), which would mask a caller bug — e.g. a typo'd defaultKey —
+  // and produce a sort order that contradicts the caller's intent. Callers
+  // (tickets/reports/audit) always pass a constant valid key, so this only
+  // hardens against future misuse; it never changes current behavior.
+  if (!Object.prototype.hasOwnProperty.call(allowedMap, defaultKey)) {
+    throw new Error(`safeSort: defaultKey "${defaultKey}" is not a valid sort key`);
   }
-  return allowedMap[keys[0]];
+  return allowedMap[defaultKey];
 }
 
 /**
