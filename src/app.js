@@ -96,6 +96,34 @@ if (process.env.TRUST_PROXY === '1') {
 }
 
 // ---------------------------------------------------------------------------
+// Framework / protocol hardening (must be set before any middleware runs)
+// ---------------------------------------------------------------------------
+// Express sets "X-Powered-By: Express" by default, disclosing the framework to
+// attackers. helmet() does NOT disable this unless hidePoweredBy is explicitly
+// enabled, so disable it at the app level to avoid leaking framework info.
+app.disable('x-powered-by');
+
+// Use the built-in querystring parser instead of `qs`. qs historically suffered
+// prototype-pollution CVEs (e.g. CVE-2022-24999) via bracket/array syntax
+// (?__proto__[x]=y). The "simple" parser only produces flat key/value pairs and
+// cannot build nested objects, eliminating that entire class of attack. The app
+// never relies on nested query objects — every route reads scalar query params
+// through safeQueryValue()/buildFilters() which already collapse/validate input.
+app.set('query parser', 'simple');
+
+// Reject TRACE/TRACK as the very first middleware so no downstream handler
+// (static, parsers, CSRF, routes) ever processes them. These methods are rarely
+// needed and have been associated with cross-protocol/cross-site tracing
+// attacks; dropping them at the edge is cheap defense-in-depth.
+const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
+app.use((req, res, next) => {
+  if (_DISALLOWED_METHODS.has(req.method)) {
+    return res.status(405).set('Allow', 'GET, HEAD, POST, PUT, DELETE, PATCH').end();
+  }
+  next();
+});
+
+// ---------------------------------------------------------------------------
 // Security headers via Helmet
 // ---------------------------------------------------------------------------
 app.use(helmet({
