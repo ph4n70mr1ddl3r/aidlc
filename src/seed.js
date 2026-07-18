@@ -341,10 +341,22 @@ const seed = db.transaction(() => {
 try {
   seed();
   console.log('\n🎉 Seeding complete!\n');
-  console.log('Default login credentials:');
-  console.log('  Admin:    admin / ' + SEED_ADMIN_PW);
-  console.log('  Manager:  jwilliams / ' + SEED_STAFF_PW);
-  console.log('  Staff:    mpatel / ' + SEED_STAFF_PW + '\n');
+  // Credentials are intentionally NOT printed by default: auto-generated
+  // passwords are secrets and printing them to stdout leaks them into logs /
+  // CI output. Only echo them when SEED_VERBOSE=1 is set, or when the operator
+  // supplied their own passwords via env (in which case the value is already
+  // known to them and not a secret we are disclosing).
+  const adminIsGenerated = !process.env.SEED_ADMIN_PASSWORD;
+  const staffIsGenerated = !process.env.SEED_PASSWORD;
+  if (process.env.SEED_VERBOSE === '1' || (!adminIsGenerated && !staffIsGenerated)) {
+    console.log('Default login credentials:');
+    console.log('  Admin:    admin / ' + SEED_ADMIN_PW);
+    console.log('  Manager:  jwilliams / ' + SEED_STAFF_PW);
+    console.log('  Staff:    mpatel / ' + SEED_STAFF_PW + '\n');
+  } else {
+    console.log('Login credentials set from environment (SEED_ADMIN_PASSWORD / SEED_PASSWORD).');
+    console.log('Auto-generated passwords are NOT shown — re-run with SEED_VERBOSE=1 to display them.\n');
+  }
 } catch (err) {
   console.error('Seeding failed:', err.message);
   process.exitCode = 1;

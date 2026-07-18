@@ -4,7 +4,7 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the Jest
-suite (252 tests, all passing). Prior review history (15 consecutive "code review"
+suite (256 tests, all passing). Prior review history (15 consecutive "code review"
 hardening commits) was cross-checked to confirm findings were not already addressed.
 
 ## Verdict
@@ -55,7 +55,7 @@ then fixed and verified with tests:
 
 ### Tooling
 - `npx eslint .` — clean (exit 0).
-- `npx jest` — 252 passed / 252 total.
+- `npx jest` — 256 passed / 256 total.
 - Added a regression test in `tests/reports.test.js` asserting the `period` HPP array
   now falls back to the default (the previous test had incorrectly encoded the
   vulnerable collapse-to-`365` behavior as "correct").
@@ -94,9 +94,52 @@ then fixed and verified with tests:
   (`vendors.js`): `licenses.vendor` is free text (not a FK), so this is the only way
   to keep references in sync. Low collision risk given exact-match semantics. A
   normalized vendor FK would be a larger refactor, not a bug fix.
+## Review cycle 2026-07-18 (third pass)
+
+A third independent pass (3 parallel review agents over the route modules, core
+files, and auth/tests) found no SQL injection, IDOR, CSRF, or XSS defects. The
+prior review history was re-verified and the following genuine, previously
+unaddressed issues were fixed and regression-tested:
+
+### Fixes applied
+- **`assets.js` — create/update routes omitted HPP array rejection (LOW).** Every
+  other write route (`vendors`, `licenses`, `knowledge`, `tickets`, `projects`,
+  `changes`, `staff`) rejects HTTP parameter pollution arrays for free-text body
+  fields, but `assets.js` collapsed `name[]=a&name[]=b` via `safeQueryValue` to
+  its first element (fail-open). Added a fail-closed array-rejection loop over
+  every text body field in both `POST /` and `PUT /:id`, matching the
+  `licenses.js`/`vendors.js` pattern.
+- **`staff.js` — create/update routes omitted HPP array rejection (LOW).** The
+  update route's `role` field (and `email`, `first_name`, etc.) was collapsed by
+  `safeQueryValue` rather than rejected. Escalation was still blocked by the
+  `requireAdmin`/in-transaction recheck guards, but the omission was inconsistent
+  with the rest of the codebase. Added fail-closed array-rejection loops in both
+  `POST /` and `PUT /:id`.
+- **`seed.js` — auto-generated passwords printed to stdout (LOW-MEDIUM).** Seed
+  already refuses to run in production, but generated credentials were echoed to
+  stdout where they can leak into aggregated logs. Credentials are now only
+  printed when `SEED_VERBOSE=1` is set, or when the operator supplied their own
+  passwords via `SEED_ADMIN_PASSWORD`/`SEED_PASSWORD` (in which case the value is
+  already known). Otherwise a non-disclosing message is shown.
+
+### False positives rejected
+- **`app.js` CSRF `httpOnly: true` cookie (agent-flagged HIGH):** not a defect.
+  `csrf-csrf`'s `doubleCsrf` uses a two-cookie model; the token is delivered via
+  `req.csrfToken()` / `res.locals.csrfToken`, so `httpOnly` on the secret cookie
+  is the recommended, correct configuration.
+- **Login rate limiting (agent-flagged):** handled by the per-account/IP lockout
+  maps in `routes/auth.js`; the global write limiter excludes `/login` by design.
+- **In-memory lockout map across processes:** a known deployment limitation, not
+  addressed here (out of scope for a single-instance internal tool).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 256 passed / 256 total (added `tests/hpp.test.js` asserting that
+  array payloads on asset/staff create+update fall back to a redirect with an
+  error flash, rather than being silently collapsed).
 
 ## Tooling
 
 - `npx eslint .` — clean (exit 0).
-- `npx jest` — 252 passed / 252 total.
+- `npx jest` — 256 passed / 256 total.
 - `.env.example` contains only placeholders; no secrets committed.

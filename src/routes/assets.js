@@ -116,6 +116,17 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create asset
 router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads (e.g.
+  // name[]=a&name[]=b) which safeQueryValue would silently collapse to the first
+  // element. Mirrors the array-rejection guards in licenses.js / vendors.js.
+  const _assetCreateFields = ['name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes'];
+  for (const f of _assetCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/assets/new');
+    }
+  }
+
   const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
   const manufacturer = trim(safeQueryValue(req.body.manufacturer));
@@ -279,6 +290,17 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   if (!existingAsset) {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
+  }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads which would be
+  // silently collapsed to the first element by safeQueryValue. Mirrors the guards
+  // in licenses.js / vendors.js.
+  const _assetUpdateFields = ['asset_tag', 'name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes'];
+  for (const f of _assetUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/assets/${id}/edit`);
+    }
   }
 
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));

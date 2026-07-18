@@ -183,6 +183,18 @@ const staffWriteLimiter = rateLimit({
 
 // Create staff
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. safeQueryValue
+  // collapses an array to its first element rather than rejecting it, which would
+  // silently accept a polluted value. Mirrors the array-rejection guards used in
+  // licenses.js / vendors.js / knowledge.js.
+  const _staffCreateFields = ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department', 'phone'];
+  for (const f of _staffCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/staff/new');
+    }
+  }
+
   const username = trim(safeQueryValue(req.body.username)).toLowerCase();
   const password = safeQueryValue(req.body.password);
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -340,6 +352,17 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   if (!id) {
     req.flash('error', 'Invalid staff ID');
     return res.redirect('/staff');
+  }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads (e.g.
+  // role[]=admin or email[]=x) before they are collapsed to the first element by
+  // safeQueryValue. Mirrors the array-rejection guards in licenses.js / vendors.js.
+  const _staffUpdateFields = ['email', 'first_name', 'last_name', 'department', 'phone', 'role'];
+  for (const f of _staffUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/staff/${id}/edit`);
+    }
   }
 
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
