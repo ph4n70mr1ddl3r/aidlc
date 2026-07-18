@@ -386,6 +386,16 @@ router.get('/profile', requireAuth, (req, res) => {
 
 // Update profile
 router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res) => {
+  // Fail-closed HPP guard: reject polluted array payloads on all text body fields
+  // rather than silently collapsing to the first element (consistent with assets/
+  // staff/licenses/vendors).
+  for (const f of ['first_name', 'last_name', 'email', 'phone']) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/profile');
+    }
+  }
+
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -464,6 +474,15 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
 
 // Change password
 router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async (req, res) => {
+  // Fail-closed HPP guard: reject polluted array payloads on all password fields
+  // rather than silently collapsing to the first element.
+  for (const f of ['current_password', 'new_password', 'confirm_password']) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/profile');
+    }
+  }
+
   const current_password = safeQueryValue(req.body.current_password);
   const new_password = safeQueryValue(req.body.new_password);
   const confirm_password = safeQueryValue(req.body.confirm_password);

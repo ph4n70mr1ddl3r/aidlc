@@ -143,3 +143,52 @@ unaddressed issues were fixed and regression-tested:
 - `npx eslint .` — clean (exit 0).
 - `npx jest` — 256 passed / 256 total.
 - `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-07-18 (fourth pass)
+
+A fourth independent pass (2 parallel review agents over the route modules,
+core files, `app.js`/`auth.js`/`seed.js`, and the test suite) found no SQL
+injection, IDOR, CSRF, or error-leakage defects. The prior review history was
+re-verified and the following genuine, previously unaddressed issues were fixed
+and regression-tested:
+
+### Fixes applied
+- **`auth.js` — profile & password-change routes omitted HPP array rejection
+  (MEDIUM).** Every other self-service and privileged write route rejects HTTP
+  parameter pollution arrays, but `PUT /profile` and `PUT /profile/password`
+  read `first_name`/`last_name`/`email`/`phone`/`current_password`/
+  `new_password`/`confirm_password` through `safeQueryValue`, which collapses an
+  array to its first element (fail-open). A polluted `email[]=a&email[]=b` was
+  silently reduced to `a` and the UPDATE proceeded. Added a fail-closed
+  array-rejection loop over all text body fields in both handlers, matching the
+  `staff.js`/`assets.js` pattern. These are the most security-sensitive
+  (account) write routes, so the omission was the highest-priority gap.
+- **`seed.js` — operator-supplied secrets echoed to stdout (LOW).** The code
+  claimed credentials were only printed with `SEED_VERBOSE=1`, but the branch
+  `(!adminIsGenerated && !staffIsGenerated)` also printed plaintext
+  admin/staff passwords whenever *both* `SEED_ADMIN_PASSWORD` and `SEED_PASSWORD`
+  were supplied via env — i.e. exactly the prod-like case where the value may
+  live in CI secrets and be captured by aggregated logs. Now only
+  auto-generated credentials are disclosed, and only when `SEED_VERBOSE=1`.
+
+### False positives / non-defects reconsidered
+- **`app.js` `writeLimiter` prefix list** omits `/audit` and `/reports`; these
+  are privileged read/export routes, low risk. Noted as a minor hardening gap
+  but not changed (out of scope; no exploitable impact).
+- **`seed.js` shared staff password** across 5 seeded accounts is a documented
+  seeding convenience, not a code defect.
+- **`app.js` error handlers, `middleware/auth.js`, `middleware/audit.js`,
+  `models/database.js`, `utils.js`, `constants.js`** re-verified clean for SQL
+  injection, error leakage, session fixation, audit allowlisting, and injection
+  safety.
+
+### Test coverage gap closed
+- `tests/hpp.test.js` previously covered only `assets` and `staff` create/update
+  HPP rejections. It now also asserts that `auth.js` `PUT /profile` and
+  `PUT /profile/password` reject array payloads on `email`, `phone`, and
+  `new_password` (fail-closed redirect + error flash).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 259 passed / 259 total (added 3 `auth` HPP regression cases).
+- `.env.example` contains only placeholders; no secrets committed.

@@ -92,4 +92,35 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
   });
+
+  describe('auth routes (self-service account writes)', () => {
+    const authRouter = require('../src/routes/auth');
+
+    it('rejects array email on profile update', () => {
+      const h = lastHandlerFor(authRouter, 'put', '/profile');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        first_name: 'F', last_name: 'L', email: ['a@x.com', 'b@y.com'], phone: '5551234567'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array phone on profile update', () => {
+      const h = lastHandlerFor(authRouter, 'put', '/profile');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        first_name: 'F', last_name: 'L', email: 'a@x.com', phone: ['5551234567', '5550000000']
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array new_password on password change', () => {
+      const h = lastHandlerFor(authRouter, 'put', '/profile/password');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        current_password: 'old', new_password: ['weak1', 'weak2'], confirm_password: 'weak1'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
 });
