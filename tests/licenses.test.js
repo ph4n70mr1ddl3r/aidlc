@@ -70,8 +70,12 @@ describe('resolveSeats', () => {
   });
 
   describe('validation', () => {
-    it('rejects negative used seats', () => {
-      expect(resolveSeats('10', '-1', null).error).toBe('Used seats cannot be negative');
+    it('rejects negative used seats (falls back to default 0)', () => {
+      // safePositiveInt rejects the negative value and falls back to the
+      // default used count (0), so no error is raised but the bad value is dropped.
+      const r = resolveSeats('10', '-1', null);
+      expect(r.used).toBe(0);
+      expect(r.error).toBeNull();
     });
 
     it('rejects used exceeding total', () => {
@@ -79,7 +83,7 @@ describe('resolveSeats', () => {
     });
 
     it('rejects HPP arrays (falls back instead of coercing ["3","9"] to 3)', () => {
-      // safeInt rejects arrays, so a polluted payload falls back to the
+      // safePositiveInt rejects arrays, so a polluted payload falls back to the
       // create defaults rather than silently storing parseInt("3,9") === 3.
       expect(resolveSeats(['3', '9'], ['1'], null)).toEqual({ seats: 1, used: 0, error: null });
     });

@@ -30,10 +30,11 @@ function _validateVendorRating(rawValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
   // which parseInt() would silently coerce to its first element ("3,5" -> 3).
   // Mirrors the array guards in safeId / safeInt / safePositiveFloat. Rating is
-  // optional, so treat a malformed (array) input as "no value" rather than an
-  // error, consistent with how those sanitizers fall back on arrays.
+  // optional, but an HTTP parameter pollution array (`rating[]=3&rating[]=5`)
+  // must fail closed as a validation error rather than silently using the
+  // first element. The raw request value is passed here so the array is seen.
   if (Array.isArray(rawValue)) {
-    return { value: null, error: null };
+    return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   // Reject absurdly long rating strings to prevent resource exhaustion
   if (typeof rawValue === 'string' && rawValue.length > _MAX_RATING_INPUT) {
@@ -126,9 +127,15 @@ function _resolveClearableDate(rawValue, existingValue) {
 function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingValue) {
   // Reject arrays from HTTP parameter pollution so a polluted payload does not
   // silently clear or corrupt stored data. Mirrors the array guards in safeId,
-  // safeInt, safePositiveFloat, and _resolveClearableDate.
-  if (Array.isArray(rawValue) || rawValue === undefined) {
+  // safeInt, safePositiveFloat, and _resolveClearableDate. The raw request
+  // value (NOT the safeQueryValue-collapsed value) is passed here so a
+  // `field[]=a&field[]=b` payload actually fails closed instead of silently
+  // using the first element.
+  if (rawValue === undefined) {
     return existingValue;
+  }
+  if (Array.isArray(rawValue)) {
+    return { error: true };
   }
   if (processedValue !== null && processedValue !== '') {
     return maxLen ? processedValue.substring(0, maxLen) : processedValue;
@@ -215,7 +222,6 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(safeQueryValue(req.body.notes));
-  const rawRating = safeQueryValue(req.body.rating);
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -271,10 +277,20 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = _validateVendorRating(rawRating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(req.body.rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
+  }
+
+  // Fail closed on HTTP parameter pollution arrays for the optional text
+  // fields below (see update route for rationale).
+  const _hppFields = ['contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes'];
+  for (const f of _hppFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/vendors/new');
+    }
   }
 
   try {
@@ -425,10 +441,21 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   // Validate rating range upfront instead of silently defaulting to null
-  const { value: safeRating, error: ratingErr } = _validateVendorRating(rawRating);
+  const { value: safeRating, error: ratingErr } = _validateVendorRating(req.body.rating);
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);
+  }
+
+  // Fail closed on HTTP parameter pollution arrays for the optional text
+  // fields below. safeQueryValue collapses arrays to their first element, which
+  // would silently apply attacker-chosen data; require each to be a scalar.
+  const _hppFields = ['contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes'];
+  for (const f of _hppFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
   }
 
   try {
@@ -446,13 +473,13 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Uses _resolveOptionalTextField to eliminate 8-way duplication of the
       // raw-undefined check pattern. The raw* variables are captured from the
       // outer scope, avoiding redundant safeQueryValue calls inside the txn.
-      const safeContactPerson = _resolveOptionalTextField(rawContactPerson, contact_person || null, MAX_SHORT_STR, existing.contact_person);
-      const safeEmail = _resolveOptionalTextField(rawEmail, email || null, MAX_EMAIL, existing.email);
-      const safePhone = _resolveOptionalTextField(rawPhone, phone || null, MAX_PHONE, existing.phone);
-      const safeAddress = _resolveOptionalTextField(rawAddress, address || null, MAX_ADDRESS, existing.address);
-      const safeWebsite = _resolveOptionalTextField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
-      const safeCategory = _resolveOptionalTextField(rawCategory, category || null, null, existing.category);
-      const safeNotes = _resolveOptionalTextField(rawNotes, notes || null, MAX_NOTES, existing.notes);
+      const safeContactPerson = _resolveOptionalTextField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
+      const safeEmail = _resolveOptionalTextField(req.body.email, email || null, MAX_EMAIL, existing.email);
+      const safePhone = _resolveOptionalTextField(req.body.phone, phone || null, MAX_PHONE, existing.phone);
+      const safeAddress = _resolveOptionalTextField(req.body.address, address || null, MAX_ADDRESS, existing.address);
+      const safeWebsite = _resolveOptionalTextField(req.body.website, website || null, MAX_LONG_STR, existing.website);
+      const safeCategory = _resolveOptionalTextField(req.body.category, category || null, null, existing.category);
+      const safeNotes = _resolveOptionalTextField(req.body.notes, notes || null, MAX_NOTES, existing.notes);
       // Rating is a discrete 1-5 value, not free text. An empty submitted
       // value (the form's number input sends '' when blank) must preserve the
       // existing rating rather than clear it, so editing any other field on the

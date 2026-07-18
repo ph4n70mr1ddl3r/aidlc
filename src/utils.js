@@ -2,7 +2,7 @@
  * Shared utilities for routes
  */
 
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE } = require('./constants');
 const _ps = parseInt(process.env.PAGE_SIZE, 10);
 // Override DEFAULT_PAGE_SIZE from env if set, capped at MAX_PAGE_SIZE
 const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_SIZE) : null;
@@ -160,6 +160,12 @@ function validatePassword(password) {
   if (password.length > MAX_PASSWORD) {
     return `Password must be at most ${MAX_PASSWORD} characters`;
   }
+  // bcrypt silently truncates at 72 bytes, so two passwords that differ only
+  // after that point hash identically — a silent credential-collision risk.
+  // Enforce the byte length (UTF-8), not just the character length.
+  if (Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+    return `Password must be at most ${MAX_PASSWORD_BYTES} bytes`;
+  }
   if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
     return 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
   }
@@ -301,6 +307,27 @@ function safeInt(value, fallback = 0) {
   // otherwise slip past the Number.isFinite check below and be stored as a
   // non-finite value. Fail closed rather than rely on a downstream error.
   if (!Number.isFinite(n)) {
+    return fallback;
+  }
+  return n;
+}
+
+/**
+ * Safely parse a non-negative integer form field for UNSIGNED SQLite columns
+ * (e.g. seat counts, quantities). Rejects arrays, non-integers, negatives, and
+ * values outside the 32-bit signed bound SQLite stores in an INTEGER column
+ * (beyond that, integers are stored as floats with precision loss). Returns
+ * `fallback` for invalid input. Mirrors safeInt's HPP/non-finite guards.
+ * @param {*} value
+ * @param {number} [fallback=0]
+ * @returns {number}
+ */
+function safePositiveInt(value, fallback = 0) {
+  const n = safeInt(value, NaN);
+  if (!Number.isInteger(n) || n < 0) {
+    return fallback;
+  }
+  if (n > 2147483647) {
     return fallback;
   }
   return n;
@@ -836,4 +863,4 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, safePositiveInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };

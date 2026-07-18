@@ -78,7 +78,12 @@ const MAX_EMAIL = 200;            // email addresses
 const MAX_PHONE = 50;             // phone numbers
 const MAX_ADDRESS = 500;          // vendor address
 const MIN_PASSWORD = 12;          // password minimum length
-const MAX_PASSWORD = 128;         // password max length
+const MAX_PASSWORD = 128;         // password max field length (UI/storage cap)
+// bcrypt silently truncates inputs at 72 BYTES, so two passwords differing only
+// after the 72nd byte hash identically. Cap the byte length — not just the
+// character length — to avoid silently-equivalent credentials. Use 72 as the
+// hard upper bound; UTF-8 multibyte chars reduce the effective character budget.
+const MAX_PASSWORD_BYTES = 72;
 const MAX_SEARCH = 100;           // search box input (list filters)
 const MAX_ASSET_TAG = 50;         // asset tag format AST-<digits> (incl. prefix)
 const ASSET_TAG_PREFIX = 'AST-';  // asset tag prefix followed by digits
@@ -110,7 +115,7 @@ module.exports = {
   SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE,
   ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
   MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
-  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_SEARCH, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSET_TAG_RE,
+  MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS,   MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_SEARCH, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSET_TAG_RE,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS

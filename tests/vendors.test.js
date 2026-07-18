@@ -60,9 +60,9 @@ describe('validateVendorRating', () => {
   it('rejects arrays from HTTP parameter pollution (regression: parseInt coerced ["3","99"] to 3)', () => {
     // Before the fix, parseInt(["3","99"]) === parseInt("3,99") === 3, so a
     // crafted ?rating[]=3&rating[]=99 payload was silently accepted. The array
-    // guard mirrors safeId / safeInt / safePositiveFloat.
-    expect(validateVendorRating(['3', '99'])).toEqual({ value: null, error: null });
-    expect(validateVendorRating(['1'])).toEqual({ value: null, error: null });
+    // guard now fails closed and surfaces a validation error.
+    expect(validateVendorRating(['3', '99'])).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
+    expect(validateVendorRating(['1'])).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 });
 
@@ -115,10 +115,10 @@ describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
     expect(resolveOptionalTextField('hardware', 'hardware', null, 'existing')).toBe('hardware');
   });
 
-  it('preserves existing when rawValue is an array (parameter pollution)', () => {
+  it('rejects arrays from HTTP parameter pollution (fails closed)', () => {
     // Mirrors the array guards across the codebase: a polluted payload must not
-    // silently clear stored data.
-    expect(resolveOptionalTextField(['a'], 'a', null, 'existing')).toBe('existing');
+    // silently clear or apply stored data, so it returns { error: true }.
+    expect(resolveOptionalTextField(['a'], 'a', null, 'existing')).toEqual({ error: true });
   });
 });
 

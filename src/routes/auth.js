@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, escapeHtml } = require('../utils');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -245,8 +245,9 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  // Reject excessively long passwords early to prevent wasted bcrypt CPU
-  if (typeof password !== 'string' || password.length > MAX_PASSWORD) {
+  // Reject excessively long passwords early to prevent wasted bcrypt CPU and
+  // silent 72-byte truncation.
+  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
@@ -473,7 +474,8 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   }
 
   // Reject excessively long / non-string current password to prevent bcrypt DoS
-  if (typeof current_password !== 'string' || current_password.length > MAX_PASSWORD) {
+  // and silent 72-byte truncation.
+  if (typeof current_password !== 'string' || Buffer.byteLength(current_password, 'utf8') > MAX_PASSWORD_BYTES) {
     req.flash('error', 'Invalid current password');
     return res.redirect('/profile');
   }
@@ -482,8 +484,8 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     req.flash('error', 'New password is required');
     return res.redirect('/profile');
   }
-  if (new_password.length > MAX_PASSWORD) {
-    req.flash('error', `Password must be at most ${MAX_PASSWORD} characters`);
+  if (Buffer.byteLength(new_password, 'utf8') > MAX_PASSWORD_BYTES) {
+    req.flash('error', `Password must be at most ${MAX_PASSWORD_BYTES} bytes`);
     return res.redirect('/profile');
   }
 
@@ -491,7 +493,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     req.flash('error', 'Password confirmation is required');
     return res.redirect('/profile');
   }
-  if (confirm_password.length > MAX_PASSWORD) {
+  if (Buffer.byteLength(confirm_password, 'utf8') > MAX_PASSWORD_BYTES) {
     req.flash('error', 'Password confirmation is invalid');
     return res.redirect('/profile');
   }

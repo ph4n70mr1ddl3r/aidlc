@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -33,8 +33,11 @@ router.use(requireAuth, auditMiddleware);
 function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   const fallbackTotal = existing && existing.total_seats != null ? existing.total_seats : 1;
   const fallbackUsed = existing && existing.used_seats != null ? existing.used_seats : 0;
-  const seats = Math.max(1, safeInt(totalSeatsRaw, fallbackTotal));
-  const used = safeInt(usedSeatsRaw, fallbackUsed);
+  // Seat counts are unsigned SQLite INTEGER columns; use safePositiveInt so
+  // negative (HPP) values and out-of-range counts are rejected rather than
+  // silently coerced/truncated.
+  const seats = Math.max(1, safePositiveInt(totalSeatsRaw, fallbackTotal));
+  const used = safePositiveInt(usedSeatsRaw, fallbackUsed);
   if (used < 0) {
     return { seats, used, error: 'Used seats cannot be negative' };
   }

@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
-const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
+const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -203,7 +203,8 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
   // Reject non-string / excessively long passwords early to prevent bcrypt DoS
-  if (typeof password !== 'string' || password.length > MAX_PASSWORD) {
+  // and silent 72-byte truncation.
+  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
     req.flash('error', 'Invalid password');
     return res.redirect('/staff/new');
   }
@@ -592,13 +593,13 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     req.flash('error', 'Password is required');
     return res.redirect(`/staff/${id}`);
   }
-  if (new_password.length > MAX_PASSWORD) {
-    req.flash('error', `Password must be at most ${MAX_PASSWORD} characters`);
+  if (Buffer.byteLength(new_password, 'utf8') > MAX_PASSWORD_BYTES) {
+    req.flash('error', `Password must be at most ${MAX_PASSWORD_BYTES} bytes`);
     return res.redirect(`/staff/${id}`);
   }
 
   // Require the admin to confirm their own password before resetting another user's
-  if (!current_password || typeof current_password !== 'string' || current_password.length > MAX_PASSWORD) {
+  if (!current_password || typeof current_password !== 'string' || Buffer.byteLength(current_password, 'utf8') > MAX_PASSWORD_BYTES) {
     req.flash('error', 'Your current password is required to reset another user\'s password');
     return res.redirect(`/staff/${id}`);
   }

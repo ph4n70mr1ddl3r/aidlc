@@ -389,6 +389,11 @@ app.get('/', (req, res) => {
 
 // 404 handler
 app.use((req, res) => {
+  // Honor content negotiation so AJAX clients (Accept: application/json / */*)
+  // receive JSON rather than an HTML 404 page, mirroring the error handler.
+  if (prefersJson(req)) {
+    return res.status(404).json({ error: 'Not found' });
+  }
   res.status(404).render('pages/404', { title: 'Not Found' });
 });
 
