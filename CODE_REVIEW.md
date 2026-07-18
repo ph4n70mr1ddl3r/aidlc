@@ -13,6 +13,53 @@ hardening commits) was cross-checked to confirm findings were not already addres
 and follows a consistent, defense-in-depth security model. The recommendations below
 are observations and by-design clarifications rather than required fixes.
 
+---
+
+## Review cycle 2026-07-18 (follow-up)
+
+A second pass (4 parallel review agents covering all 11 route modules + core files)
+re-identified one genuine HPP defect and two fail-open/consistency issues that were
+then fixed and verified with tests:
+
+### Fixes applied
+- **`reports.js` — `resolveReportPeriod` HPP guard was dead code (HIGH).** The
+  function's stated intent was to reject HTTP parameter pollution for `period`, but it
+  called `safeQueryValue(raw)` *first*. `safeQueryValue` collapses an array to its
+  first element, so `?period[]=999` was silently reduced to `"999"` before the
+  `Array.isArray` check ever ran — the guard never fired. Fixed to check
+  `Array.isArray(raw)` *before* `safeQueryValue`, so polluted input falls back to the
+  default.
+- **`licenses.js` — update route accepted HPP arrays (LOW-MEDIUM).** Every update body
+  field was read through `safeQueryValue`, which collapses arrays to the first element
+  rather than rejecting them. Unlike `vendors.js`/`knowledge.js`, no array rejection
+  was performed, so a polluted `clear_key[]=1` would silently wipe the stored license
+  key (fail-open destructive action). Added a fail-closed array-rejection loop over all
+  update fields, matching the rest of the codebase.
+- **`projects.js` — `budget`/`spent` failed open on invalid input (LOW).** A malformed
+  or empty `budget`/`spent` was silently preserved at the old DB value via
+  `safePositiveFloat(x, existing)`. This meant a typo'd value was ignored rather than
+  rejected, and an empty field could never be reset to `0`. Now distinguishes "field
+  not submitted" (preserve stored value) from "submitted invalid" (reject with a flash
+  error), using `Infinity` as a sentinel so `0` is a legitimate value.
+
+### Verified clean (no action)
+- Per the second pass, `dashboard.js` cache invalidation is in fact wired into
+  tickets/assets/projects/licenses/staff/vendors/knowledge/changes/auth writes (not
+  only `changes.js`), so the earlier speculation about stale dashboard aggregates was a
+  false positive. The 30 s TTL is just a fallback refresh window.
+- `staff.js`, `assets.js`, `tickets.js`, `projects.js`, `knowledge.js`, `vendors.js`,
+  `changes.js`, `audit.js`, `auth.js` middleware, `utils.js`, `models/database.js`,
+  and `constants.js` were each checked for SQL injection, IDOR/authorization,
+  CSRF, transaction/TOCTOU, audit logging, input validation, and sensitive-error
+  leakage. No further defects found.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 252 passed / 252 total.
+- Added a regression test in `tests/reports.test.js` asserting the `period` HPP array
+  now falls back to the default (the previous test had incorrectly encoded the
+  vulnerable collapse-to-`365` behavior as "correct").
+
 ## Security controls verified
 
 | Control | Status | Notes |

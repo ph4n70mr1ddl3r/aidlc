@@ -97,10 +97,12 @@ describe('warranty expiry alerts exclude disposed assets', () => {
 describe('resolveReportPeriod HPP fail-closed', () => {
   const { resolveReportPeriod } = require('../src/routes/reports');
 
-  it('clamps HPP array period to the upper bound', () => {
-    // safeQueryValue takes the first element, which is then clamped to 365 —
-    // an HPP array cannot push the value past the safe upper bound.
-    expect(resolveReportPeriod(['999', '1'])).toBe(365);
+  it('rejects HPP array period and falls back to default', () => {
+    // HTTP parameter pollution (an array) must NOT silently use the first
+    // element — it must fail closed to the default rather than an
+    // attacker-controlled value.
+    expect(resolveReportPeriod(['999', '1'])).toBe(30);
+    expect(resolveReportPeriod(['1', '999'])).toBe(30);
   });
 
   it('clamps out-of-range values to [1, 365]', () => {

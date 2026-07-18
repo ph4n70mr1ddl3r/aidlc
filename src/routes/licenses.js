@@ -246,6 +246,20 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses');
   }
 
+  // Fail closed on HTTP parameter pollution: reject array payloads for every
+  // body field. safeQueryValue collapses an array to its first element rather
+  // than rejecting it, which would silently accept a polluted value (e.g.
+  // clear_key[]=1 wiping the stored key, or vendor[]=A overriding the intended
+  // value). This mirrors the array-rejection guards used in vendors.js /
+  // knowledge.js and the HPP defense elsewhere in the codebase.
+  const _licenseUpdateFields = ['software_name', 'vendor', 'license_key', 'clear_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes'];
+  for (const f of _licenseUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/licenses/${id}/edit`);
+    }
+  }
+
   const software_name = trim(safeQueryValue(req.body.software_name));
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));

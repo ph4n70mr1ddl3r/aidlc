@@ -321,8 +321,30 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
 
-      const preservedSpent = safePositiveFloat(spent, existingProject.spent ?? 0);
-      const preservedBudget = safePositiveFloat(budget, existingProject.budget ?? 0);
+      // Distinguish "field not submitted" (preserve stored value) from
+      // "field submitted with an invalid/empty value" (fail closed — reject
+      // rather than silently keep the old value). Using Infinity as the
+      // fallback sentinel lets safePositiveFloat signal invalid input without
+      // masking it as a legitimate 0, so an empty budget/spent can no longer
+      // be silently ignored and a typo'd value is surfaced to the user.
+      let preservedSpent;
+      if (spent === undefined || spent === null || spent === '') {
+        preservedSpent = existingProject.spent ?? 0;
+      } else {
+        preservedSpent = safePositiveFloat(spent, Infinity);
+        if (!Number.isFinite(preservedSpent)) {
+          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid amount spent' });
+        }
+      }
+      let preservedBudget;
+      if (budget === undefined || budget === null || budget === '') {
+        preservedBudget = existingProject.budget ?? 0;
+      } else {
+        preservedBudget = safePositiveFloat(budget, Infinity);
+        if (!Number.isFinite(preservedBudget)) {
+          throw Object.assign(new Error('INVALID_BUDGET'), { flash: 'Invalid budget amount' });
+        }
+      }
 
       if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
         throw new Error('OWNER_NOT_AVAILABLE');

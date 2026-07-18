@@ -14,10 +14,15 @@ const { safeInt, safeQueryValue } = require('../utils');
  * @returns {number}
  */
 function resolveReportPeriod(raw, fallback = 30) {
-  const v = safeQueryValue(raw);
-  if (Array.isArray(v)) {
+  // Reject HTTP parameter pollution (arrays) BEFORE collapsing with
+  // safeQueryValue — safeQueryValue returns the first element of an array,
+  // which would silently bypass this guard and let a polluted ?period[]=999
+  // value through. Check the raw array first so polluted input falls back to
+  // the default instead of the attacker-controlled first element.
+  if (Array.isArray(raw)) {
     return fallback;
   }
+  const v = safeQueryValue(raw);
   return Math.max(1, Math.min(365, safeInt(v, fallback)));
 }
 const rateLimit = require('express-rate-limit');
