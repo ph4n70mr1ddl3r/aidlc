@@ -123,4 +123,79 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
   });
+
+  describe('projects routes (task/member + project CRUD)', () => {
+    const projectsRouter = require('../src/routes/projects');
+
+    it('rejects array title on project create', () => {
+      const h = lastHandlerFor(projectsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: ['a', 'b'], status: 'active', priority: 'medium' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array name on project update', () => {
+      const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: ['x', 'y'], status: 'active', priority: 'medium' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array title on task create', () => {
+      const h = lastHandlerFor(projectsRouter, 'post', '/:id/tasks');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['a', 'b'], status: 'todo', priority: 'medium' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array status on task update', () => {
+      const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+      const { redirectedTo, flashCalls } = runHandler(h, { status: ['done', 'todo'], priority: 'medium', _quick_status: '1' }, { projectId: '1', taskId: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array role on member add', () => {
+      const h = lastHandlerFor(projectsRouter, 'post', '/:id/members');
+      const { redirectedTo, flashCalls } = runHandler(h, { user_id: '2', role: ['lead', 'member'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('changes routes', () => {
+    const changesRouter = require('../src/routes/changes');
+
+    it('rejects array title on change create', () => {
+      const h = lastHandlerFor(changesRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['a', 'b'], change_type: 'normal' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array title on change update', () => {
+      const h = lastHandlerFor(changesRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['x', 'y'], change_type: 'normal' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('knowledge routes', () => {
+    const knowledgeRouter = require('../src/routes/knowledge');
+
+    it('rejects array title on article create', () => {
+      const h = lastHandlerFor(knowledgeRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['a', 'b'], content: 'c', category: 'general' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array content on article update', () => {
+      const h = lastHandlerFor(knowledgeRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: 't', content: ['x', 'y'], category: 'general' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
 });

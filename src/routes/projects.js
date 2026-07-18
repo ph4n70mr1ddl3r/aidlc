@@ -151,6 +151,16 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create project
 router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _projectCreateFields = ['name', 'description', 'status', 'priority', 'start_date', 'end_date', 'budget', 'owner_id'];
+  for (const f of _projectCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/projects/new');
+    }
+  }
+
   const name = trim(safeQueryValue(req.body.name));
   const description = trim(safeQueryValue(req.body.description));
   const status = trim(safeQueryValue(req.body.status));
@@ -266,6 +276,16 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   if (!id) {
     req.flash('error', 'Invalid project ID');
     return res.redirect('/projects');
+  }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _projectUpdateFields = ['name', 'description', 'status', 'priority', 'start_date', 'end_date', 'budget', 'spent', 'owner_id'];
+  for (const f of _projectUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${id}/edit`);
+    }
   }
 
   const name = trim(safeQueryValue(req.body.name));
@@ -414,6 +434,16 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     return res.redirect('/projects');
   }
 
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _taskCreateFields = ['title', 'description', 'status', 'priority', 'assigned_to', 'due_date'];
+  for (const f of _taskCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${projectId}`);
+    }
+  }
+
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
   const status = safeQueryValue(req.body.status);
@@ -488,6 +518,18 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   if (!projectId || !taskId) {
     req.flash('error', 'Invalid ID');
     return res.redirect('/projects');
+  }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element. Covers both the
+  // quick-status path (status/priority/assigned_to/due_date/_quick_status) and
+  // the full-update path (also title/description).
+  const _taskUpdateFields = ['status', 'priority', 'assigned_to', 'due_date', '_quick_status', 'title', 'description'];
+  for (const f of _taskUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${projectId}`);
+    }
   }
 
   const status = safeQueryValue(req.body.status);
@@ -643,6 +685,17 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     req.flash('error', 'Invalid project ID');
     return res.redirect('/projects');
   }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _memberCreateFields = ['user_id', 'role'];
+  for (const f of _memberCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${id}`);
+    }
+  }
+
   const user_id = safeQueryValue(req.body.user_id);
   const role = safeQueryValue(req.body.role);
   try {

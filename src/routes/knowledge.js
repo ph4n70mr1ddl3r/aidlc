@@ -200,6 +200,16 @@ router.get('/new', (req, res) => {
 
 // Create article
 router.post('/', kbWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _articleCreateFields = ['title', 'content', 'category', 'tags', 'status', 'is_featured'];
+  for (const f of _articleCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/knowledge/new');
+    }
+  }
+
   const title = trim(safeQueryValue(req.body.title));
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));
@@ -383,6 +393,16 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
+  }
+
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _articleUpdateFields = ['title', 'content', 'category', 'tags', 'status', 'is_featured'];
+  for (const f of _articleUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/knowledge/${id}/edit`);
+    }
   }
 
   const title = trim(safeQueryValue(req.body.title));

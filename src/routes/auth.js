@@ -245,13 +245,6 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  // Reject excessively long passwords early to prevent wasted bcrypt CPU and
-  // silent 72-byte truncation.
-  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
   // Reject overly long usernames to provide clear feedback instead of silently
   // truncating — the stmt lookup below uses exact match, so truncation would
   // only ever produce a no-match result and a generic "Invalid" response.
@@ -266,7 +259,11 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing
   // side-channel. If the user doesn't exist, compare against a pre-computed dummy
-  // hash so the CPU cost is identical whether the username is valid or not.
+  // hash so the CPU cost is identical whether the username is valid or not. The
+  // compare MUST run before any length-based early-return below, otherwise an
+  // oversized-password request for a non-existent account would return instantly
+  // and leak which usernames exist (timing oracle). bcrypt.compare hashes only
+  // the first 72 bytes, so an oversized password is safe to pass through here.
   const hashToCompare = user ? user.password : DUMMY_HASH;
   let passwordMatch;
   try {
@@ -275,6 +272,14 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     // bcrypt.compare can throw on unexpected input (e.g. malformed hash, OOM).
     console.error('bcrypt.compare error during login:', err.message);
     req.flash('error', 'An error occurred during login. Please try again.');
+    return res.redirect('/login');
+  }
+
+  // Reject excessively long passwords after the constant-time bcrypt compare so
+  // the timing oracle above is not reintroduced. An oversized password cannot
+  // match (bcrypt caps input at 72 bytes), so rejecting here is fail-closed.
+  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+    req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
 

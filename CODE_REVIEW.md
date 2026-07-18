@@ -192,3 +192,60 @@ and regression-tested:
 - `npx eslint .` — clean (exit 0).
 - `npx jest` — 259 passed / 259 total (added 3 `auth` HPP regression cases).
 - `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-07-18 (fifth pass)
+
+A fifth independent pass (2 parallel review agents over all route modules,
+core files, `app.js`/`auth.js`/`seed.js`, and the test suite) found no new SQL
+injection, IDOR, CSRF, or error-leakage defects. The prior review history was
+re-verified and the following genuine, previously-unaddressed issues were fixed
+and regression-tested:
+
+### Fixes applied
+- **`auth.js` — login username-enumeration timing oracle (MEDIUM).** The
+  password `> MAX_PASSWORD_BYTES` early-return executed *before* the constant-time
+  `bcrypt.compare` that was specifically added to prevent username enumeration.
+  For a non-existent account with an oversized password the handler returned
+  instantly, while an existing account ran the full ~200–300 ms compare —
+  leaking which usernames exist via response time. The byte-length reject was
+  moved to *after* the `bcrypt.compare` call (which still runs against
+  `DUMMY_HASH` for unknown users), so the expensive comparison always executes
+  regardless of whether the account exists. The reject remains fail-closed (an
+  oversized password cannot match, since bcrypt caps input at 72 bytes).
+- **`projects.js`, `changes.js`, `knowledge.js` — missing HPP array rejection
+  (LOW-MEDIUM).** Every other privileged write route rejects HTTP parameter
+  pollution arrays for free-text body fields, but these three modules' create
+  and update handlers (plus `projects.js` task/member add handlers) read fields
+  through `safeQueryValue`, which collapses arrays to the first element
+  (fail-open). Added fail-closed array-rejection loops over every body field in
+  each affected handler, matching the `assets.js`/`staff.js`/`licenses.js`/
+  `vendors.js`/`auth.js` pattern. Low-severity (non-destructive) but closes the
+  last remaining gap in the codebase's HPP defense.
+
+### False positives / non-defects reconsidered
+- **`app.js` `reportLimiter` prefix list** omits the `/reports` index GET and
+  `/reports/assets`. The index is a non-data landing page and `/reports/assets`
+  is already covered by the `['/tickets','/assets','/staff']` prefix list, so
+  there is no un-limited expensive aggregation endpoint. Left unchanged.
+- **`knowledge.js` `GET /knowledge/:id` view counter** (CSRF-exempt GET with a
+  server-side side effect) and **`tickets.js` `GET /tickets/:id` read without
+  ownership check** were re-confirmed as intentional, documented behavior
+  (cross-team collaboration; PII redacted for non-privileged viewers). Not
+  defects.
+- All other modules re-verified clean for SQL injection, IDOR, CSRF, XSS,
+  error leakage, race/TOCTOU, and seed/production safety.
+
+### Test coverage gaps closed
+- `tests/hpp.test.js` extended with regression cases asserting that
+  `projects.js` (project/task create+update, member add), `changes.js`
+  (create+update), and `knowledge.js` (create+update) reject array payloads with
+  a fail-closed redirect + error flash.
+- Added `tests/auth-login.test.js` asserting the login handler still invokes
+  `bcrypt.compare` (against `DUMMY_HASH`) for a non-existent user with an
+  oversized password, locking in the timing-oracle fix.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 270 passed / 270 total (added 11 HPP regression cases + 2 login
+  timing-oracle regression cases).
+- `.env.example` contains only placeholders; no secrets committed.
