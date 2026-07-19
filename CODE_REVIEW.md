@@ -15,6 +15,66 @@ are observations and by-design clarifications rather than required fixes.
 
 ---
 
+## Review cycle 2026-07-19 (ninth pass)
+
+A ninth independent pass (4 parallel review agents over the auth/security
+middleware + core files, all 11 route modules, the EJS template + frontend
+layer, and the test suite, cross-checked against the prior 8 passes) found **no
+new SQL injection, IDOR, CSRF, XSS, login brute-force, or error-leakage
+defects**. The codebase's defense-in-depth model remains internally consistent.
+One genuine, previously-unaddressed **fail-open consistency bug** and one **HPP
+gap** were fixed and regression-tested:
+
+### Fixes applied
+- **`licenses.js` — `cost` field failed open on invalid input (MEDIUM).** Both
+  the create (`safePositiveFloat(cost)` → default `null`) and update
+  (`safePositiveFloat(cost)` → default `null`) routes silently stored `NULL`
+  when a malformed/garbage cost was submitted, wiping a legitimate stored cost
+  with no error. This is exactly the fail-open bug pattern the `projects.js`
+  `budget`/`spent` fix addressed (using an `Infinity` sentinel to distinguish
+  "not submitted" from "submitted invalid") — but `cost` was never given the
+  same treatment. Now:
+  - create: absent/empty cost → `0`; invalid cost → reject with "Invalid cost
+    amount" flash (fail-closed).
+  - update: absent/empty cost → preserve the stored value (read inside the
+    transaction, TOCTOU-safe, mirroring `_resolveSeats`); invalid cost → reject
+    with flash (fail-closed) before the transaction.
+- **`tickets.js` — `satisfaction_rating` omitted HPP array rejection (LOW).**
+  Every other write route rejects HTTP parameter pollution arrays; the
+  `PUT /:id/satisfaction` handler collapsed `satisfaction_rating[]=a&...=b`
+  via `safeInt(safeQueryValue(...), 0)` to its first element (fail-open). Added
+  an explicit `Array.isArray` rejection before `safeQueryValue`, matching the
+  codebase's adopted fail-closed HPP pattern.
+
+### False positives / non-defects reconfirmed
+- Middleware (`auth.js`, `audit.js`) confirmed not to read raw `req.body/
+  query/params`; HPP defense correctly lives at the route layer.
+- All 11 route modules re-verified clean for SQL injection (whitelisted helpers
+  + bound params), IDOR/TOCTOU (ownership rechecked inside `db.transaction`),
+  CSRF, date/number strictness, audit coverage, and error leakage.
+- All 42 EJS templates re-verified: only `article.renderedContent` is unescaped
+  (server-sanitized); every state-changing form carries `_csrf`;
+  `target=_blank` is scheme-checked + `rel="noopener noreferrer"`; `app.js`
+  uses only `textContent` (no `innerHTML`/eval). No XSS/CSRF/link defects.
+- `safeQueryValue`/`safeId`/`safeInt`/`safePositiveFloat` unchanged and correct;
+  login timing-oracle fix and `entityId == null` coercion fix intact.
+
+### Test coverage gaps closed (observations, not defects)
+- The prior test suite concentrated on HPP unit rejection and helper functions;
+  authorization at route level and transaction/TOCTOU rollback were not
+  exercised (handlers mock the DB, so `db.transaction` is a passthrough). Not
+  changed here, but flagged for a future integration pass (a `reports.test.js`/
+  `audit.test.js`-style real-DB harness would cover it).
+- HPP coverage was sampled (1–2 fields per route), not exhaustive; the new
+  `cost`/`satisfaction_rating` cases begin closing that.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 284 passed / 284 total (added 5 regression cases: licenses
+  `cost` HPP create+update, licenses malformed `cost` create+update fail-closed,
+  tickets `satisfaction_rating` HPP).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (eighth pass)
 
 An eighth independent pass (2 parallel review agents over all route modules,

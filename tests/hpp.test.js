@@ -222,6 +222,13 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects array satisfaction_rating (fail-closed)', () => {
+      const h = lastHandlerFor(ticketsRouter, 'put', '/:id/satisfaction');
+      const { redirectedTo, flashCalls } = runHandler(h, { satisfaction_rating: ['3', '5'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('licenses routes', () => {
@@ -230,6 +237,42 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('rejects array software_name on license create', () => {
       const h = lastHandlerFor(licensesRouter, 'post', '/');
       const { redirectedTo, flashCalls } = runHandler(h, { software_name: ['a', 'b'], license_type: 'subscription' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array cost on license create (fail-closed)', () => {
+      const h = lastHandlerFor(licensesRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', cost: ['100', '200']
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array cost on license update (fail-closed)', () => {
+      const h = lastHandlerFor(licensesRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', cost: ['100', '200']
+      }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed cost on license create instead of silently nulling it', () => {
+      const h = lastHandlerFor(licensesRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', cost: 'abc'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed cost on license update instead of wiping stored cost', () => {
+      const h = lastHandlerFor(licensesRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', cost: '100abc'
+      }, { id: '1' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });

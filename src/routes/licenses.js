@@ -160,6 +160,20 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses/new');
   }
 
+  // Distinguish "cost not submitted" (default to 0) from "cost submitted with
+  // an invalid value" (fail closed — reject rather than silently storing null,
+  // which would wipe a legitimate stored cost). Mirrors projects.js budget/spent.
+  let safeCost;
+  if (cost === undefined || cost === null || cost === '') {
+    safeCost = 0;
+  } else {
+    safeCost = safePositiveFloat(cost, Infinity);
+    if (!Number.isFinite(safeCost)) {
+      req.flash('error', 'Invalid cost amount');
+      return res.redirect('/licenses/new');
+    }
+  }
+
   const { seats, used, error: seatError } = _resolveSeats(total_seats, used_seats, null);
   if (seatError) {
     req.flash('error', seatError);
@@ -175,9 +189,9 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   try {
-    const result = _licenseInsertStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, (license_key || '').substring(0, MAX_LONG_STR) || null, license_type || null,
-      seats, used,
-      sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null);
+      const result = _licenseInsertStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, (license_key || '').substring(0, MAX_LONG_STR) || null, license_type || null,
+       seats, used,
+       sPurchase, sExpiry, safeCost, (notes || '').substring(0, MAX_NOTES) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
@@ -308,6 +322,18 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
 
+  // Distinguish "cost not submitted" (preserve stored value inside the
+  // transaction) from "cost submitted with an invalid value" (fail closed —
+  // reject rather than silently wiping the stored cost). Mirrors projects.js
+  // budget/spent. The existing value is read inside the transaction below.
+  if (cost !== undefined && cost !== null && cost !== '') {
+    const _costCheck = safePositiveFloat(cost, Infinity);
+    if (!Number.isFinite(_costCheck)) {
+      req.flash('error', 'Invalid cost amount');
+      return res.redirect(`/licenses/${id}/edit`);
+    }
+  }
+
   // Validate date ordering
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
@@ -344,9 +370,15 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       const resolvedKey = clearKey
         ? null
         : (license_key ? license_key.substring(0, MAX_LONG_STR) || null : existing.license_key);
+      // Resolve cost against the freshly-read row: an absent field preserves the
+      // stored value (avoids a TOCTOU between this SELECT and the UPDATE); an
+      // invalid value was already rejected before the transaction.
+      const resolvedCost = (cost === undefined || cost === null || cost === '')
+        ? (existing.cost ?? 0)
+        : safePositiveFloat(cost, Infinity);
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,
-        sPurchase, sExpiry, safePositiveFloat(cost), (notes || '').substring(0, MAX_NOTES) || null, id);
+        sPurchase, sExpiry, resolvedCost, (notes || '').substring(0, MAX_NOTES) || null, id);
     });
     updateLicense();
 
