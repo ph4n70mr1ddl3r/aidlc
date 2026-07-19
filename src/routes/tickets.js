@@ -205,6 +205,16 @@ router.get('/new', (req, res) => {
 
 // Create ticket
 router.post('/', ticketWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _ticketCreateFields = ['title', 'description', 'category', 'priority', 'assigned_to', 'asset_id', 'due_date', 'requester_name', 'requester_email', 'requester_department', 'requester_phone'];
+  for (const f of _ticketCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/tickets/new');
+    }
+  }
+
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
   const category = trim(safeQueryValue(req.body.category));
@@ -393,6 +403,16 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets');
   }
 
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _ticketUpdateFields = ['title', 'description', 'category', 'priority', 'status', 'assigned_to', 'asset_id', 'due_date', 'resolution_notes', 'requester_name', 'requester_email', 'requester_department', 'requester_phone'];
+  for (const f of _ticketUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+  }
+
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
   const category = trim(safeQueryValue(req.body.category));
@@ -554,6 +574,12 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  if (Array.isArray(req.body.comment) || Array.isArray(req.body.is_internal)) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}`);
+  }
+
   const comment = safeQueryValue(req.body.comment);
   const is_internal = safeQueryValue(req.body.is_internal);
 

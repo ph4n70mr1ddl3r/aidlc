@@ -113,6 +113,16 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create license
 router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads which
+  // safeQueryValue would silently collapse to the first element.
+  const _licenseCreateFields = ['software_name', 'vendor', 'license_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes'];
+  for (const f of _licenseCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/licenses/new');
+    }
+  }
+
   const software_name = trim(safeQueryValue(req.body.software_name));
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));

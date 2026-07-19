@@ -600,7 +600,7 @@ function shutdown(signal) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
+  console.error('Unhandled Rejection:', (reason && reason.message) || String(reason));
   // Always exit — Node.js defaults to handling unhandled rejections as
   // uncaught exceptions (crash) since v15, and continuing with an
   // indeterminate state may cause silent data corruption.
@@ -609,7 +609,7 @@ process.on('unhandledRejection', (reason) => {
   timer.unref();
 });
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  console.error('Uncaught Exception:', err.message || String(err));
   // Always exit after an uncaught exception — the process is in an undefined state.
   process.exitCode = 1;
   const timer = setTimeout(() => process.exit(1), 1000);

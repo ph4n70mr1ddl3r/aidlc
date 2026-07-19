@@ -198,4 +198,51 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
   });
+
+  describe('tickets routes', () => {
+    const ticketsRouter = require('../src/routes/tickets');
+
+    it('rejects array title on ticket create', () => {
+      const h = lastHandlerFor(ticketsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['a', 'b'], category: 'hardware', requester_name: 'Test', requester_email: 't@x.com' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array title on ticket update', () => {
+      const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { title: ['x', 'y'], category: 'hardware', status: 'open' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array comment on ticket comment', () => {
+      const h = lastHandlerFor(ticketsRouter, 'post', '/:id/comments');
+      const { redirectedTo, flashCalls } = runHandler(h, { comment: ['a', 'b'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('licenses routes', () => {
+    const licensesRouter = require('../src/routes/licenses');
+
+    it('rejects array software_name on license create', () => {
+      const h = lastHandlerFor(licensesRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { software_name: ['a', 'b'], license_type: 'subscription' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('vendors routes', () => {
+    const vendorsRouter = require('../src/routes/vendors');
+
+    it('rejects array name on vendor create', () => {
+      const h = lastHandlerFor(vendorsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: ['a', 'b'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
 });
