@@ -7,7 +7,7 @@
   const _limit = typeof limit !== 'undefined' ? limit : 25;
   const _baseUrl = typeof baseUrl !== 'undefined' ? baseUrl : '';
   const buildUrl = (p) => {
-    const cleaned = _baseUrl.replace(/[?&]page=\d+/g, '');
+    const cleaned = _baseUrl.replace(/([?&])page=\d+/g, '$1');
     const sep = cleaned.includes('?') ? '&' : '?';
     return cleaned + sep + 'page=' + p;
   };
