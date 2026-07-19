@@ -7,6 +7,44 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (tenth pass)
+
+A tenth independent pass (full re-read of `auth.js`, `dashboard.js`,
+`reports.js`, both middleware modules, and `utils.js`/`constants.js`, plus a
+parallel subagent over all 13 route modules and `models/database.js`/`seed.js`)
+found **no new SQL injection, IDOR, CSRF, XSS, login brute-force, or
+error-leakage defects**. The codebase's defense-in-depth model remains
+internally consistent. One genuine, previously-unaddressed **over-fetch /
+exposure-surface issue** was fixed and regression-tested:
+
+### Fixes applied
+- **`dashboard.js` — `licenseAlerts` over-fetched the sensitive `license_key`
+  column (LOW).** The dashboard query used `SELECT * FROM licenses`, loading the
+  encrypted `license_key` of every expiring license into the shared,
+  cache-resident dashboard data object that is later spread into the rendered
+  template context. The template only reads `licenseAlerts.length`, so the key
+  was never rendered — but it widened the credential-exposure surface of the
+  cached dashboard payload (and of any future handler that serializes the same
+  `shared` object). Changed to `SELECT id, software_name, vendor, expiry_date`
+  so the secret column is never loaded into the dashboard data object.
+  Verified: no template consumes any other license column on the dashboard.
+
+### False positives / non-defects reconfirmed
+- `auth.js` login re-verified: constant-time `bcrypt.compare` runs before the
+  oversized-password early-return and before lockout checks, so the
+  username-enumeration timing oracle stays closed; HPP array rejection on
+  `username`/`password` intact; session regenerated on login/password change.
+- `reports.js` `resolveReportPeriod` HPP guard (array rejected before
+  `safeQueryValue`) and `middleware/audit.js` `entityId == null` coercion fix
+  both intact.
+- All 13 route modules re-verified clean for SQL injection (whitelisted helpers
+  + bound params), IDOR/TOCTOU (ownership rechecked inside `db.transaction`),
+  CSRF, date/number strictness, audit coverage, and error leakage.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 284 passed / 284 total.
+
 ## Verdict
 
 **No genuine security or correctness defects found.** The codebase is in strong shape

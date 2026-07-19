@@ -109,8 +109,12 @@ const stmts = {
     ORDER BY open_tickets DESC
     LIMIT 8
   `),
+  // Only select the columns the dashboard template renders (expiry_date for
+  // ordering/display). Avoid SELECT * so the sensitive license_key column is
+  // never loaded into the shared/rendered data object — defense-in-depth that
+  // shrinks the credential-exposure surface of the cached dashboard payload.
   licenseAlerts: db.prepare(`
-    SELECT * FROM licenses
+    SELECT id, software_name, vendor, expiry_date FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
     ORDER BY expiry_date ASC
     LIMIT 20
