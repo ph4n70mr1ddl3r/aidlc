@@ -24,8 +24,12 @@ try {
 // Enable WAL mode for better performance. Assert the result: on filesystems
 // that don't support WAL the pragma silently "succeeds" but returns a
 // different mode, which would change the concurrency/durability assumptions.
+// In-memory databases (DB_PATH=':memory:') inherently return 'memory' for
+// journal_mode — WAL is unsupported and the check is skipped to avoid
+// spurious warnings in tests that use an in-memory instance.
+const isMemoryDb = DB_PATH === ':memory:';
 const journalMode = db.pragma('journal_mode = WAL', { simple: true });
-if (journalMode !== 'wal') {
+if (!isMemoryDb && journalMode !== 'wal') {
   console.warn(`WARNING: SQLite WAL mode not enabled (got "${journalMode}"). Concurrency/durability assumptions may not hold.`);
 }
 // Referential integrity must be ON or every FK-backed cascade/cleanup in the
