@@ -36,15 +36,32 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   // Seat counts are unsigned SQLite INTEGER columns; use safePositiveInt so
   // negative (HPP) values and out-of-range counts are rejected rather than
   // silently coerced/truncated.
-  const seats = Math.max(1, safePositiveInt(totalSeatsRaw, fallbackTotal));
-  const used = safePositiveInt(usedSeatsRaw, fallbackUsed);
-  if (used < 0) {
-    return { seats, used, error: 'Used seats cannot be negative' };
+  //
+  // IMPORTANT: safePositiveInt returns the fallback for *any* non-parseable
+  // input, so a present-but-garbage value ("abc", "12.5", an HPP array that
+  // safeQueryValue collapses to a string, etc.) would silently collapse to the
+  // default/existing count — fail-open. Mirror the fail-closed convention used
+  // for cost/budget/spent: an ABSENT/empty field preserves the stored/default
+  // value, but a PRESENT non-numeric value is rejected rather than coerced.
+  const totalPresent = totalSeatsRaw !== undefined && totalSeatsRaw !== null && totalSeatsRaw !== '';
+  const usedPresent = usedSeatsRaw !== undefined && usedSeatsRaw !== null && usedSeatsRaw !== '';
+  const seats = totalPresent ? safePositiveInt(totalSeatsRaw, Infinity) : fallbackTotal;
+  const used = usedPresent ? safePositiveInt(usedSeatsRaw, Infinity) : fallbackUsed;
+  if (totalPresent && !Number.isFinite(seats)) {
+    return { seats, used, error: 'Invalid total seats' };
   }
-  if (used > seats) {
-    return { seats, used, error: 'Used seats cannot exceed total seats' };
+  if (usedPresent && !Number.isFinite(used)) {
+    return { seats, used, error: 'Invalid used seats' };
   }
-  return { seats, used, error: null };
+  const finalSeats = Math.max(1, seats);
+  const finalUsed = used;
+  if (finalUsed < 0) {
+    return { seats: finalSeats, used: finalUsed, error: 'Used seats cannot be negative' };
+  }
+  if (finalUsed > finalSeats) {
+    return { seats: finalSeats, used: finalUsed, error: 'Used seats cannot exceed total seats' };
+  }
+  return { seats: finalSeats, used: finalUsed, error: null };
 }
 
 // Rate limit license key reveal to prevent bulk exfiltration

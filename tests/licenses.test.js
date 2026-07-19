@@ -40,9 +40,12 @@ describe('resolveSeats', () => {
       expect(resolveSeats('', '', null)).toEqual({ seats: 1, used: 0, error: null });
     });
 
-    it('clamps total seats to a minimum of 1', () => {
+    it('clamps total seats to a minimum of 1 when a non-negative value is given', () => {
       expect(resolveSeats('0', '0', null)).toEqual({ seats: 1, used: 0, error: null });
-      expect(resolveSeats('-5', '0', null)).toEqual({ seats: 1, used: 0, error: null });
+    });
+
+    it('rejects a present negative total seats (fail-closed)', () => {
+      expect(resolveSeats('-5', '0', null).error).toBe('Invalid total seats');
     });
   });
 
@@ -70,22 +73,35 @@ describe('resolveSeats', () => {
   });
 
   describe('validation', () => {
-    it('rejects negative used seats (falls back to default 0)', () => {
-      // safePositiveInt rejects the negative value and falls back to the
-      // default used count (0), so no error is raised but the bad value is dropped.
+    it('rejects negative used seats (fail-closed, no silent coercion)', () => {
+      // A PRESENT non-numeric/negative value must be rejected rather than
+      // silently collapsed to the default count.
       const r = resolveSeats('10', '-1', null);
-      expect(r.used).toBe(0);
-      expect(r.error).toBeNull();
+      expect(r.used).not.toBe(0);
+      expect(r.error).toBe('Invalid used seats');
     });
 
     it('rejects used exceeding total', () => {
       expect(resolveSeats('5', '6', null).error).toBe('Used seats cannot exceed total seats');
     });
 
-    it('rejects HPP arrays (falls back instead of coercing ["3","9"] to 3)', () => {
-      // safePositiveInt rejects arrays, so a polluted payload falls back to the
-      // create defaults rather than silently storing parseInt("3,9") === 3.
-      expect(resolveSeats(['3', '9'], ['1'], null)).toEqual({ seats: 1, used: 0, error: null });
+    it('rejects garbled total_seats (fail-closed)', () => {
+      expect(resolveSeats('abc', '3', null).error).toBe('Invalid total seats');
+    });
+
+    it('rejects garbled used_seats (fail-closed)', () => {
+      expect(resolveSeats('10', '12.5', null).error).toBe('Invalid used seats');
+    });
+
+    it('rejects garbled seats on partial update (fail-closed, not coerced to existing)', () => {
+      const existing = { total_seats: 25, used_seats: 7 };
+      expect(resolveSeats('garbage', '', existing).error).toBe('Invalid total seats');
+      expect(resolveSeats('', 'oops', existing).error).toBe('Invalid used seats');
+    });
+
+    it('rejects HPP arrays (fail-closed, not coerced)', () => {
+      const r = resolveSeats(['3', '9'], ['1'], null);
+      expect(r.error).toBe('Invalid total seats');
     });
   });
 });

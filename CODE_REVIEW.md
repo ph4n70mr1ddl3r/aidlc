@@ -7,6 +7,65 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (sixteenth pass)
+
+A sixteenth independent pass (2 parallel review agents: one over route modules
+batch 1 [assets/projects/vendors/licenses/changes], one over route modules batch 2
+[tickets/staff/knowledge/auth/dashboard/reports/audit] plus a manual re-read of
+`utils.js`, `constants.js`, `app.js`, the middleware modules, and `models/database.js`)
+found **no new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage defects**.
+(An agent-flagged "missing CSRF" finding was a false positive — `doubleCsrfProtection`
+is wired in `app.js` and every state-changing form carries a `_csrf` token; a
+flagged in-memory login-lockout `Map` was reconfirmed as the documented
+single-instance limitation, not a defect.) One genuine, previously-unaddressed
+**fail-open validation bug** was found and fixed:
+
+### Fixes applied
+- **`licenses.js` — `_resolveSeats` silently coerced malformed `total_seats` /
+  `used_seats` to the default/stored count (HIGH).** The helper called
+  `safePositiveInt(raw, fallback)`, which returns the fallback for *any*
+  non-parseable input, so a present-but-garbage value (`"abc"`, `"12.5"`, a polluted
+  array that `safeQueryValue` collapses to a string, or a negative number) was
+  silently stored as the default (`1` total / `0` used on create) or the existing
+  stored count on update — without an error. This is exactly the fail-open pattern
+  the prior passes fixed for `cost` (9th pass), `budget`/`spent` (2nd pass), and the
+  various malformed-date fields (8th/11th/12th/14th passes), but seats had been
+  missed. Now the helper distinguishes "absent/empty" (preserves the stored/default
+  value) from "present-but-non-numeric" (rejected with a `"Invalid total seats"` /
+  `"Invalid used seats"` error, fail-closed), mirroring the `cost` guard. The create
+  route surfaces the error before the transaction; the update route throws
+  `SEAT_VALIDATION` (already caught and redirected to the edit page with a flash).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF tokens on all
+  state-changing forms (verified `doubleCsrfProtection` is active in `app.js`);
+  the only `<%-` sink (`renderedContent`) is server-sanitized; `target=_blank` links
+  carry `rel="noopener noreferrer"` + scheme check; login timing-oracle,
+  `entityId == null` coercion, `recalcProjectProgress` guards, dashboard PII
+  over-fetch (explicit column lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values (now consistent across all of
+  assets/projects/vendors/licenses/changes). Verified cross-route for consistency.
+
+### Test coverage gaps closed
+- `tests/licenses.test.js` corrected and extended its `resolveSeats` block:
+  - Garbled present `total_seats`/`used_seats` (`"abc"`, `"12.5"`) now assert a
+    `"Invalid total seats"` / `"Invalid used seats"` error (fail-closed) instead of
+    silently coercing to the default/existing count.
+  - A present negative `total_seats` (`"-5"`) now asserts `"Invalid total seats"`
+    (previously it silently clamped to `1`).
+  - A present garbled value on a *partial update* (with an existing row) now asserts
+    rejection rather than being coerced to the stored count.
+  - The HPP-array case now asserts fail-closed rejection rather than silent fallback.
+  - Absent/empty partial submissions still preserve the stored count (unchanged).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 313 passed / 313 total (added 4 regression cases).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (fifteenth pass)
 
 A fifteenth independent pass (3 parallel review agents: one over route modules batch 1
