@@ -194,6 +194,18 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   const sStart = safeDate(start_date);
   const sEnd = safeDate(end_date);
+  // Reject malformed (non-empty, non-parseable) dates instead of silently
+  // storing NULL. Empty input is allowed (falls back to NULL); only a present
+  // value that fails to parse is an error. Mirrors the strict date validation
+  // in changes.js (_resolveDateTimeField) and licenses.js.
+  if (start_date && start_date !== '' && sStart === null) {
+    req.flash('error', 'Invalid start date');
+    return res.redirect('/projects/new');
+  }
+  if (end_date && end_date !== '' && sEnd === null) {
+    req.flash('error', 'Invalid end date');
+    return res.redirect('/projects/new');
+  }
   if (sStart && sEnd && sEnd < sStart) {
     req.flash('error', 'End date must be on or after start date');
     return res.redirect('/projects/new');
@@ -322,6 +334,18 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   try {
     const sStart = safeDate(start_date);
     const sEnd = safeDate(end_date);
+    // Reject malformed (non-empty, non-parseable) dates instead of silently
+    // storing NULL. Empty input is allowed (falls back to NULL); only a present
+    // value that fails to parse is an error. Mirrors the strict date validation
+    // in changes.js (_resolveDateTimeField) and licenses.js.
+    if (start_date && start_date !== '' && sStart === null) {
+      req.flash('error', 'Invalid start date');
+      return res.redirect(`/projects/${id}/edit`);
+    }
+    if (end_date && end_date !== '' && sEnd === null) {
+      req.flash('error', 'Invalid end date');
+      return res.redirect(`/projects/${id}/edit`);
+    }
     if (sStart && sEnd && sEnd < sStart) {
       req.flash('error', 'End date must be on or after start date');
       return res.redirect(`/projects/${id}/edit`);

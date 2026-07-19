@@ -593,7 +593,13 @@ function _getProgressUpdateStmt(db) {
  * @param {number} projectId
  */
 function recalcProjectProgress(db, projectId) {
+  if (!Number.isInteger(projectId) || projectId <= 0) {
+    return;
+  }
   const row = _getProgressSelectStmt(db).get(projectId);
+  if (!row) {
+    return;
+  }
   const progress = row.total > 0 ? Math.round((row.done / row.total) * 100) : 0;
   _getProgressUpdateStmt(db).run(progress, projectId);
 }

@@ -57,4 +57,10 @@ describe('audit middleware', () => {
     const row = db.prepare('SELECT details FROM audit_log WHERE entity_id = 4 ORDER BY id DESC LIMIT 1').get();
     expect(row.details).toBeNull();
   });
+
+  it('preserves a legitimate entity_id of 0 (no falsy coercion)', () => {
+    audit({ req: null, action: 'delete', entity: 'asset', entityId: 0, details: 'edge' });
+    const row = db.prepare('SELECT entity_id FROM audit_log WHERE entity_id = 0 AND details = \'edge\' ORDER BY id DESC LIMIT 1').get();
+    expect(row.entity_id).toBe(0);
+  });
 });

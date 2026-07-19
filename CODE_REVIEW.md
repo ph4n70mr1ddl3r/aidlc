@@ -15,6 +15,52 @@ are observations and by-design clarifications rather than required fixes.
 
 ---
 
+## Review cycle 2026-07-19 (eighth pass)
+
+An eighth independent pass (2 parallel review agents over all route modules,
+core files, middleware, utils, constants, and the test suite) found no SQL
+injection, IDOR, CSRF, or XSS defects. The prior review history was re-verified
+and the following genuine, previously-unaddressed correctness issues were fixed
+and regression-tested:
+
+### Fixes applied
+- **`middleware/audit.js` — `entityId || null` falsy coercion (LOW).** The audit
+  `INSERT` used `entityId || null`, which coerces a legitimate `entityId` of `0`
+  to `NULL`, silently dropping the audit link for any entity whose row id is `0`.
+  Autoincrement IDs start at 1 so live risk is nil, but it is a latent correctness
+  bug. Changed to `entityId == null ? null : entityId` so `0` is preserved.
+- **`utils.js` — `recalcProjectProgress` unguarded against invalid input (LOW).**
+  The function called `_getProgressSelectStmt(db).get(projectId)` directly; an
+  invalid `projectId` (e.g. `undefined`) makes `.get()` return `undefined`, and
+  `row.total` then throws `TypeError`. Callers pass validated IDs today, but the
+  helper now guards `Number.isInteger(projectId) && projectId > 0` and returns
+  early when the project row is missing — fail-closed rather than crash-prone.
+- **`projects.js` — malformed dates silently stored as NULL (MEDIUM).** The
+  create and update routes passed `start_date`/`end_date` through `safeDate`,
+  which returns `NULL` for any unparseable value, so a garbage date like
+  `2026-13-45` was stored as `NULL` with only the ordering check. This is
+  inconsistent with `changes.js` (`_resolveDateTimeField` errors on bad input)
+  and `licenses.js` (strict). Now a present, non-empty date that fails to parse
+  surfaces as an "Invalid start/end date" flash error, while empty input is still
+  allowed to fall back to `NULL`.
+
+### False positives / non-defects reconfirmed
+- All 11 route modules re-verified clean for SQL injection, IDOR, CSRF, XSS,
+  error leakage, race/TOCTOU, HPP guards (login/profile/password/CRUD all covered),
+  and seed/production safety.
+- `seed.js` transaction is atomic, so a mid-run failure cannot leave the DB
+  half-seeded; re-seed on the same UTC day is safe because the `DELETE` at the top
+  of the transaction removes prior rows before re-inserting.
+
+### Test coverage updated
+- `tests/audit.test.js` extended with a regression case asserting that
+  `audit()` preserves a legitimate `entityId` of `0` (no falsy coercion to `NULL`).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 279 passed / 279 total (added 1 audit regression case).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (seventh pass)
 
 A seventh independent pass (3 parallel review agents over all 11 route modules,
