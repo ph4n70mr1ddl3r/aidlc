@@ -369,10 +369,33 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
   const safeCondition = condition_rating || 'good';
 
+  // Fail closed on malformed purchase price (MEDIUM). A present, non-empty
+  // price that fails to parse must be rejected rather than silently stored as
+  // NULL, which would wipe a legitimate stored price on a partial edit. An
+  // empty/omitted price preserves the existing stored value (read inside the
+  // transaction, TOCTOU-safe, mirroring licenses.js / projects.js).
+  if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
+      !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
+    req.flash('error', 'Invalid purchase price');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+
   // Validate date ordering — warranty cannot expire before purchase (mirrors
   // the create route and the projects/vendors/licenses/changes checks).
   const sPurchase = safeDate(purchase_date);
   const sWarranty = safeDate(warranty_expiry);
+  // A present, non-empty date that fails to parse must be rejected (fail
+  // closed) rather than silently overwriting the stored date with NULL — the
+  // exact malformed-date default-to-NULL bug fixed for projects.js. An empty
+  // date is still allowed to fall back to the existing stored value.
+  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+    req.flash('error', 'Invalid purchase date');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (warranty_expiry && warranty_expiry !== '' && sWarranty === null) {
+    req.flash('error', 'Invalid warranty expiry date');
+    return res.redirect(`/assets/${id}/edit`);
+  }
   if (sPurchase && sWarranty && sWarranty < sPurchase) {
     req.flash('error', 'Warranty expiry must be on or after purchase date');
     return res.redirect(`/assets/${id}/edit`);
@@ -393,12 +416,25 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 
+      // Preserve the stored price/dates when the field is blank on a partial
+      // edit, so editing an unrelated field can't wipe them. Invalid values
+      // were already rejected above (fail closed).
+      const resolvedPrice = (purchase_price === undefined || purchase_price === null || purchase_price === '')
+        ? (existingAsset.purchase_price ?? 0)
+        : safePositiveFloat(purchase_price, Infinity);
+      const resolvedPurchase = (purchase_date === undefined || purchase_date === null || purchase_date === '')
+        ? existingAsset.purchase_date
+        : sPurchase;
+      const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null || warranty_expiry === '')
+        ? existingAsset.warranty_expiry
+        : sWarranty;
+
       const result = _updateStmt.run(
         asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
         (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
         (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, safeCondition,
-        sPurchase, safePositiveFloat(purchase_price),
-        sWarranty, updateAssignee,
+        resolvedPurchase, resolvedPrice,
+        resolvedWarranty, updateAssignee,
         (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
       );
       if (result.changes === 0) {

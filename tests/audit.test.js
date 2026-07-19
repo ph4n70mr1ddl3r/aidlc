@@ -63,4 +63,11 @@ describe('audit middleware', () => {
     const row = db.prepare('SELECT entity_id FROM audit_log WHERE entity_id = 0 AND details = \'edge\' ORDER BY id DESC LIMIT 1').get();
     expect(row.entity_id).toBe(0);
   });
+
+  it('logs the audit_log self-trail access (entity type now allowed)', () => {
+    audit({ req: { session: { user: { id: 1 } }, ip: '127.0.0.1' }, action: 'read', entity: 'audit_log', entityId: null, details: 'Viewed audit log' });
+    const row = db.prepare('SELECT entity_type, details FROM audit_log WHERE entity_type = \'audit_log\' ORDER BY id DESC LIMIT 1').get();
+    expect(row.entity_type).toBe('audit_log');
+    expect(row.details).toBe('Viewed audit log');
+  });
 });

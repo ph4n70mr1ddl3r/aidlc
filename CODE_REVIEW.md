@@ -7,6 +7,69 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (eleventh pass)
+
+An eleventh independent pass (4 parallel review agents over the auth/security
+middleware + core files, route modules batch 1, route modules batch 2, and the
+utils/templates surface, cross-checked against the prior 10 passes) found **no new
+SQL injection, IDOR, CSRF, XSS, login brute-force, or error-leakage defects**.
+However, it surfaced **4 genuine, previously-unaddressed defects** in the
+fail-closed validation and HPP-consistency classes that the prior passes had fixed
+elsewhere but missed here. All four were fixed and regression-tested:
+
+### Fixes applied
+- **`assets.js` — `purchase_price` failed open on update (MEDIUM).** The update
+  route passed `purchase_price` through `safePositiveFloat` (default `null`), so a
+  blank or malformed price silently overwrote a legitimate stored price with `NULL`
+  whenever any other field was edited. This is the exact fail-open bug pattern the
+  `licenses.cost` (9th pass) and `projects.budget/spent` (2nd pass) fixes addressed,
+  but `assets.js` was never given the same treatment. Now: an empty/omitted price
+  preserves the stored value (read inside the transaction, TOCTOU-safe), while an
+  invalid price is rejected with an "Invalid purchase price" flash (fail-closed).
+- **`assets.js` — `purchase_date`/`warranty_expiry` failed open on update (MEDIUM).**
+  The update route parsed these through `safeDate`, which returns `NULL` for any
+  unparseable value, with no "present-but-invalid" rejection like the one added to
+  `projects.js` (8th pass). Editing any other field while a date was cleared or
+  malformed silently wiped the stored date. Now a present, non-empty date that fails
+  to parse is rejected (fail-closed), while an empty date still falls back to the
+  stored value — mirroring `projects.js`.
+- **`audit.js` — self-audit of "viewed audit log" was silently dropped (MEDIUM).**
+  The audit index route called `req.audit('read', 'audit_log', null, 'Viewed audit
+  log')` to leave a detective trace of a compromised privileged account reading the
+  full log. But `audit()` validates `entity` against `ALLOWED_ENTITY_TYPES`, which did
+  not contain `'audit_log'`, so the call hit `console.error(...); return;` and never
+  inserted a row — the intended control was completely non-functional. Added
+  `'audit_log'` to `ALLOWED_ENTITY_TYPES` in `constants.js`.
+- **`staff.js` / `tickets.js` — two write routes omitted HPP array rejection (LOW).**
+  Every other write route rejects HTTP parameter pollution arrays, but `staff.js`
+  `PUT /:id/reset-password` (admin resetting another user's password — the most
+  security-sensitive route) and `tickets.js` `PUT /:id/status` read the relevant
+  fields through `safeQueryValue`, which collapses `field[]=a&field[]=b` to its first
+  element (fail-open). Added fail-closed array-rejection loops matching the codebase
+  pattern. Practical impact is low (the collapsed value must still pass validation,
+  and authorization is unaffected), but both closed the last remaining gaps in the
+  adopted fail-closed HPP model.
+
+### False positives / non-defects reconfirmed
+- All SQL dynamic queries still flow through the whitelisted helpers
+  (`buildFilters`/`addSearch`/`safeSort`/`quoteColumn`/`countQuery`/`selectQuery`) with
+  bound params; no raw-concatenation injection.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; PII redaction for
+  non-privileged staff viewers intact.
+- KB `renderedContent` remains the only unescaped (`<%-`) sink and is server-sanitized;
+  `_csrf` present on all state-changing forms; `target=_blank` links carry
+  `rel="noopener noreferrer"` + scheme check.
+- Login timing-oracle, `entityId == null` coercion, and `recalcProjectProgress` guards
+  all intact.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 290 passed / 290 total (added 7 regression cases: assets malformed
+  `purchase_price` update fail-closed, assets malformed `purchase_date` update
+  fail-closed, staff `reset-password` HPP on `new_password` + `current_password`,
+  tickets `status` HPP, audit `audit_log` self-trail now persists).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (tenth pass)
 
 A tenth independent pass (full re-read of `auth.js`, `dashboard.js`,

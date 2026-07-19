@@ -654,6 +654,14 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     req.flash('error', 'Invalid ticket ID');
     return res.redirect('/tickets');
   }
+  // Fail closed on HTTP parameter pollution: reject array payloads before
+  // safeQueryValue silently collapses status[]=a&status[]=b to its first
+  // element. Mirrors the array-rejection guards on the other ticket write routes.
+  if (Array.isArray(req.body.status)) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}`);
+  }
+
   const status = safeQueryValue(req.body.status);
 
   if (typeof status !== 'string' || !VALID_STATUSES.includes(status)) {

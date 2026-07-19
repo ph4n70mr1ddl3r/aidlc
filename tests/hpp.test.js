@@ -68,6 +68,24 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects malformed purchase price on update instead of wiping stored price', () => {
+      const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        asset_tag: 'AST-001', name: 'Laptop', category: 'Laptop', purchase_price: '100abc'
+      }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed purchase date on update instead of wiping stored date', () => {
+      const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        asset_tag: 'AST-001', name: 'Laptop', category: 'Laptop', purchase_date: '2026-13-45'
+      }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('staff routes', () => {
@@ -229,6 +247,13 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects array status on quick status update (fail-closed)', () => {
+      const h = lastHandlerFor(ticketsRouter, 'put', '/:id/status');
+      const { redirectedTo, flashCalls } = runHandler(h, { status: ['resolved', 'open'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('licenses routes', () => {
@@ -291,6 +316,28 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('rejects array name on vendor update', () => {
       const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
       const { redirectedTo, flashCalls } = runHandler(h, { name: ['x', 'y'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('staff reset-password route', () => {
+    const staffRouter = require('../src/routes/staff');
+
+    it('rejects array new_password on reset (fail-closed)', () => {
+      const h = lastHandlerFor(staffRouter, 'put', '/:id/reset-password');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        new_password: ['weak1', 'weak2'], current_password: 'old'
+      }, { id: '2' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array current_password on reset (fail-closed)', () => {
+      const h = lastHandlerFor(staffRouter, 'put', '/:id/reset-password');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        new_password: 'NewPassw0rd!Aa1', current_password: ['old1', 'old2']
+      }, { id: '2' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });

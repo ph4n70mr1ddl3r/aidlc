@@ -610,6 +610,17 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect('/profile');
   }
 
+  // Fail closed on HTTP parameter pollution: reject array payloads on the
+  // password fields before safeQueryValue silently collapses them to the first
+  // element. Mirrors the array-rejection guards on the create/update routes and
+  // the auth.js profile/password routes.
+  for (const f of ['new_password', 'current_password']) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/staff/${id}`);
+    }
+  }
+
   const new_password = safeQueryValue(req.body.new_password);
   const current_password = safeQueryValue(req.body.current_password);
   if (!new_password || typeof new_password !== 'string') {
