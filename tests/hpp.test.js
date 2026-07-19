@@ -86,6 +86,33 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects malformed purchase price on create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(assetsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        asset_tag: 'AST-001', name: 'Laptop', category: 'Laptop', purchase_price: '100abc'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed purchase date on create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(assetsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        asset_tag: 'AST-001', name: 'Laptop', category: 'Laptop', purchase_date: '2026-13-45'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed warranty expiry on create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(assetsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        asset_tag: 'AST-001', name: 'Laptop', category: 'Laptop', warranty_expiry: 'not-a-date'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('staff routes', () => {
@@ -155,6 +182,13 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('rejects array name on project update', () => {
       const h = lastHandlerFor(projectsRouter, 'put', '/:id');
       const { redirectedTo, flashCalls } = runHandler(h, { name: ['x', 'y'], status: 'active', priority: 'medium' }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed budget on project create instead of silently coercing to 0', () => {
+      const h = lastHandlerFor(projectsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Rollout', status: 'active', priority: 'medium', budget: 'abc' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
@@ -316,6 +350,20 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('rejects array name on vendor update', () => {
       const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
       const { redirectedTo, flashCalls } = runHandler(h, { name: ['x', 'y'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed contract_start on vendor create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(vendorsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', contract_start: 'not-a-date' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed contract_end on vendor create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(vendorsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', contract_end: '2026-13-45' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });

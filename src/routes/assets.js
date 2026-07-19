@@ -191,8 +191,31 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // entities that carry two user-supplied dates).
   const sPurchase = safeDate(purchase_date);
   const sWarranty = safeDate(warranty_expiry);
+  // A present, non-empty date that fails to parse must be rejected (fail
+  // closed) rather than silently stored as NULL — the exact malformed-date
+  // default-to-NULL bug fixed for the assets UPDATE path (11th pass) and for
+  // projects.js (8th pass). An empty date is still allowed (falls back to NULL).
+  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+    req.flash('error', 'Invalid purchase date');
+    return res.redirect('/assets/new');
+  }
+  if (warranty_expiry && warranty_expiry !== '' && sWarranty === null) {
+    req.flash('error', 'Invalid warranty expiry date');
+    return res.redirect('/assets/new');
+  }
   if (sPurchase && sWarranty && sWarranty < sPurchase) {
     req.flash('error', 'Warranty expiry must be on or after purchase date');
+    return res.redirect('/assets/new');
+  }
+
+  // Fail closed on malformed purchase price (LOW). A present, non-empty price
+  // that fails to parse must be rejected rather than silently stored as NULL,
+  // which would drop a legitimate price on a typo'd submission. An empty/omitted
+  // price is allowed (falls back to NULL, consistent with the update path).
+  // Mirrors the assets UPDATE path (11th pass) and licenses create (9th pass).
+  if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
+      !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
+    req.flash('error', 'Invalid purchase price');
     return res.redirect('/assets/new');
   }
 

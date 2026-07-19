@@ -86,12 +86,15 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
 
 /**
  * Resolve an optional DATE field on update: preserve the existing value only
- * when the field is ABSENT from the request (partial submission). An empty or
- * invalid submitted value CLEARS the field (null), consistent with the create
- * route and every other optional field on the update form. Without this an
- * empty submitted date silently fell back to existing, making it impossible
- * to clear a contract date via the edit form.
- * Mirrors the absent-vs-empty distinction in changes.js _resolveDateTimeField.
+ * when the field is ABSENT from the request (partial submission). An empty
+ * submitted value CLEARS the field (null), consistent with the create route and
+ * every other optional field on the update form. Without this an empty submitted
+ * date silently fell back to existing, making it impossible to clear a contract
+ * date via the edit form.
+ * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
+ * NOT silently wipe the stored date to NULL — the same malformed-date fail-open
+ * the assets/projects update fixes addressed. Mirrors the absent-vs-empty
+ * distinction in changes.js _resolveDateTimeField.
  */
 function _resolveClearableDate(rawValue, existingValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?contract_end[]=a&contract_end[]=b)
@@ -105,7 +108,18 @@ function _resolveClearableDate(rawValue, existingValue) {
   if (rawValue === undefined) {
     return existingValue;
   }
-  return safeDate(rawValue);
+  // Empty string explicitly clears the field (null) — allows un-setting a date.
+  if (rawValue === '') {
+    return null;
+  }
+  // Present but unparseable (e.g. "2026-13-01") → surface as an error so the
+  // existing legitimate date is NOT silently wiped. Previously this fell through
+  // to safeDate() which returned NULL and overwrote the stored value.
+  const parsed = safeDate(rawValue);
+  if (parsed === null) {
+    return { error: true };
+  }
+  return parsed;
 }
 
 /**
@@ -271,6 +285,18 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
+  // A present, non-empty contract date that fails to parse must be rejected
+  // (fail closed) rather than silently stored as NULL — the same malformed-date
+  // default-to-NULL pattern fixed for the assets/projects update paths. An empty
+  // contract date is still allowed (falls back to NULL).
+  if (contract_start && contract_start !== '' && sContractStart === null) {
+    req.flash('error', 'Invalid contract start date');
+    return res.redirect('/vendors/new');
+  }
+  if (contract_end && contract_end !== '' && sContractEnd === null) {
+    req.flash('error', 'Invalid contract end date');
+    return res.redirect('/vendors/new');
+  }
   if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
     req.flash('error', 'Contract end must be on or after contract start');
     return res.redirect('/vendors/new');

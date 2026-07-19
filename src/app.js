@@ -326,6 +326,7 @@ app.use((req, res, next) => {
   // project show pages). Without these the templates throw ReferenceError.
   res.locals.daysUntil = utilsModule.daysUntil;
   res.locals.usagePercent = utilsModule.usagePercent;
+  res.locals.isValidEmail = utilsModule.isValidEmail;
   res.locals.isExpiringSoon = utilsModule.isExpiringSoon;
   res.locals.titleCase = utilsModule.titleCase;
   res.locals.isPrivileged = utilsModule.isPrivileged;

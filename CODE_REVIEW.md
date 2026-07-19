@@ -7,6 +7,66 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (twelfth pass)
+
+A twelfth independent pass (full source re-read + 2 parallel review agents: one
+over the route/middleware write surface, one over all EJS views + `public/js`)
+found no SQL injection, IDOR, CSRF, XSS, auth, or TOCTOU defects. The one class
+of genuine, previously-unaddressed defects was a **fail-open inconsistency** on
+several CREATE paths: malformed (but non-empty) optional numeric/date fields
+were silently stored as NULL/0 instead of being rejected, contradicting the
+codebase's established "malformed non-empty input must fail closed" convention
+already enforced on the sibling UPDATE paths.
+
+### Fixes applied
+- **`assets.js` create — malformed `purchase_date` / `warranty_expiry` silently
+  stored NULL (LOW).** A present-but-unparseable date fell through `safeDate()`
+  to NULL, discarding user input without feedback. Now rejects with an error
+  flash, mirroring the update path.
+- **`assets.js` create — malformed `purchase_price` silently stored NULL (LOW).**
+  A present-but-unparseable price (e.g. `100abc`) was dropped to NULL. Now
+  fails closed, mirroring the update path.
+- **`projects.js` create — malformed `budget` silently coerced to 0 (LOW).**
+  `safePositiveFloat(budget, 0)` turned `"abc"` into a stored budget of 0. Now
+  uses an out-of-band sentinel to distinguish empty (allowed) from malformed
+  (rejected), mirroring the update path.
+- **`vendors.js` create — malformed `contract_start` / `contract_end` silently
+  stored NULL (LOW).** Same date fall-through as assets. Now rejects malformed
+  present values.
+- **`vendors.js` update — `_resolveClearableDate` silently wiped a stored date
+  to NULL on an unparseable present value (LOW).** Editing an unrelated field
+  with a corrupt/polluted date payload could destroy a legitimate stored
+  contract date. The helper now returns `{ error: true }` for an unparseable
+  present value (empty string still clears to NULL, as intended).
+
+### Defense-in-depth (consistency) additions
+- **`views/*/show.ejs` mailto: links (LOW, defense-in-depth).** The three
+  `mailto:` links (vendors, tickets, staff) rendered the stored email into an
+  `href` without the scheme/format guard used by the sibling website link.
+  Server-side `isValidEmail` already gates writes, so this is not exploitable,
+  but for consistency `isValidEmail` is now exposed to `res.locals` and each
+  link only renders as an anchor when the value validates (otherwise plain
+  text).
+
+### False positives / non-defects reconfirmed
+- No raw `req.body/query/params` reaches SQL (all via parameterized statements /
+  `safeQueryValue`); every state-changing form carries `_csrf`; the only `<%-`
+  interpolation remains the `sanitize-html`-cleaned `renderedContent`.
+
+### Test coverage gaps closed
+- `tests/hpp.test.js` extended with fail-closed regression cases for the assets
+  create (price/date), projects create (budget), and vendors create (contract
+  dates) paths.
+- `tests/vendors.test.js` `resolveClearableDate` case updated to assert a
+  malformed present date now returns `{ error: true }` (fail closed) rather than
+  clearing to NULL.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 296 passed / 296 total (added 6 create-path fail-closed
+  regression cases; updated 1 update-path case).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (eleventh pass)
 
 An eleventh independent pass (4 parallel review agents over the auth/security

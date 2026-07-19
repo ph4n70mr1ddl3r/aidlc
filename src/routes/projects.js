@@ -211,6 +211,22 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     return res.redirect('/projects/new');
   }
 
+  // Fail closed on malformed budget (LOW). A present, non-empty budget that
+  // fails to parse must be rejected rather than silently coerced to 0, which
+  // would drop a legitimate budget on a typo'd submission. An empty/omitted
+  // budget is allowed (falls back to 0, consistent with the update path's
+  // Infinity-sentinel handling). Mirrors the projects UPDATE path (2nd pass).
+  let safeBudget;
+  if (budget === undefined || budget === null || budget === '') {
+    safeBudget = 0;
+  } else {
+    safeBudget = safePositiveFloat(budget, Infinity);
+    if (!Number.isFinite(safeBudget)) {
+      req.flash('error', 'Invalid budget amount');
+      return res.redirect('/projects/new');
+    }
+  }
+
   // Validate owner is an active user
   const safeOwnerId = owner_id ? safeId(owner_id) : null;
 
@@ -223,7 +239,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
       return _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
-        sStart, sEnd, safePositiveFloat(budget, 0), safeOwnerId);
+        sStart, sEnd, safeBudget, safeOwnerId);
     });
     const result = createProject();
 

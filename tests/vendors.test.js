@@ -84,8 +84,12 @@ describe('resolveClearableDate (contract date clearing)', () => {
     expect(resolveClearableDate('2025-06-30', '2024-01-01')).toBe('2025-06-30');
   });
 
-  it('treats an invalid date the same as empty (clear to null), matching the create route', () => {
-    expect(resolveClearableDate('not-a-date', '2024-01-01')).toBeNull();
+  it('rejects a present but malformed (non-array) date as invalid input (fail closed)', () => {
+    // A malformed date must NOT silently wipe the stored value to NULL — it must
+    // surface as an error so the update fails closed. Previously this fell through
+    // to safeDate() and returned NULL, overwriting a legitimate stored date.
+    expect(resolveClearableDate('not-a-date', '2024-01-01')).toEqual({ error: true });
+    expect(resolveClearableDate('2026-13-01', '2024-01-01')).toEqual({ error: true });
   });
 
   it('rejects arrays (parameter pollution) as invalid input', () => {
