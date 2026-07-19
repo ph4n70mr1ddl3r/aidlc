@@ -7,6 +7,69 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (thirteenth pass)
+
+A thirteenth independent pass (2 parallel review agents: one over all route modules +
+utils/constants/middleware, one over every EJS view + `public/js`) found **no new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects**. Two genuine,
+previously-unaddressed defects were found and fixed; both are sibling-path
+inconsistencies where the codebase's established "fail-closed" convention had been
+applied elsewhere but missed on these paths.
+
+### Fixes applied
+- **`projects.js` update — malformed `budget`/`spent` error message silently
+  dropped (HIGH).** The update route throws `INVALID_BUDGET` / `INVALID_SPENT`
+  *inside* the transaction carrying an attached `err.flash` ("Invalid budget
+  amount" / "Invalid amount spent"), mirroring the `licenses.js` seat-validation
+  pattern. But the `catch` block only handled `NOT_FOUND` and `OWNER_NOT_AVAILABLE`
+  and fell through to a generic "Error updating project. Please try again." — it
+  never read `err.flash`. A user submitting a typo'd budget/spent on a partial edit
+  was therefore rejected fail-closed (no data corruption) yet shown a misleading
+  generic error instead of the real reason. Added the `INVALID_BUDGET` /
+  `INVALID_SPENT` branch to the catch block so the specific flash is surfaced and
+  the handler redirects back to the edit page, exactly as `licenses.js` does.
+- **`vendors.js` create/update — `contract_start` / `contract_end` omitted from the
+  HPP array-rejection guards (LOW).** Every other vendor text field is fail-closed
+  against HTTP parameter pollution arrays via the `_hppFields` loops, but the two
+  contract date fields were not listed, so a polluted `contract_start[]=a&...=b`
+  collapsed to its first element via `safeQueryValue` (fail-open) — inconsistent
+  with the rest of the codebase. Added both fields to the `_hppFields` arrays in
+  both `POST /` and `PUT /:id` so array payloads are rejected before parsing.
+
+### Non-defects / deliberately-by-design reconfirmed
+- **`assets.js` update `status` preserves the existing value on an invalid non-empty
+  value (LOW, flagged by the agent).** This is intentional and documented in-code:
+  it mirrors the vendor/project/license "preserve existing on partial submit"
+  convention and never applies an attacker-chosen status, so it is not a fail-open
+  defect. Left unchanged.
+- **Dead `Array.isArray` guards inside `_resolveClearableDate` (LOW, flagged).** The
+  date resolver receives values already collapsed by `safeQueryValue`, so its
+  internal array check can never fire — the real protection is the new route-level
+  HPP guard. Left as defense-in-depth (the helper is also unit-tested directly with
+  array input, so removing it would regress `tests/vendors.test.js`).
+
+### False positives / non-defects reconfirmed
+- All SQL dynamic queries still flow through the whitelisted helpers with bound
+  params; no raw `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF tokens
+  present on all state-changing forms; the only `<%-` sink (`renderedContent`) is
+  server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"` +
+  scheme check; login timing-oracle and `entityId == null` coercion fixes intact.
+
+### Test coverage gaps closed
+- `tests/hpp.test.js` extended with regression cases asserting the `projects.js`
+  update route now surfaces the specific "Invalid budget amount" / "Invalid amount
+  spent" flash (not the generic error) and redirects to the edit page for malformed
+  `budget`/`spent`.
+- `tests/hpp.test.js` extended with fail-closed HPP regression cases asserting
+  `vendors.js` create (`contract_start[]`) and update (`contract_end[]`) reject
+  array payloads with an error flash.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 300 passed / 300 total (added 4 regression cases).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (twelfth pass)
 
 A twelfth independent pass (full source re-read + 2 parallel review agents: one

@@ -431,6 +431,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Selected owner is not available');
       return res.redirect(`/projects/${id}/edit`);
     }
+    if ((err.message === 'INVALID_BUDGET' || err.message === 'INVALID_SPENT') && err.flash) {
+      req.flash('error', err.flash);
+      return res.redirect(`/projects/${id}/edit`);
+    }
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
   }

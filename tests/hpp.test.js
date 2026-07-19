@@ -193,6 +193,38 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
 
+    it('surfaces the specific flash (not a generic error) for malformed budget on project update', () => {
+      const db = jest.requireMock('../src/models/database');
+      const prev = db.prepare().get;
+      db.prepare().get = jest.fn(() => ({ budget: 0, spent: 0 }));
+      try {
+        const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+        const { redirectedTo, flashCalls } = runHandler(h, { name: 'Rollout', status: 'in_progress', priority: 'medium', budget: 'abc' }, { id: '1' });
+        expect(redirectedTo).toBe('/projects/1/edit');
+        const errorFlash = flashCalls.find(([t]) => t === 'error');
+        expect(errorFlash).toBeDefined();
+        expect(errorFlash[1]).toBe('Invalid budget amount');
+      } finally {
+        db.prepare().get = prev;
+      }
+    });
+
+    it('surfaces the specific flash (not a generic error) for malformed spent on project update', () => {
+      const db = jest.requireMock('../src/models/database');
+      const prev = db.prepare().get;
+      db.prepare().get = jest.fn(() => ({ budget: 0, spent: 0 }));
+      try {
+        const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+        const { redirectedTo, flashCalls } = runHandler(h, { name: 'Rollout', status: 'in_progress', priority: 'medium', spent: 'xyz' }, { id: '1' });
+        expect(redirectedTo).toBe('/projects/1/edit');
+        const errorFlash = flashCalls.find(([t]) => t === 'error');
+        expect(errorFlash).toBeDefined();
+        expect(errorFlash[1]).toBe('Invalid amount spent');
+      } finally {
+        db.prepare().get = prev;
+      }
+    });
+
     it('rejects array title on task create', () => {
       const h = lastHandlerFor(projectsRouter, 'post', '/:id/tasks');
       const { redirectedTo, flashCalls } = runHandler(h, { title: ['a', 'b'], status: 'todo', priority: 'medium' }, { id: '1' });
@@ -364,6 +396,20 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('rejects malformed contract_end on vendor create instead of silently storing NULL', () => {
       const h = lastHandlerFor(vendorsRouter, 'post', '/');
       const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', contract_end: '2026-13-45' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array contract_start on vendor create (fail-closed HPP)', () => {
+      const h = lastHandlerFor(vendorsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', contract_start: ['2025-01-01', '2025-02-01'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array contract_end on vendor update (fail-closed HPP)', () => {
+      const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', contract_end: ['2025-01-01', '2025-02-01'] }, { id: '1' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });

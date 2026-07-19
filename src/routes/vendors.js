@@ -313,7 +313,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // including `name` (the required field). safeQueryValue collapses arrays to
   // their first element, which would silently apply attacker-chosen data and
   // bypass the duplicate-name check.
-  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes'];
+  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
   for (const f of _hppFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');
@@ -479,7 +479,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // including `name` (the required field). safeQueryValue collapses arrays to
   // their first element, which would silently apply attacker-chosen data and
   // bypass the duplicate-name check.
-  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes'];
+  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
   for (const f of _hppFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');
