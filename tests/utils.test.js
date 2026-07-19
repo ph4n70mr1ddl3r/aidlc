@@ -61,6 +61,36 @@ describe('safeQueryValue', () => {
   });
 });
 
+describe('parseBooleanFlag', () => {
+  it('maps canonical checked values to 1 for a privileged caller', () => {
+    expect(utils.parseBooleanFlag('1', true)).toBe(1);
+    expect(utils.parseBooleanFlag('true', true)).toBe(1);
+    expect(utils.parseBooleanFlag('on', true)).toBe(1);
+  });
+
+  it('maps a missing/empty value to 0 (caller decides preserve vs default)', () => {
+    expect(utils.parseBooleanFlag(undefined, true)).toBe(0);
+    expect(utils.parseBooleanFlag('', true)).toBe(0);
+    expect(utils.parseBooleanFlag(null, true)).toBe(0);
+  });
+
+  it('does NOT coerce non-canonical strings (false/off/no) to 1', () => {
+    // Regression: the previous `(x && x !== '0')` idiom treated any non-empty
+    // string as truthy, so is_internal=false / is_featured=off would be stored
+    // as 1. Only canonical checked values may set the flag.
+    expect(utils.parseBooleanFlag('false', true)).toBe(0);
+    expect(utils.parseBooleanFlag('off', true)).toBe(0);
+    expect(utils.parseBooleanFlag('no', true)).toBe(0);
+    expect(utils.parseBooleanFlag('0', true)).toBe(0);
+  });
+
+  it('always returns 0 when the caller is not privileged', () => {
+    expect(utils.parseBooleanFlag('1', false)).toBe(0);
+    expect(utils.parseBooleanFlag('true', false)).toBe(0);
+    expect(utils.parseBooleanFlag('false', false)).toBe(0);
+  });
+});
+
 /**
  * Test for safeFilters function (HPP defense for template filter state)
  */

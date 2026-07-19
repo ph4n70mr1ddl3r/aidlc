@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -628,10 +628,9 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
 
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
         // Only admin/manager can mark comments as internal.
-        // Guards against HPP array values via safeQueryValue on is_internal.
-        // A truthy check that also excludes the explicit string '0' to match
-        // the knowledge-base is_featured checkbox idiom.
-        (is_internal && is_internal !== '0' && isPrivileged(req.session.user)) ? 1 : 0);
+        // parseBooleanFlag rejects any non-canonical string ('false', 'off',
+        // 'no') so it cannot be coerced truthy, and it gates on privilege.
+        parseBooleanFlag(is_internal, isPrivileged(req.session.user)));
 
       // Refresh ticket updated_at so it sorts as recently active
       _commentTouchStmt.run(id);

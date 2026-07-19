@@ -7,6 +7,53 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (fifteenth pass)
+
+A fifteenth independent pass (3 parallel review agents: one over route modules batch 1
+[assets/projects/vendors/licenses/changes], one over route modules batch 2
+[tickets/staff/knowledge/auth/dashboard/reports/audit], and one over all 42 EJS views
+and `public/js/app.js`, plus a manual re-read of `app.js`, `utils.js`, `constants.js`,
+`dashboard.js`, `middleware/audit.js`, and `seed.js`) found **no new SQL injection,
+IDOR, CSRF, XSS, auth, or error-leakage defects**. One genuine, previously-unaddressed
+**boolean-flag coercion bug** was found and fixed:
+
+### Fixes applied
+- **`tickets.js` comment `is_internal` and `knowledge.js` `is_featured` coerced
+  non-canonical strings to truthy (LOW).** Both flags used the idiom
+  `(x && x !== '0')`, which treats *any* non-empty string that is not exactly `'0'`
+  as truthy — so a privileged caller submitting `is_internal=false`, `off`, or `no`
+  (e.g. via an API client or a hand-built form) would silently store the flag as `1`.
+  Extracted the canonical allowlist (`'1'`/`'true'`/`'on'`) into a single shared
+  `parseBooleanFlag(value, privileged)` helper in `utils.js`, used by both routes
+  (with the privilege gate folded in). Now only the three canonical checked values
+  set the flag; every other value maps to `0`. No security boundary was crossed
+  (only privileged users can set these flags), but the coercion was incorrect and
+  inconsistent with strict-input intent, so it is fixed.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF tokens on all
+  state-changing forms; the only `<%-` sink (`renderedContent`) is server-sanitized;
+  `target=_blank` links carry `rel="noopener noreferrer"` + scheme check; login
+  timing-oracle, `entityId == null` coercion, `recalcProjectProgress` guards, dashboard
+  PII over-fetch (explicit column lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all text body fields; every numeric/date
+  field is fail-closed on malformed present values (consistent across all create/update
+  routes). Verified cross-route for consistency.
+
+### Test coverage gaps closed
+- `tests/utils.test.js` extended with a `parseBooleanFlag` unit block asserting canonical
+  checked values map to `1`, missing/empty map to `0`, non-canonical strings (`false`/
+  `off`/`no`/`0`) map to `0`, and a non-privileged caller always gets `0`.
+- `tests/knowledge.test.js` extended with regression cases asserting `resolveSafeFeatured`
+  no longer coerces `false`/`off`/`no` to featured.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 309 passed / 309 total (added 9 regression cases).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (fourteenth pass)
 
 A fourteenth independent pass (3 parallel review agents: one over the route modules

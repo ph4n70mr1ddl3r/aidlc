@@ -139,6 +139,17 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
     expect(resolveSafeFeatured(admin, '0')).toBe(0);
   });
 
+  it('does not coerce non-canonical strings (false/off/no) to featured', () => {
+    // Strict allowlist: only '1'/'true'/'on' may feature. A privileged caller
+    // posting is_featured=false (or any other non-empty value) must stay 0,
+    // not be coerced truthy.
+    expect(resolveSafeFeatured(admin, 'false')).toBe(0);
+    expect(resolveSafeFeatured(manager, 'off')).toBe(0);
+    expect(resolveSafeFeatured(admin, 'no')).toBe(0);
+    expect(resolveSafeFeatured(admin, 'on')).toBe(1);
+    expect(resolveSafeFeatured(admin, 'true')).toBe(1);
+  });
+
   it('treats boolean false the same as absent (not featured)', () => {
     expect(resolveSafeFeatured(admin, false)).toBe(0);
     expect(resolveSafeFeatured(manager, false)).toBe(0);

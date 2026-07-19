@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // marked v15 is the last CJS-compatible major version.
@@ -87,7 +87,12 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   if (is_featured === undefined || is_featured === '') {
     return existingFeatured;
   }
-  return (is_featured && is_featured !== '0') ? 1 : 0;
+  // Only the canonical "checked" values set the flag. A browser only sends a
+  // value when the checkbox is checked; unchecked sends nothing (handled above)
+  // or a hidden "0". parseBooleanFlag rejects any other string (e.g. 'false',
+  // 'off', 'no') so an API/HTML form with a custom value cannot silently mark
+  // an article featured — and it gates on privilege (non-privileged returns 0).
+  return parseBooleanFlag(is_featured, isPrivileged(user));
 }
 
 // Markdown options are inlined per-call in renderMarkdown to avoid

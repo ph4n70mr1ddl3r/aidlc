@@ -808,6 +808,28 @@ function selectQuery(db, sql, params) {
 }
 
 /**
+ * Parse a checkbox/flag form value into a strict boolean (0/1) for SQLite
+ * INTEGER columns (is_internal, is_featured, etc.).
+ *
+ * Only the canonical "checked" strings ('1', 'true', 'on') map to 1. Any other
+ * value — including non-empty strings like 'false', 'off', 'no' — maps to 0.
+ * This prevents a form/API value of `is_internal=false` from being coerced
+ * truthy (the previous `(x && x !== '0')` idiom treated any other string as 1).
+ * Absent/empty values are left to the caller (they must decide whether to
+ * preserve an existing value or default to 0), so they are coerced to 0 here.
+ * @param {*} value
+ * @param {boolean} [privileged=true] - gate caller-supplied flags (e.g. an
+ *   internal comment flag) behind a privilege check before allowing 1.
+ * @returns {0|1}
+ */
+function parseBooleanFlag(value, privileged = true) {
+  if (!privileged) {
+    return 0;
+  }
+  return (value === '1' || value === 'true' || value === 'on') ? 1 : 0;
+}
+
+/**
  * Determine whether the client prefers a JSON response over HTML.
  * Uses Express content negotiation directly: req.accepts returns the preferred
  * type ('json' or 'html') when both are acceptable, or the single matching type
@@ -874,4 +896,4 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, safePositiveInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, safePositiveInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
