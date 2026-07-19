@@ -278,6 +278,14 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets/new');
   }
 
+  // Reject a present, non-empty due date that fails to parse (fail-closed)
+  // instead of silently storing NULL — mirrors projects/assets/vendors/change-log.
+  const safeDueDate = safeDate(due_date);
+  if (due_date && due_date !== '' && safeDueDate === null) {
+    req.flash('error', 'Invalid due date');
+    return res.redirect('/tickets/new');
+  }
+
   // Validate assignee is an active user
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
   const safeAssetId = asset_id ? safeId(asset_id) : null;
@@ -305,7 +313,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
 
     const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
       requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
-      safeAssignee, safeAssetId, safeDate(due_date));
+      safeAssignee, safeAssetId, safeDueDate);
     return { ticket_number, id: result.lastInsertRowid };
   });
 
@@ -460,6 +468,15 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  // Reject a present, non-empty due date that fails to parse (fail-closed)
+  // instead of silently overwriting a stored date with NULL when any other
+  // field is edited — mirrors projects/assets/vendors/change-log.
+  const safeDueDate = safeDate(due_date);
+  if (due_date && due_date !== '' && safeDueDate === null) {
+    req.flash('error', 'Invalid due date');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
   if (resolution_notes && resolution_notes.length > MAX_DESC) {
     req.flash('error', `Resolution notes must be at most ${MAX_DESC} characters`);
     return res.redirect(`/tickets/${id}/edit`);
@@ -521,7 +538,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       }
 
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-        updateAssignee, updateAssetId, safeDate(due_date), (resolution_notes || '').substring(0, MAX_DESC) || null,
+        updateAssignee, updateAssetId, safeDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
         (requester_name || '').substring(0, MAX_SHORT_STR), (requester_email || '').substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';

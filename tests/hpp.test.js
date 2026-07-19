@@ -320,6 +320,26 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects malformed due_date on create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(ticketsRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        title: 'Laptop broken', category: 'hardware', priority: 'medium',
+        requester_name: 'Test', requester_email: 't@x.com', due_date: '2026-13-45'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed due_date on update instead of wiping stored date', () => {
+      const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        title: 'Laptop broken', category: 'hardware', priority: 'medium', status: 'open',
+        requester_name: 'Test', requester_email: 't@x.com', due_date: 'not-a-date'
+      }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('licenses routes', () => {
@@ -363,6 +383,24 @@ describe('HPP array rejection (regression — fail closed)', () => {
       const h = lastHandlerFor(licensesRouter, 'put', '/:id');
       const { redirectedTo, flashCalls } = runHandler(h, {
         software_name: 'Adobe CC', license_type: 'subscription', cost: '100abc'
+      }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed purchase_date on create instead of silently storing NULL', () => {
+      const h = lastHandlerFor(licensesRouter, 'post', '/');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', purchase_date: '2026-13-45'
+      });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects malformed expiry_date on update instead of wiping stored date', () => {
+      const h = lastHandlerFor(licensesRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {
+        software_name: 'Adobe CC', license_type: 'subscription', expiry_date: 'not-a-date'
       }, { id: '1' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);

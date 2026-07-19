@@ -180,9 +180,19 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses/new');
   }
 
-  // Validate date ordering
+  // Validate date ordering. Reject a present, non-empty date that fails to
+  // parse (fail-closed) instead of silently storing NULL — mirrors the
+  // malformed-date handling on projects/assets/vendors/change-log.
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
+  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+    req.flash('error', 'Invalid purchase date');
+    return res.redirect('/licenses/new');
+  }
+  if (expiry_date && expiry_date !== '' && sExpiry === null) {
+    req.flash('error', 'Invalid expiry date');
+    return res.redirect('/licenses/new');
+  }
   if (sPurchase && sExpiry && sExpiry < sPurchase) {
     req.flash('error', 'Expiry date must be on or after purchase date');
     return res.redirect('/licenses/new');
@@ -334,9 +344,19 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     }
   }
 
-  // Validate date ordering
+  // Validate date ordering. Reject a present, non-empty date that fails to
+  // parse (fail-closed) instead of silently storing NULL — mirrors the
+  // malformed-date handling on projects/assets/vendors/change-log.
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
+  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+    req.flash('error', 'Invalid purchase date');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (expiry_date && expiry_date !== '' && sExpiry === null) {
+    req.flash('error', 'Invalid expiry date');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
   if (sPurchase && sExpiry && sExpiry < sPurchase) {
     req.flash('error', 'Expiry date must be on or after purchase date');
     return res.redirect(`/licenses/${id}/edit`);

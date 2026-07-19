@@ -7,6 +7,82 @@
 suite. Prior review history (16 consecutive "code review" hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-19 (fourteenth pass)
+
+A fourteenth independent pass (3 parallel review agents: one over the route modules
+batch 1 [assets/projects/vendors/licenses], one over route modules batch 2
+[tickets/staff/changes/knowledge/auth/dashboard/reports/audit], and one over the
+core files, all EJS views, and `public/js`) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects**. Two genuine, previously-unaddressed
+fail-open validation defects and one defense-in-depth PII over-fetch were found and
+fixed; all are sibling-path inconsistencies where the codebase's established
+"fail-closed" convention had been applied elsewhere but missed on these paths.
+
+### Fixes applied
+- **`licenses.js` create/update — malformed `purchase_date`/`expiry_date` silently
+  stored NULL (LOW / MEDIUM on update).** Both routes validated only date *ordering*;
+  a present-but-unparseable date (e.g. `2026-13-45`) flowed through `safeDate()` to
+  `NULL` with no error and no user feedback. On update this silently overwrote a
+  legitimate stored date. This is exactly the fail-open malformed-date pattern already
+  fixed fail-closed on `projects.js` (8th pass), `assets.js` (11th/12th passes), and
+  `vendors.js` (12th pass), but `licenses.js` was only given the `cost` treatment (9th
+  pass). Added the present-non-empty-malformed-date rejection (`purchase_date !== '' &&
+  sPurchase === null` → "Invalid purchase date", same for expiry) before the ordering
+  check in both `POST /` and `PUT /:id`, mirroring the sibling routes.
+- **`tickets.js` create/update — `due_date` failed open on malformed present value
+  (MEDIUM).** Both routes passed `due_date` straight through `safeDate()` into the
+  INSERT/UPDATE with no "present-but-invalid" rejection — so editing *any other field*
+  while `due_date` was corrupted/malformed silently wiped a valid stored due date to
+  `NULL`, with no error and no audit of the loss. This is the same fail-open date
+  scenario the 11th-pass `assets.js` update-date fix explicitly called out. Added a
+  `safeDueDate` variable and, before the transaction, a `due_date && due_date !== '' &&
+  safeDueDate === null` rejection ("Invalid due date") in both `POST /` and `PUT /:id`,
+  mirroring `changes.js`/`projects.js`.
+- **`dashboard.js` — `recentTickets`/`myTickets` `SELECT *` over-fetched requester PII
+  (LOW, defense-in-depth).** Both prepared statements loaded the full `tickets` row
+  (including `requester_email`, `requester_phone`, `requester_department`, and
+  `due_date`) into the module-level **shared, cached dashboard object**
+  (`dashboardCache.data`), which is spread into the rendered context and re-used across
+  requests. The template only reads `id`, `ticket_number`, `title`, `category`,
+  `priority`, `status`, `created_at`, and `assigned_name` — the PII columns are never
+  rendered. This widens the PII-exposure surface of the shared cache exactly as the
+  10th-pass `licenseAlerts` fix (which changed `SELECT *` to explicit columns to keep
+  `license_key` out of the cached payload) warned against. Changed both statements to
+  select only the rendered columns (joining `users` for `assigned_name`), shrinking the
+  cached PII footprint. No current leak (template does not render it); this is
+  consistency with the established defense-in-depth model.
+
+### Non-defects / deliberately-by-design reconfirmed
+- `assets.js` update `status` preserve-existing-on-invalid (documented by-design) and
+  dead `Array.isArray` guards inside `_resolveClearableDate` (defense-in-depth)
+  reconfirmed unchanged.
+- Reports `SELECT *` on warranty/assets remains legitimate (admin/manager-only and its
+  columns are rendered); `expiringWarranties`/`upcomingChanges` `SELECT *` only read
+  `.length`/rendered columns.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF tokens on all
+  state-changing forms; the only `<%-` sink (`renderedContent`) is server-sanitized;
+  `target=_blank` links carry `rel="noopener noreferrer"` + scheme check; login
+  timing-oracle, `entityId == null` coercion, `recalcProjectProgress` guards, and the
+  `audit_log` self-trail fix all intact.
+
+### Test coverage gaps closed
+- `tests/hpp.test.js` extended with regression cases asserting `licenses.js` create
+  (`purchase_date='2026-13-45'`) and update (`expiry_date='not-a-date'`) now reject
+  malformed dates fail-closed (redirect to the form + error flash) instead of silently
+  persisting NULL.
+- `tests/hpp.test.js` extended with regression cases asserting `tickets.js` create
+  (`due_date='2026-13-45'`) and update (`due_date='not-a-date'`) now reject malformed
+  dates fail-closed instead of silently storing/wiping NULL.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 304 passed / 304 total (added 4 regression cases).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-19 (thirteenth pass)
 
 A thirteenth independent pass (2 parallel review agents: one over all route modules +
