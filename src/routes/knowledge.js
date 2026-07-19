@@ -546,7 +546,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
     const deleteArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
-        return { notFound: true };
+        return { notFound: true, title: null };
       }
       // Recheck authorization inside the transaction so a concurrent role
       // change between the outer check and the DELETE cannot bypass it.
@@ -555,13 +555,13 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
         throw new Error('ACCESS_DENIED');
       }
       const result = _deleteArticleStmt.run(id);
-      return { notFound: false, changes: result.changes };
+      return { notFound: false, changes: result.changes, title: recheck.title };
     });
     const deleteResult = deleteArticle();
     if (deleteResult.notFound) {
       req.flash('error', 'Article not found');
     } else {
-      req.audit('delete', 'knowledge_article', id, 'Deleted article');
+      req.audit('delete', 'knowledge_article', id, `Deleted article "${deleteResult.title}"`);
       req.flash('success', 'Article deleted');
       invalidateDashboardCache();
     }

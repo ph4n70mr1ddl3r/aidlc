@@ -422,15 +422,15 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     const deleteChange = db.transaction(() => {
       const existing = _editChangeStmt.get(id);
       if (!existing) {
-        return { changes: 0 };
+        return { changes: 0, title: null };
       }
-      return { changes: _deleteChangeStmt.run(id).changes };
+      return { changes: _deleteChangeStmt.run(id).changes, title: existing.title };
     });
     const result = deleteChange();
     if (result.changes === 0) {
       req.flash('error', 'Change not found');
     } else {
-      req.audit('delete', 'change', id, 'Deleted change record');
+      req.audit('delete', 'change', id, `Deleted change "${result.title}"`);
       req.flash('success', 'Change deleted');
       invalidateDashboardCache();
     }

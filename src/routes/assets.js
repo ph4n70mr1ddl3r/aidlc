@@ -440,17 +440,18 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
   try {
     const deleteAsset = db.transaction(() => {
-      if (!_assetExistsStmt.get(id)) {
-        return 0;
+      const existing = _editStmt.get(id);
+      if (!existing) {
+        return { changes: 0, name: null };
       }
       _deleteDetachTicketsStmt.run(id);
-      return _deleteStmt.run(id).changes;
+      return { changes: _deleteStmt.run(id).changes, name: existing.name };
     });
-    const changes = deleteAsset();
-    if (changes === 0) {
+    const result = deleteAsset();
+    if (result.changes === 0) {
       req.flash('error', 'Asset not found');
     } else {
-      req.audit('delete', 'asset', id, 'Deleted asset');
+      req.audit('delete', 'asset', id, `Deleted asset "${result.name}"`);
       req.flash('success', 'Asset deleted');
       invalidateDashboardCache();
     }

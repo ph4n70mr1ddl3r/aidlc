@@ -17,7 +17,7 @@ module.exports = [
       }
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-console': 'off',
       'eqeqeq': ['error', 'always', { null: 'ignore' }],
       'no-var': 'error',
@@ -25,7 +25,7 @@ module.exports = [
       'no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
       'no-undef': 'error',
       'no-redeclare': 'error',
-      'no-shadow': 'warn',
+      'no-shadow': 'error',
       'curly': ['error', 'all'],
       '@stylistic/brace-style': ['error', '1tbs'],
       '@stylistic/semi': ['error', 'always'],

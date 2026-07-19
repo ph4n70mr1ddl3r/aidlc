@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-07-18
+**Date:** 2026-07-19
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the Jest
-suite (256 tests, all passing). Prior review history (15 consecutive "code review"
-hardening commits) was cross-checked to confirm findings were not already addressed.
+suite. Prior review history (16 consecutive "code review" hardening commits) was
+cross-checked to confirm findings were not already addressed.
 
 ## Verdict
 
@@ -14,6 +14,45 @@ and follows a consistent, defense-in-depth security model. The recommendations b
 are observations and by-design clarifications rather than required fixes.
 
 ---
+
+## Review cycle 2026-07-19 (seventh pass)
+
+A seventh independent pass (3 parallel review agents over all 11 route modules,
+core files, middleware, utils, constants, and the test suite) found no SQL
+injection, IDOR, CSRF, or XSS defects. The prior review history was re-verified
+and the following genuine, previously-unaddressed issues were fixed and
+regression-tested:
+
+### Fixes applied
+- **`vendors.js` — `name` field omitted from HPP array rejection (LOW-MEDIUM).**
+  Every other write route rejects HTTP parameter pollution arrays, but the `name`
+  field in both the create and update handlers was not included in the `_hppFields`
+  array. A polluted `name[]=A&name[]=B` would silently collapse to `"A"` via
+  `safeQueryValue`, bypassing the duplicate-name check. Added `name` to the HPP
+  guard loop in both `POST /` and `PUT /:id`, matching the pattern used by all
+  other write routes.
+- **Delete audit messages lacked entity names (LOW).** The `assets.js`,
+  `knowledge.js`, and `changes.js` delete routes logged generic audit messages
+  (`"Deleted asset"`, `"Deleted article"`, `"Deleted change record"`) without
+  including the entity name. This makes auditing less actionable. Changed each
+  handler to fetch the entity inside the transaction and include its name in the
+  audit details string (e.g. `"Deleted asset \"MacBook Pro 16\""`).
+
+### False positives / non-defects reconfirmed
+- All other modules re-verified clean for SQL injection, IDOR, CSRF, XSS,
+  error leakage, race/TOCTOU, HPP guards, and seed/production safety.
+- ESLint `no-unused-vars` and `no-shadow` bumped from `warn` to `error` for
+  consistency with the project's strict approach.
+
+### Test coverage updated
+- `tests/hpp.test.js` extended with a regression case asserting that `vendors.js`
+  `PUT /:id` rejects array payloads on the `name` field (fail-closed redirect
+  + error flash).
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — all tests passing.
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-07-18 (follow-up)
 
