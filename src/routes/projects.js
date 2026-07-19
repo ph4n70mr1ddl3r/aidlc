@@ -451,15 +451,17 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
 
   try {
     const deleteProject = db.transaction(() => {
+      const existing = _showProjectStmt.get(id);
       _deleteProjectTasksStmt.run(id);
       _deleteProjectMembersStmt.run(id);
-      return _deleteProjectStmt.run(id).changes;
+      const changes = _deleteProjectStmt.run(id).changes;
+      return { changes, name: existing ? existing.name : null };
     });
-    const changes = deleteProject();
-    if (changes === 0) {
+    const result = deleteProject();
+    if (result.changes === 0) {
       req.flash('error', 'Project not found');
     } else {
-      req.audit('delete', 'project', id, 'Deleted project and related tasks/members');
+      req.audit('delete', 'project', id, `Deleted project "${result.name}"`);
       req.flash('success', 'Project deleted');
       invalidateDashboardCache();
     }

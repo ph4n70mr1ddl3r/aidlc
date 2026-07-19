@@ -220,6 +220,18 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create vendor
 router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution arrays for all text body fields,
+  // including `name` (the required field). safeQueryValue collapses arrays to
+  // their first element, which would silently apply attacker-chosen data and
+  // bypass the duplicate-name check.
+  const _hppCreateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
+  for (const f of _hppCreateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/vendors/new');
+    }
+  }
+
   const name = trim(safeQueryValue(req.body.name));
   const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -307,18 +319,6 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect('/vendors/new');
-  }
-
-  // Fail closed on HTTP parameter pollution arrays for all text body fields,
-  // including `name` (the required field). safeQueryValue collapses arrays to
-  // their first element, which would silently apply attacker-chosen data and
-  // bypass the duplicate-name check.
-  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
-  for (const f of _hppFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/vendors/new');
-    }
   }
 
   try {
@@ -479,8 +479,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // including `name` (the required field). safeQueryValue collapses arrays to
   // their first element, which would silently apply attacker-chosen data and
   // bypass the duplicate-name check.
-  const _hppFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
-  for (const f of _hppFields) {
+  const _hppUpdateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
+  for (const f of _hppUpdateFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');
       return res.redirect(`/vendors/${id}/edit`);
