@@ -505,12 +505,33 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // raw-undefined check pattern. The raw* variables are captured from the
       // outer scope, avoiding redundant safeQueryValue calls inside the txn.
       const safeContactPerson = _resolveOptionalTextField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
+      if (safeContactPerson && safeContactPerson.error) {
+        throw new Error('INVALID_CONTACT_PERSON');
+      }
       const safeEmail = _resolveOptionalTextField(req.body.email, email || null, MAX_EMAIL, existing.email);
+      if (safeEmail && safeEmail.error) {
+        throw new Error('INVALID_EMAIL');
+      }
       const safePhone = _resolveOptionalTextField(req.body.phone, phone || null, MAX_PHONE, existing.phone);
+      if (safePhone && safePhone.error) {
+        throw new Error('INVALID_PHONE');
+      }
       const safeAddress = _resolveOptionalTextField(req.body.address, address || null, MAX_ADDRESS, existing.address);
+      if (safeAddress && safeAddress.error) {
+        throw new Error('INVALID_ADDRESS');
+      }
       const safeWebsite = _resolveOptionalTextField(req.body.website, website || null, MAX_LONG_STR, existing.website);
+      if (safeWebsite && safeWebsite.error) {
+        throw new Error('INVALID_WEBSITE');
+      }
       const safeCategory = _resolveOptionalTextField(req.body.category, category || null, null, existing.category);
+      if (safeCategory && safeCategory.error) {
+        throw new Error('INVALID_CATEGORY');
+      }
       const safeNotes = _resolveOptionalTextField(req.body.notes, notes || null, MAX_NOTES, existing.notes);
+      if (safeNotes && safeNotes.error) {
+        throw new Error('INVALID_NOTES');
+      }
       // Rating is a discrete 1-5 value, not free text. An empty submitted
       // value (the form's number input sends '' when blank) must preserve the
       // existing rating rather than clear it, so editing any other field on the
@@ -569,6 +590,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     }
     if (err.message === 'NAME_EXISTS') {
       req.flash('error', 'Another vendor with this name already exists');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
+    if (err.message.startsWith('INVALID_')) {
+      const fieldName = err.message.replace('INVALID_', '').replace(/_/g, ' ').toLowerCase();
+      req.flash('error', `Invalid ${fieldName}`);
       return res.redirect(`/vendors/${id}/edit`);
     }
     console.error('Vendor update error:', err.message);
