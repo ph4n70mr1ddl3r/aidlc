@@ -39,7 +39,6 @@ const _insertStmt = db.prepare(`
       assigned_to, location, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-const _assetExistsStmt = db.prepare('SELECT id FROM assets WHERE id = ?');
 const _updateStmt = db.prepare(`
     UPDATE assets SET asset_tag = ?, name = ?, category = ?, manufacturer = ?,
       model = ?, serial_number = ?, status = ?, condition_rating = ?,
@@ -318,6 +317,8 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
+  // Capture the status from the current DB row for pre-txn validation fallback.
+  const _existingStatus = existingAsset.status;
 
   // Fail closed on HTTP parameter pollution: reject array payloads which would be
   // silently collapsed to the first element by safeQueryValue. Mirrors the guards
@@ -385,11 +386,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // field) instead of rejecting the whole update. This matches the
   // preserve-existing convention used by the vendor/project/license routes and
   // keeps the asset's current status when a caller omits the field.
-  const safeStatus = VALID_STATUSES.includes(status) ? status : (existingAsset ? existingAsset.status : 'in_storage');
-  if (!VALID_STATUSES.includes(safeStatus)) {
-    req.flash('error', 'Invalid status');
-    return res.redirect(`/assets/${id}/edit`);
-  }
+  const safeStatus = VALID_STATUSES.includes(status) ? status : _existingStatus;
   if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
     req.flash('error', 'Invalid condition rating');
     return res.redirect(`/assets/${id}/edit`);
@@ -432,11 +429,13 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
-    // Verify asset exists, validate assignee, and update in a single transaction
-    // to avoid TOCTOU races: the asset could be deleted or the assignee deactivated
-    // between the checks and the UPDATE.
+    // Verify asset exists, re-read current state inside the transaction, validate
+    // assignee, and update in a single transaction to avoid TOCTOU races: the
+    // asset could be deleted, prices/dates modified, or the assignee deactivated
+    // between the outer checks and the UPDATE.
     const updateAsset = db.transaction(() => {
-      if (!_assetExistsStmt.get(id)) {
+      const current = _editStmt.get(id);
+      if (!current) {
         throw new Error('NOT_FOUND');
       }
       if (updateAssignee && !isActiveUser(db, updateAssignee)) {
@@ -445,15 +444,17 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
       // Preserve the stored price/dates when the field is blank on a partial
       // edit, so editing an unrelated field can't wipe them. Invalid values
-      // were already rejected above (fail closed).
+      // were already rejected above (fail closed). Read from the current
+      // transaction-consistent row to avoid TOCTOU between the outer fetch
+      // and this UPDATE.
       const resolvedPrice = (purchase_price === undefined || purchase_price === null || purchase_price === '')
-        ? (existingAsset.purchase_price ?? 0)
+        ? (current.purchase_price ?? 0)
         : safePositiveFloat(purchase_price, Infinity);
       const resolvedPurchase = (purchase_date === undefined || purchase_date === null || purchase_date === '')
-        ? existingAsset.purchase_date
+        ? current.purchase_date
         : sPurchase;
       const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null || warranty_expiry === '')
-        ? existingAsset.warranty_expiry
+        ? current.warranty_expiry
         : sWarranty;
 
       const result = _updateStmt.run(
