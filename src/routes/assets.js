@@ -317,8 +317,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
-  // Capture the status from the current DB row for pre-txn validation fallback.
-  const _existingStatus = existingAsset.status;
 
   // Fail closed on HTTP parameter pollution: reject array payloads which would be
   // silently collapsed to the first element by safeQueryValue. Mirrors the guards
@@ -382,11 +380,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid category');
     return res.redirect(`/assets/${id}/edit`);
   }
-  // Preserve the existing status on a partial submit (e.g. an empty status
-  // field) instead of rejecting the whole update. This matches the
-  // preserve-existing convention used by the vendor/project/license routes and
-  // keeps the asset's current status when a caller omits the field.
-  const safeStatus = VALID_STATUSES.includes(status) ? status : _existingStatus;
   if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
     req.flash('error', 'Invalid condition rating');
     return res.redirect(`/assets/${id}/edit`);
@@ -441,6 +434,13 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       if (updateAssignee && !isActiveUser(db, updateAssignee)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
+
+      // Resolve status from the transaction-consistent re-fetch rather than the
+      // outer fetch, closing a TOCTOU gap where a concurrent status change
+      // between the outer fetch and this UPDATE could be silently overwritten
+      // when the submitted status is invalid/absent (which triggers the
+      // preserve-existing fallback).
+      const safeStatus = VALID_STATUSES.includes(status) ? status : current.status;
 
       // Preserve the stored price/dates when the field is blank on a partial
       // edit, so editing an unrelated field can't wipe them. Invalid values
