@@ -533,7 +533,13 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
-      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDate(due_date));
+      const safeDueDate = safeDate(due_date);
+      // Fail-closed: a present but malformed due_date must be rejected rather than
+      // silently stored as NULL — consistent with ticket/project/asset date validation.
+      if (due_date && due_date !== '' && safeDueDate === null) {
+        throw new Error('INVALID_DUE_DATE');
+      }
+      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
 
       recalcProjectProgress(db, projectId);
       return result.lastInsertRowid;
@@ -550,6 +556,10 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/projects/${projectId}`);
+    }
+    if (err.message === 'INVALID_DUE_DATE') {
+      req.flash('error', 'Invalid due date');
       return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task add error:', err.message);
@@ -665,7 +675,13 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDate(due_date), status === 'done' ? 1 : 0, taskId, projectId];
+      const safeDueDate = safeDate(due_date);
+      // Fail-closed: a present but malformed due_date must be rejected rather than
+      // silently stored as NULL — consistent with ticket/project/asset date validation.
+      if (due_date && due_date !== '' && safeDueDate === null) {
+        throw new Error('INVALID_DUE_DATE');
+      }
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -686,8 +702,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       req.flash('error', 'Selected assignee is not available');
       return res.redirect(`/projects/${projectId}`);
     }
+    if (err.message === 'INVALID_DUE_DATE') {
+      req.flash('error', 'Invalid due date');
+      return res.redirect(`/projects/${projectId}`);
+    }
     console.error('Project task update error:', err.message);
-    req.flash('error', 'Error updating task');
+    req.flash('error', 'Error updating task. Please try again.');
   }
   res.redirect(`/projects/${projectId}`);
 });

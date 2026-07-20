@@ -448,20 +448,26 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   const safeLastName = last_name.substring(0, MAX_SHORT_STR);
   const safeEmail = email.substring(0, MAX_EMAIL);
   const safePhone = phone ? phone.substring(0, MAX_PHONE) : null;
+  const userId = req.session.user.id;
   try {
-    const userId = req.session.user.id;
     _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
 
     // Regenerate session to prevent fixation — consistent with the password-change route
-    await new Promise((resolve, reject) => {
-      req.session.regenerate((err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
+    try {
+      await new Promise((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
       });
-    });
+    } catch (regErr) {
+      console.error('Session regeneration error during profile update:', regErr.message);
+      req.flash('error', 'An error occurred. Please try again.');
+      return res.redirect('/profile');
+    }
 
     // Fetch fresh user data from DB for the new session (consistent with
     // the password-change route) — avoids an incomplete session user object
@@ -472,7 +478,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
       req.session.user = freshUser;
     }
 
-    audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Updated own profile' });
+    audit({ req, action: 'update', entity: 'user', entityId: userId, details: 'Updated own profile' });
     invalidateDashboardCache();
     req.flash('success', 'Profile updated successfully');
   } catch (err) {

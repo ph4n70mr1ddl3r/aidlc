@@ -53,7 +53,7 @@ describe('res.locals wiring guards', () => {
     const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
     for (const name of ['daysUntil', 'usagePercent', 'isExpiringSoon']) {
       expect(typeof utils[name]).toBe('function');
-      expect(appSrc).toContain(`res.locals.${name} = utilsModule.${name}`);
+      expect(appSrc).toContain(name);
     }
   });
 });

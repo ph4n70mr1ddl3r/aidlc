@@ -139,7 +139,10 @@ document.addEventListener('click', function (e) {
 // Auto-submit on select change: <select data-auto-submit>
 document.addEventListener('change', function (e) {
   if (e.target.matches('[data-auto-submit]')) {
-    e.target.form.submit();
+    const form = e.target.form;
+    if (form) {
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
   }
 });
 

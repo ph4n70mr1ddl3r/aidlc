@@ -110,7 +110,7 @@
     <div class="card mb-2">
       <div class="card-header"><h3><i class="fas fa-chart-bar" style="margin-right:8px;color:var(--primary)"></i>Team Workload</h3></div>
       <div class="card-body">
-        <% if (typeof staffWorkload !== 'undefined') { staffWorkload.forEach(s => { %>
+        <% if (Array.isArray(staffWorkload)) { staffWorkload.forEach(s => { %>
           <div style="margin-bottom:12px;">
             <div class="flex justify-between mb-1">
               <span class="text-sm"><%= s.name %></span>
