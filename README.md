@@ -141,6 +141,8 @@ Environment variables (set in `.env`):
 | `NODE_ENV` | `development` | `development` or `production` |
 | `TRUST_PROXY` | `0` | Set to `1` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
+| `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0` |
+| `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL (ms); set to `0` to disable caching |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views (max `100`) |
 
@@ -163,6 +165,7 @@ npm run dev          # Start with nodemon (auto-reload)
 npm run seed         # Seed database with sample data
 npm run lint         # Lint with ESLint
 npm run lint:fix     # Lint and auto-fix
+npm run lint:check   # Check lint (alias for lint)
 npm test             # Run the Jest test suite
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report

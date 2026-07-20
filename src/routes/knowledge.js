@@ -4,8 +4,7 @@ const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
-// marked v15 is the last CJS-compatible major version.
-// The package.json pins ^15.0.7 to ensure compatibility with Node 18.
+// The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
 // If loading fails, fall back to a static mock that logs a warning.
 let marked;
 let markedFallback = false;
