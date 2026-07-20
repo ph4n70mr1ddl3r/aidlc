@@ -224,7 +224,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // including `name` (the required field). safeQueryValue collapses arrays to
   // their first element, which would silently apply attacker-chosen data and
   // bypass the duplicate-name check.
-  const _hppCreateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
+  const _hppCreateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating'];
   for (const f of _hppCreateFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');

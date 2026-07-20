@@ -1,11 +1,45 @@
 # Code Review Notes
 
-**Date:** 2026-07-19
+**Date:** 2026-07-20
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
-**Method:** Manual line-by-line review of all source files plus ESLint and the Jest
-suite. Prior review history (16 consecutive "code review" hardening commits) was
-cross-checked to confirm findings were not already addressed.
+**Method:** Manual line-by-line review of all source files (every `.js` file in
+`src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
+and the Jest suite. Prior review history (42+ consecutive "code review" hardening
+commits) was cross-checked to confirm findings were not already addressed.
+
+## Review cycle 2026-07-20 (forty-third pass)
+
+A forty-third independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, and all 13 test files) found
+**no new SQL injection, IDOR, CSRF, XSS, auth, error-leakage, or TOCTOU defects.**
+One minor consistency gap was found and fixed:
+
+### Fixes applied
+- **`vendors.js` — `rating` omitted from the create-route HPP array-rejection
+  guard (LOW).** The `POST /` handler's `_hppCreateFields` array listed every
+  other body field but not `rating`, while `PUT /:id`'s `_hppUpdateFields` did
+  include it. The rating value was still fail-closed against arrays via
+  `_validateVendorRating`'s internal `Array.isArray` check, but the guard was
+  inconsistent with the update route and every other codebase convention. Added
+  `'rating'` to the create-route array-rejection loop so both paths uniformly
+  reject array payloads before field extraction.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF tokens
+  on all state-changing forms; the only `<%-` sink (`renderedContent`) is
+  server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"` +
+  scheme check; login timing-oracle, `entityId == null` coercion, and all
+  prior fixes intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 314 passed / 314 total.
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-07-19 (sixteenth pass)
 
