@@ -455,13 +455,13 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
       if (!existing) {
         return { changes: 0 };
       }
-      return { changes: _deleteLicenseStmt.run(id).changes };
+      return { changes: _deleteLicenseStmt.run(id).changes, name: existing.software_name };
     });
     const result = deleteLicense();
     if (result.changes === 0) {
       req.flash('error', 'License not found');
     } else {
-      req.audit('delete', 'license', id, 'Deleted license');
+      req.audit('delete', 'license', id, `Deleted license "${result.name}"`);
       req.flash('success', 'License deleted');
       invalidateDashboardCache();
     }

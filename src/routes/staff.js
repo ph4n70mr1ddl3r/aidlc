@@ -769,7 +769,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
         clearIpLoginFailure(req.ip);
       }
 
-      req.audit('deactivate', 'user', id, 'Deactivated user and unassigned open tickets/tasks/changes/projects');
+      req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');
       invalidateDashboardCache();
     }

@@ -690,7 +690,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         _deleteDetachLicensesStmt.run(vendor.name);
       }
       const result = _deleteStmt.run(id);
-      return { changes: result.changes, active: false, licenseCount };
+      return { changes: result.changes, active: false, licenseCount, name: vendor.name };
     });
     const result = deleteVendor();
     if (result.active) {
@@ -700,7 +700,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     if (result.changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {
-      req.audit('delete', 'vendor', id, `Deleted vendor${result.licenseCount > 0 ? ` (detached from ${result.licenseCount} license(s))` : ''}`);
+      req.audit('delete', 'vendor', id, `Deleted vendor "${result.name}"${result.licenseCount > 0 ? ` (detached from ${result.licenseCount} license(s))` : ''}`);
       req.flash('success', result.licenseCount > 0 ? `Vendor deleted. ${result.licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
       invalidateDashboardCache();
     }

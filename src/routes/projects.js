@@ -82,6 +82,7 @@ const _taskFullUpdateStmt = db.prepare(`
     WHERE id = ? AND project_id = ?
   `);
 const _taskDeleteStmt = db.prepare('DELETE FROM project_tasks WHERE id = ? AND project_id = ?');
+const _taskDeleteGetStmt = db.prepare('SELECT title FROM project_tasks WHERE id = ? AND project_id = ?');
 
 // Cached prepared statements for member routes
 const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
@@ -702,18 +703,22 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
 
   try {
     const deleteTask = db.transaction(() => {
+      const existing = _taskDeleteGetStmt.get(taskId, projectId);
+      if (!existing) {
+        return { changes: 0, title: null };
+      }
       const result = _taskDeleteStmt.run(taskId, projectId);
       if (result.changes > 0) {
         recalcProjectProgress(db, projectId);
       }
-      return result.changes;
+      return { changes: result.changes, title: existing.title };
     });
-    const changes = deleteTask();
+    const result = deleteTask();
 
-    if (changes === 0) {
+    if (result.changes === 0) {
       req.flash('error', 'Task not found');
     } else {
-      req.audit('delete', 'project_task', taskId, 'Deleted task');
+      req.audit('delete', 'project_task', taskId, `Deleted task "${result.title}"`);
       req.flash('success', 'Task deleted');
       invalidateDashboardCache();
     }
