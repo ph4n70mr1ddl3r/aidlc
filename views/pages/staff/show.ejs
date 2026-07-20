@@ -56,8 +56,8 @@
     </div>
     <div class="card mb-2">
       <div class="card-body" style="padding:0;">
-        <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><% if (staffUser.email && isValidEmail(staffUser.email)) { %><a href="mailto:<%= staffUser.email %>"><%= staffUser.email %></a><% } else if (staffUser.email) { %><%= staffUser.email %><% } else { %>-<% } %></div></div>
-        <div class="detail-row"><div class="detail-label">Phone</div><div class="detail-value"><%= staffUser.phone || '-' %></div></div>
+        <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><% if (isPrivileged(user) || Number(user.id) === Number(staffUser.id)) { if (staffUser.email && isValidEmail(staffUser.email)) { %><a href="mailto:<%= staffUser.email %>"><%= staffUser.email %></a><% } else { %><%= staffUser.email || '-' %><% } } else { %>Restricted<% } %></div></div>
+        <div class="detail-row"><div class="detail-label">Phone</div><div class="detail-value"><%= isPrivileged(user) || Number(user.id) === Number(staffUser.id) ? (staffUser.phone || '-') : 'Restricted' %></div></div>
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= staffUser.is_active ? 'low' : 'critical' %>"><%= staffUser.is_active ? 'Active' : 'Inactive' %></span></div></div>
         <div class="detail-row"><div class="detail-label">Last Login</div><div class="detail-value"><%= staffUser.last_login ? formatDateTime(staffUser.last_login) : 'Never' %></div></div>
       </div>

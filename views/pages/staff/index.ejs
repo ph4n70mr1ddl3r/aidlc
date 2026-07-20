@@ -43,7 +43,7 @@
                 <%= s.first_name %> <%= s.last_name %>
               </div>
             </a></td>
-            <td class="text-sm"><%= s.email %></td>
+            <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? s.email : 'Restricted' %></td>
             <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
             <td class="text-sm"><%= s.department || '-' %></td>
             <td class="text-sm"><%= s.open_tickets %></td>

@@ -16,7 +16,7 @@
   <% const ticketTotal = byCategory.reduce((a,b) => a + b.count, 0); %>
   <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-ticket"></i></div><div><div class="stat-value"><%= ticketTotal %></div><div class="stat-label">Total Tickets</div></div></div>
   <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div><div class="stat-value"><%= slaStats.total_resolved || 0 %></div><div class="stat-label">Resolved</div></div></div>
-  <div class="stat-card"><div class="stat-icon cyan"><i class="fas fa-clock"></i></div><div><div class="stat-value"><%= avgResolution.avg_days ? Number(avgResolution.avg_days).toFixed(1) + 'd' : 'N/A' %></div><div class="stat-label">Avg Resolution</div></div></div>
+  <div class="stat-card"><div class="stat-icon cyan"><i class="fas fa-clock"></i></div><div><div class="stat-value"><%= avgResolution.avg_days != null ? Number(avgResolution.avg_days).toFixed(1) + 'd' : 'N/A' %></div><div class="stat-label">Avg Resolution</div></div></div>
   <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-chart-line"></i></div><div><div class="stat-value"><%= slaStats.total_resolved > 0 ? Math.round((slaStats.within_3d / slaStats.total_resolved) * 100) : 0 %>%</div><div class="stat-label">SLA (3-day)</div></div></div>
 </div>
 
@@ -63,7 +63,7 @@
   <div class="card-body" style="padding:0;">
     <div class="table-responsive"><table>
       <thead><tr><th>Staff Member</th><th>Tickets Resolved</th><th>Performance</th></tr></thead>
-      <tbody><% const maxResolved = Math.max(...topResolvers.map(x => x.resolved || 0), 1); topResolvers.forEach(r => { %><tr>
+      <tbody><% const maxResolved = topResolvers.length > 0 ? Math.max(...topResolvers.map(x => x.resolved || 0)) : 1; topResolvers.forEach(r => { %><tr>
         <td style="font-weight:600;"><%= r.name %></td>
         <td><%= r.resolved %></td>
         <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.round(r.resolved/maxResolved*100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= r.resolved %> tickets resolved" style="width:150px;display:inline-block;vertical-align:middle;"><div class="progress-fill green" style="width:<%= Math.round(r.resolved/maxResolved*100) %>%"></div></div></td>

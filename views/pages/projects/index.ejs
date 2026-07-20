@@ -53,7 +53,7 @@
       <% } %>
       <% if (p.budget != null && p.budget > 0) { %>
       <div class="text-sm text-muted mt-1">
-        <i class="fas fa-dollar-sign"></i> $<%= Number(p.spent).toLocaleString() %> / $<%= Number(p.budget).toLocaleString() %>
+        <i class="fas fa-dollar-sign"></i> <%= p.spent != null ? '$' + Number(p.spent).toLocaleString() : '-' %> / $<%= Number(p.budget).toLocaleString() %>
       </div>
       <% } %>
     </div>

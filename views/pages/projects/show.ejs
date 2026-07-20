@@ -34,7 +34,7 @@
         <div class="progress-fill <%= (project.progress || 0) >= 75 ? 'green' : (project.progress || 0) >= 50 ? 'blue' : 'orange' %>" style="width:<%= project.progress || 0 %>%"></div>
       </div>
       <% if (project.budget != null && project.budget > 0) { %>
-        <span class="text-sm text-muted">$<%= Number(project.spent).toLocaleString() %> / $<%= Number(project.budget).toLocaleString() %></span>
+        <span class="text-sm text-muted"><%= project.spent != null ? '$' + Number(project.spent).toLocaleString() : '-' %> / $<%= Number(project.budget).toLocaleString() %></span>
       <% } %>
     </div>
   </div>

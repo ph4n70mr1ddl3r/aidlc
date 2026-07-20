@@ -40,7 +40,7 @@
           <% } %>
         <% } else { %>-<% } %></div></div>
         <div class="detail-row"><div class="detail-label">Location</div><div class="detail-value"><%= asset.location || '-' %></div></div>
-        <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= asset.assigned_name ? asset.assigned_name + ' (' + (asset.assigned_email || '') + ')' : 'Unassigned' %></div></div>
+        <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= asset.assigned_name ? asset.assigned_name + (asset.assigned_email && isPrivileged(user) ? ' (' + asset.assigned_email + ')' : '') : 'Unassigned' %></div></div>
         <% if (asset.notes) { %>
         <div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= asset.notes %></div></div>
         <% } %>
