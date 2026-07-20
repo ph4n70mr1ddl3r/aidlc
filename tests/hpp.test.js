@@ -451,6 +451,13 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
+
+    it('rejects array rating on vendor update (fail-closed HPP)', () => {
+      const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Acme', rating: ['3', '5'] }, { id: '1' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
   });
 
   describe('staff reset-password route', () => {

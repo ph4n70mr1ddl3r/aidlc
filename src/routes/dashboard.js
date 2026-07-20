@@ -84,14 +84,14 @@ const stmts = {
   // them here would produce misleading "expiring soon" alerts. Mirrors the
   // reports warrantyExpiring query.
   expiringWarranties: db.prepare(`
-    SELECT * FROM assets
+    SELECT id, name, asset_tag, warranty_expiry FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
     ORDER BY warranty_expiry ASC
     LIMIT 20
   `),
   upcomingChanges: db.prepare(`
-    SELECT * FROM change_log
+    SELECT id, title, scheduled_start FROM change_log
     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
     ORDER BY scheduled_start ASC LIMIT 5
   `),

@@ -395,6 +395,20 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors');
   }
 
+  // Fail closed on HTTP parameter pollution arrays for all body fields before
+  // any processing. safeQueryValue collapses arrays to their first element,
+  // which would silently apply attacker-chosen data and bypass the
+  // duplicate-name check. Must run BEFORE field extraction so polluted values
+  // are rejected before being collapsed — consistent with every other update
+  // route (assets, licenses, projects, etc.).
+  const _hppUpdateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating'];
+  for (const f of _hppUpdateFields) {
+    if (Array.isArray(req.body[f])) {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
+  }
+
   const name = trim(safeQueryValue(req.body.name));
   const rawContactPerson = safeQueryValue(req.body.contact_person);
   const contact_person = trim(rawContactPerson);
@@ -473,18 +487,6 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   if (ratingErr) {
     req.flash('error', ratingErr);
     return res.redirect(`/vendors/${id}/edit`);
-  }
-
-  // Fail closed on HTTP parameter pollution arrays for all text body fields,
-  // including `name` (the required field). safeQueryValue collapses arrays to
-  // their first element, which would silently apply attacker-chosen data and
-  // bypass the duplicate-name check.
-  const _hppUpdateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end'];
-  for (const f of _hppUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/vendors/${id}/edit`);
-    }
   }
 
   try {
