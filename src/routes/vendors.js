@@ -330,10 +330,11 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     // producing duplicate vendors and corrupting LOWER() license lookups.
     // Mirrors the update route's transactional check.
     const createVendor = db.transaction(() => {
-      if (_vendorNameCreateExistsStmt.get(name)) {
+      const safeName = name.substring(0, MAX_MEDIUM_STR);
+      if (_vendorNameCreateExistsStmt.get(safeName)) {
         throw new Error('NAME_EXISTS');
       }
-      return _vendorInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
+      return _vendorInsertStmt.run(safeName, (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
         (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
         (notes || '').substring(0, MAX_NOTES) || null, safeRating);
     });
@@ -543,7 +544,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Must check BEFORE the UPDATE so the transaction does not throw after
       // already applying the write (even though SQLite rollback would undo it,
       // checking first is semantically correct and avoids wasted work).
-      if (existing.name !== name && _vendorNameExistsStmt.get(name, id)) {
+      const safeName = name.substring(0, MAX_MEDIUM_STR);
+      if (existing.name !== safeName && _vendorNameExistsStmt.get(safeName, id)) {
         throw new Error('NAME_EXISTS');
       }
 
@@ -563,7 +565,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      _updateStmt.run(name.substring(0, MAX_MEDIUM_STR), safeContactPerson, safeEmail, safePhone, safeAddress,
+      _updateStmt.run(safeName, safeContactPerson, safeEmail, safePhone, safeAddress,
         safeWebsite, safeCategory,
         safeContractStartVal,
         safeContractEndVal,

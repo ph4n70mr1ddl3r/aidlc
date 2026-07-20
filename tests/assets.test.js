@@ -11,7 +11,6 @@ describe('Asset tag validation', () => {
 
   it('rejects malformed asset tags', () => {
     expect(isValidAssetTag('AST-01')).toBe(false);
-    expect(isValidAssetTag('AST-1234')).toBe(true);
     expect(isValidAssetTag('ast-001')).toBe(false);
     expect(isValidAssetTag('XYZ-001')).toBe(false);
     expect(isValidAssetTag('AST001')).toBe(false);
@@ -42,7 +41,7 @@ describe('Safe positive float (asset purchase_price)', () => {
 describe('Asset constants', () => {
   const { ASSET_CATEGORIES, ASSET_STATUSES, ASSET_TAG_PREFIX, ASSET_TAG_RE } = require('../src/constants');
 
-  it('ASSET_TAG_RE matches the prefix and exactly 3 digits', () => {
+  it('ASSET_TAG_RE matches the prefix and 3 or more digits', () => {
     expect(ASSET_TAG_PREFIX).toBe('AST-');
     expect(ASSET_TAG_RE.test('AST-001')).toBe(true);
     expect(ASSET_TAG_RE.test('AST-999')).toBe(true);

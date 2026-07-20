@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, isValidAssetTag } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -59,6 +59,15 @@ const _assetCounterPreviewStmt = db.prepare(`
     SELECT COALESCE(MAX(next_seq), 0) + 1 as next_seq FROM asset_counter WHERE counter_key = 'asset_tag'
   `);
 
+const SORT_MAP = Object.freeze({
+  name_asc: 'a.name ASC',
+  name_desc: 'a.name DESC',
+  newest: 'a.created_at DESC',
+  oldest: 'a.created_at ASC',
+  status: "CASE a.status WHEN 'in_use' THEN 1 WHEN 'in_storage' THEN 2 WHEN 'in_repair' THEN 3 WHEN 'reserved' THEN 4 WHEN 'disposed' THEN 5 END, a.name ASC",
+  default: 'a.name ASC'
+});
+
 // List assets (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -77,6 +86,7 @@ router.get('/', (req, res) => {
   addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
+  const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
   const total = countQuery(db, 'assets', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
@@ -86,7 +96,7 @@ router.get('/', (req, res) => {
     FROM assets a
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE ${whereClause}
-    ORDER BY a.name ASC
+    ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 

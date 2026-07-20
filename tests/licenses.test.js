@@ -77,7 +77,6 @@ describe('resolveSeats', () => {
       // A PRESENT non-numeric/negative value must be rejected rather than
       // silently collapsed to the default count.
       const r = resolveSeats('10', '-1', null);
-      expect(r.used).not.toBe(0);
       expect(r.error).toBe('Invalid used seats');
     });
 

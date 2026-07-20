@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -317,8 +317,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const software_name = trim(safeQueryValue(req.body.software_name));
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
-  const clearKeyVal = safeQueryValue(req.body.clear_key);
-  const clearKey = clearKeyVal === 'on' || clearKeyVal === '1' || clearKeyVal === 'true';
+  const clearKey = parseBooleanFlag(safeQueryValue(req.body.clear_key));
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
   const used_seats = safeQueryValue(req.body.used_seats);

@@ -54,7 +54,7 @@ function lastHandlerFor(router, method, pathPattern) {
   return layer.route.stack[layer.route.stack.length - 1].handle;
 }
 
-function runLogin(body) {
+async function runLogin(body) {
   let redirectedTo = null;
   const flashCalls = [];
   const req = {
@@ -69,7 +69,7 @@ function runLogin(body) {
  redirectedTo = to;
 }, render: () => {}, status: () => res, json: () => {} };
   const handler = lastHandlerFor(authRouter, 'post', '/login');
-  handler(req, res, () => {});
+  await handler(req, res, () => {});
   return { redirectedTo, flashCalls };
 }
 
@@ -77,30 +77,28 @@ describe('login HPP/timing-oracle defense', () => {
   it('still runs bcrypt.compare for a non-existent user with an oversized password', async () => {
     bcrypt.compare.mockClear();
     const oversized = 'A'.repeat(100);
-    runLogin({ username: 'does-not-exist-' + Date.now(), password: oversized });
-    // Give the async handler a tick to reach the (await) bcrypt.compare.
-    await new Promise((r) => setImmediate(r));
+    await runLogin({ username: 'does-not-exist-' + Date.now(), password: oversized });
     expect(bcrypt.compare).toHaveBeenCalled();
     expect(bcrypt.compare.mock.calls[0][1]).toBeDefined();
   });
 
-  it('rejects an empty password without throwing', () => {
+  it('rejects an empty password without throwing', async () => {
     bcrypt.compare.mockClear();
-    const { redirectedTo } = runLogin({ username: 'someone', password: '' });
+    const { redirectedTo } = await runLogin({ username: 'someone', password: '' });
     expect(redirectedTo).not.toBeNull();
   });
 
-  it('rejects HTTP parameter pollution arrays on username/password (fail-closed)', () => {
+  it('rejects HTTP parameter pollution arrays on username/password (fail-closed)', async () => {
     bcrypt.compare.mockClear();
-    const { redirectedTo, flashCalls } = runLogin({ username: ['a', 'b'], password: 'secret' });
+    const { redirectedTo, flashCalls } = await runLogin({ username: ['a', 'b'], password: 'secret' });
     expect(redirectedTo).toBe('/login');
     expect(bcrypt.compare).not.toHaveBeenCalled();
     expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
   });
 
-  it('rejects HTTP parameter pollution arrays on password', () => {
+  it('rejects HTTP parameter pollution arrays on password', async () => {
     bcrypt.compare.mockClear();
-    const { redirectedTo } = runLogin({ username: 'someone', password: ['x', 'y'] });
+    const { redirectedTo } = await runLogin({ username: 'someone', password: ['x', 'y'] });
     expect(redirectedTo).toBe('/login');
     expect(bcrypt.compare).not.toHaveBeenCalled();
   });
