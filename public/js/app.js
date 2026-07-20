@@ -99,9 +99,25 @@ document.addEventListener('submit', function (e) {
   }
   if (!formReenableAttached) {
     formReenableAttached = true;
+    // Re-enable only the buttons on forms that were actually submitted in this
+    // page session — scoped to avoid interference with legitimately disabled
+    // buttons on unrelated events (tab refocus, third-party script errors).
+    function _reenableOnError() {
+      const submittedForms = document.querySelectorAll('form[data-submitted="true"]');
+      if (!submittedForms.length) {
+        return;
+      }
+      submittedForms.forEach(function (f) {
+        f.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
+          btn.disabled = false;
+          btn.style.opacity = '';
+        });
+        delete f.dataset.submitted;
+      });
+    }
     // Catch JS runtime errors and unhandled rejections
-    window.addEventListener('error', _reenableButtons);
-    window.addEventListener('unhandledrejection', _reenableButtons);
+    window.addEventListener('error', _reenableOnError);
+    window.addEventListener('unhandledrejection', _reenableOnError);
     // Catch bfcache restore (e.g. back button after failed submit)
     window.addEventListener('pageshow', _reenableButtons);
     // Catch network failures that don't fire JS errors — only re-enable
@@ -165,7 +181,10 @@ document.addEventListener('click', function (e) {
     const storedKey = _licenseKeys[licenseId] || '';
     display.textContent = storedKey ? '****' + storedKey.slice(-4) : '****';
     display.dataset.shown = '';
-    btn.querySelector('i').className = 'fas fa-eye';
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = 'fas fa-eye';
+    }
   } else {
     // Fetch key via AJAX on first reveal
     // Use POST with CSRF token (GET is not CSRF-protected)
@@ -188,7 +207,10 @@ document.addEventListener('click', function (e) {
         _licenseKeys[licenseId] = data.key;
         display.textContent = data.key;
         display.dataset.shown = '1';
-        btn.querySelector('i').className = 'fas fa-eye-slash';
+        const icon = btn.querySelector('i');
+        if (icon) {
+          icon.className = 'fas fa-eye-slash';
+        }
       })
       .catch(function () {
         display.textContent = 'Error loading key';

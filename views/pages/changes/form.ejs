@@ -6,7 +6,7 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <div class="form-group" style="grid-column:1/-1;"><label for="title">Title *</label><input type="text" name="title" id="title" class="form-control" value="<%= change.title || '' %>" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required></div>
-      <div class="form-group" style="grid-column:1/-1;"><label for="description">Description</label><textarea name="description" id="description" class="form-control" maxlength="<%= CONSTANTS.MAX_DESC %>"><%= change.description || '' %></textarea></div>
+      <div class="form-group" style="grid-column:1/-1;"><label for="description">Description</label><textarea name="description" id="description" class="form-control" maxlength="<%= CONSTANTS.MAX_DESC %>"><%= (change.description || '').replace(/<\/textarea>/gi, '</textarea\\>') %></textarea></div>
       <div class="form-group"><label for="change_type">Type *</label><select name="change_type" id="change_type" class="form-control" required>
         <% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= change.change_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %>
       </select></div>
@@ -25,7 +25,7 @@
       <div class="form-group"><label for="actual_start">Actual Start</label><input type="datetime-local" name="actual_start" id="actual_start" class="form-control" value="<%= change.actual_start ? change.actual_start.slice(0,16).replace(' ', 'T') : '' %>"></div>
       <div class="form-group"><label for="actual_end">Actual End</label><input type="datetime-local" name="actual_end" id="actual_end" class="form-control" value="<%= change.actual_end ? change.actual_end.slice(0,16).replace(' ', 'T') : '' %>"></div>
       <% } %>
-      <div class="form-group" style="grid-column:1/-1;"><label for="impact">Impact</label><textarea name="impact" id="impact" class="form-control" rows="2" maxlength="<%= CONSTANTS.MAX_LONG_STR %>"><%= change.impact || '' %></textarea></div>
+      <div class="form-group" style="grid-column:1/-1;"><label for="impact">Impact</label><textarea name="impact" id="impact" class="form-control" rows="2" maxlength="<%= CONSTANTS.MAX_LONG_STR %>"><%= (change.impact || '').replace(/<\/textarea>/gi, '</textarea\\>') %></textarea></div>
     </div>
     <div style="margin-top:20px;display:flex;gap:12px;">
       <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>

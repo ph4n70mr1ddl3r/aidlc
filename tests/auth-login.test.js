@@ -44,15 +44,9 @@ jest.mock('bcryptjs', () => ({
   hashSync: jest.fn(() => 'dummy-hash')
 }));
 
-const authRouter = require('../src/routes/auth');
+const { lastHandlerFor } = require('./helpers');
 
-function lastHandlerFor(router, method, pathPattern) {
-  const layer = router.stack.find((l) => {
-    const m = l.route && l.route.methods[method];
-    return m && l.route.path === pathPattern;
-  });
-  return layer.route.stack[layer.route.stack.length - 1].handle;
-}
+const authRouter = require('../src/routes/auth');
 
 async function runLogin(body) {
   let redirectedTo = null;

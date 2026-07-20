@@ -350,7 +350,11 @@ router.post('/logout', (req, res) => {
     if (err) {
       console.error('Session destroy error:', err.message);
     }
-    res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
+    try {
+      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
+    } catch (clearErr) {
+      void clearErr; // clearCookie can throw if headers were already sent — ignore.
+    }
     res.redirect('/login');
   });
 });

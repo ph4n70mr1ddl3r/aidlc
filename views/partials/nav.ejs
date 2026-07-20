@@ -6,21 +6,21 @@
     </div>
     <div class="sidebar-nav">
       <div class="nav-section">Main</div>
-      <a href="/dashboard" class="nav-item <%= currentPage.startsWith('/dashboard') ? 'active' : '' %>" <%= currentPage.startsWith('/dashboard') ? 'aria-current="page"' : '' %>><i class="fas fa-chart-pie" aria-hidden="true"></i> Dashboard</a>
+      <a href="/dashboard" class="nav-item <% if (currentPage && currentPage.startsWith('/dashboard')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/dashboard')) { %>aria-current="page"<% } %>><i class="fas fa-chart-pie" aria-hidden="true"></i> Dashboard</a>
       <div class="nav-section">Operations</div>
-      <a href="/tickets" class="nav-item <%= currentPage.startsWith('/tickets') ? 'active' : '' %>" <%= currentPage.startsWith('/tickets') ? 'aria-current="page"' : '' %>><i class="fas fa-ticket" aria-hidden="true"></i> Tickets</a>
-      <a href="/assets" class="nav-item <%= currentPage.startsWith('/assets') ? 'active' : '' %>" <%= currentPage.startsWith('/assets') ? 'aria-current="page"' : '' %>><i class="fas fa-box" aria-hidden="true"></i> Assets</a>
-      <a href="/licenses" class="nav-item <%= currentPage.startsWith('/licenses') ? 'active' : '' %>" <%= currentPage.startsWith('/licenses') ? 'aria-current="page"' : '' %>><i class="fas fa-key" aria-hidden="true"></i> Licenses</a>
-      <a href="/projects" class="nav-item <%= currentPage.startsWith('/projects') ? 'active' : '' %>" <%= currentPage.startsWith('/projects') ? 'aria-current="page"' : '' %>><i class="fas fa-project-diagram" aria-hidden="true"></i> Projects</a>
+      <a href="/tickets" class="nav-item <% if (currentPage && currentPage.startsWith('/tickets')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/tickets')) { %>aria-current="page"<% } %>><i class="fas fa-ticket" aria-hidden="true"></i> Tickets</a>
+      <a href="/assets" class="nav-item <% if (currentPage && currentPage.startsWith('/assets')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/assets')) { %>aria-current="page"<% } %>><i class="fas fa-box" aria-hidden="true"></i> Assets</a>
+      <a href="/licenses" class="nav-item <% if (currentPage && currentPage.startsWith('/licenses')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/licenses')) { %>aria-current="page"<% } %>><i class="fas fa-key" aria-hidden="true"></i> Licenses</a>
+      <a href="/projects" class="nav-item <% if (currentPage && currentPage.startsWith('/projects')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/projects')) { %>aria-current="page"<% } %>><i class="fas fa-project-diagram" aria-hidden="true"></i> Projects</a>
       <div class="nav-section">Management</div>
-      <a href="/staff" class="nav-item <%= currentPage.startsWith('/staff') ? 'active' : '' %>" <%= currentPage.startsWith('/staff') ? 'aria-current="page"' : '' %>><i class="fas fa-users" aria-hidden="true"></i> Staff</a>
-      <a href="/vendors" class="nav-item <%= currentPage.startsWith('/vendors') ? 'active' : '' %>" <%= currentPage.startsWith('/vendors') ? 'aria-current="page"' : '' %>><i class="fas fa-building" aria-hidden="true"></i> Vendors</a>
-      <a href="/changes" class="nav-item <%= currentPage.startsWith('/changes') ? 'active' : '' %>" <%= currentPage.startsWith('/changes') ? 'aria-current="page"' : '' %>><i class="fas fa-history" aria-hidden="true"></i> Changes</a>
+      <a href="/staff" class="nav-item <% if (currentPage && currentPage.startsWith('/staff')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/staff')) { %>aria-current="page"<% } %>><i class="fas fa-users" aria-hidden="true"></i> Staff</a>
+      <a href="/vendors" class="nav-item <% if (currentPage && currentPage.startsWith('/vendors')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/vendors')) { %>aria-current="page"<% } %>><i class="fas fa-building" aria-hidden="true"></i> Vendors</a>
+      <a href="/changes" class="nav-item <% if (currentPage && currentPage.startsWith('/changes')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/changes')) { %>aria-current="page"<% } %>><i class="fas fa-history" aria-hidden="true"></i> Changes</a>
       <div class="nav-section">Resources</div>
-      <a href="/knowledge" class="nav-item <%= currentPage.startsWith('/knowledge') ? 'active' : '' %>" <%= currentPage.startsWith('/knowledge') ? 'aria-current="page"' : '' %>><i class="fas fa-book" aria-hidden="true"></i> Knowledge Base</a>
+      <a href="/knowledge" class="nav-item <% if (currentPage && currentPage.startsWith('/knowledge')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/knowledge')) { %>aria-current="page"<% } %>><i class="fas fa-book" aria-hidden="true"></i> Knowledge Base</a>
       <% if (isPrivileged(user)) { %>
-      <a href="/reports" class="nav-item <%= currentPage.startsWith('/reports') ? 'active' : '' %>" <%= currentPage.startsWith('/reports') ? 'aria-current="page"' : '' %>><i class="fas fa-chart-bar" aria-hidden="true"></i> Reports</a>
-      <a href="/audit" class="nav-item <%= currentPage.startsWith('/audit') ? 'active' : '' %>" <%= currentPage.startsWith('/audit') ? 'aria-current="page"' : '' %>><i class="fas fa-clipboard-list" aria-hidden="true"></i> Audit Log</a>
+      <a href="/reports" class="nav-item <% if (currentPage && currentPage.startsWith('/reports')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/reports')) { %>aria-current="page"<% } %>><i class="fas fa-chart-bar" aria-hidden="true"></i> Reports</a>
+      <a href="/audit" class="nav-item <% if (currentPage && currentPage.startsWith('/audit')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/audit')) { %>aria-current="page"<% } %>><i class="fas fa-clipboard-list" aria-hidden="true"></i> Audit Log</a>
       <% } %>
     </div>
   </nav>

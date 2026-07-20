@@ -335,7 +335,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (!VALID_STATUSES.includes(status)) {
+  // Allow empty status to preserve the existing value inside the transaction.
+  // A present-but-invalid status is rejected; an absent field means "keep what's stored."
+  const statusProvided = !!status;
+  if (statusProvided && !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/projects/${id}/edit`);
   }
@@ -374,13 +377,16 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // to avoid TOCTOU races: the project could be deleted or the owner deactivated
     // between the checks and the UPDATE.
     const updateProject = db.transaction(() => {
-      // Fetch existing budget/spent inside the transaction to preserve values
-      // when the submitted fields are absent, eliminating a TOCTOU race where
-      // budget/spent are modified between the SELECT and the UPDATE.
+      // Fetch existing budget/spent/status/priority inside the transaction to
+      // preserve values when the submitted fields are absent, eliminating a
+      // TOCTOU race where these fields are modified between the SELECT and the
+      // UPDATE.
       const existingProject = _projectBudgetSpentStmt.get(id);
       if (!existingProject) {
         throw new Error('NOT_FOUND');
       }
+      const effectiveStatus = statusProvided ? status : existingProject.status;
+      const effectivePriority = priority || existingProject.priority;
 
       // Distinguish "field not submitted" (preserve stored value) from
       // "field submitted with an invalid/empty value" (fail closed — reject
@@ -411,7 +417,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
 
-      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority, sStart, sEnd,
+      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, sStart, sEnd,
         preservedBudget, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
