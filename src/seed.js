@@ -345,11 +345,11 @@ try {
   // passwords are secrets and printing them to stdout leaks them into logs /
   // CI output. We never echo operator-supplied env passwords either — they may
   // live in CI secrets and would be captured by aggregated log sinks. Only
-  // auto-generated credentials are disclosed, and only when SEED_VERBOSE=1.
+  // auto-generated credentials are disclosed, and only when SEED_VERBOSE=1 or SEED_VERBOSE=true.
   const adminIsGenerated = !process.env.SEED_ADMIN_PASSWORD;
   const staffIsGenerated = !process.env.SEED_PASSWORD;
   const anyGenerated = adminIsGenerated || staffIsGenerated;
-  if (process.env.SEED_VERBOSE === '1' && anyGenerated) {
+  if ((process.env.SEED_VERBOSE === '1' || process.env.SEED_VERBOSE === 'true') && anyGenerated) {
     const lines = ['Default login credentials:'];
     if (adminIsGenerated) {
       lines.push('  Admin:    admin / ' + SEED_ADMIN_PW);

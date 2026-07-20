@@ -137,7 +137,7 @@ function renderMarkdown(content) {
     // rejecting thenables — otherwise sanitizeHtml would receive a Promise
     // and render "[object Promise]" in the template.
     const html = marked.parse(content, { breaks: true, gfm: true });
-    if (html && typeof html.then === 'function') {
+    if (html?.then) {
       throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
