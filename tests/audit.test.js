@@ -30,6 +30,8 @@ describe('audit middleware', () => {
   });
 
   afterAll(() => {
+    const auditModule = require('../src/middleware/audit');
+    auditModule.resetCachedStatements();
     db.close();
   });
 

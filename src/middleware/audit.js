@@ -55,7 +55,10 @@ function audit({ req, action, entity, entityId, details }) {
     const safeDetails = details == null ? null
       : String(details).length > MAX_AUDIT_DETAILS ? String(details).substring(0, MAX_AUDIT_DETAILS)
       : String(details);
-    _getAuditStmt().run(uid, action, entity, entityId == null ? null : entityId, safeDetails, ip);
+    const safeEntityId = entityId == null || !Number.isFinite(Number(entityId))
+      ? null
+      : Number(entityId);
+    _getAuditStmt().run(uid, action, entity, safeEntityId, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request
     console.error('Audit log error:', err.message);

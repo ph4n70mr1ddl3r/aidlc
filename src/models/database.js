@@ -15,7 +15,7 @@ try {
 
 let db;
 try {
-  db = new Database(DB_PATH);
+  db = new Database(DB_PATH, { mode: 0o640 });
 } catch (err) {
   console.error(`ERROR: Cannot open database at "${DB_PATH}": ${err.message}`);
   process.exit(1);

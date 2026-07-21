@@ -304,8 +304,11 @@ function safeInt(value, fallback = 0) {
     }
     return value;
   }
-  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
-    return fallback;
+  if (typeof value === 'string') {
+    value = value.trim();
+    if (!/^-?\d+$/.test(value)) {
+      return fallback;
+    }
   }
   const n = parseInt(value, 10);
   // Reject Infinity/-Infinity — parseInt("Infinity") === Infinity and would
