@@ -8,6 +8,52 @@
 and the Jest suite. Prior review history (42+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-21 (forty-fifth pass)
+
+A forty-fifth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, all EJS views, and all test
+files) found **no new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects.** One fail-open field-preservation gap was found and fixed:
+
+### Fixes applied
+- **`projects.js` — partial update silently wiped stored `start_date`/`end_date`/
+  `status`/`priority` when those fields were absent from the request (MEDIUM).**
+  The update route's `_projectBudgetSpentStmt` only selected `budget, spent`, but
+  inside the transaction the code referenced `existingProject.status` and
+  `existingProject.priority` — both `undefined` because the query never loaded
+  them. A hand-crafted PUT omitting `status`/`priority`/`start_date`/`end_date`
+  would set those columns to NULL in the DB, silently destroying stored data.
+  (Browser form submissions always include every field, so this could not trigger
+  through normal usage, but API clients or programmatic PATCH calls were
+  vulnerable.) The query now selects `budget, spent, status, priority, start_date,
+  end_date`, and the transaction resolves absent date fields to the stored value
+  (mirroring the `resolvedPurchase`/`resolvedWarranty` pattern in `assets.js`).
+  The `status` and `priority` fallback-to-existing now correctly reads from the
+  freshly-returned row instead of `undefined`.
+
+### Test coverage gaps closed
+- `tests/templates.test.js` — `baseLocals()` now includes `isValidEmail` so the
+  wired-in-`res.locals` guard correctly reflects the template surface (three EJS
+  templates — staff/show, tickets/show, vendors/show — use `isValidEmail` for
+  mailto: link rendering).
+- `tests/hpp.test.js` — `_projectBudgetSpentStmt` mock now returns the
+  additional `status`, `priority`, `start_date`, `end_date` columns so the
+  regression test continues to match the new query shape.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`) is
+  server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"` +
+  scheme check; login timing-oracle and all prior fixes intact.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 315 passed / 315 total (no new tests added; existing coverage
+  verified on changed paths).
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-21 (forty-fourth pass)
 
 A forty-fourth independent pass (full source re-read of all 11 route modules,

@@ -32,6 +32,7 @@ function baseLocals() {
     usagePercent: utils.usagePercent,
     isExpiringSoon: utils.isExpiringSoon,
     escapeHtml: utils.escapeHtml,
+    isValidEmail: utils.isValidEmail,
     titleCase: utils.titleCase,
     isPrivileged: utils.isPrivileged,
     badgeClass: utils.badgeClass,

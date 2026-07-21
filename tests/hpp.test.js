@@ -191,8 +191,8 @@ describe('HPP array rejection (regression — fail closed)', () => {
       let capturedFlash = null;
       const mockStmt = {
         get: jest.fn((_args) => {
-          // _projectBudgetSpentStmt queries return { budget, spent }
-          return { budget: 0, spent: 0 };
+          // _projectBudgetSpentStmt queries return { budget, spent, status, priority, start_date, end_date }
+          return { budget: 0, spent: 0, status: 'in_progress', priority: 'medium', start_date: null, end_date: null };
         }),
         all: jest.fn(() => []),
         run: jest.fn(() => ({ changes: 1, lastInsertRowid: 1 }))

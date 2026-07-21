@@ -47,7 +47,7 @@ const _showMembersStmt = db.prepare(`
     WHERE pm.project_id = ?
     LIMIT 100
   `);
-const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent FROM projects WHERE id = ?');
+const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -417,7 +417,18 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
 
-      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, sStart, sEnd,
+      // Preserve existing start/end dates when the field is absent/empty
+      // on a partial edit, so editing unrelated fields cannot wipe a stored
+      // date. A present but invalid date was already rejected before the
+      // transaction. Mirrors the date preservation in assets.js / vendors.js.
+      const resolvedStart = (start_date === undefined || start_date === null || start_date === '')
+        ? existingProject.start_date
+        : sStart;
+      const resolvedEnd = (end_date === undefined || end_date === null || end_date === '')
+        ? existingProject.end_date
+        : sEnd;
+
+      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
         preservedBudget, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
