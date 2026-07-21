@@ -23,7 +23,7 @@
       <td><%= e.entity_type ? e.entity_type.replace(/_/g, ' ') : '-' %></td>
       <td><%= e.entity_id || '-' %></td>
       <td class="text-sm"><%= e.ip_address || '-' %></td>
-      <td class="text-sm" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= e.details || '' %>"><%= e.details || '-' %></td>
+      <td class="text-sm" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%= (e.details || '').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') %>"><%= e.details || '-' %></td>
     </tr><% }) %></tbody>
   </table></div><% } %>
 </div></div>

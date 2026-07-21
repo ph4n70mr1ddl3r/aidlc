@@ -16,6 +16,9 @@ function lastHandlerFor(router, method, pathPattern) {
     const m = l.route && l.route.methods[method];
     return m && l.route.path === pathPattern;
   });
+  if (!layer || !layer.route || !layer.route.stack) {
+    throw new Error(`Route ${method.toUpperCase()} ${pathPattern} not found on router`);
+  }
   return layer.route.stack[layer.route.stack.length - 1].handle;
 }
 

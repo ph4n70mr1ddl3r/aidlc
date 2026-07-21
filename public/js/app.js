@@ -195,3 +195,14 @@ document.addEventListener('click', function (e) {
       });
   }
 });
+
+// Re-mask license keys when the tab becomes hidden (bfcache / tab-switch mitigation)
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState !== 'hidden') {
+    return;
+  }
+  const display = document.getElementById('license-key-display');
+  if (display && display.dataset.shown === '1') {
+    display.textContent = '****';
+  }
+});

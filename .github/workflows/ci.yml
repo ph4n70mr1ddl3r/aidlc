@@ -22,6 +22,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+          cache-dependency-glob: 'package-lock.json'
 
       - run: npm ci
 
@@ -30,4 +31,3 @@ jobs:
       - run: npm test
 
       - run: npm audit --audit-level=high
-        continue-on-error: true

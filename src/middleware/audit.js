@@ -46,8 +46,8 @@ function audit({ req, action, entity, entityId, details }) {
       return;
     }
 
-    const uid = req && req.session && req.session.user ? req.session.user.id : null;
-    const ip = req && req.ip ? req.ip : null;
+    const uid = req?.session?.user?.id ?? null;
+    const ip = req?.ip ?? null;
     // Coerce details to a string before the length check — a future caller
     // passing a non-string (object/number) would otherwise make `details.length`
     // undefined (always passing the truncation guard) or throw on `.substring`.

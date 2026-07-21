@@ -5,6 +5,20 @@ const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } = require('../constants');
 const _authVerifiedSym = Symbol('authVerified');
 
 
+function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
+  res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
+  req.session.destroy((err) => {
+    if (res.headersSent) {
+      return;
+    }
+    if (err) {
+      console.error(errMsg, err.message);
+    }
+    res.redirect(redirectUrl);
+  });
+}
+
+
 // Cache the prepared statement — requireAuth runs on every authenticated request
 // and db.prepare() is relatively expensive.
 let _authCheckStmt = null;
@@ -40,29 +54,11 @@ function _verifySessionUser(req, res) {
   try {
     const row = _getAuthCheckStmt().get(req.session.user.id);
     if (!row || !row.is_active) {
-      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
-      req.session.destroy((err) => {
-        if (res.headersSent) {
-          return;
-        }
-        if (err) {
-          console.error('Session destroy error (deactivated):', err.message);
-        }
-        res.redirect('/login?reason=deactivated');
-      });
+      _destroyAndRedirect(req, res, '/login?reason=deactivated', 'Session destroy error (deactivated):');
       return false;
     }
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
-      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
-      req.session.destroy((err) => {
-        if (res.headersSent) {
-          return;
-        }
-        if (err) {
-          console.error('Session destroy error (password changed):', err.message);
-        }
-        res.redirect('/login?reason=password_changed');
-      });
+      _destroyAndRedirect(req, res, '/login?reason=password_changed', 'Session destroy error (password changed):');
       return false;
     }
     if (row.role !== req.session.user.role) {
