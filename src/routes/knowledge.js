@@ -141,12 +141,12 @@ function renderMarkdown(content) {
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
-    console.error('Markdown render error:', String(err));
+    console.error('Markdown render error:', err.message);
     try {
       const text = sanitizeHtml(content, STRIP_HTML_OPTIONS);
       return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(text)}</pre>`;
     } catch (innerErr) {
-      console.error('Secondary sanitize error:', String(innerErr));
+      console.error('Secondary sanitize error:', innerErr.message);
       return '<div class="alert alert-info">Article content could not be rendered.</div>';
     }
   }

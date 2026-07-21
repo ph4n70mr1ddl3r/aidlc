@@ -31,6 +31,7 @@ function baseLocals() {
     daysUntil: utils.daysUntil,
     usagePercent: utils.usagePercent,
     isExpiringSoon: utils.isExpiringSoon,
+    escapeHtml: utils.escapeHtml,
     titleCase: utils.titleCase,
     isPrivileged: utils.isPrivileged,
     badgeClass: utils.badgeClass,
@@ -145,6 +146,19 @@ describe('templates render without ReferenceError', () => {
   // The dashboard was the only major page not covered by this suite, which
   // is why the bug escaped. Render the template the same way the route does
   // and assert each section emits its dynamic content.
+  it('audit/index renders entries with special characters in details (regression: double-escape / missing escapeHtml in locals)', () => {
+    const html = render('audit/index.ejs', {
+      ...baseLocals(),
+      title: 'Audit Log',
+      entries: [
+        { id: 1, created_at: '2024-01-01 09:00', user_name: 'Admin', action: 'update', entity_type: 'ticket', entity_id: '42', ip_address: '127.0.0.1', details: 'foo & bar <script>' }
+      ],
+      filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/audit'
+    });
+    expect(html).toContain('foo');
+    expect(html).toContain('bar');
+  });
+
   it('dashboard renders all five dynamic list sections (not just My Tickets)', () => {
     const html = render('dashboard.ejs', {
       ...baseLocals(),

@@ -1,12 +1,58 @@
 # Code Review Notes
 
-**Date:** 2026-07-20
+**Date:** 2026-07-21
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (42+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+## Review cycle 2026-07-21 (forty-fourth pass)
+
+A forty-fourth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, all 38 EJS views, and all 13
+test files) found **no new SQL injection, IDOR, CSRF, XSS, auth, error-leakage,
+or TOCTOU defects.** Two consistency gaps and one latent runtime crash were found
+and fixed:
+
+### Fixes applied
+- **`audit/index.ejs` — `escapeHtml()` called from template context (BUG / would
+  crash at runtime).** The template at line 26 used `<%= escapeHtml(e.details ||
+  '') %>` but `escapeHtml` was not exposed in `res.locals` (missing from `app.js`
+  global template variables). Visiting `/audit` would throw `ReferenceError:
+  escapeHtml is not defined`. Additionally, `<%= %>` already HTML-escapes, so the
+  manual `escapeHtml()` wrapper produced a double-escape bug in tooltips for
+  entries containing special characters (e.g. `&` → `&amp;amp;`). Removed the
+  `escapeHtml()` wrapper (relying on `<%= %>` escaping), and added `escapeHtml`
+  to `res.locals` in `app.js` for future use.
+- **`knowledge.js` — `console.error` used `String(err)` instead of `err.message`
+  (LOW, consistency).** Lines 144 (primary markdown render) and 149 (secondary
+  sanitize) logged errors with `String(err)`, while every other error handler in
+  the codebase uses `err.message`. Changed both to `err.message`.
+
+### Test coverage gaps closed
+- `tests/templates.test.js` — `baseLocals()` now includes `escapeHtml` so the
+  wired-in-`res.locals` guard correctly reflects the template surface.
+- `tests/templates.test.js` — added an `audit/index` rendering test (with an
+  entry containing `& <script>` in details) to catch future ReferenceErrors or
+  double-escapes in tooltips.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`) is
+  server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"` +
+  scheme check; login timing-oracle and all prior fixes intact.
+- `escapeHtml` and `isValidUsername` unit tests already exist in `utils.test.js`
+  (contrary to an earlier preliminary analysis — confirmed covered), so no new
+  unit tests were needed.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 315 passed / 315 total (added 1 template regression case).
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-07-20 (forty-third pass)
 
