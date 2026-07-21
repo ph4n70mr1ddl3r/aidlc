@@ -903,6 +903,26 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
+/**
+ * Reject HTTP parameter pollution (HPP) array payloads on a list of fields.
+ * Returns an array of error messages for fields that were arrays, or an empty
+ * array when all fields are clean. Mirrors the inline array-rejection loops
+ * used across every write route in the codebase, but centralises the pattern
+ * so new routes can call this helper instead of repeating the for-loop.
+ * @param {import('express').Request} req
+ * @param {string[]} fields - Field names to check in req.body
+ * @returns {string[]} Array of error messages (empty if all clean)
+ */
+function rejectHppArrays(req, fields) {
+  const errors = [];
+  for (const f of fields) {
+    if (Array.isArray(req.body[f])) {
+      errors.push('Invalid request parameters');
+    }
+  }
+  return errors;
+}
+
 module.exports = {
   paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
   safeId, safePositiveFloat, safeInt, safePositiveInt,
@@ -915,5 +935,6 @@ module.exports = {
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
-   resetCachedStatements, resetPageSize
+   resetCachedStatements, resetPageSize,
+  rejectHppArrays
 };

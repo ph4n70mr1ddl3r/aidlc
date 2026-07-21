@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -204,14 +204,11 @@ router.get('/new', (req, res) => {
 
 // Create article
 router.post('/', kbWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _articleCreateFields = ['title', 'content', 'category', 'tags', 'status', 'is_featured'];
-  for (const f of _articleCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/knowledge/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/knowledge/new');
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -399,14 +396,11 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}`);
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _articleUpdateFields = ['title', 'content', 'category', 'tags', 'status', 'is_featured'];
-  for (const f of _articleUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/knowledge/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/knowledge/${id}/edit`);
   }
 
   const title = trim(safeQueryValue(req.body.title));

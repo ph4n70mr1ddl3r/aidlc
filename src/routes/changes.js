@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -119,14 +119,11 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create change
 router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _changeCreateFields = ['title', 'description', 'change_type', 'status', 'priority', 'scheduled_start', 'scheduled_end', 'impact', 'assigned_to'];
-  for (const f of _changeCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/changes/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'description', 'change_type', 'status', 'priority', 'scheduled_start', 'scheduled_end', 'impact', 'assigned_to']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/changes/new');
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -264,14 +261,11 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect('/changes');
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _changeUpdateFields = ['title', 'description', 'change_type', 'status', 'priority', 'scheduled_start', 'scheduled_end', 'actual_start', 'actual_end', 'impact', 'assigned_to'];
-  for (const f of _changeUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/changes/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'description', 'change_type', 'status', 'priority', 'scheduled_start', 'scheduled_end', 'actual_start', 'actual_end', 'impact', 'assigned_to']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/changes/${id}/edit`);
   }
 
   const title = trim(safeQueryValue(req.body.title));

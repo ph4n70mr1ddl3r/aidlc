@@ -118,9 +118,13 @@ const seed = db.transaction(() => {
       a.status, a.condition_rating, a.purchase_date, a.purchase_price, a.warranty_expiry,
       a.assigned_to, a.location);
   }
-  // Initialize asset counter to prevent AST-001 collision with the next created asset
-  const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = ?');
-  initAssetCounter.run(assets.length, assets.length);
+  // Initialize asset counter to prevent AST-001 collision with the next created asset.
+  // next_seq must be assets.length + 1 so the first auto-generated tag after seeding
+  // is AST-013 (the next sequence after the last seeded AST-012), not AST-012 which
+  // would collide with the seeded asset. The ON CONFLICT clause also adds 1 to avoid
+  // collisions when re-seeding on top of existing data.
+  const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = next_seq + 1');
+  initAssetCounter.run(assets.length + 1, assets.length + 1);
   console.log(`✅ Created ${assets.length} assets`);
 
   // ========================

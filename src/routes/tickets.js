@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -205,14 +205,11 @@ router.get('/new', (req, res) => {
 
 // Create ticket
 router.post('/', ticketWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _ticketCreateFields = ['title', 'description', 'category', 'priority', 'assigned_to', 'asset_id', 'due_date', 'requester_name', 'requester_email', 'requester_department', 'requester_phone'];
-  for (const f of _ticketCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/tickets/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'description', 'category', 'priority', 'assigned_to', 'asset_id', 'due_date', 'requester_name', 'requester_email', 'requester_department', 'requester_phone']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/tickets/new');
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -411,14 +408,11 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets');
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _ticketUpdateFields = ['title', 'description', 'category', 'priority', 'status', 'assigned_to', 'asset_id', 'due_date', 'resolution_notes', 'requester_name', 'requester_email', 'requester_department', 'requester_phone'];
-  for (const f of _ticketUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'description', 'category', 'priority', 'status', 'assigned_to', 'asset_id', 'due_date', 'resolution_notes', 'requester_name', 'requester_email', 'requester_department', 'requester_phone']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}/edit`);
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -593,7 +587,8 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     return res.redirect('/tickets');
   }
   // Fail closed on HTTP parameter pollution: reject array payloads.
-  if (Array.isArray(req.body.comment) || Array.isArray(req.body.is_internal)) {
+  const hppErrors = rejectHppArrays(req, ['comment', 'is_internal']);
+  if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/tickets/${id}`);
   }

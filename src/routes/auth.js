@@ -34,7 +34,7 @@ const profileLimiter = rateLimit({
 let _loginStmt = null;
 function _getLoginStmt() {
   if (!_loginStmt) {
-    _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
+    _loginStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
   }
   return _loginStmt;
 }
@@ -404,10 +404,10 @@ router.get('/profile', requireAuth, (req, res) => {
 
 // Update profile
 router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res) => {
-  // Fail-closed HPP guard: reject polluted array payloads on all text body fields
-  // rather than silently collapsing to the first element (consistent with assets/
-  // staff/licenses/vendors).
-  for (const f of ['first_name', 'last_name', 'email', 'phone']) {
+  // Fail-closed HTTP parameter pollution guard: reject array payloads on text
+  // fields (consistent with the rejectHppArrays utility).
+  const _hppFields = ['first_name', 'last_name', 'email', 'phone'];
+  for (const f of _hppFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');
       return res.redirect('/profile');
@@ -498,9 +498,10 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
 
 // Change password
 router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async (req, res) => {
-  // Fail-closed HPP guard: reject polluted array payloads on all password fields
-  // rather than silently collapsing to the first element.
-  for (const f of ['current_password', 'new_password', 'confirm_password']) {
+  // Fail-closed HTTP parameter pollution guard: reject array payloads on all
+  // password fields (consistent with the rejectHppArrays utility).
+  const _hppFields = ['current_password', 'new_password', 'confirm_password'];
+  for (const f of _hppFields) {
     if (Array.isArray(req.body[f])) {
       req.flash('error', 'Invalid request parameters');
       return res.redirect('/profile');

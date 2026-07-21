@@ -17,7 +17,9 @@ router.use(requireAuth, auditMiddleware);
 // to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
 const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
-const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? _parsedDTTL : 30_000;
+// Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
+// astronomically large values (days/weeks of stale data) cannot occur.
+const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? Math.max(1_000, Math.min(3_600_000, _parsedDTTL)) : 30_000;
 let dashboardCache = { timestamp: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)

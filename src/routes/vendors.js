@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -220,16 +220,11 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create vendor
 router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution arrays for all text body fields,
-  // including `name` (the required field). safeQueryValue collapses arrays to
-  // their first element, which would silently apply attacker-chosen data and
-  // bypass the duplicate-name check.
-  const _hppCreateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating'];
-  for (const f of _hppCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/vendors/new');
-    }
+  // Fail closed on HTTP parameter pollution arrays for all text body fields.
+  const hppErrors = rejectHppArrays(req, ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors/new');
   }
 
   const name = trim(safeQueryValue(req.body.name));
@@ -396,18 +391,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors');
   }
 
-  // Fail closed on HTTP parameter pollution arrays for all body fields before
-  // any processing. safeQueryValue collapses arrays to their first element,
-  // which would silently apply attacker-chosen data and bypass the
-  // duplicate-name check. Must run BEFORE field extraction so polluted values
-  // are rejected before being collapsed — consistent with every other update
-  // route (assets, licenses, projects, etc.).
-  const _hppUpdateFields = ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating'];
-  for (const f of _hppUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/vendors/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution arrays for all body fields.
+  const hppErrors = rejectHppArrays(req, ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/vendors/${id}/edit`);
   }
 
   const name = trim(safeQueryValue(req.body.name));

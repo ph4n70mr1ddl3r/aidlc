@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -183,16 +183,11 @@ const staffWriteLimiter = rateLimit({
 
 // Create staff
 router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads. safeQueryValue
-  // collapses an array to its first element rather than rejecting it, which would
-  // silently accept a polluted value. Mirrors the array-rejection guards used in
-  // licenses.js / vendors.js / knowledge.js.
-  const _staffCreateFields = ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department', 'phone'];
-  for (const f of _staffCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/staff/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department', 'phone']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/staff/new');
   }
 
   const username = trim(safeQueryValue(req.body.username)).toLowerCase();
@@ -354,15 +349,11 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads (e.g.
-  // role[]=admin or email[]=x) before they are collapsed to the first element by
-  // safeQueryValue. Mirrors the array-rejection guards in licenses.js / vendors.js.
-  const _staffUpdateFields = ['email', 'first_name', 'last_name', 'department', 'phone', 'role'];
-  for (const f of _staffUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/staff/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['email', 'first_name', 'last_name', 'department', 'phone', 'role']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/staff/${id}/edit`);
   }
 
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -611,14 +602,11 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   }
 
   // Fail closed on HTTP parameter pollution: reject array payloads on the
-  // password fields before safeQueryValue silently collapses them to the first
-  // element. Mirrors the array-rejection guards on the create/update routes and
-  // the auth.js profile/password routes.
-  for (const f of ['new_password', 'current_password']) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/staff/${id}`);
-    }
+  // password fields.
+  const hppErrors = rejectHppArrays(req, ['new_password', 'current_password']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/staff/${id}`);
   }
 
   const new_password = safeQueryValue(req.body.new_password);

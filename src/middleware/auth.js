@@ -101,7 +101,7 @@ function requireRole(...roles) {
     }
     if (!roles.includes(req.session.user.role)) {
       req.flash('error', 'You do not have permission to access this page');
-      return res.redirect('/dashboard');
+      return res.redirect('/');
     }
     next();
   };

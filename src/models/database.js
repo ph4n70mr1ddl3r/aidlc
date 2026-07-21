@@ -15,6 +15,9 @@ try {
 
 let db;
 try {
+  // Mode 0o640: owner read/write, group read. This is the correct default for
+  // single-process deployments. Multi-process/container deployments may need to
+  // adjust the mode (e.g. 0o644) if the runtime user differs from the DB owner.
   db = new Database(DB_PATH, { mode: 0o640 });
 } catch (err) {
   console.error(`ERROR: Cannot open database at "${DB_PATH}": ${err.message}`);

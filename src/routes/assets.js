@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -125,15 +125,11 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create asset
 router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads (e.g.
-  // name[]=a&name[]=b) which safeQueryValue would silently collapse to the first
-  // element. Mirrors the array-rejection guards in licenses.js / vendors.js.
-  const _assetCreateFields = ['name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes'];
-  for (const f of _assetCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/assets/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/assets/new');
   }
 
   const name = trim(safeQueryValue(req.body.name));
@@ -328,15 +324,11 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets');
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads which would be
-  // silently collapsed to the first element by safeQueryValue. Mirrors the guards
-  // in licenses.js / vendors.js.
-  const _assetUpdateFields = ['asset_tag', 'name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes'];
-  for (const f of _assetUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/assets/${id}/edit`);
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['asset_tag', 'name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/assets/${id}/edit`);
   }
 
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));

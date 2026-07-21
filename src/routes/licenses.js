@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag, rejectHppArrays } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -133,14 +133,11 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 
 // Create license
 router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads which
-  // safeQueryValue would silently collapse to the first element.
-  const _licenseCreateFields = ['software_name', 'vendor', 'license_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes'];
-  for (const f of _licenseCreateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/licenses/new');
-    }
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['software_name', 'vendor', 'license_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/licenses/new');
   }
 
   const software_name = trim(safeQueryValue(req.body.software_name));
@@ -301,17 +298,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   // Fail closed on HTTP parameter pollution: reject array payloads for every
-  // body field. safeQueryValue collapses an array to its first element rather
-  // than rejecting it, which would silently accept a polluted value (e.g.
-  // clear_key[]=1 wiping the stored key, or vendor[]=A overriding the intended
-  // value). This mirrors the array-rejection guards used in vendors.js /
-  // knowledge.js and the HPP defense elsewhere in the codebase.
-  const _licenseUpdateFields = ['software_name', 'vendor', 'license_key', 'clear_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes'];
-  for (const f of _licenseUpdateFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/licenses/${id}/edit`);
-    }
+  // body field.
+  const hppErrors = rejectHppArrays(req, ['software_name', 'vendor', 'license_key', 'clear_key', 'license_type', 'total_seats', 'used_seats', 'purchase_date', 'expiry_date', 'cost', 'notes']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/licenses/${id}/edit`);
   }
 
   const software_name = trim(safeQueryValue(req.body.software_name));
