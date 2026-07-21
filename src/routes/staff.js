@@ -272,7 +272,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     invalidateDashboardCache();
-    res.redirect('/staff');
+    return res.redirect('/staff');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An account with this username or email address already exists');

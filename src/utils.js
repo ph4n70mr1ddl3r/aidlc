@@ -903,4 +903,17 @@ function _resetPageSize() {
 // Public alias so tests can call it directly
 const resetPageSize = _resetPageSize;
 
-module.exports = { paginate, paginationBaseUrl, safeSort, buildFilters, addSearch, safeId, safePositiveFloat, safeInt, safePositiveInt, validatePassword, isValidUsername, isValidEmail, isValidUrl, sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal, safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime, daysUntil, usagePercent, isExpiringSoon, titleCase, getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog, asyncHandler, countQuery, selectQuery, isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters, isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, resetCachedStatements, resetPageSize };
+module.exports = {
+  paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
+  safeId, safePositiveFloat, safeInt, safePositiveInt,
+  validatePassword, isValidUsername, isValidEmail, isValidUrl,
+  sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal,
+  safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,
+  daysUntil, usagePercent, isExpiringSoon, titleCase,
+  getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog,
+  asyncHandler, countQuery, selectQuery,
+  isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
+  isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
+  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
+  resetCachedStatements, resetPageSize,
+};
