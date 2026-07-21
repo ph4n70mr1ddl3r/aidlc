@@ -34,7 +34,32 @@ document.addEventListener('submit', function (e) {
 
 // Prevent double-submit on all forms that submit via POST/PUT/DELETE
 // (any form with a CSRF token is a mutating form)
-let formReenableAttached = false;
+// Re-enable handlers are attached once at module scope to avoid
+// registering duplicate listeners on every form submission.
+(function attachReenableListeners() {
+  function _reenableSubmittedForms() {
+    const submittedForms = document.querySelectorAll('form[data-submitted="true"]');
+    if (!submittedForms.length) {
+      return;
+    }
+    submittedForms.forEach(function (f) {
+      f.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
+        btn.disabled = false;
+        btn.style.opacity = '';
+      });
+      delete f.dataset.submitted;
+    });
+  }
+  window.addEventListener('error', _reenableSubmittedForms);
+  window.addEventListener('unhandledrejection', _reenableSubmittedForms);
+  window.addEventListener('pageshow', _reenableSubmittedForms);
+  window.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      _reenableSubmittedForms();
+    }
+  });
+})();
+
 document.addEventListener('submit', function (e) {
   const form = e.target;
   if (form.tagName !== 'FORM') {
@@ -82,53 +107,6 @@ document.addEventListener('submit', function (e) {
   // Track whether any form was submitted in this page session.
   // Used to avoid re-enabling buttons on unrelated visibility changes.
   form.dataset.submitted = 'true';
-  // Re-enable buttons if the page stays on the same form (e.g. network
-  // error, validation redirect, or bfcache restore).
-  function _reenableButtons() {
-    const submittedForms = document.querySelectorAll('form[data-submitted="true"]');
-    if (!submittedForms.length) {
-      return;
-    }
-    submittedForms.forEach(function (f) {
-      f.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
-        btn.disabled = false;
-        btn.style.opacity = '';
-      });
-      delete f.dataset.submitted;
-    });
-  }
-  if (!formReenableAttached) {
-    formReenableAttached = true;
-    // Re-enable only the buttons on forms that were actually submitted in this
-    // page session — scoped to avoid interference with legitimately disabled
-    // buttons on unrelated events (tab refocus, third-party script errors).
-    function _reenableOnError() {
-      const submittedForms = document.querySelectorAll('form[data-submitted="true"]');
-      if (!submittedForms.length) {
-        return;
-      }
-      submittedForms.forEach(function (f) {
-        f.querySelectorAll('button[type="submit"][disabled]').forEach(function (btn) {
-          btn.disabled = false;
-          btn.style.opacity = '';
-        });
-        delete f.dataset.submitted;
-      });
-    }
-    // Catch JS runtime errors and unhandled rejections
-    window.addEventListener('error', _reenableOnError);
-    window.addEventListener('unhandledrejection', _reenableOnError);
-    // Catch bfcache restore (e.g. back button after failed submit)
-    window.addEventListener('pageshow', _reenableButtons);
-    // Catch network failures that don't fire JS errors — only re-enable
-    // if a form was actually submitted on this page, so we don't interfere
-    // with legitimately disabled buttons on tab refocus.
-    window.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible') {
-        _reenableButtons();
-      }
-    });
-  }
 });
 
 // Close mobile sidebar when clicking outside

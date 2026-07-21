@@ -342,7 +342,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid status');
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (!VALID_PRIORITIES.includes(priority)) {
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/projects/${id}/edit`);
   }

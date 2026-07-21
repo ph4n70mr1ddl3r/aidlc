@@ -257,7 +257,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Reject overly long usernames to provide clear feedback instead of silently
   // truncating — the stmt lookup below uses exact match, so truncation would
   // only ever produce a no-match result and a generic "Invalid" response.
-  if (typeof username === 'string' && username.length > MAX_USERNAME) {
+  if (username.length > MAX_USERNAME) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
