@@ -167,8 +167,12 @@ document.addEventListener('click', function (e) {
     // Fetch key via AJAX on first reveal
     // Use POST with CSRF token (GET is not CSRF-protected)
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-    fetch('/licenses/' + licenseId + '/key', {
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+    if (!csrfToken) {
+      display.textContent = 'Security error: CSRF token unavailable';
+      return;
+    }
+    fetch(`/licenses/${licenseId}/key`, {
       method: 'POST',
       headers: {
         'X-Requested-With': 'XMLHttpRequest',
@@ -201,8 +205,10 @@ document.addEventListener('visibilitychange', function () {
   if (document.visibilityState !== 'hidden') {
     return;
   }
-  const display = document.getElementById('license-key-display');
-  if (display && display.dataset.shown === '1') {
-    display.textContent = '****';
-  }
+  const displays = document.querySelectorAll('[id="license-key-display"]');
+  displays.forEach(function (display) {
+    if (display.dataset.shown === '1') {
+      display.textContent = '****';
+    }
+  });
 });

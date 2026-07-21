@@ -36,11 +36,12 @@ if (!isMemoryDb && journalMode !== 'wal') {
   console.warn(`WARNING: SQLite WAL mode not enabled (got "${journalMode}"). Concurrency/durability assumptions may not hold.`);
 }
 // Referential integrity must be ON or every FK-backed cascade/cleanup in the
-// routes silently stops enforcing. Assert it actually turned on.
+// routes silently stops enforcing. Assert it actually turned on (exit, not warn).
 db.pragma('foreign_keys = ON');
 const fkEnabled = db.pragma('foreign_keys', { simple: true });
 if (fkEnabled !== 1) {
-  console.warn('WARNING: SQLite foreign_keys pragma did not enable (got ' + JSON.stringify(fkEnabled) + '). Referential integrity is disabled.');
+  console.error('FATAL: SQLite foreign_keys pragma did not enable (got ' + JSON.stringify(fkEnabled) + '). Referential integrity is disabled.');
+  process.exit(1);
 }
 // Wait up to 5 seconds if the database is locked by another writer
 db.pragma('busy_timeout = 5000');
@@ -366,9 +367,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_changes_priority ON change_log(priority);
     CREATE INDEX IF NOT EXISTS idx_changes_type ON change_log(change_type);
     CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
-    CREATE INDEX IF NOT EXISTS idx_vendors_name_lower ON vendors(LOWER(name));
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
-    CREATE INDEX IF NOT EXISTS idx_licenses_vendor_lower ON licenses(LOWER(vendor));
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
     CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
     CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);

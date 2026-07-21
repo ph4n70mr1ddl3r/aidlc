@@ -8,8 +8,14 @@ const { describe, it, expect } = require('@jest/globals');
 //
 // DB_PATH must be set before database.js is required (it reads the env at
 // module-load time). Each Jest test file runs in its own worker, so this does
-// not leak into other suites.
-process.env.DB_PATH = ':memory:';
+// not leak into other suites. Save and restore to isolate from other tests.
+const originalDbPath = process.env.DB_PATH;
+beforeEach(function () {
+  process.env.DB_PATH = ':memory:';
+});
+afterEach(function () {
+  process.env.DB_PATH = originalDbPath;
+});
 
 jest.mock('../src/middleware/auth', () => ({
   requireAuth: (req, res, next) => next(),
@@ -41,7 +47,16 @@ function insertAsset(row) {
   ).run('AST-T' + String(_assetSeq).padStart(3, '0'), row.name, row.category || 'other', row.status, row.purchase_date || null, row.warranty_expiry || null);
 }
 
+function clearAssets() {
+  // Disable FK checks for cleanup to avoid cascade issues with dependent tables
+  db.pragma('foreign_keys = OFF');
+  db.exec('DELETE FROM ticket_comments; DELETE FROM tickets; DELETE FROM project_tasks; DELETE FROM project_members; DELETE FROM assets');
+  db.pragma('foreign_keys = ON');
+  _assetSeq = 0;
+}
+
 describe('asset age distribution ordering', () => {
+  beforeEach(clearAssets);
   it('returns age buckets in natural age order (newest first), not lexicographic', () => {
     // Insert one asset per bucket. Purchase dates are relative to "now" (UTC)
     // so each lands deterministically in its bucket regardless of run date.
@@ -65,9 +80,10 @@ describe('asset age distribution ordering', () => {
 });
 
 describe('warranty expiry alerts exclude disposed assets', () => {
+  beforeEach(clearAssets);
   it('reports warrantyExpiring list and count skip disposed assets', () => {
     // Clear assets inserted by the age-distribution test so counts are deterministic.
-    db.exec('DELETE FROM assets');
+    clearAssets();
     // In-use asset with a soon-expiring warranty — should appear (within 90d).
     insertAsset({ name: 'active-soon', status: 'in_use', warranty_expiry: daysFromNow(30) });
     // Disposed asset with a soon-expiring warranty — must NOT appear.
@@ -83,7 +99,7 @@ describe('warranty expiry alerts exclude disposed assets', () => {
   });
 
   it('dashboard expiringWarranties skip disposed assets', () => {
-    db.exec('DELETE FROM assets');
+    clearAssets();
     // Dashboard uses a 30-day window — keep both warranties inside it.
     insertAsset({ name: 'dash-active', status: 'in_use', warranty_expiry: daysFromNow(10) });
     insertAsset({ name: 'dash-disposed', status: 'disposed', warranty_expiry: daysFromNow(5) });

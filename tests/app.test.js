@@ -102,6 +102,16 @@ describe('App module', () => {
 });
 
 describe('NODE_ENV handling', () => {
+  let originalNodeEnv;
+
+  beforeEach(() => {
+    originalNodeEnv = process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
   it('should normalize NODE_ENV to lowercase after app module is loaded', () => {
     // app.js normalizes NODE_ENV at require-time; after loading,
     // it must be a defined, lowercase value.

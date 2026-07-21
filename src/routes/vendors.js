@@ -563,8 +563,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).
-      if (existing.name !== name) {
-        _licenseSyncStmt.run(name, existing.name);
+      if (existing.name !== safeName) {
+        _licenseSyncStmt.run(safeName, existing.name);
       }
     });
     updateVendor();

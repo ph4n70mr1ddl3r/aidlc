@@ -103,7 +103,7 @@
         <% } %>
         <details>
           <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px;"><i class="fas fa-key"></i> Reset Password</summary>
-          <form action="/staff/<%= staffUser.id %>/reset-password?_method=PUT" method="POST">
+          <form action="/staff/<%= staffUser.id %>/reset-password?_method=PUT" method="POST" data-confirm="Reset password for this user?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="form-group">
               <label for="current_password">Your Current Password</label>

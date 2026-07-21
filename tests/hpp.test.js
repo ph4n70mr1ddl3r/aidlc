@@ -1,7 +1,6 @@
 const { describe, it, expect } = require('@jest/globals');
 const { lastHandlerFor } = require('./helpers');
 
-
 // Load the REAL route handlers with heavyweight deps mocked, so we exercise the
 // actual HPP array-rejection logic (fail-closed) without spinning up an HTTP
 // server. Each handler reads req.body fields, calls req.flash on failure, and
@@ -188,7 +187,6 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('surfaces the specific flash (not a generic error) for malformed budget on project update', () => {
       const db = jest.requireMock('../src/models/database');
       const origPrepare = db.prepare;
-      let capturedFlash = null;
       const mockStmt = {
         get: jest.fn((_args) => {
           // _projectBudgetSpentStmt queries return { budget, spent, status, priority, start_date, end_date }
@@ -201,20 +199,10 @@ describe('HPP array rejection (regression — fail closed)', () => {
       try {
         const h = lastHandlerFor(projectsRouter, 'put', '/:id');
         const result = runHandler(h, { name: 'Rollout', status: 'in_progress', priority: 'medium', budget: 'abc' }, { id: '1' });
-        capturedFlash = result.flashCalls;
         expect(result.redirectedTo).toBe('/projects/1/edit');
-        const errorFlash = capturedFlash.find(([t]) => t === 'error');
+        const errorFlash = result.flashCalls.find(([t]) => t === 'error');
         expect(errorFlash).toBeDefined();
         expect(errorFlash[1]).toBe('Invalid budget amount');
-      } catch (budgetErr) {
-        void budgetErr;
-        // If the mock stmt conflicts with pre-created statements, the flash
-        // was still captured before the error. Assert the flash content.
-        if (capturedFlash) {
-          const errorFlash = capturedFlash.find(([t]) => t === 'error');
-          expect(errorFlash).toBeDefined();
-          expect(errorFlash[1]).toBe('Invalid budget amount');
-        }
       } finally {
         db.prepare = origPrepare;
       }
@@ -223,7 +211,6 @@ describe('HPP array rejection (regression — fail closed)', () => {
     it('surfaces the specific flash (not a generic error) for malformed spent on project update', () => {
       const db = jest.requireMock('../src/models/database');
       const origPrepare = db.prepare;
-      let capturedFlash = null;
       const mockStmt = {
         get: jest.fn(() => ({ budget: 0, spent: 0 })),
         all: jest.fn(() => []),
@@ -233,18 +220,10 @@ describe('HPP array rejection (regression — fail closed)', () => {
       try {
         const h = lastHandlerFor(projectsRouter, 'put', '/:id');
         const result = runHandler(h, { name: 'Rollout', status: 'in_progress', priority: 'medium', spent: 'xyz' }, { id: '1' });
-        capturedFlash = result.flashCalls;
         expect(result.redirectedTo).toBe('/projects/1/edit');
-        const errorFlash = capturedFlash.find(([t]) => t === 'error');
+        const errorFlash = result.flashCalls.find(([t]) => t === 'error');
         expect(errorFlash).toBeDefined();
         expect(errorFlash[1]).toBe('Invalid amount spent');
-      } catch (spentErr) {
-        void spentErr;
-        if (capturedFlash) {
-          const errorFlash = capturedFlash.find(([t]) => t === 'error');
-          expect(errorFlash).toBeDefined();
-          expect(errorFlash[1]).toBe('Invalid amount spent');
-        }
       } finally {
         db.prepare = origPrepare;
       }
