@@ -753,9 +753,8 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       if (result.username) {
         clearLoginFailure(result.username);
       }
-      if (req.ip) {
-        clearIpLoginFailure(req.ip);
-      }
+      // IP lockout is tracked by attacker IP, not user IP, so no IP-level
+      // lockout to clear here.
 
       req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');

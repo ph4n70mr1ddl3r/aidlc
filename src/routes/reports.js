@@ -114,7 +114,7 @@ const stmts = {
     SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
   `),
   warrantyExpiring: db.prepare(`
-    SELECT * FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
+    SELECT id, name, asset_tag, warranty_expiry, status, model, assigned_to FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
     ORDER BY warranty_expiry ASC LIMIT 500
   `),
   // ORDER BY age_group sorts the buckets LEXICOGRAPHICALLY, which puts '< 1 year'
@@ -146,7 +146,7 @@ const stmts = {
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
       COALESCE(tOpen.open_tickets, 0) as open_tickets,
       COALESCE(tResolved.resolved_tickets, 0) as resolved_tickets,
-      tResolved.avg_resolution_days,
+      COALESCE(tResolved.avg_resolution_days, 0) as avg_resolution_days,
       COALESCE(ptDone.completed_tasks, 0) as completed_tasks
     FROM users u
     LEFT JOIN (

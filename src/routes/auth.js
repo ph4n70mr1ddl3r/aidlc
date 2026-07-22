@@ -254,14 +254,6 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  // Reject overly long usernames to provide clear feedback instead of silently
-  // truncating — the stmt lookup below uses exact match, so truncation would
-  // only ever produce a no-match result and a generic "Invalid" response.
-  if (username.length > MAX_USERNAME) {
-    req.flash('error', 'Invalid username or password');
-    return res.redirect('/login');
-  }
-
   const safeUsername = (typeof username === 'string' ? username : '').toLowerCase();
   const clientIp = req.ip || 'unknown';
   const user = _getLoginStmt().get(safeUsername);
@@ -284,10 +276,10 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  // Reject excessively long passwords after the constant-time bcrypt compare so
-  // the timing oracle above is not reintroduced. An oversized password cannot
-  // match (bcrypt caps input at 72 bytes), so rejecting here is fail-closed.
-  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
+  // Reject overly long usernames and passwords after the constant-time bcrypt
+  // compare to avoid reintroducing a timing oracle. An oversized username or
+  // password cannot match, so rejecting here is fail-closed.
+  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES || username.length > MAX_USERNAME) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }

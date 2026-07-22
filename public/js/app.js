@@ -82,7 +82,7 @@ document.addEventListener('submit', function (e) {
   // value survives regardless of when the browser builds the entry list. Removing
   // any previously-injected hidden input first keeps re-submits (e.g. after a
   // failed attempt that was re-enabled) from sending a stale/duplicate value.
-  const submitter = e.submitter;
+  const submitter = e.submitter || (e.target && document.activeElement && e.target.contains(document.activeElement) ? document.activeElement : null);
   if (submitter && submitter.name) {
     const prev = form.querySelector('input[type="hidden"][data-submitter-preserve]');
     if (prev) {
@@ -135,7 +135,7 @@ document.addEventListener('change', function (e) {
   if (e.target.matches('[data-auto-submit]')) {
     const form = e.target.form;
     if (form) {
-      form.requestSubmit ? form.requestSubmit() : form.submit();
+      form.requestSubmit();
     }
   }
 });
@@ -194,8 +194,9 @@ document.addEventListener('click', function (e) {
           icon.className = 'fas fa-eye-slash';
         }
       })
-      .catch(function () {
+      .catch(function (err) {
         display.textContent = 'Error loading key';
+        console.error('License key fetch error:', err);
       });
   }
 });
