@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -237,11 +237,8 @@ router.get('/login', (req, res) => {
 
 // Login handler
 router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
-  // Fail-closed HTTP parameter pollution guard: a polluted username[]= or
-  // password[]= is an array, not a scalar. safeQueryValue would silently
-  // collapse it to the first element (fail-open), so reject explicitly to stay
-  // consistent with every other write route's HPP defense.
-  if (Array.isArray(req.body.username) || Array.isArray(req.body.password)) {
+  const hppErrors = rejectHppArrays(req, ['username', 'password']);
+  if (hppErrors.length > 0) {
     req.flash('error', 'Please enter username and password');
     return res.redirect('/login');
   }
@@ -396,14 +393,10 @@ router.get('/profile', requireAuth, (req, res) => {
 
 // Update profile
 router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res) => {
-  // Fail-closed HTTP parameter pollution guard: reject array payloads on text
-  // fields (consistent with the rejectHppArrays utility).
-  const _hppFields = ['first_name', 'last_name', 'email', 'phone'];
-  for (const f of _hppFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/profile');
-    }
+  const hppErrors = rejectHppArrays(req, ['first_name', 'last_name', 'email', 'phone']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/profile');
   }
 
   const first_name = trim(safeQueryValue(req.body.first_name));
@@ -490,14 +483,10 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
 
 // Change password
 router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async (req, res) => {
-  // Fail-closed HTTP parameter pollution guard: reject array payloads on all
-  // password fields (consistent with the rejectHppArrays utility).
-  const _hppFields = ['current_password', 'new_password', 'confirm_password'];
-  for (const f of _hppFields) {
-    if (Array.isArray(req.body[f])) {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/profile');
-    }
+  const hppErrors = rejectHppArrays(req, ['current_password', 'new_password', 'confirm_password']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/profile');
   }
 
   const current_password = safeQueryValue(req.body.current_password);
