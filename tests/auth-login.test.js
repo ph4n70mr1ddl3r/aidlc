@@ -26,8 +26,8 @@ jest.mock('../src/middleware/auth', () => ({
 jest.mock('../src/middleware/audit', () => ({
   audit: jest.fn(),
   auditMiddleware: (req, res, next) => {
- req.audit = jest.fn(); next();
-}
+    req.audit = jest.fn(); next();
+  }
 }));
 
 jest.mock('../src/routes/dashboard', () => {
@@ -60,8 +60,8 @@ async function runLogin(body) {
     flash: (type, msg) => flashCalls.push([type, msg])
   };
   const res = { redirect: (to) => {
- redirectedTo = to;
-}, render: () => {}, status: () => res, json: () => {} };
+    redirectedTo = to;
+  }, render: () => {}, status: () => res, json: () => {} };
   const handler = lastHandlerFor(authRouter, 'post', '/login');
   await handler(req, res, () => {});
   return { redirectedTo, flashCalls };

@@ -54,7 +54,7 @@ function audit({ req, action, entity, entityId, details }) {
     // Normalizing here keeps the audit_log.details column consistent and crash-free.
     const safeDetails = details == null ? null
       : String(details).length > MAX_AUDIT_DETAILS ? String(details).substring(0, MAX_AUDIT_DETAILS)
-      : String(details);
+        : String(details);
     const safeEntityId = entityId == null || !Number.isFinite(Number(entityId))
       ? null
       : Number(entityId);

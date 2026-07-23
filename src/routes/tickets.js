@@ -74,8 +74,8 @@ const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
 const _ticketAssigneeStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
 const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(
-    'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
-  );
+  'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
+);
 const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 

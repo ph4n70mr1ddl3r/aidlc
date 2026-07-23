@@ -1033,8 +1033,8 @@ describe('selectQuery', () => {
     const stmt = { all: jest.fn(() => []) };
     let callCount = 0;
     const mockDb = { prepare: jest.fn(() => {
- callCount++; return stmt;
-}) };
+      callCount++; return stmt;
+    }) };
     utils.selectQuery(mockDb, 'SELECT 1 LIMIT ? OFFSET ?', [10, 0]);
     utils.selectQuery(mockDb, 'SELECT 2 LIMIT ? OFFSET ?', [10, 0]);
     utils.selectQuery(mockDb, 'SELECT 1 LIMIT ? OFFSET ?', [10, 0]);
@@ -1044,8 +1044,8 @@ describe('selectQuery', () => {
   it('should evict the cached entry and re-throw on error', () => {
     const err = new Error('DB error');
     const stmtErr = { all: jest.fn(() => {
- throw err;
-}) };
+      throw err;
+    }) };
     const mockDb = { prepare: jest.fn(() => stmtErr) };
     expect(() => utils.selectQuery(mockDb, 'SELECT bad LIMIT ? OFFSET ?', [10, 0])).toThrow('DB error');
     // After the error the cache entry is evicted, so the next call re-prepares

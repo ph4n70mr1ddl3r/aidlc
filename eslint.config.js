@@ -34,6 +34,7 @@ module.exports = [
       '@stylistic/no-trailing-spaces': 'error',
       '@stylistic/eol-last': 'error',
       '@stylistic/no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
+      '@stylistic/indent': ['error', 2, { SwitchCase: 1 }],
       '@stylistic/arrow-spacing': 'error',
       '@stylistic/space-before-function-paren': ['error', { anonymous: 'always', named: 'never', asyncArrow: 'always' }],
       '@stylistic/keyword-spacing': 'error',

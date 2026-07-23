@@ -51,8 +51,8 @@ const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at =
 const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);
 const _affectedProjectsStmt = db.prepare(
-    'SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != \'done\''
-  );
+  'SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != \'done\''
+);
 const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
     WHERE assigned_to = ? AND status != 'done'`);
 // Only unassign SCHEDULED / IN_PROGRESS changes so finished records

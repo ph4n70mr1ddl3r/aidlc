@@ -19,8 +19,8 @@ jest.mock('../src/middleware/auth', () => ({
 jest.mock('../src/middleware/audit', () => ({
   audit: jest.fn(),
   auditMiddleware: (req, res, next) => {
- req.audit = jest.fn(); next();
-}
+    req.audit = jest.fn(); next();
+  }
 }));
 jest.mock('../src/routes/dashboard', () => {
   const Router = require('express').Router;
@@ -36,8 +36,8 @@ function runHandler(handler, body, params = {}) {
   const flashCalls = [];
   const req = { body, params, method: 'POST', session: { user: { id: 1, role: 'admin' } }, flash: (type, msg) => flashCalls.push([type, msg]) };
   const res = { redirect: (to) => {
- redirectedTo = to;
-}, render: () => {}, status: () => res, json: () => {} };
+    redirectedTo = to;
+  }, render: () => {}, status: () => res, json: () => {} };
   handler(req, res, () => {});
   return { redirectedTo, flashCalls, req, res };
 }
