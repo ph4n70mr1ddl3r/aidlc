@@ -314,6 +314,51 @@ app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff',
 // ---------------------------------------------------------------------------
 // Global template variables
 // ---------------------------------------------------------------------------
+
+// Hoist CONSTANTS object outside the per-request middleware to avoid creating
+// a new object reference on every request. The values are frozen arrays/numbers
+// so sharing across requests is safe. Mirrors the constant-hoisting pattern
+// used elsewhere in the codebase (e.g. SORT_MAP in route modules).
+const TEMPLATE_CONSTANTS = Object.freeze({
+  TICKET_CATEGORIES: constantsModule.TICKET_CATEGORIES,
+  TICKET_STATUSES: constantsModule.TICKET_STATUSES,
+  TICKET_PRIORITIES: constantsModule.TICKET_PRIORITIES,
+  ASSET_CATEGORIES: constantsModule.ASSET_CATEGORIES,
+  ASSET_STATUSES: constantsModule.ASSET_STATUSES,
+  ASSET_CONDITIONS: constantsModule.ASSET_CONDITIONS,
+  PROJECT_STATUSES: constantsModule.PROJECT_STATUSES,
+  PROJECT_PRIORITIES: constantsModule.PROJECT_PRIORITIES,
+  TASK_STATUSES: constantsModule.TASK_STATUSES,
+  TASK_PRIORITIES: constantsModule.TASK_PRIORITIES,
+  MEMBER_ROLES: constantsModule.MEMBER_ROLES,
+  VENDOR_CATEGORIES: constantsModule.VENDOR_CATEGORIES,
+  CHANGE_TYPES: constantsModule.CHANGE_TYPES,
+  CHANGE_STATUSES: constantsModule.CHANGE_STATUSES,
+  CHANGE_PRIORITIES: constantsModule.CHANGE_PRIORITIES,
+  KB_CATEGORIES: constantsModule.KB_CATEGORIES,
+  KB_STATUSES: constantsModule.KB_STATUSES,
+  LICENSE_TYPES: constantsModule.LICENSE_TYPES,
+  USER_ROLES: constantsModule.USER_ROLES,
+  ALLOWED_ACTIONS: constantsModule.ALLOWED_ACTIONS,
+  ALLOWED_ENTITY_TYPES: constantsModule.ALLOWED_ENTITY_TYPES,
+  MAX_MEDIUM_STR: constantsModule.MAX_MEDIUM_STR,
+  MAX_SHORT_STR: constantsModule.MAX_SHORT_STR,
+  MAX_CONTENT: constantsModule.MAX_CONTENT,
+  MAX_LONG_STR: constantsModule.MAX_LONG_STR,
+  MAX_DESC: constantsModule.MAX_DESC,
+  MAX_NOTES: constantsModule.MAX_NOTES,
+  MAX_EMAIL: constantsModule.MAX_EMAIL,
+  MAX_PHONE: constantsModule.MAX_PHONE,
+  MAX_ADDRESS: constantsModule.MAX_ADDRESS,
+  MAX_PASSWORD: constantsModule.MAX_PASSWORD,
+  MAX_USERNAME: constantsModule.MAX_USERNAME,
+  MAX_ASSET_TAG: constantsModule.MAX_ASSET_TAG,
+  MAX_SEARCH: constantsModule.MAX_SEARCH,
+  MAX_PAGE: constantsModule.MAX_PAGE,
+  DEFAULT_PAGE_SIZE: constantsModule.DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE: constantsModule.MAX_PAGE_SIZE
+});
+
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = {
@@ -339,35 +384,8 @@ app.use((req, res, next) => {
   res.locals.CONDITION_BADGE = utilsModule.CONDITION_BADGE;
   res.locals.CHANGE_TYPE_BADGE = utilsModule.CHANGE_TYPE_BADGE;
   res.locals.ROLE_BADGE = utilsModule.ROLE_BADGE;
-  // Expose specific validation constants to all templates so EJS forms stay in sync
-  // with the single source of truth in constants.js.  Only expose what templates
-  // actually reference — avoids leaking internal values (BCRYPT_SALT_ROUNDS,
-  // SESSION_COOKIE_OPTIONS, etc.) into the render context.
-  const { TICKET_CATEGORIES, TICKET_STATUSES, TICKET_PRIORITIES,
-    ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
-    PROJECT_STATUSES, PROJECT_PRIORITIES,
-    TASK_STATUSES, TASK_PRIORITIES, MEMBER_ROLES,
-    VENDOR_CATEGORIES, CHANGE_TYPES, CHANGE_STATUSES,
-    CHANGE_PRIORITIES, KB_CATEGORIES, KB_STATUSES,
-    LICENSE_TYPES, USER_ROLES, ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
-    MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_CONTENT, MAX_LONG_STR, MAX_DESC,
-    MAX_NOTES, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD,
-    MAX_USERNAME, MAX_ASSET_TAG, MAX_SEARCH, MAX_PAGE,
-    DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
-  } = constantsModule;
-  res.locals.CONSTANTS = {
-    TICKET_CATEGORIES, TICKET_STATUSES, TICKET_PRIORITIES,
-    ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
-    PROJECT_STATUSES, PROJECT_PRIORITIES,
-    TASK_STATUSES, TASK_PRIORITIES, MEMBER_ROLES,
-    VENDOR_CATEGORIES, CHANGE_TYPES, CHANGE_STATUSES,
-    CHANGE_PRIORITIES, KB_CATEGORIES, KB_STATUSES,
-    LICENSE_TYPES, USER_ROLES, ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
-    MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_CONTENT, MAX_LONG_STR, MAX_DESC,
-    MAX_NOTES, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_PASSWORD,
-    MAX_USERNAME, MAX_ASSET_TAG, MAX_SEARCH, MAX_PAGE,
-    DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
-  };
+  // Reuse the hoisted CONSTANTS object shared across all requests.
+  res.locals.CONSTANTS = TEMPLATE_CONSTANTS;
   next();
 });
 
@@ -488,17 +506,12 @@ app.use((err, req, res, _next) => {
   }
 
   const errMsg = (err && err.message) || String(err);
+  const detail = process.env.NODE_ENV === 'production' ? 'Something went wrong.' : errMsg;
 
   if (wantsJson) {
-    const detail = process.env.NODE_ENV === 'production'
-      ? 'Something went wrong.'
-      : errMsg;
     return res.status(500).json({ error: detail });
   }
 
-  const detail = process.env.NODE_ENV === 'production'
-    ? 'Something went wrong.'
-    : errMsg;
   res.status(500).render('pages/error', { title: 'Error', error: { message: detail } });
 });
 

@@ -267,14 +267,12 @@ function safePositiveFloat(value, fallback = null) {
   // are not silently stored. parseFloat("1,000") === 1 and
   // parseFloat("100abc") === 100, both of which would corrupt budget/cost/
   // price fields. Mirrors the strict regex validation in safeInt.
-  // Strip a leading '+' so "+100" is normalized to 100 rather than stored
-  // with a '+' prefix that could confuse downstream consumers.
+  // Reject strings with a leading '+' — inconsistent with other numeric parsers
+  // in the codebase (safeInt, safePositiveInt) which reject non-canonical input.
+  // Also blocks parseFloat("Infinity") masquerading as a number.
   if (typeof value === 'string') {
-    if (!/^[+]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+    if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
       return fallback;
-    }
-    if (value.startsWith('+')) {
-      value = value.slice(1);
     }
   }
   const n = parseFloat(value);
