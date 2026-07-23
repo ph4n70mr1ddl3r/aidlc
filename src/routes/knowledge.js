@@ -106,7 +106,7 @@ const SANITIZE_HTML_OPTIONS = {
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     img: ['src', 'alt', 'title'],
-    a: ['href', 'name', 'target', 'rel', 'title'],
+    a: ['href', 'name', 'rel', 'title'],
     code: ['class']
   },
   // Force rel="noopener noreferrer" on all links for defense-in-depth

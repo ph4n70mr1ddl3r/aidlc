@@ -152,6 +152,7 @@ const stmts = {
     LEFT JOIN (
       SELECT assigned_to, COUNT(*) as open_tickets
       FROM tickets WHERE status IN ('open','in_progress','waiting')
+        AND created_at >= date('now', '-' || ? || ' days')
       GROUP BY assigned_to
     ) tOpen ON tOpen.assigned_to = u.id
     LEFT JOIN (
@@ -229,8 +230,8 @@ router.get('/staff', (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
     req.audit('read', 'user', null, 'Viewed staff performance report');
-    // Two ? placeholders in the SQL: one for resolved_tickets period, one for completed_tasks period
-    const performance = stmts.staffPerformance.all(period, period);
+    // Three ? placeholders: open_tickets period, resolved_tickets period, completed_tasks period
+    const performance = stmts.staffPerformance.all(period, period, period);
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {

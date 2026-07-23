@@ -367,6 +367,10 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_changes_priority ON change_log(priority);
     CREATE INDEX IF NOT EXISTS idx_changes_type ON change_log(change_type);
     CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
+    -- Case-insensitive vendor name index for LOWER() lookups used during license
+    -- sync on vendor rename (vendors.js _licenseSyncStmt). Without this, every
+    -- vendor rename triggers a full table scan on the vendors and licenses tables.
+    CREATE INDEX IF NOT EXISTS idx_vendors_name_lower ON vendors(LOWER(name));
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
     CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);

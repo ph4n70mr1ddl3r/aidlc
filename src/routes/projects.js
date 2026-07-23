@@ -11,6 +11,7 @@ const {
   MAX_MEDIUM_STR, MAX_DESC
 } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
+const { safeSort } = require('../utils');
 
 const rateLimit = require('express-rate-limit');
 
@@ -98,6 +99,17 @@ const _projectInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+// Sort options for the projects list route. Mirrors the pattern used in
+// tickets.js / assets.js / audit.js — safeSort validates the key against
+// the map and falls back to 'default' if unknown.
+const SORT_MAP = Object.freeze({
+  newest: 'p.updated_at DESC',
+  oldest: 'p.updated_at ASC',
+  name: 'p.name ASC',
+  priority: "CASE p.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, p.updated_at DESC",
+  default: 'p.updated_at DESC'
+});
+
 // List projects (paginated)
 router.get('/', (req, res) => {
   const { page, limit, offset } = paginate(req);
@@ -114,6 +126,7 @@ router.get('/', (req, res) => {
   addSearch(where, params, safeQueryValue(req.query.search), ['p.name', 'p.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
+  const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
   const total = countQuery(db, 'projects', 'p', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
@@ -132,7 +145,7 @@ router.get('/', (req, res) => {
       FROM project_tasks GROUP BY project_id
     ) tCounts ON tCounts.project_id = p.id
     WHERE ${whereClause}
-    ORDER BY p.updated_at DESC
+    ORDER BY ${orderBy}
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
