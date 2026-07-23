@@ -404,7 +404,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // stored value (avoids a TOCTOU between this SELECT and the UPDATE); an
       // invalid value was already rejected before the transaction.
       const resolvedCost = (cost === undefined || cost === null || cost === '')
-        ? (existing.cost ?? 0)
+        ? (existing.cost ?? null)
         : safePositiveFloat(cost, Infinity);
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
         resolved.seats, resolved.used,

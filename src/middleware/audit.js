@@ -39,11 +39,11 @@ function audit({ req, action, entity, entityId, details }) {
     // in the audit_log table from typos or unexpected caller values.
     if (!ALLOWED_ACTIONS.includes(action)) {
       console.error(`Audit log error: invalid action "${action}"`);
-      return;
+      throw new Error(`Invalid audit action: "${action}"`);
     }
     if (!ALLOWED_ENTITY_TYPES.includes(entity)) {
       console.error(`Audit log error: invalid entity "${entity}"`);
-      return;
+      throw new Error(`Invalid audit entity: "${entity}"`);
     }
 
     const uid = req?.session?.user?.id ?? null;

@@ -1093,10 +1093,9 @@ describe('isActiveUser', () => {
     utils.resetCachedStatements();
   });
 
-  it('should return false for falsy userId', () => {
+  it('should return false for null/undefined userId', () => {
     expect(utils.isActiveUser({}, null)).toBe(false);
     expect(utils.isActiveUser({}, undefined)).toBe(false);
-    expect(utils.isActiveUser({}, 0)).toBe(false);
   });
 
   it('should return true when user is active', () => {

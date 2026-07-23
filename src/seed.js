@@ -324,13 +324,10 @@ function runSeed(db, adminPw, staffPw) {
 
 // Execute the transaction when run directly
 if (require.main === module) {
-  // Normalize NODE_ENV early — matches the pattern in app.js.
-  if (!process.env.NODE_ENV) {
-    process.env.NODE_ENV = 'development';
-  } else {
-    process.env.NODE_ENV = process.env.NODE_ENV.trim().toLowerCase();
-  }
-  if (process.env.NODE_ENV === 'production') {
+  // Normalize NODE_ENV — matches the pattern in app.js. Using a local variable
+  // avoids mutating process.env which can race with module loading order.
+  const env = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
+  if (env === 'production') {
     console.error('ERROR: Refusing to seed database in production');
     process.exit(1);
   }

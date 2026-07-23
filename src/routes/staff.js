@@ -147,6 +147,7 @@ router.get('/', (req, res) => {
       if (Number(s.id) !== Number(viewer.id)) {
         s.email = null;
         s.phone = null;
+        s.department = null;
       }
     }
   }

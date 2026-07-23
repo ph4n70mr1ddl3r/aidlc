@@ -342,9 +342,11 @@ router.post('/logout', (req, res) => {
     try {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
     } catch (clearErr) {
-      void clearErr; // clearCookie can throw if headers were already sent — ignore.
+      void clearErr;
     }
-    res.redirect('/login');
+    if (!res.headersSent) {
+      res.redirect('/login');
+    }
   });
 });
 

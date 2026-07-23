@@ -427,9 +427,18 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
-      recalcProjectProgress(db, id);
     });
     updateProject();
+
+    // Recalculate project progress outside the transaction so SQLite's write
+    // lock is not held across multiple sequential queries. The project data
+    // was read as of the transaction's snapshot, so the recalc reflects the
+    // post-update state correctly even though the queries execute after commit.
+    try {
+      recalcProjectProgress(db, id);
+    } catch (err) {
+      console.error(`Progress recalculation error for project #${id}:`, err.message);
+    }
 
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
@@ -549,10 +558,17 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
 
-      recalcProjectProgress(db, projectId);
       return result.lastInsertRowid;
     });
     const taskId = addTask();
+
+    // Recalculate project progress outside the transaction to avoid holding the
+    // SQLite write lock across multiple queries.
+    try {
+      recalcProjectProgress(db, projectId);
+    } catch (err) {
+      console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+    }
 
     req.audit('create', 'project_task', taskId, `Added task "${title}" to project #${projectId}`);
     req.flash('success', 'Task added');
@@ -622,10 +638,18 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         if (result.changes === 0) {
           throw new Error('NOT_FOUND');
         }
-        recalcProjectProgress(db, projectId);
         return { unchanged: false, status: safeStatus };
       });
       const result = updateTask();
+
+      // Recalculate project progress outside the transaction to avoid holding the
+      // SQLite write lock across multiple queries.
+      try {
+        recalcProjectProgress(db, projectId);
+      } catch (err) {
+        console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+      }
+
       if (result.unchanged) {
         req.flash('info', 'Status unchanged');
       } else {
@@ -691,9 +715,16 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
-      recalcProjectProgress(db, projectId);
     });
     updateTask();
+
+    // Recalculate project progress outside the transaction to avoid holding the
+    // SQLite write lock across multiple queries.
+    try {
+      recalcProjectProgress(db, projectId);
+    } catch (err) {
+      console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+    }
 
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
     req.flash('success', 'Task updated');

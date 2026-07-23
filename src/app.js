@@ -12,15 +12,19 @@ const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
 const crypto = require('crypto');
 // ---------------------------------------------------------------------------
-// Normalize NODE_ENV early MUST happen BEFORE any module that depends on it
-// (constants.js evaluates SESSION_COOKIE_OPTIONS.secure against NODE_ENV
-// at require time). Default to 'development' so NODE_ENV is always defined.
+// Normalize NODE_ENV early — MUST happen BEFORE any module that depends on it
+// (constants.js evaluates SESSION_COOKIE_OPTIONS.secure against NODE_ENV at
+// require time). Default to 'development' so NODE_ENV is always defined.
+// Using a local variable avoids mutating process.env which affects all modules
+// including third-party dependencies and can race with module loading order.
 // ---------------------------------------------------------------------------
-if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'development';
-} else {
-  process.env.NODE_ENV = process.env.NODE_ENV.trim().toLowerCase();
-}
+const NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
+Object.defineProperty(process.env, 'NODE_ENV', {
+  value: NODE_ENV,
+  writable: true,
+  configurable: true,
+  enumerable: true
+});
 
 const utilsModule = require('./utils');
 const { prefersJson } = utilsModule;

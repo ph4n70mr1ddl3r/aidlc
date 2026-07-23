@@ -450,7 +450,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       // transaction-consistent row to avoid TOCTOU between the outer fetch
       // and this UPDATE.
       const resolvedPrice = (purchase_price === undefined || purchase_price === null || purchase_price === '')
-        ? (current.purchase_price ?? 0)
+        ? (current.purchase_price ?? null)
         : safePositiveFloat(purchase_price, Infinity);
       const resolvedPurchase = (purchase_date === undefined || purchase_date === null || purchase_date === '')
         ? current.purchase_date

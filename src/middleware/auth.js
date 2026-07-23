@@ -15,7 +15,9 @@ function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
     } else {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
     }
-    res.redirect(redirectUrl);
+    if (!res.headersSent) {
+      res.redirect(redirectUrl);
+    }
   });
 }
 

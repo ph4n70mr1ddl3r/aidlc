@@ -563,7 +563,7 @@ function _getIsActiveUserStmt(db) {
  * @returns {boolean}
  */
 function isActiveUser(db, userId) {
-  if (!userId) {
+  if (userId == null) {
     return false;
   }
   const row = _getIsActiveUserStmt(db).get(userId);
