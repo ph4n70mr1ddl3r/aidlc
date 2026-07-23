@@ -351,6 +351,11 @@ router.get('/:id', (req, res) => {
     return res.redirect('/tickets');
   }
 
+  if (!canAccessResource(req, ticket)) {
+    req.flash('error', 'You do not have permission to view this ticket');
+    return res.redirect('/tickets');
+  }
+
   const rawComments = _showCommentsStmt.all(id);
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.

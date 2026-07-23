@@ -364,6 +364,7 @@ router.get('/:id', (req, res) => {
     req.flash('error', 'Vendor not found');
     return res.redirect('/vendors');
   }
+  req.audit('read', 'vendor', id, `Viewed vendor: ${vendor.name}`);
   res.render('pages/vendors/show', { title: vendor.name, vendor });
 });
 

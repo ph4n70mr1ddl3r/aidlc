@@ -284,6 +284,8 @@ router.get('/:id', (req, res) => {
     return res.redirect('/assets');
   }
 
+  req.audit('read', 'asset', id, `Viewed asset: ${asset.name}`);
+
   const relatedTickets = _relatedTicketsStmt.all(id);
 
   if (asset.assigned_email && !isPrivileged(req.session.user)) {

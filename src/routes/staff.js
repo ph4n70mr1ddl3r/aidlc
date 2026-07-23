@@ -303,6 +303,8 @@ router.get('/:id', (req, res) => {
     return res.redirect('/staff');
   }
 
+  req.audit('read', 'user', id, `Viewed staff profile: ${staffUser.first_name} ${staffUser.last_name}`);
+
   const assignedTickets = _assignedTicketsStmt.all(id);
 
   const assignedTasks = _assignedTasksStmt.all(id);

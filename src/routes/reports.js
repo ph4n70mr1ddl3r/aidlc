@@ -182,7 +182,6 @@ router.get('/', (req, res) => {
 router.get('/tickets', (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
-    req.audit('read', 'ticket', null, 'Viewed ticket analytics report');
 
     const ticketsByDay = stmts.ticketsByDay.all(period);
     const byCategory = stmts.ticketsByCategory.all(period);
@@ -190,6 +189,8 @@ router.get('/tickets', (req, res) => {
     const avgResolution = stmts.avgResolution.get(period);
     const slaStats = stmts.slaStats.get(period);
     const topResolvers = stmts.topResolvers.all(period);
+
+    req.audit('read', 'ticket', null, 'Viewed ticket analytics report');
 
     res.render('pages/reports/tickets', {
       title: 'Ticket Analytics', ticketsByDay, byCategory, byPriority,
@@ -205,7 +206,6 @@ router.get('/tickets', (req, res) => {
 // Asset Report
 router.get('/assets', (req, res) => {
   try {
-    req.audit('read', 'asset', null, 'Viewed asset report');
     const byCategory = stmts.assetsByCategory.all();
     const byStatus = stmts.assetsByStatus.all();
     const byCondition = stmts.assetsByCondition.all();
@@ -213,6 +213,8 @@ router.get('/assets', (req, res) => {
     const warrantyCount = stmts.warrantyExpiringCount.get().c;
     const warrantyExpiring = stmts.warrantyExpiring.all();
     const ageDistribution = stmts.ageDistribution.all();
+
+    req.audit('read', 'asset', null, 'Viewed asset report');
 
     res.render('pages/reports/assets', {
       title: 'Asset Report', byCategory, byStatus, byCondition,
@@ -229,9 +231,10 @@ router.get('/assets', (req, res) => {
 router.get('/staff', (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
-    req.audit('read', 'user', null, 'Viewed staff performance report');
     // Three ? placeholders: open_tickets period, resolved_tickets period, completed_tasks period
     const performance = stmts.staffPerformance.all(period, period, period);
+
+    req.audit('read', 'user', null, 'Viewed staff performance report');
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {

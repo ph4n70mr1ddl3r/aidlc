@@ -435,6 +435,11 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     return res.redirect('/profile');
   }
 
+  if (email.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect('/profile');
+  }
+
   const safeFirstName = first_name.substring(0, MAX_SHORT_STR);
   const safeLastName = last_name.substring(0, MAX_SHORT_STR);
   const safeEmail = email.substring(0, MAX_EMAIL);

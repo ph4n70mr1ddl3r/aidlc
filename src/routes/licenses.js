@@ -244,6 +244,7 @@ router.get('/:id', (req, res) => {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
   }
+  req.audit('read', 'license', id, `Viewed license: ${license.software_name}`);
   if (!isPrivileged(req.session.user)) {
     license.license_key = null;
   }
