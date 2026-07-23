@@ -669,7 +669,8 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads before
   // safeQueryValue silently collapses status[]=a&status[]=b to its first
   // element. Mirrors the array-rejection guards on the other ticket write routes.
-  if (Array.isArray(req.body.status)) {
+  const hppErrors = rejectHppArrays(req, ['status']);
+  if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/tickets/${id}`);
   }
@@ -741,7 +742,8 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
   // other write route in the codebase. safeInt already rejects arrays, but the
   // explicit check prevents a polluted satisfaction_rating[]=a&...=b from being
   // silently collapsed to its first element.
-  if (Array.isArray(req.body.satisfaction_rating)) {
+  const hppErrors = rejectHppArrays(req, ['satisfaction_rating']);
+  if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/tickets/${id}`);
   }

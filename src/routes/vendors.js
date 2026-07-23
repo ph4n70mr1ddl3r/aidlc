@@ -466,6 +466,19 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);
+  // A present, non-empty contract date that fails to parse must be rejected
+  // (fail closed) rather than silently stored as NULL — the same malformed-date
+  // default-to-NULL pattern checked in the create route and across all other
+  // sibling update routes (assets, projects, licenses). An empty contract date
+  // is still allowed to fall back to the stored value.
+  if (contract_start && contract_start !== '' && sContractStart === null) {
+    req.flash('error', 'Invalid contract start date');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (contract_end && contract_end !== '' && sContractEnd === null) {
+    req.flash('error', 'Invalid contract end date');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
   if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
     req.flash('error', 'Contract end must be on or after contract start');
     return res.redirect(`/vendors/${id}/edit`);
