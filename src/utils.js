@@ -935,6 +935,6 @@ module.exports = {
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
-   resetCachedStatements, resetPageSize,
+  resetCachedStatements, resetPageSize,
   rejectHppArrays
 };
