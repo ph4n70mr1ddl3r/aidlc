@@ -128,8 +128,8 @@ describe('seed.js runSeed', () => {
 
     const counter = db.prepare("SELECT next_seq FROM asset_counter WHERE counter_key = 'asset_tag'").get();
     expect(counter).toBeTruthy();
-    // 12 assets seeded → next_seq set to 12. The ON CONFLICT clause adds 1,
-    // making the first generated tag use next_seq=13 → AST-013 (correct).
+    // 12 assets seeded → next_seq set to 12. On first create after seed the
+    // ON CONFLICT clause increments from 12 to 13 → AST-013 (correct).
     expect(counter.next_seq).toBe(12);
     db.close();
   });

@@ -95,10 +95,11 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
         a.assigned_to, a.location);
     }
     // Initialize asset counter so the first auto-generated tag after seeding
-    // is AST-013 (next after the last seeded AST-012). The ON CONFLICT clause
-    // adds 1 to avoid collisions when re-seeding on top of existing data.
-    const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = next_seq + 1');
-    initAssetCounter.run(assets.length);
+    // is AST-013 (next after the last seeded AST-012). On re-seed the ON
+    // CONFLICT clause resets the counter to the seed value so the next
+    // generated tag is always AST-013 regardless of prior creations.
+    const initAssetCounter = db.prepare('INSERT INTO asset_counter (counter_key, next_seq) VALUES (\'asset_tag\', ?) ON CONFLICT(counter_key) DO UPDATE SET next_seq = ?');
+    initAssetCounter.run(assets.length, assets.length);
 
     // ========================
     // LICENSES
@@ -147,7 +148,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
 
     const now = new Date();
     const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
-    const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?)');
+    const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?) ON CONFLICT(counter_date) DO UPDATE SET next_seq = ?');
     tickets.forEach((t, i) => {
       const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
       const resolvedAt = t.status === 'resolved' || t.status === 'closed'
@@ -157,7 +158,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
         t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
         t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);
     });
-    insertCounter.run(today, tickets.length);
+    insertCounter.run(today, tickets.length, tickets.length);
 
     // ========================
     // PROJECTS
