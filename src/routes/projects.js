@@ -32,13 +32,17 @@ const _showProjectStmt = db.prepare(`
     LEFT JOIN users u ON p.owner_id = u.id
     WHERE p.id = ?
   `);
+// Cap the task list on the show page to bound memory/render cost on large
+// projects — every other list/sidebar query in the app is capped (e.g.
+// tickets _assignedTicketsStmt LIMIT 10, assets _assetDropdownLimit).
+const _TASK_SHOW_LIMIT = 200;
 const _showTasksStmt = db.prepare(`
     SELECT pt.*, u.first_name || ' ' || u.last_name as assigned_name
     FROM project_tasks pt
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
     ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
-    LIMIT 200
+    LIMIT ${_TASK_SHOW_LIMIT}
   `);
 const _showMembersStmt = db.prepare(`
     SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
