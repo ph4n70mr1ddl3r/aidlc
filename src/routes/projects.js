@@ -779,15 +779,22 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
     const deleteTask = db.transaction(() => {
       const existing = _taskDeleteGetStmt.get(taskId, projectId);
       if (!existing) {
-        return { changes: 0, title: null };
+        return { changes: 0, title: null, affectedProject: null };
       }
       const result = _taskDeleteStmt.run(taskId, projectId);
-      if (result.changes > 0) {
-        recalcProjectProgress(db, projectId);
-      }
-      return { changes: result.changes, title: existing.title };
+      return { changes: result.changes, title: existing.title, affectedProject: result.changes > 0 ? projectId : null };
     });
     const result = deleteTask();
+    // Recalculate project progress outside the transaction so SQLite's write
+    // lock is not held across multiple sequential queries. Mirrors the pattern
+    // used in the task-add and task-full-update routes below.
+    if (result.changes > 0 && result.affectedProject != null) {
+      try {
+        recalcProjectProgress(db, result.affectedProject);
+      } catch (err) {
+        console.error(`Progress recalculation error for project #${result.affectedProject}:`, err.message);
+      }
+    }
 
     if (result.changes === 0) {
       req.flash('error', 'Task not found');

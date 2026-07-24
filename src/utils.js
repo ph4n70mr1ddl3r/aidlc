@@ -354,10 +354,19 @@ function isValidUrl(url) {
   }
 }
 
+const _ESCAPE_MAP = Object.freeze({
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;'
+});
+
 /**
  * Escape HTML special characters in a string for safe interpolation in HTML context.
  * Uses the standard OWASP 5-entity encoding set with ampersand first to prevent
  * double-encoding. Returns empty string for non-string input.
+ * Pre-built lookup map avoids allocating an object on every match.
  * @param {*} value
  * @returns {string}
  */
@@ -365,13 +374,7 @@ function escapeHtml(value) {
   if (typeof value !== 'string') {
     return '';
   }
-  return value.replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  })[c]);
+  return value.replace(/[&<>"']/g, c => _ESCAPE_MAP[c]);
 }
 
 /**

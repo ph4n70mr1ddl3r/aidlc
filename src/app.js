@@ -589,10 +589,14 @@ function shutdown(signal) {
   // for them to time out. closeIdleConnections() lets in-flight requests
   // finish gracefully (bounded by the force-exit timer below); the broader
   // closeAllConnections() would also kill active requests mid-flight.
-  if (typeof server.closeIdleConnections === 'function') {
-    server.closeIdleConnections();
-  } else if (typeof server.closeAllConnections === 'function') {
-    server.closeAllConnections();
+  try {
+    if (typeof server.closeIdleConnections === 'function') {
+      server.closeIdleConnections();
+    } else if (typeof server.closeAllConnections === 'function') {
+      server.closeAllConnections();
+    }
+  } catch (err) {
+    console.error('Error closing idle connections:', err.message);
   }
   const forceExitTimer = setTimeout(() => process.exit(1), 10000);
   forceExitTimer.unref();
