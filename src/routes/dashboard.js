@@ -122,6 +122,10 @@ const stmts = {
     ORDER BY expiry_date ASC
     LIMIT 20
   `),
+  // Only select the columns the dashboard template renders (mirrors recentTickets).
+  // Avoid SELECT * so sensitive columns like requester_email/requester_phone are
+  // never loaded into the shared data object — defense-in-depth that shrinks the
+  // PII-exposure surface of any code that serializes or caches this result.
   myTickets: db.prepare(`
     SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.created_at,
            u.first_name || ' ' || u.last_name as assigned_name

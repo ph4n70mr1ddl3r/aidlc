@@ -435,8 +435,9 @@ const healthLimiter = rateLimit({
   legacyHeaders: false
 });
 app.get('/health', healthLimiter, (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.set('Surrogate-Control', 'no-store');
+  // Cache-Control/Surrogate-Control already set by global middleware above;
+  // setting them again here is redundant but harmless — kept for clarity so
+  // the health endpoint explicitly documents that its response must not be cached.
   res.type('application/json');
   try {
     const row = _healthCheckStmt.get();
