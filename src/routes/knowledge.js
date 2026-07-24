@@ -323,6 +323,8 @@ router.get('/:id', (req, res) => {
     }
   }
 
+  req.audit('read', 'knowledge_article', id, `Viewed article: ${article.title}`);
+
   // Increment views only once per session per article to prevent refresh inflation.
   // Cap the tracked set to prevent unbounded session growth.
   // Use an array (not an object) so eviction removes the oldest-viewed article —
@@ -377,7 +379,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update article (author or admin/manager only)
-router.put('/:id', requireAuth, kbWriteLimiter, (req, res) => {
+router.put('/:id', kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
@@ -517,7 +519,7 @@ router.put('/:id', requireAuth, kbWriteLimiter, (req, res) => {
 });
 
 // Delete article
-router.delete('/:id', requireAuth, kbWriteLimiter, (req, res) => {
+router.delete('/:id', kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');

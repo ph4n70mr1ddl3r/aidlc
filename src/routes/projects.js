@@ -283,6 +283,8 @@ router.get('/:id', (req, res) => {
     return res.redirect('/projects');
   }
 
+  req.audit('read', 'project', id, `Viewed project: ${project.name}`);
+
   const tasks = _showTasksStmt.all(id);
 
   const members = _showMembersStmt.all(id);

@@ -337,8 +337,8 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     return res.redirect('/staff');
   }
   // Managers cannot edit admin accounts
-  if (req.session.user.role !== 'admin' && user.role === 'admin') {
-    req.flash('error', 'You cannot modify administrator accounts');
+  if (req.session.user.role !== 'admin' && user.role !== 'staff') {
+    req.flash('error', 'You cannot modify administrator or manager accounts');
     return res.redirect('/staff');
   }
   res.render('pages/staff/form', { title: 'Edit Staff Member', staffMember: user, isEdit: true, viewerRole: req.session.user.role });

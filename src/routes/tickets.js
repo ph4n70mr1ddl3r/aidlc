@@ -356,6 +356,8 @@ router.get('/:id', (req, res) => {
     return res.redirect('/tickets');
   }
 
+  req.audit('read', 'ticket', id, `Viewed ticket: ${ticket.ticket_number}`);
+
   const rawComments = _showCommentsStmt.all(id);
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.

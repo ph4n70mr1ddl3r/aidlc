@@ -233,6 +233,9 @@ router.get('/:id', (req, res) => {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
   }
+
+  req.audit('read', 'change', id, `Viewed change: ${change.title}`);
+
   res.render('pages/changes/show', { title: change.title, change });
 });
 
