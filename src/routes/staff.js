@@ -265,7 +265,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   try {
     const result = _staffInsertStmt.run(username.substring(0, MAX_USERNAME), hashedPassword, email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role, (department || '').substring(0, MAX_SHORT_STR) || null, phone ? phone.substring(0, MAX_PHONE) : null);
 
-    req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
+    req.audit('create', 'user', Number(result.lastInsertRowid), `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     invalidateDashboardCache();
     return res.redirect('/staff');

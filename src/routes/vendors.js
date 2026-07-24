@@ -336,7 +336,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
     const result = createVendor();
 
-    req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
+    req.audit('create', 'vendor', Number(result.lastInsertRowid), `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
     invalidateDashboardCache();
     res.redirect('/vendors');

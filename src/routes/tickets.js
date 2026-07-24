@@ -317,7 +317,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   try {
     const { ticket_number, id } = createTicket();
 
-    req.audit('create', 'ticket', id, `Created ticket ${ticket_number}`);
+    req.audit('create', 'ticket', Number(id), `Created ticket ${ticket_number}`);
     req.flash('success', `Ticket ${ticket_number} created successfully`);
     invalidateDashboardCache();
     res.redirect('/tickets');

@@ -284,7 +284,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     });
     const result = createArticle();
 
-    req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
+    req.audit('create', 'knowledge_article', Number(result.lastInsertRowid), `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
     invalidateDashboardCache();
     res.redirect(`/knowledge/${result.lastInsertRowid}`);

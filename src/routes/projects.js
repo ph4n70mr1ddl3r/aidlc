@@ -253,7 +253,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     });
     const result = createProject();
 
-    req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
+    req.audit('create', 'project', Number(result.lastInsertRowid), `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     invalidateDashboardCache();
     res.redirect(`/projects/${result.lastInsertRowid}`);

@@ -220,7 +220,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       seats, used,
       sPurchase, sExpiry, safeCost, (notes || '').substring(0, MAX_NOTES) || null);
 
-    req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
+    req.audit('create', 'license', Number(result.lastInsertRowid), `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
     invalidateDashboardCache();
     res.redirect('/licenses');

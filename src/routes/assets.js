@@ -250,7 +250,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     });
 
     const { asset_tag, id } = createAsset();
-    req.audit('create', 'asset', id, `Created asset ${asset_tag}`);
+    req.audit('create', 'asset', Number(id), `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);
     invalidateDashboardCache();
     res.redirect('/assets');
