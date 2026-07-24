@@ -246,7 +246,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         safePositiveFloat(purchase_price),
         sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
-      return { asset_tag, id: result.lastInsertRowid };
+      return { asset_tag, id: Number(result.lastInsertRowid) };
     });
 
     const { asset_tag, id } = createAsset();

@@ -311,7 +311,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
       requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
       safeAssignee, safeAssetId, safeDueDate);
-    return { ticket_number, id: result.lastInsertRowid };
+    return { ticket_number, id: Number(result.lastInsertRowid) };
   });
 
   try {

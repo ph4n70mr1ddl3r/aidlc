@@ -260,7 +260,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.audit('create', 'project', Number(result.lastInsertRowid), `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     invalidateDashboardCache();
-    res.redirect(`/projects/${result.lastInsertRowid}`);
+    res.redirect(`/projects/${Number(result.lastInsertRowid)}`);
   } catch (err) {
     if (err.message === 'OWNER_NOT_AVAILABLE') {
       req.flash('error', 'Selected owner is not available');
@@ -576,7 +576,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
 
-      return result.lastInsertRowid;
+      return Number(result.lastInsertRowid);
     });
     const taskId = addTask();
 
