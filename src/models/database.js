@@ -43,8 +43,10 @@ if (fkEnabled !== 1) {
   console.error('FATAL: SQLite foreign_keys pragma did not enable (got ' + JSON.stringify(fkEnabled) + '). Referential integrity is disabled.');
   process.exit(1);
 }
-// Wait up to 5 seconds if the database is locked by another writer
-db.pragma('busy_timeout = 5000');
+// Wait up to 10 seconds if the database is locked by another writer. A longer
+// timeout reduces intermittent write failures under moderate concurrent load,
+// at the cost of slightly slower failure detection for genuinely stuck writers.
+db.pragma('busy_timeout = 10000');
 // NORMAL is safe with WAL and much faster than FULL
 db.pragma('synchronous = NORMAL');
 

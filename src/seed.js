@@ -26,6 +26,9 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       DELETE FROM change_log;
       DELETE FROM projects;
       DELETE FROM vendors;
+      -- WARNING: audit_log is also cleared. This destroys forensic evidence.
+      -- In production, consider preserving audit logs or using a separate
+      -- archival strategy before seeding.
       DELETE FROM audit_log;
       DELETE FROM users;
       DELETE FROM ticket_counter;

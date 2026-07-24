@@ -237,8 +237,10 @@ describe('staff show route PII redaction', () => {
     const { isPrivileged } = require('../src/utils');
     // Regular staff user is not privileged
     expect(isPrivileged({ role: 'staff' })).toBe(false);
+    // Manager and admin are privileged
     expect(isPrivileged({ role: 'manager' })).toBe(true);
     expect(isPrivileged({ role: 'admin' })).toBe(true);
+    // Null/undefined should return false
     expect(isPrivileged(null)).toBe(false);
     expect(isPrivileged(undefined)).toBe(false);
   });

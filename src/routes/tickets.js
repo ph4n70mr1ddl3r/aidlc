@@ -585,8 +585,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 // This is intentional: IT staff need to collaborate across tickets even if
 // they are not the assignee (e.g. second opinions, status updates from other teams).
 // Note: this route does NOT independently re-check ticket visibility — it only
-// verifies the ticket exists. Introducing visibility scoping in the future
-// should add a check here as well as on the show page.
+// verifies the ticket exists and that the user has access to the ticket.
+// Introducing visibility scoping in the future should add a check here as well as on the show page.
 router.post('/:id/comments', commentRateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
@@ -614,9 +614,9 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
   }
 
   try {
-    // Verify ticket exists and add comment in a single transaction to avoid
-    // a TOCTOU race where the ticket is deleted between the existence check
-    // and the INSERT (mirrors the task-add / member-add patterns).
+    // Verify ticket exists, check user access, and add comment in a single
+    // transaction to avoid a TOCTOU race where the ticket is deleted between
+    // the existence check and the INSERT (mirrors the task-add / member-add patterns).
     const addComment = db.transaction(() => {
       const ticket = _commentExistsStmt.get(id);
       if (!ticket) {
@@ -627,6 +627,13 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       // and this INSERT cannot bypass the active-user check.
       if (!isActiveUser(db, req.session.user.id)) {
         throw new Error('USER_INACTIVE');
+      }
+      // Check that the user has access to this ticket before allowing a comment.
+      // Admin/manager can access all tickets; regular staff can only access
+      // tickets assigned to them. This prevents users from guessing ticket IDs
+      // and commenting on tickets they shouldn't see.
+      if (!canAccessResource(req, ticket)) {
+        throw new Error('ACCESS_DENIED');
       }
 
       _commentInsertStmt.run(id, req.session.user.id, trimmedComment.substring(0, MAX_DESC),
@@ -651,6 +658,10 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     if (err.message === 'USER_INACTIVE') {
       req.flash('error', 'Your account is no longer active');
       return res.redirect('/login');
+    }
+    if (err.message === 'ACCESS_DENIED') {
+      req.flash('error', 'You do not have permission to comment on this ticket');
+      return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');
