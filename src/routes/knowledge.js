@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
@@ -377,7 +377,7 @@ router.get('/:id/edit', (req, res) => {
 });
 
 // Update article (author or admin/manager only)
-router.put('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
+router.put('/:id', requireAuth, kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
@@ -517,7 +517,7 @@ router.put('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
 });
 
 // Delete article
-router.delete('/:id', requireAdminOrManager, kbWriteLimiter, (req, res) => {
+router.delete('/:id', requireAuth, kbWriteLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');

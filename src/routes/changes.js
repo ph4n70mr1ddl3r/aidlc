@@ -56,7 +56,9 @@ function _resolveDateTimeField(submittedValue, existingValue) {
 }
 const INVALID_DATE_FIELDS = Object.freeze({
   INVALID_SCHEDULED_START: 'scheduled start',
-  INVALID_SCHEDULED_END: 'scheduled end'
+  INVALID_SCHEDULED_END: 'scheduled end',
+  INVALID_ACTUAL_START: 'actual start',
+  INVALID_ACTUAL_END: 'actual end'
 });
 
 const _changeUpdateStmt = db.prepare(`
