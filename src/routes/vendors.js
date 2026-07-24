@@ -207,7 +207,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/vendors/index', {
     title: 'Vendors', vendors,
-    filters: safeFilters(req.query, ['search', 'category', 'is_active', 'sort']),
+    filters: safeFilters(req.query, ['search', 'category', 'is_active']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

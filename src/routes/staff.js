@@ -6,7 +6,7 @@ const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, 
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
-const { clearLoginFailure, clearIpLoginFailure } = require('./auth');
+const { clearLoginFailure } = require('./auth');
 
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
@@ -567,9 +567,9 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     if (targetUsername) {
       clearLoginFailure(targetUsername);
     }
-    if (req.ip) {
-      clearIpLoginFailure(req.ip);
-    }
+    // Note: IP lockout is attacker-specific; clearing req.ip here would remove
+    // the admin's own IP from the failure map, which has no effect on the
+    // locked-out user. IP lockouts are only cleared at login success.
 
     req.audit('reactivate', 'user', id, 'Reactivated user account');
     invalidateDashboardCache();
@@ -666,9 +666,9 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   if (targetUser.username) {
     clearLoginFailure(targetUser.username);
   }
-  if (req.ip) {
-    clearIpLoginFailure(req.ip);
-  }
+  // Note: IP lockout is attacker-specific; clearing req.ip here would remove
+  // the admin's own IP from the failure map, which has no effect on the
+  // locked-out user. IP lockouts are only cleared at login success.
 
   req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
   req.flash('success', 'Password reset successfully');
