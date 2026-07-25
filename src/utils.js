@@ -34,7 +34,7 @@ function safeQueryValue(value) {
 function safeFilters(query, allowed) {
   const filters = {};
   for (const key of allowed) {
-    if (Object.prototype.hasOwnProperty.call(query, key)) {
+    if (Object.hasOwn(query, key)) {
       filters[key] = safeQueryValue(query[key]);
     }
   }
@@ -84,7 +84,7 @@ function safeSort(value, allowedMap, defaultKey) {
   if (keys.length === 0) {
     throw new Error('safeSort: allowedMap must not be empty');
   }
-  if (Object.prototype.hasOwnProperty.call(allowedMap, value)) {
+  if (Object.hasOwn(allowedMap, value)) {
     return allowedMap[value];
   }
   // Fail closed if the supplied defaultKey is not a valid key in the map. The
@@ -93,7 +93,7 @@ function safeSort(value, allowedMap, defaultKey) {
   // and produce a sort order that contradicts the caller's intent. Callers
   // (tickets/reports/audit) always pass a constant valid key, so this only
   // hardens against future misuse; it never changes current behavior.
-  if (!Object.prototype.hasOwnProperty.call(allowedMap, defaultKey)) {
+  if (!Object.hasOwn(allowedMap, defaultKey)) {
     throw new Error(`safeSort: defaultKey "${defaultKey}" is not a valid sort key`);
   }
   return allowedMap[defaultKey];
@@ -873,7 +873,7 @@ function isPrivileged(user) {
 // Falls back to the value itself if not found in the mapping.
 // Used in EJS templates to keep badge severity logic DRY.
 function badgeClass(value, mapping) {
-  return (mapping && Object.prototype.hasOwnProperty.call(mapping, value)) ? mapping[value] : value;
+  return (mapping && Object.hasOwn(mapping, value)) ? mapping[value] : value;
 }
 
 const CONDITION_BADGE = Object.freeze({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
