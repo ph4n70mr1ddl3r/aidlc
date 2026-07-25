@@ -179,7 +179,7 @@ describe('HPP array rejection (regression — fail closed)', () => {
 
     it('rejects malformed budget on project create instead of silently coercing to 0', () => {
       const h = lastHandlerFor(projectsRouter, 'post', '/');
-      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Rollout', status: 'active', priority: 'medium', budget: 'abc' });
+      const { redirectedTo, flashCalls } = runHandler(h, { name: 'Rollout', status: 'planning', priority: 'medium', budget: 'abc' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
     });
