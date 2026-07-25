@@ -588,7 +588,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       console.error(`Progress recalculation error for project #${projectId}:`, err.message);
     }
 
-    req.audit('create', 'project_task', Number(taskId), `Added task "${title}" to project #${projectId}`);
+    req.audit('create', 'project_task', taskId, `Added task "${title}" to project #${projectId}`);
     req.flash('success', 'Task added');
     invalidateDashboardCache();
   } catch (err) {
