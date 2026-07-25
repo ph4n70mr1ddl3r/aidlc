@@ -134,9 +134,13 @@ function renderMarkdown(content) {
     // marked v15 .parse() is synchronous unless async extensions are registered
     // (none here), so it returns a string.  Guard against async extensions by
     // rejecting thenables — otherwise sanitizeHtml would receive a Promise
-    // and render "[object Promise]" in the template.
+    // and render "[object Promise]" in the template. Also guard against
+    // undefined/null return for empty content.
     const html = marked.parse(content, { breaks: true, gfm: true });
-    if (html?.then) {
+    if (!html || typeof html !== 'string') {
+      return '';
+    }
+    if (html.then) {
       throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);

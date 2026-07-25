@@ -907,7 +907,7 @@ function _resetPageSize() {
   const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
   PAGE_SIZE = env || DEFAULT_PAGE_SIZE;
 }
-// Public alias so tests can call it directly
+// Public alias so tests can call it directly.
 const resetPageSize = _resetPageSize;
 
 /**
@@ -921,13 +921,13 @@ const resetPageSize = _resetPageSize;
  * @returns {string[]} Array of error messages (empty if all clean)
  */
 function rejectHppArrays(req, fields) {
-  const errors = [];
+  const errors = new Set();
   for (const f of fields) {
     if (Array.isArray(req.body[f])) {
-      errors.push('Invalid request parameters');
+      errors.add('Invalid request parameters');
     }
   }
-  return errors;
+  return [...errors];
 }
 
 module.exports = {

@@ -257,7 +257,11 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   }
 
   const safeUsername = (typeof username === 'string' ? username : '').toLowerCase();
-  const clientIp = req.ip || 'unknown';
+  // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
+  let clientIp = req.ip || 'unknown';
+  if (typeof clientIp === 'string' && clientIp.startsWith('::ffff:')) {
+    clientIp = clientIp.slice(7);
+  }
   const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing

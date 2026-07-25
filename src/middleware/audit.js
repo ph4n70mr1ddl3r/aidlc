@@ -45,7 +45,12 @@ function audit({ req, action, entity, entityId, details }) {
     }
 
     const uid = req?.session?.user?.id ?? null;
-    const ip = req?.ip ?? null;
+    // Normalize IP: req.ip may return an IPv6-mapped address (e.g. "::ffff:1.2.3.4")
+    // behind a proxy; strip the prefix for consistent audit logging.
+    let ip = req?.ip ?? null;
+    if (typeof ip === 'string' && ip.startsWith('::ffff:')) {
+      ip = ip.slice(7);
+    }
     // Coerce details to a string before the length check — a future caller
     // passing a non-string (object/number) would otherwise make `details.length`
     // undefined (always passing the truncation guard) or throw on `.substring`.
