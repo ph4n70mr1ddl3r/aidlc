@@ -445,7 +445,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
     // TOCTOU race where the license is deleted between the earlier existence
     // check and the DELETE (mirrors the license update transaction pattern).
     const deleteLicense = db.transaction(() => {
-      const existing = db.prepare('SELECT id, software_name FROM licenses WHERE id = ?').get(id);
+      const existing = _showLicenseStmt.get(id);
       if (!existing) {
         return { changes: 0 };
       }
