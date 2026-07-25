@@ -30,9 +30,8 @@ describe('dashboard cache invalidation', () => {
     expect(dashboard.invalidateDashboardCache).toBeInstanceOf(Function);
   });
 
-  it('resetCachedStatements resets the cache', () => {
-    dashboard.resetCachedStatements();
-    expect(dashboard.invalidateDashboardCache).toBeDefined();
+  it('resetCachedStatements resets the TTL cache', () => {
+    expect(() => dashboard.resetCachedStatements()).not.toThrow();
   });
 });
 

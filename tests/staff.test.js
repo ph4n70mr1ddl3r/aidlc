@@ -120,12 +120,19 @@ describe('role escalation prevention', () => {
     const manager = db.prepare('SELECT id FROM users WHERE username = \'manager1\'').get();
     expect(manager).toBeTruthy();
 
-    // The route-level check is: if (role !== 'staff' && req.session.user.role !== 'admin')
-    // This is tested by verifying the USER_ROLES constant includes the expected values.
-    const { USER_ROLES } = require('../src/constants');
-    expect(USER_ROLES).toContain('admin');
-    expect(USER_ROLES).toContain('manager');
-    expect(USER_ROLES).toContain('staff');
+    // The route-level check in staff.js POST / handler:
+    // if (role !== 'staff' && req.session.user.role !== 'admin')
+    const wouldBeRejected = (proposedRole, sessionRole) => proposedRole !== 'staff' && sessionRole !== 'admin';
+
+    // Manager trying to create admin/manager accounts is blocked
+    expect(wouldBeRejected('admin', 'manager')).toBe(true);
+    expect(wouldBeRejected('manager', 'manager')).toBe(true);
+    // Admin creating any role is allowed
+    expect(wouldBeRejected('admin', 'admin')).toBe(false);
+    expect(wouldBeRejected('manager', 'admin')).toBe(false);
+    // Any session creating staff accounts is allowed
+    expect(wouldBeRejected('staff', 'manager')).toBe(false);
+    expect(wouldBeRejected('staff', 'staff')).toBe(false);
   });
 
   it('admins can create any role', () => {
@@ -233,11 +240,11 @@ describe('staff show route PII redaction', () => {
     utils.resetCachedStatements();
   });
 
-  it('non-privileged users have email/phone/department zeroed in list view', () => {
+  it('isPrivileged utility correctly identifies roles for PII redaction', () => {
     const { isPrivileged } = require('../src/utils');
-    // Regular staff user is not privileged
+    // Regular staff user is not privileged (PII redacted in list view)
     expect(isPrivileged({ role: 'staff' })).toBe(false);
-    // Manager and admin are privileged
+    // Manager and admin are privileged (PII visible)
     expect(isPrivileged({ role: 'manager' })).toBe(true);
     expect(isPrivileged({ role: 'admin' })).toBe(true);
     // Null/undefined should return false

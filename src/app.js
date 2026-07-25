@@ -222,7 +222,7 @@ if (!sessionSecret) {
 // prevent arbitrary code execution via a SESSION_STORE pointing to any module.
 let sessionStore;
 if (process.env.SESSION_STORE) {
-  if (!/^(connect-|@[\w-]+\/connect-)/.test(process.env.SESSION_STORE)) {
+  if (!/^(connect-|@[\w-]+\/connect-)/.test(process.env.SESSION_STORE) || /[\\/]/.test(process.env.SESSION_STORE)) {
     console.error(`ERROR: SESSION_STORE "${process.env.SESSION_STORE}" does not match expected pattern (must be connect-* or @scope/connect-*)`);
     process.exit(1);
   }
@@ -628,7 +628,7 @@ process.on('unhandledRejection', (reason) => {
   timer.unref();
 });
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err.message || String(err));
+  console.error('Uncaught Exception:', (err && err.message) || String(err));
   // Always exit after an uncaught exception — the process is in an undefined state.
   process.exitCode = 1;
   const timer = setTimeout(() => process.exit(1), 1000);

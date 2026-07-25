@@ -55,7 +55,8 @@ describe('res.locals wiring guards', () => {
     const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
     for (const name of ['daysUntil', 'usagePercent', 'isExpiringSoon']) {
       expect(typeof utils[name]).toBe('function');
-      expect(appSrc).toContain(name);
+      // Verify the helper is assigned via res.locals.<name> = pattern (not just a substring match)
+      expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
     }
   });
 });

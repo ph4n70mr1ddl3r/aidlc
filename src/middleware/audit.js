@@ -38,11 +38,9 @@ function audit({ req, action, entity, entityId, details }) {
     // Validate action and entity against allowlists to prevent inconsistent data
     // in the audit_log table from typos or unexpected caller values.
     if (!ALLOWED_ACTIONS.includes(action)) {
-      console.error(`Audit log error: invalid action "${action}"`);
       throw new Error(`Invalid audit action: "${action}"`);
     }
     if (!ALLOWED_ENTITY_TYPES.includes(entity)) {
-      console.error(`Audit log error: invalid entity "${entity}"`);
       throw new Error(`Invalid audit entity: "${entity}"`);
     }
 
@@ -52,9 +50,10 @@ function audit({ req, action, entity, entityId, details }) {
     // passing a non-string (object/number) would otherwise make `details.length`
     // undefined (always passing the truncation guard) or throw on `.substring`.
     // Normalizing here keeps the audit_log.details column consistent and crash-free.
+    const raw = details == null ? '' : String(details);
     const safeDetails = details == null ? null
-      : String(details).length > MAX_AUDIT_DETAILS ? String(details).substring(0, MAX_AUDIT_DETAILS)
-        : String(details);
+      : raw.length > MAX_AUDIT_DETAILS ? raw.substring(0, MAX_AUDIT_DETAILS)
+        : raw;
     const safeEntityId = entityId == null || !Number.isFinite(Number(entityId))
       ? null
       : Number(entityId);

@@ -113,15 +113,15 @@ describe('NODE_ENV handling', () => {
   });
 
   it('should normalize NODE_ENV to lowercase after app module is loaded', () => {
-    // app.js normalizes NODE_ENV at require-time; after loading,
-    // it must be a defined, lowercase value.
+    // app.js normalizes NODE_ENV at require-time (trim + toLowerCase);
+    // after loading, it must be a defined, lowercase value.
     expect(process.env.NODE_ENV).toBeDefined();
     expect(process.env.NODE_ENV).toBe(process.env.NODE_ENV.toLowerCase());
   });
 
-  it('should restore NODE_ENV to its original value after app module normalization', () => {
-    // Jest sets NODE_ENV to 'test'; the app module's normalization
-    // (trim + toLowerCase) should preserve the original value.
+  it('should preserve NODE_ENV value through app module normalization', () => {
+    // Jest sets NODE_ENV to 'test'; the app module reads and normalizes it
+    // (trim + toLowerCase) at require time. The value should survive unchanged.
     expect(process.env.NODE_ENV).toBe('test');
   });
 });
