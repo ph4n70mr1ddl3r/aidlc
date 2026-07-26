@@ -53,11 +53,25 @@ describe('res.locals wiring guards', () => {
     // Static guarantee: the helpers consumed by templates are present on the
     // utils module AND assigned to res.locals in app.js.
     const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
-    for (const name of ['daysUntil', 'usagePercent', 'isExpiringSoon']) {
+    const fnHelpers = [
+      'localDate', 'formatDate', 'formatDateTime',
+      'daysUntil', 'usagePercent', 'isExpiringSoon',
+      'escapeHtml', 'isValidEmail', 'titleCase',
+      'isPrivileged', 'badgeClass'
+    ];
+    for (const name of fnHelpers) {
       expect(typeof utils[name]).toBe('function');
       // Verify the helper is assigned via res.locals.<name> = pattern (not just a substring match)
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
     }
+    // Badge constants are objects (maps), not functions
+    const objHelpers = ['CONDITION_BADGE', 'CHANGE_TYPE_BADGE', 'ROLE_BADGE'];
+    for (const name of objHelpers) {
+      expect(typeof utils[name]).toBe('object');
+      expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
+    }
+    // CONSTANTS is hoisted from constants module
+    expect(appSrc).toMatch(/res\.locals\.CONSTANTS\s*=/);
   });
 });
 

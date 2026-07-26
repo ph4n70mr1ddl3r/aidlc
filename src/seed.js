@@ -319,6 +319,15 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
  * @param {string} [staffPw]
  */
 function runSeed(db, adminPw, staffPw) {
+  // Guard against accidental data destruction — audit_log and all tables are
+  // wiped in a single transaction. Requiring an explicit env var prevents
+  // someone from running `npm run seed` on production by mistake.
+  if (process.env.NODE_ENV === 'production' && process.env.SEED_DANGER !== '1') {
+    throw new Error(
+      'Seeding in production is disabled. Set SEED_DANGER=1 to override.'
+    );
+  }
+
   const SEED_ADMIN_PW = adminPw || (process.env.SEED_ADMIN_PASSWORD || '').trim() || _generateSeedPassword('SEED_ADMIN_PASSWORD');
   const SEED_STAFF_PW = staffPw || (process.env.SEED_PASSWORD || '').trim() || _generateSeedPassword('SEED_PASSWORD');
   _seedTransaction(db, SEED_ADMIN_PW, SEED_STAFF_PW);

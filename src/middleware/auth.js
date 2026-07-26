@@ -54,8 +54,13 @@ function _verifySessionUser(req, res) {
   }
 
   try {
-    const row = _getAuthCheckStmt().get(req.session.user.id);
-    if (!row || !row.is_active) {
+    const uid = req.session.user.id;
+    if (!uid) {
+      _destroyAndRedirect(req, res, '/login', 'Session verification failed. Please log in again.');
+      return false;
+    }
+    const row = _getAuthCheckStmt().get(uid);
+    if (!row || row.id !== uid || !row.is_active) {
       _destroyAndRedirect(req, res, '/login?reason=deactivated', 'Session destroy error (deactivated):');
       return false;
     }
