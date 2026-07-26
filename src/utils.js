@@ -921,13 +921,12 @@ const resetPageSize = _resetPageSize;
  * @returns {string[]} Array of error messages (empty if all clean)
  */
 function rejectHppArrays(req, fields) {
-  const errors = new Set();
   for (const f of fields) {
     if (Array.isArray(req.body[f])) {
-      errors.add('Invalid request parameters');
+      return ['Invalid request parameters'];
     }
   }
-  return [...errors];
+  return [];
 }
 
 module.exports = {

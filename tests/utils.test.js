@@ -1296,6 +1296,48 @@ describe('badge constants', () => {
 /**
  * Test for resetCachedStatements function
  */
+/**
+ * Test for rejectHppArrays function (HTTP Parameter Pollution rejection)
+ */
+describe('rejectHppArrays', () => {
+  it('should return empty array when no fields are arrays', () => {
+    const req = { body: { name: 'test', email: 'a@b.com' } };
+    const result = utils.rejectHppArrays(req, ['name', 'email']);
+    expect(result).toEqual([]);
+  });
+
+  it('should return error messages when a field is an array (HPP)', () => {
+    const req = { body: { name: ['a', 'b'], email: 'a@b.com' } };
+    const result = utils.rejectHppArrays(req, ['name', 'email']);
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('should return empty array when req.body has no matching fields', () => {
+    const req = { body: { extra: 'x' } };
+    const result = utils.rejectHppArrays(req, ['name', 'email']);
+    expect(result).toEqual([]);
+  });
+
+  it('should return empty array for empty body', () => {
+    const req = { body: {} };
+    const result = utils.rejectHppArrays(req, ['name']);
+    expect(result).toEqual([]);
+  });
+
+  it('should return empty array for empty fields list', () => {
+    const req = { body: { name: ['a', 'b'] } };
+    const result = utils.rejectHppArrays(req, []);
+    expect(result).toEqual([]);
+  });
+
+  it('should return at most one error message (early exit)', () => {
+    const req = { body: { name: ['a', 'b'], email: ['x', 'y'] } };
+    const result = utils.rejectHppArrays(req, ['name', 'email']);
+    // Early-return means we stop at the first array field
+    expect(result).toEqual(['Invalid request parameters']);
+  });
+});
+
 describe('resetCachedStatements', () => {
   it('should clear all cached prepared statements', () => {
     utils.resetCachedStatements();
