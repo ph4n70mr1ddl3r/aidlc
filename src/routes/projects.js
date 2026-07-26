@@ -680,6 +680,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         req.flash('success', 'Task updated');
         invalidateDashboardCache();
       }
+      return res.redirect(`/projects/${projectId}`);
     } catch (err) {
       if (err.message === 'NOT_FOUND') {
         req.flash('error', 'Task not found');
@@ -687,8 +688,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         console.error('Project task quick-status error:', err.message);
         req.flash('error', 'Error updating task');
       }
+      return res.redirect(`/projects/${projectId}`);
     }
-    return res.redirect(`/projects/${projectId}`);
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -748,6 +749,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
     req.flash('success', 'Task updated');
     invalidateDashboardCache();
+    return res.redirect(`/projects/${projectId}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Task not found');
@@ -763,8 +765,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     }
     console.error('Project task update error:', err.message);
     req.flash('error', 'Error updating task. Please try again.');
+    return res.redirect(`/projects/${projectId}`);
   }
-  res.redirect(`/projects/${projectId}`);
 });
 
 // Delete task
@@ -804,11 +806,12 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
       req.flash('success', 'Task deleted');
       invalidateDashboardCache();
     }
+    return res.redirect(`/projects/${projectId}`);
   } catch (err) {
     console.error('Project task delete error:', err.message);
     req.flash('error', 'Error deleting task');
+    return res.redirect(`/projects/${projectId}`);
   }
-  res.redirect(`/projects/${projectId}`);
 });
 
 // Add member to project
