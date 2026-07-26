@@ -15,8 +15,9 @@ const crypto = require('crypto');
 // Normalize NODE_ENV early — MUST happen BEFORE any module that depends on it
 // (constants.js evaluates SESSION_COOKIE_OPTIONS.secure against NODE_ENV at
 // require time). Default to 'development' so NODE_ENV is always defined.
-// Using a local variable avoids mutating process.env which affects all modules
-// including third-party dependencies and can race with module loading order.
+// The local variable is used to normalize the value before setting it on
+// process.env so all modules (including third-party dependencies) see a
+// consistent value regardless of require order.
 // ---------------------------------------------------------------------------
 const NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
 Object.defineProperty(process.env, 'NODE_ENV', {

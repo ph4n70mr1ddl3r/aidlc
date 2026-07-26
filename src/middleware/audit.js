@@ -59,9 +59,10 @@ function audit({ req, action, entity, entityId, details }) {
     const safeDetails = details == null ? null
       : raw.length > MAX_AUDIT_DETAILS ? raw.substring(0, MAX_AUDIT_DETAILS)
         : raw;
-    const safeEntityId = entityId == null || !Number.isFinite(Number(entityId))
+    const entityNum = Number(entityId);
+    const safeEntityId = entityId == null || !Number.isFinite(entityNum)
       ? null
-      : Number(entityId);
+      : entityNum;
     _getAuditStmt().run(uid, action, entity, safeEntityId, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request

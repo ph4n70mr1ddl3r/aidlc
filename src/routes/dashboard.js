@@ -132,7 +132,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.assigned_to = ? AND t.status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC LIMIT 10
+    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC LIMIT 10
   `)
 };
 

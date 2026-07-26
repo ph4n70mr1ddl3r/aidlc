@@ -650,6 +650,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     req.audit('comment', 'ticket', id, 'Added comment');
     req.flash('success', 'Comment added');
     invalidateDashboardCache();
+    return res.redirect(`/tickets/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Ticket not found');
@@ -665,8 +666,8 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     }
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment');
+    return res.redirect(`/tickets/${id}`);
   }
-  res.redirect(`/tickets/${id}`);
 });
 
 // Quick status update
@@ -726,6 +727,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
     req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
     invalidateDashboardCache();
+    return res.redirect(`/tickets/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Ticket not found');
@@ -737,8 +739,8 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     }
     console.error('Ticket status update error:', err.message);
     req.flash('error', 'Error updating status');
+    return res.redirect(`/tickets/${id}`);
   }
-  res.redirect(`/tickets/${id}`);
 });
 
 // Satisfaction rating (admin/manager only, resolved/closed tickets only)

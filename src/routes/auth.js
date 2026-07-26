@@ -93,7 +93,8 @@ function checkLockout(map, key) {
 }
 
 function checkAccountLockout(username) {
-  return checkLockout(loginFailures, username);
+  const safe = typeof username === 'string' ? username.toLowerCase() : '';
+  return checkLockout(loginFailures, safe);
 }
 
 function checkIpLockout(ip) {
