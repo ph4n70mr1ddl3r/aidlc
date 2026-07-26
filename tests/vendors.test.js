@@ -76,6 +76,10 @@ describe('resolveClearableDate (contract date clearing)', () => {
     expect(resolveClearableDate(undefined, '2024-01-01')).toBe('2024-01-01');
   });
 
+  it('preserves the existing value when null is sent (JSON null)', () => {
+    expect(resolveClearableDate(null, '2024-01-01')).toBe('2024-01-01');
+  });
+
   it('clears the date (null) when an empty value is submitted', () => {
     expect(resolveClearableDate('', '2024-01-01')).toBeNull();
   });

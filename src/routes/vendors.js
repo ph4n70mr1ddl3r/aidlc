@@ -105,7 +105,9 @@ function _resolveClearableDate(rawValue, existingValue) {
   if (Array.isArray(rawValue)) {
     return { error: true };
   }
-  if (rawValue === undefined) {
+  // Absent field (undefined) or explicit JSON null — preserve the existing value
+  // so a null sent via the JSON body parser does not silently wipe a stored date.
+  if (rawValue === undefined || rawValue === null) {
     return existingValue;
   }
   // Empty string explicitly clears the field (null) — allows un-setting a date.
