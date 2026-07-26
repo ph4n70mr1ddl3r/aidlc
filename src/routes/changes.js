@@ -105,7 +105,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/changes/index', {
     title: 'Change Log', changes, staff,
-    filters: safeFilters(req.query, ['search', 'status', 'change_type', 'priority', 'assigned_to', 'sort']),
+    filters: safeFilters(req.query, ['search', 'status', 'change_type', 'priority', 'assigned_to']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

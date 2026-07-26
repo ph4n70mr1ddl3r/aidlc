@@ -215,11 +215,18 @@ if (loginFailureCleanup.unref) {
   loginFailureCleanup.unref();
 }
 
+// Flag to prevent double-clearing of the login-failure cleanup interval.
+let _loginFailureCleanupStopped = false;
+
 /**
  * Mark auth module as shutting down to stop the cleanup interval
  * from firing after db.close() has been called.
  */
 function stopLoginFailureCleanup() {
+  if (_loginFailureCleanupStopped) {
+    return;
+  }
+  _loginFailureCleanupStopped = true;
   if (loginFailureCleanup) {
     clearInterval(loginFailureCleanup);
   }
