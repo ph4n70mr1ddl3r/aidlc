@@ -473,7 +473,7 @@ app.use((req, res) => {
 app.use((err, req, res, _next) => {
   // Only log full stack in development to avoid leaking internal details
   if (process.env.NODE_ENV !== 'production') {
-    console.error(err.stack);
+    console.error((err && err.stack) || err || 'Unknown error');
   } else {
     console.error('Unhandled error:', (err && err.message) || String(err));
   }

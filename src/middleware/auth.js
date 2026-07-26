@@ -12,9 +12,8 @@ function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
     }
     if (err) {
       console.error(errMsg, err.message);
-    } else {
-      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
     }
+    res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
     if (!res.headersSent) {
       res.redirect(redirectUrl);
     }
