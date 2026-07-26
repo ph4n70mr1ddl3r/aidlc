@@ -98,8 +98,14 @@ describe('renderMarkdown', () => {
   });
 
   it('falls back to a plain-text notice when rendering throws', () => {
-    const html = renderMarkdown('__THROW__');
-    expect(html).toContain('could not be rendered');
+    const origError = console.error;
+    console.error = jest.fn();
+    try {
+      const html = renderMarkdown('__THROW__');
+      expect(html).toContain('could not be rendered');
+    } finally {
+      console.error = origError;
+    }
   });
 });
 

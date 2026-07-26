@@ -67,3 +67,14 @@ router.get('/', auditLimiter, (req, res) => {
 });
 
 module.exports = router;
+/**
+ * Reset module-level cached prepared statements (test use only).
+ * Ensures test isolation when using mock db instances — consistent with
+ * the same-named export in all other route modules.
+ */
+function resetCachedStatements() {
+  // No module-level cached statements — audit.js uses countQuery/selectQuery
+  // from utils.js which has its own resetCachedStatements(). This function
+  // exists for API consistency across all route modules.
+}
+module.exports.resetCachedStatements = resetCachedStatements;
