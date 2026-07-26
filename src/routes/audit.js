@@ -29,9 +29,7 @@ const SORT_MAP = Object.freeze({
 router.get('/', auditLimiter, (req, res) => {
   // Record that the audit trail was accessed — a compromised privileged
   // account reading the full audit log should leave a trace of its own.
-  if (typeof req.audit === 'function') {
-    req.audit('read', 'audit_log', null, 'Viewed audit log');
-  }
+  req.audit('read', 'audit_log', null, 'Viewed audit log');
 
   const { page, limit, offset } = paginate(req);
 
