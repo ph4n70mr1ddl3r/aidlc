@@ -346,8 +346,8 @@ router.post('/logout', (req, res) => {
     }
     try {
       res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
-    } catch (clearErr) {
-      void clearErr;
+    } catch {
+      // Non-critical — cookie clear failure does not prevent logout
     }
     if (!res.headersSent) {
       res.redirect('/login');

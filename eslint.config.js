@@ -26,6 +26,7 @@ module.exports = [
       'no-undef': 'error',
       'no-redeclare': 'error',
       'no-shadow': 'error',
+      'prefer-object-has-own': 'error',
       'curly': ['error', 'all'],
       '@stylistic/brace-style': ['error', '1tbs'],
       '@stylistic/semi': ['error', 'always'],
@@ -49,6 +50,9 @@ module.exports = [
       globals: {
         ...globals.browser
       }
+    },
+    rules: {
+      'no-restricted-globals': ['error', { name: 'alert', message: 'Use a modal or toast instead.' }]
     }
   },
   {

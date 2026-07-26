@@ -121,9 +121,11 @@ app.set('query parser', 'simple');
 // needed and have been associated with cross-protocol/cross-site tracing
 // attacks; dropping them at the edge is cheap defense-in-depth.
 const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
+const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
+const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 app.use((req, res, next) => {
   if (_DISALLOWED_METHODS.has(req.method)) {
-    return res.status(405).set('Allow', 'GET, HEAD, POST, PUT, DELETE, PATCH').end();
+    return res.status(405).set('Allow', _ALLOWED_METHODS).end();
   }
   next();
 });
@@ -306,7 +308,7 @@ const writeLimiter = rateLimit({
 // in prior review passes). Reads (GET) are intentionally left unthrottled here
 // since the per-route limiters already cover the expensive report/audit queries.
 app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors', '/audit', '/reports'], (req, res, next) => {
-  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
+  if (_WRITE_METHODS.has(req.method)) {
     return writeLimiter(req, res, next);
   }
   next();
