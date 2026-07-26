@@ -577,7 +577,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     }
     console.error('Ticket update error:', err.message);
     req.flash('error', 'Error updating ticket. Please try again.');
-    res.redirect(`/tickets/${id}/edit`);
+    return res.redirect(`/tickets/${id}/edit`);
   }
 });
 
@@ -809,7 +809,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
     console.error('Ticket satisfaction error:', err.message);
     req.flash('error', 'Error submitting rating');
   }
-  res.redirect(`/tickets/${id}`);
+  return res.redirect(`/tickets/${id}`);
 });
 
 // Delete ticket
@@ -843,7 +843,7 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
     console.error('Ticket delete error:', err.message);
     req.flash('error', 'Error deleting ticket');
   }
-  res.redirect('/tickets');
+  return res.redirect('/tickets');
 });
 
 module.exports = router;

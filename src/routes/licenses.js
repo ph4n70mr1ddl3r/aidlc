@@ -428,7 +428,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     }
     console.error('License update error:', err.message);
     req.flash('error', 'Error updating license. Please try again.');
-    res.redirect(`/licenses/${id}/edit`);
+    return res.redirect(`/licenses/${id}/edit`);
   }
 });
 
@@ -463,7 +463,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
     console.error('License delete error:', err.message);
     req.flash('error', 'Error deleting license');
   }
-  res.redirect('/licenses');
+  return res.redirect('/licenses');
 });
 
 module.exports = router;

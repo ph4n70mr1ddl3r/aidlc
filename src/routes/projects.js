@@ -477,7 +477,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
-    res.redirect(`/projects/${id}/edit`);
+    return res.redirect(`/projects/${id}/edit`);
   }
 });
 
@@ -509,7 +509,7 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
     console.error('Project delete error:', err.message);
     req.flash('error', 'Error deleting project');
   }
-  res.redirect('/projects');
+  return res.redirect('/projects');
 });
 
 // Add task to project
@@ -608,7 +608,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     console.error('Project task add error:', err.message);
     req.flash('error', 'Error adding task. Please try again.');
   }
-  res.redirect(`/projects/${projectId}`);
+  return res.redirect(`/projects/${projectId}`);
 });
 
 // Update task
@@ -871,7 +871,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     console.error('Project member add error:', err.message);
     req.flash('error', 'Error adding member');
   }
-  res.redirect(`/projects/${id}`);
+  return res.redirect(`/projects/${id}`);
 });
 
 // Remove member from project
@@ -925,7 +925,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
     console.error('Project member remove error:', err.message);
     req.flash('error', 'Error removing member');
   }
-  res.redirect(`/projects/${id}`);
+  return res.redirect(`/projects/${id}`);
 });
 
 module.exports = router;

@@ -400,7 +400,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     }
     console.error('Change update error:', err.message);
     req.flash('error', 'Error updating change. Please try again.');
-    res.redirect(`/changes/${id}/edit`);
+    return res.redirect(`/changes/${id}/edit`);
   }
 });
 
@@ -435,7 +435,7 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     console.error('Change delete error:', err.message);
     req.flash('error', 'Error deleting change');
   }
-  res.redirect('/changes');
+  return res.redirect('/changes');
 });
 
 module.exports = router;

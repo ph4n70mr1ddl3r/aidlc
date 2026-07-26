@@ -513,7 +513,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       console.error('Staff update error:', err.message);
       req.flash('error', 'Error updating staff. Please try again.');
     }
-    res.redirect(`/staff/${id}/edit`);
+    return res.redirect(`/staff/${id}/edit`);
   }
 });
 
@@ -578,7 +578,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     console.error('Staff reactivate error:', err.message);
     req.flash('error', 'Error reactivating account');
   }
-  res.redirect(`/staff/${id}`);
+  return res.redirect(`/staff/${id}`);
 });
 
 // Rate limit admin password resets to prevent bcrypt DoS
@@ -767,7 +767,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     console.error('Staff deactivate error:', err.message);
     req.flash('error', 'Error deactivating staff');
   }
-  res.redirect('/staff');
+  return res.redirect('/staff');
 });
 
 module.exports = router;

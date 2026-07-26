@@ -493,8 +493,8 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     } else {
       console.error('Asset update error:', err.message);
       req.flash('error', 'Error updating asset. Please check your input and try again.');
+      return res.redirect(`/assets/${id}/edit`);
     }
-    res.redirect(`/assets/${id}/edit`);
   }
 });
 

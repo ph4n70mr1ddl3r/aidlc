@@ -609,7 +609,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     }
     console.error('Vendor update error:', err.message);
     req.flash('error', 'Error updating vendor. Please try again.');
-    res.redirect(`/vendors/${id}/edit`);
+    return res.redirect(`/vendors/${id}/edit`);
   }
 });
 
@@ -652,7 +652,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     console.error('Vendor deactivate error:', err.message);
     req.flash('error', 'Error deactivating vendor');
   }
-  res.redirect(`/vendors/${id}`);
+  return res.redirect(`/vendors/${id}`);
 });
 
 // Reactivate vendor
@@ -694,7 +694,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     console.error('Vendor reactivate error:', err.message);
     req.flash('error', 'Error reactivating vendor');
   }
-  res.redirect(`/vendors/${id}`);
+  return res.redirect(`/vendors/${id}`);
 });
 
 // Delete vendor (must be deactivated first to prevent accidental data loss)
@@ -746,7 +746,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     console.error('Vendor delete error:', err.message);
     req.flash('error', 'Error deleting vendor');
   }
-  res.redirect('/vendors');
+  return res.redirect('/vendors');
 });
 
 module.exports = router;

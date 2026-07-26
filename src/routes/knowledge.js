@@ -514,7 +514,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     }
     console.error('Article update error:', err.message);
     req.flash('error', 'Error updating article. Please try again.');
-    res.redirect(`/knowledge/${id}/edit`);
+    return res.redirect(`/knowledge/${id}/edit`);
   }
 });
 
@@ -569,7 +569,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
     console.error('Article delete error:', err.message);
     req.flash('error', 'Error deleting article');
   }
-  res.redirect('/knowledge');
+  return res.redirect('/knowledge');
 });
 
 module.exports = router;
