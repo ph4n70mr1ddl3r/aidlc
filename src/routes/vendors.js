@@ -132,9 +132,10 @@ function _resolveClearableDate(rawValue, existingValue) {
  * Extracted to eliminate the repeated raw !== undefined ? ... pattern (appeared
  * 8 times across the update route for contact_person, email, phone, address,
  * website, category, notes, and rating).
- * @param {*} rawValue - The raw submitted value (from safeQueryValue)
+ * @param {*} rawBodyValue - The raw req.body[field] value (NOT collapsed by
+ *   safeQueryValue). Used to detect absence (undefined) vs empty ("").
  * @param {string|null} processedValue - The already-processed value (trimmed,
- *   sanitized, lowercased, etc.) or null if the value should be cleared
+ *   sanitized, lowercased, etc.) or null if the value should be cleared.
  * @param {number|null} maxLen - Max string length to truncate to, or null for
  *   non-string fields (category, rating)
  * @param {*} existingValue - The current value from the DB
@@ -507,8 +508,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // (even empty), use the submitted value (empty -> null to allow clearing).
       // If the field was absent (partial submission), preserve the existing value.
       // Uses _resolveOptionalTextField to eliminate 8-way duplication of the
-      // raw-undefined check pattern. The raw* variables are captured from the
-      // outer scope, avoiding redundant safeQueryValue calls inside the txn.
+      // raw-undefined check pattern. The req.body.raw values are passed as the
+      // first arg so the function can detect absence (undefined) vs empty ("") —
+      // HPP array rejection already ran above, so the internal array guard is
+      // defense-in-depth only. Processed (trimmed/sanitized) values are the
+      // second arg, avoiding redundant safeQueryValue calls inside the txn.
       const safeContactPerson = _resolveOptionalTextField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
       if (safeContactPerson && safeContactPerson.error) {
         throw new Error('INVALID_CONTACT_PERSON');
