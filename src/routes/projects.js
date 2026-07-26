@@ -461,6 +461,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
     invalidateDashboardCache();
+    res.redirect(`/projects/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Project not found');
@@ -476,8 +477,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
     console.error('Project update error:', err.message);
     req.flash('error', 'Error updating project. Please try again.');
+    res.redirect(`/projects/${id}/edit`);
   }
-  res.redirect(`/projects/${id}`);
 });
 
 // Delete project (with tasks & members in transaction)

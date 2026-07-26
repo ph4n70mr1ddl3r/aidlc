@@ -969,3 +969,34 @@ defense-in-depth additions):
 - `npx eslint .` — clean (exit 0).
 - `npx jest` — 272 passed / 272 total (added 2 login HPP regression cases).
 - `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-07-26 (forty-sixth pass)
+
+A forty-sixth re-read of all route modules found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One structural bug in the projects
+update handler was found and fixed:
+
+### Fixes applied
+- **`projects.js:480` — success `res.redirect()` outside `try` block caused
+  `ERR_HTTP_HEADERS_SENT` on error paths (HIGH).** The success redirect was
+  placed **after** the `try/catch` block. All specific error paths
+  (`NOT_FOUND`, `OWNER_NOT_AVAILABLE`, `INVALID_BUDGET`/`INVALID_SPENT`)
+  called `return res.redirect(...)` inside the `catch` block, which exited the
+  `catch` but then fell through to line 480, attempting a second
+  `res.redirect()`. Express silently logs `ERR_HTTP_HEADERS_SENT` in this
+  scenario, leaving the client with the first redirect's response but wasting
+  server resources and spamming logs. All other route modules (assets,
+  tickets, licenses, vendors, changes, staff) place the success redirect
+  **inside** the `try` block. The fix moves `res.redirect()` into the `try`
+  block (after `invalidateDashboardCache()`) and adds a fallback redirect to
+  `/edit` in the generic-error branch of the `catch`.
+  - New regression file: `tests/projects_update.test.js` (2 cases — NOT_FOUND
+    and generic error each assert exactly one `res.redirect()` call).
+
+### Test coverage gaps closed
+- `tests/projects_update.test.js` — dedicated test file verifying the
+  `projects` update handler never double-redirects on error paths.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 354 passed / 354 total (2 new projects_update regression cases).
