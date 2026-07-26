@@ -106,7 +106,7 @@ const _commentInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?)
   `);
 const _commentTouchStmt = db.prepare('UPDATE tickets SET updated_at = datetime(\'now\') WHERE id = ?');
-const _commentExistsStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
+const _commentExistsStmt = db.prepare('SELECT id, assigned_to FROM tickets WHERE id = ?');
 
 // Cached statements for ticket create route (used inside transaction)
 const _ticketCounterStmt = db.prepare(`

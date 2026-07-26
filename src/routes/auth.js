@@ -54,12 +54,7 @@ const loginRateLimiter = rateLimit({
     audit({ req, action: 'login_rate_limited', entity: 'user', entityId: null,
       details: 'Login rate limited by IP' });
     req.flash('error', 'Too many login attempts. Please try again in 15 minutes.');
-    res.redirect('/login');
-    // Ensure no further processing after redirect — express-rate-limit v8
-    // does not guarantee that the response has ended when the handler runs,
-    // so we must explicitly return to prevent the login handler from also
-    // executing (which would cause "headers already sent" errors).
-    return;
+    return res.redirect('/login');
   },
   standardHeaders: true,
   legacyHeaders: false

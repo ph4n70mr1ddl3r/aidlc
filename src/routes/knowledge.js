@@ -137,11 +137,11 @@ function renderMarkdown(content) {
     // and render "[object Promise]" in the template. Also guard against
     // undefined/null return for empty content.
     const html = marked.parse(content, { breaks: true, gfm: true });
+    if (html && html.then) {
+      throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
+    }
     if (!html || typeof html !== 'string') {
       return '';
-    }
-    if (html.then) {
-      throw new Error('marked.parse returned a Promise (async extension detected) — fall back to plain text');
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {

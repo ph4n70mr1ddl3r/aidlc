@@ -110,8 +110,14 @@ CREATE TABLE IF NOT EXISTS change_log (
 );
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  action TEXT NOT NULL, entity TEXT NOT NULL, entity_id INTEGER, user_id INTEGER, username TEXT, ip_address TEXT, details TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  user_id INTEGER,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id INTEGER,
+  details TEXT,
+  ip_address TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS ticket_counter (counter_date TEXT PRIMARY KEY, next_seq INTEGER NOT NULL DEFAULT 1);
 CREATE TABLE IF NOT EXISTS asset_counter (counter_key TEXT PRIMARY KEY, next_seq INTEGER NOT NULL DEFAULT 1);
