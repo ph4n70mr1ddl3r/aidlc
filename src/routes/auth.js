@@ -319,7 +319,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   clearIpLoginFailure(clientIp);
 
   // Store user in session (without password) — regenerate session to prevent fixation
-  // eslint-disable-next-line no-unused-vars -- password intentionally excluded from session
+  // password intentionally excluded from session via destructuring
   const { password: _password, ...sessionUser } = user;
 
   try {

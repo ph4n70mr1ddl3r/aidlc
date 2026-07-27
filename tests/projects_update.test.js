@@ -64,20 +64,26 @@ describe('Projects update handler — no double-redirect regression', () => {
   });
 
   it('does not double-redirect on generic error — redirected to /edit once', () => {
-    const db = jest.requireMock('../src/models/database');
-    const stmt = db.prepare();
-    stmt.run.mockImplementation(() => {
-      throw new Error('DB_CONNECTION_LOST');
-    });
+    const origError = console.error;
+    console.error = jest.fn();
     try {
-      const h = lastHandlerFor(projectsRouter, 'put', '/:id');
-      const { redirectCalls } = runHandler(h, {
-        name: 'Test Project', status: 'in_progress', priority: 'medium'
-      }, { id: '1' });
-      expect(redirectCalls).toHaveLength(1);
-      expect(redirectCalls[0]).toBe('/projects/1/edit');
+      const db = jest.requireMock('../src/models/database');
+      const stmt = db.prepare();
+      stmt.run.mockImplementation(() => {
+        throw new Error('DB_CONNECTION_LOST');
+      });
+      try {
+        const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+        const { redirectCalls } = runHandler(h, {
+          name: 'Test Project', status: 'in_progress', priority: 'medium'
+        }, { id: '1' });
+        expect(redirectCalls).toHaveLength(1);
+        expect(redirectCalls[0]).toBe('/projects/1/edit');
+      } finally {
+        stmt.run.mockReturnValue({ changes: 1, lastInsertRowid: 1 });
+      }
     } finally {
-      stmt.run.mockReturnValue({ changes: 1, lastInsertRowid: 1 });
+      console.error = origError;
     }
   });
 });
