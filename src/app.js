@@ -94,9 +94,9 @@ const app = express();
 
 // ---------------------------------------------------------------------------
 // Trust proxy (required for correct req.ip behind reverse proxy)
-// Only enable when actually behind a proxy (set TRUST_PROXY=1 in env)
+// Only enable when actually behind a proxy (set TRUST_PROXY=1 or =true in env)
 // ---------------------------------------------------------------------------
-if (process.env.TRUST_PROXY === '1') {
+if (process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true') {
   app.set('trust proxy', 1);
 }
 
