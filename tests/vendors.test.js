@@ -73,19 +73,19 @@ describe('resolveClearableDate (contract date clearing)', () => {
   // distinguishes absent (preserve existing) from empty (clear to null),
   // matching every other optional field on the form and the create route.
   it('preserves the existing value when the field is absent', () => {
-    expect(resolveClearableDate(undefined, '2024-01-01')).toBe('2024-01-01');
+    expect(resolveClearableDate(undefined, '2024-01-01')).toEqual({ error: false, value: '2024-01-01' });
   });
 
   it('preserves the existing value when null is sent (JSON null)', () => {
-    expect(resolveClearableDate(null, '2024-01-01')).toBe('2024-01-01');
+    expect(resolveClearableDate(null, '2024-01-01')).toEqual({ error: false, value: '2024-01-01' });
   });
 
   it('clears the date (null) when an empty value is submitted', () => {
-    expect(resolveClearableDate('', '2024-01-01')).toBeNull();
+    expect(resolveClearableDate('', '2024-01-01')).toEqual({ error: false, value: null });
   });
 
   it('accepts a new valid date', () => {
-    expect(resolveClearableDate('2025-06-30', '2024-01-01')).toBe('2025-06-30');
+    expect(resolveClearableDate('2025-06-30', '2024-01-01')).toEqual({ error: false, value: '2025-06-30' });
   });
 
   it('rejects a present but malformed (non-array) date as invalid input (fail closed)', () => {

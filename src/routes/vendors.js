@@ -108,11 +108,11 @@ function _resolveClearableDate(rawValue, existingValue) {
   // Absent field (undefined) or explicit JSON null — preserve the existing value
   // so a null sent via the JSON body parser does not silently wipe a stored date.
   if (rawValue === undefined || rawValue === null) {
-    return existingValue;
+    return { error: false, value: existingValue };
   }
   // Empty string explicitly clears the field (null) — allows un-setting a date.
   if (rawValue === '') {
-    return null;
+    return { error: false, value: null };
   }
   // Present but unparseable (e.g. "2026-13-01") → surface as an error so the
   // existing legitimate date is NOT silently wiped. Previously this fell through
@@ -121,7 +121,7 @@ function _resolveClearableDate(rawValue, existingValue) {
   if (parsed === null) {
     return { error: true };
   }
-  return parsed;
+  return { error: false, value: parsed };
 }
 
 /**
@@ -562,12 +562,12 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // the date (null), consistent with the create route and every other
       // optional field. Previously an empty value fell back to existing, making
       // it impossible to clear a contract date via the edit form.
-      const safeContractStartVal = _resolveClearableDate(contract_start, existing.contract_start);
-      const safeContractEndVal = _resolveClearableDate(contract_end, existing.contract_end);
-      if (safeContractStartVal && safeContractStartVal.error) {
+      const resolvedStartDate = _resolveClearableDate(contract_start, existing.contract_start);
+      if (resolvedStartDate.error) {
         throw new Error('INVALID_CONTRACT_START');
       }
-      if (safeContractEndVal && safeContractEndVal.error) {
+      const resolvedEndDate = _resolveClearableDate(contract_end, existing.contract_end);
+      if (resolvedEndDate.error) {
         throw new Error('INVALID_CONTRACT_END');
       }
 
@@ -575,8 +575,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // to change vendor status, ensuring any future cleanup logic runs consistently.
       _updateStmt.run(safeName, safeContactPerson, safeEmail, safePhone, safeAddress,
         safeWebsite, safeCategory,
-        safeContractStartVal,
-        safeContractEndVal,
+        resolvedStartDate.value,
+        resolvedEndDate.value,
         safeNotes,
         safeRatingVal,
         existing.is_active ? 1 : 0, id);

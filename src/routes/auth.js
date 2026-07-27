@@ -6,7 +6,12 @@ const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, async
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
-const { promisify } = require('util');
+
+function _regenerateSession(session) {
+  return new Promise((resolve, reject) => {
+    session.regenerate(err => err ? reject(err) : resolve());
+  });
+}
 
 const router = require('express').Router();
 
@@ -323,7 +328,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const { password: _password, ...sessionUser } = user;
 
   try {
-    await promisify(cb => req.session.regenerate(cb))(req);
+    await _regenerateSession(req.session);
   } catch (err) {
     console.error('Session regeneration error during login:', err.message);
     req.flash('error', 'An error occurred during login. Please try again.');
@@ -455,7 +460,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
 
     // Regenerate session to prevent fixation — consistent with the password-change route
     try {
-      await promisify(cb => req.session.regenerate(cb))(req);
+      await _regenerateSession(req.session);
     } catch (regErr) {
       console.error('Session regeneration error during profile update:', regErr.message);
       req.flash('error', 'An error occurred. Please try again.');
@@ -564,7 +569,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   // then fetch fresh user data from DB (don't carry over old session data)
   const userId = req.session.user.id;
   try {
-    await promisify(cb => req.session.regenerate(cb))(req);
+    await _regenerateSession(req.session);
   } catch (err) {
     console.error('Session regeneration error during password change:', err.message);
     req.flash('error', 'An error occurred. Please try again.');
