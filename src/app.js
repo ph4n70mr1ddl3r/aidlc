@@ -577,7 +577,7 @@ if (require.main === module) {
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 let _shuttingDown = false;
-function shutdown(signal) {
+function shutdown(signal, exitCode = 0) {
   if (_shuttingDown) {
     return;
   }
@@ -601,7 +601,7 @@ function shutdown(signal) {
   } catch (err) {
     console.error('Error closing idle connections:', err.message);
   }
-  const forceExitTimer = setTimeout(() => process.exit(1), 10000);
+  const forceExitTimer = setTimeout(() => process.exit(exitCode), 10000);
   forceExitTimer.unref();
   server.close(() => {
     clearTimeout(forceExitTimer);
@@ -616,26 +616,18 @@ function shutdown(signal) {
     if (dbClosed) {
       console.log('Database connection closed.');
     }
-    process.exit(dbClosed ? 0 : 1);
+    process.exit(dbClosed ? exitCode : 1);
   });
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', (reason && reason.message) || String(reason));
-  // Always exit — Node.js defaults to handling unhandled rejections as
-  // uncaught exceptions (crash) since v15, and continuing with an
-  // indeterminate state may cause silent data corruption.
-  process.exitCode = 1;
-  const timer = setTimeout(() => process.exit(1), 1000);
-  timer.unref();
+  shutdown('UNHANDLED_REJECTION', 1);
 });
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', (err && err.message) || String(err));
-  // Always exit after an uncaught exception — the process is in an undefined state.
-  process.exitCode = 1;
-  const timer = setTimeout(() => process.exit(1), 1000);
-  timer.unref();
+  shutdown('UNCAUGHT_EXCEPTION', 1);
 });
 
 module.exports = app;
