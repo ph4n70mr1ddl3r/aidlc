@@ -354,19 +354,20 @@ if (require.main === module) {
     const adminIsGenerated = !(process.env.SEED_ADMIN_PASSWORD || '').trim();
     const staffIsGenerated = !(process.env.SEED_PASSWORD || '').trim();
     const anyGenerated = adminIsGenerated || staffIsGenerated;
-    if ((process.env.SEED_VERBOSE === '1' || process.env.SEED_VERBOSE === 'true') && anyGenerated) {
-      const lines = ['Default login credentials:'];
-      if (adminIsGenerated) {
-        lines.push('  Admin:    admin / ' + SEED_ADMIN_PW);
+    if (process.env.SEED_VERBOSE === '1' || process.env.SEED_VERBOSE === 'true') {
+      if (anyGenerated) {
+        const lines = ['Default login credentials:'];
+        if (adminIsGenerated) {
+          lines.push('  Admin:    admin / ' + SEED_ADMIN_PW);
+        }
+        if (staffIsGenerated) {
+          lines.push('  Manager:  jwilliams / ' + SEED_STAFF_PW);
+          lines.push('  Staff:    mpatel / ' + SEED_STAFF_PW);
+        }
+        console.log(lines.join('\n') + '\n');
       }
-      if (staffIsGenerated) {
-        lines.push('  Manager:  jwilliams / ' + SEED_STAFF_PW);
-        lines.push('  Staff:    mpatel / ' + SEED_STAFF_PW);
-      }
-      console.log(lines.join('\n') + '\n');
-    } else {
-      console.log('Login credentials set from environment (SEED_ADMIN_PASSWORD / SEED_PASSWORD) where provided,');
-      console.log('or auto-generated. Auto-generated passwords are NOT shown — re-run with SEED_VERBOSE=1 to display them.\n');
+    } else if (anyGenerated) {
+      console.log('One or more seed passwords were auto-generated. Re-run with SEED_VERBOSE=1 to display them.\n');
     }
   } catch (err) {
     console.error('Seeding failed:', err.message);
