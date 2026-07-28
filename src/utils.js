@@ -755,10 +755,10 @@ function isExpiringSoon(dateStr, withinDays = 30) {
 }
 
 /**
- * Touch a key in a Map for FIFO eviction.
+ * Touch a key in a Map for LRU eviction.
  * Deletes and re-inserts the entry so it moves to the end of the
  * Map's insertion-order iteration. If the cache has reached its
- * capacity, evicts the oldest (least recently inserted) entry.
+ * capacity, evicts the oldest (least recently accessed) entry.
  * Calls prepareFn BEFORE evicting so that if it throws the cache is
  * not left one entry short.
  */
