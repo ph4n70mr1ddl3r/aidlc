@@ -490,6 +490,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An asset with this tag or serial number already exists');
+      return res.redirect(`/assets/${id}/edit`);
     } else {
       console.error('Asset update error:', err.message);
       req.flash('error', 'Error updating asset. Please check your input and try again.');
