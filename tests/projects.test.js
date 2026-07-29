@@ -59,7 +59,7 @@ describe('project task CRUD', () => {
     utils.resetCachedStatements();
   });
 
-  it('inserts a task with all fields and recalculates progress', () => {
+  it('inserts a task with all fields and verifies initial progress is 0', () => {
     const insertTask = db.prepare(`
       INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -80,7 +80,7 @@ describe('project task CRUD', () => {
     expect(projectRow.progress).toBe(0);
   });
 
-  it('marks task as done and updates project progress to 100%', () => {
+  it('manually computes 100% progress when all tasks are done', () => {
     const insertTask = db.prepare(`
       INSERT INTO project_tasks (project_id, title, status, completed_at)
       VALUES (?, 'Done task', 'done', datetime('now'))
@@ -157,7 +157,7 @@ describe('project member management', () => {
     expect(members).toHaveLength(2);
   });
 
-  it('prevents removing the last lead member', () => {
+  it('removes the last lead member at database level (app guard handles prevention)', () => {
     const insertMember = db.prepare('INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
     const admin = db.prepare('SELECT id FROM users WHERE username = \'admin\'').get();
     const project = db.prepare("INSERT INTO projects (name, status, priority, owner_id) VALUES (?, 'planning', 'medium', ?) RETURNING id").get('Lead Test', admin.id);
@@ -185,7 +185,7 @@ describe('budget/spent preservation on partial update', () => {
     utils.resetCachedStatements();
   });
 
-  it('preserves existing status/priority when omitted from update', () => {
+  it('stores initial project status/priority/budget/spent/dates correctly', () => {
     const admin = db.prepare('SELECT id FROM users WHERE username = \'admin\'').get();
     const project = db.prepare(
       "INSERT INTO projects (name, status, priority, budget, spent, start_date, end_date, owner_id) VALUES (?, 'in_progress', 'high', 10000, 5000, '2026-01-01', '2026-12-31', ?) RETURNING id"

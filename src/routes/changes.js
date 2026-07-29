@@ -215,7 +215,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     }
     console.error('Change create error:', err.message);
     req.flash('error', 'Error creating change. Please try again.');
-    res.redirect('/changes/new');
+    return res.redirect('/changes/new');
   }
 });
 
