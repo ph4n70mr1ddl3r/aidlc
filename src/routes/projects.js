@@ -408,7 +408,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       // be silently ignored and a typo'd value is surfaced to the user.
       let preservedSpent;
       if (spent === undefined || spent === null || spent === '') {
-        preservedSpent = existingProject.spent ?? 0;
+        // Preserve existing value (including NULL) rather than defaulting to 0.
+        // Using ?? null ensures that a stored NULL stays NULL on partial edits.
+        // See similar patterns in assets.js, vendors.js, licenses.js.
+        preservedSpent = existingProject.spent ?? null;
       } else {
         preservedSpent = safePositiveFloat(spent, Infinity);
         if (!Number.isFinite(preservedSpent)) {
@@ -417,7 +420,9 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       }
       let preservedBudget;
       if (budget === undefined || budget === null || budget === '') {
-        preservedBudget = existingProject.budget ?? 0;
+        // Preserve existing value (including NULL) rather than defaulting to 0.
+        // Using ?? null ensures that a stored NULL stays NULL on partial edits.
+        preservedBudget = existingProject.budget ?? null;
       } else {
         preservedBudget = safePositiveFloat(budget, Infinity);
         if (!Number.isFinite(preservedBudget)) {
