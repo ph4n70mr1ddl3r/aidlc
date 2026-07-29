@@ -1,9 +1,19 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
+const rateLimit = require('express-rate-limit');
+
+// Rate limit dashboard requests to prevent abuse of aggregation queries
+const dashboardLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: 'Too many dashboard requests. Please wait.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
 
 const router = require('express').Router();
-router.use(requireAuth, auditMiddleware);
+router.use(requireAuth, auditMiddleware, dashboardLimiter); // Added dashboardLimiter here
 
 // ---------------------------------------------------------------------------
 // Simple in-memory dashboard cache (30 s TTL).

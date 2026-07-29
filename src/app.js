@@ -442,11 +442,20 @@ app.get('/health', healthLimiter, (req, res) => {
   // setting them again here is redundant but harmless — kept for clarity so
   // the health endpoint explicitly documents that its response must not be cached.
   res.type('application/json');
+  res.set('Content-Type', 'application/json');
+
   try {
     const row = _healthCheckStmt.get();
     if (!row || row.ok !== 1) {
       throw new Error('DB sanity check failed');
     }
+
+    // Additional check: verify we can actually read from users table
+    const userCheck = db.prepare('SELECT id FROM users LIMIT 1').get();
+    if (!userCheck) {
+      throw new Error('No users found in database');
+    }
+
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });

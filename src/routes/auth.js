@@ -22,8 +22,6 @@ const passwordLimiter = rateLimit({
   message: 'Too many password attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
-  // Count all requests — password routes return 302 redirects for both
-  // success and failure, so skipSuccessfulRequests would never count anything.
 });
 
 // Rate limit profile updates (separate from password changes)
