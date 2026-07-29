@@ -362,6 +362,16 @@ describe('safeId', () => {
     expect(utils.safeId(['123', '456'])).toBeNull();
     expect(utils.safeId([])).toBeNull();
   });
+
+  it('should reject non-string/number types (e.g. booleans, objects)', () => {
+    // Type coercion guard: prevent unexpected values from being parsed
+    expect(utils.safeId(true)).toBeNull();
+    expect(utils.safeId(false)).toBeNull();
+    expect(utils.safeId({})).toBeNull();
+    expect(utils.safeId({ id: 1 })).toBeNull();
+    expect(utils.safeId(null)).toBeNull();  // null is not string or number
+    expect(utils.safeId(undefined)).toBeNull();
+  });
 });
 
 /**
