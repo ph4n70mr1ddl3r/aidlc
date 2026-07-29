@@ -139,7 +139,9 @@ function _resolveClearableDate(rawValue, existingValue) {
  * @param {number|null} maxLen - Max string length to truncate to, or null for
  *   non-string fields (category, rating)
  * @param {*} existingValue - The current value from the DB
- * @returns {*|null}
+ * @returns {*|{error: boolean}|null} - existingValue (field absent), null (field
+ *   empty — clear), processedValue string (field present + valid), or
+ *   {error: true} (HPP array — invalid)
  */
 function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingValue) {
   // Reject arrays from HTTP parameter pollution so a polluted payload does not

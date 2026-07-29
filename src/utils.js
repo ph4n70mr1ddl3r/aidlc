@@ -3,10 +3,7 @@
  */
 
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE } = require('./constants');
-const _ps = parseInt(process.env.PAGE_SIZE, 10);
-// Override DEFAULT_PAGE_SIZE from env if set, capped at MAX_PAGE_SIZE
-const _envPageSize = (Number.isFinite(_ps) && _ps > 0) ? Math.min(_ps, MAX_PAGE_SIZE) : null;
-let PAGE_SIZE = _envPageSize || DEFAULT_PAGE_SIZE;
+let PAGE_SIZE;
 
 const ACRONYMS = new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IoT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVMe', 'OAuth', 'PCIe', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']);
 const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
@@ -897,16 +894,26 @@ function resetCachedStatements() {
 }
 
 /**
+ * Derive PAGE_SIZE from environment (testable helper).
+ * Returns the effective page size (shared between module init and resetPageSize).
+ */
+function _derivePageSize() {
+  const p = parseInt(process.env.PAGE_SIZE, 10);
+  const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
+  return env || DEFAULT_PAGE_SIZE;
+}
+
+/**
  * Reset the env-derived PAGE_SIZE (test use only).
  * Called by resetCachedStatements(), but also exported separately so tests
  * that change process.env.PAGE_SIZE can re-derive it without clearing all
  * cached prepared statements.
  */
 function _resetPageSize() {
-  const p = parseInt(process.env.PAGE_SIZE, 10);
-  const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
-  PAGE_SIZE = env || DEFAULT_PAGE_SIZE;
+  PAGE_SIZE = _derivePageSize();
 }
+// Initialize PAGE_SIZE at module load
+PAGE_SIZE = _derivePageSize();
 // Public alias so tests can call it directly.
 const resetPageSize = _resetPageSize;
 
