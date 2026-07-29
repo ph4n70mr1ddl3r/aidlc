@@ -238,16 +238,16 @@ function addSearch(where, params, search, columns) {
  * inconsistent with safeInt / safePositiveFloat. Treat any array as invalid.
  */
 function safeId(value) {
-   if (Array.isArray(value)) {
-     return null;
-   }
-   // Only accept strings or numbers; reject booleans, objects, etc.
-   // This prevents unintended coercion (e.g. true → 1 via String(true)).
-   if (typeof value !== 'string' && typeof value !== 'number') {
-     return null;
-   }
-   const n = parseInt(value, 10);
-   return Number.isFinite(n) && n > 0 ? n : null;
+  if (Array.isArray(value)) {
+    return null;
+  }
+  // Only accept strings or numbers; reject booleans, objects, etc.
+  // This prevents unintended coercion (e.g. true → 1 via String(true)).
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return null;
+  }
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 /**
