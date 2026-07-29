@@ -38,7 +38,7 @@ const reportLimiter = rateLimit({
   max: 30,
   handler: (req, res) => {
     req.flash('error', 'Too many report requests. Please try again later.');
-    res.redirect('/reports');
+    return res.redirect('/reports');
   },
   standardHeaders: true,
   legacyHeaders: false
@@ -248,7 +248,7 @@ module.exports = router;
 // Exposed for unit testing the HPP fail-closed period parsing.
 module.exports.resolveReportPeriod = resolveReportPeriod;
 // Exposed for unit testing against a real in-memory DB (mirrors the test-export
-// pattern in tickets.js / vendors.js / knowledge.js). Guards the age-bucket
+// pattern in dashboard.js / vendors.js / knowledge.js). Guards the age-bucket
 // ordering and the disposed-asset warranty exclusion against regression.
 module.exports.__stmts = stmts;
 /**

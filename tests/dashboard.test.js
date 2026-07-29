@@ -4,6 +4,14 @@ const { describe, it, expect } = require('@jest/globals');
 // statement shapes) against an in-memory SQLite database. Uses the same pattern
 // as reports.test.js: set DB_PATH before the modules are loaded.
 
+const originalDbPath = process.env.DB_PATH;
+beforeAll(() => {
+  process.env.DB_PATH = ':memory:';
+});
+afterAll(() => {
+  process.env.DB_PATH = originalDbPath;
+});
+
 jest.mock('../src/middleware/auth', () => ({
   requireAuth: (req, res, next) => next()
 }));

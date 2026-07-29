@@ -268,7 +268,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
     console.error('Project create error:', err.message);
     req.flash('error', 'Error creating project. Please try again.');
-    res.redirect('/projects/new');
+    return res.redirect('/projects/new');
   }
 });
 

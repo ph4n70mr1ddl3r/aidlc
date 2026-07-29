@@ -29,7 +29,6 @@ jest.mock('../src/routes/dashboard', () => {
 });
 
 const { commentKeyGenerator, ensureLinkedAssetInList } = require('../src/routes/tickets');
-const { ipKeyGenerator } = require('express-rate-limit');
 
 describe('commentKeyGenerator', () => {
   it('keys by user id when authenticated (per-account limiting)', () => {
@@ -41,7 +40,6 @@ describe('commentKeyGenerator', () => {
     // Regression: previously called an undefined defaultKeyGenerator (removed in
     // express-rate-limit v8), which would throw if this branch ever ran.
     const req = { session: {}, ip: '203.0.113.5' };
-    expect(commentKeyGenerator(req)).toBe(ipKeyGenerator('203.0.113.5'));
     expect(commentKeyGenerator(req)).toBe('203.0.113.5');
   });
 

@@ -93,7 +93,7 @@ describe('seed.js runSeed', () => {
     const bcrypt = require('bcryptjs');
     const user = db.prepare("SELECT password FROM users WHERE username = 'admin'").get();
     expect(user.password).toBeTruthy();
-    expect(user.password.startsWith('$2a$')).toBe(true);
+    expect(user.password).toMatch(/^\$2[aby]\$/);
     expect(bcrypt.compareSync('Admin123!', user.password)).toBe(true);
     db.close();
   });

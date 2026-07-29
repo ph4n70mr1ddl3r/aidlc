@@ -157,7 +157,7 @@ describe('project member management', () => {
     expect(members).toHaveLength(2);
   });
 
-  it('removes the last lead member at database level (app guard handles prevention)', () => {
+  it('removes the last lead member at database level (app guard must prevent this in the route)', () => {
     const insertMember = db.prepare('INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
     const admin = db.prepare('SELECT id FROM users WHERE username = \'admin\'').get();
     const project = db.prepare("INSERT INTO projects (name, status, priority, owner_id) VALUES (?, 'planning', 'medium', ?) RETURNING id").get('Lead Test', admin.id);

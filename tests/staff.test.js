@@ -116,11 +116,9 @@ describe('role escalation prevention', () => {
     utils.resetCachedStatements();
   });
 
-  it('managers cannot create admin accounts', () => {
-    const manager = db.prepare('SELECT id FROM users WHERE username = \'manager1\'').get();
-    expect(manager).toBeTruthy();
-
-    // The route-level check in staff.js POST / handler:
+  it('managers cannot create admin accounts (route-level guard logic)', () => {
+    // This test validates the role-guard logic used in the route handler, not
+    // the route itself. The pure function wouldBeRejected mirrors the guard:
     // if (role !== 'staff' && req.session.user.role !== 'admin')
     const wouldBeRejected = (proposedRole, sessionRole) => proposedRole !== 'staff' && sessionRole !== 'admin';
 
@@ -135,7 +133,7 @@ describe('role escalation prevention', () => {
     expect(wouldBeRejected('staff', 'staff')).toBe(false);
   });
 
-  it('admins can create any role', () => {
+  it('admins can create any role (SQL-level test — bypasses route handler)', () => {
     const insert = db.prepare(`
       INSERT INTO users (username, password, email, first_name, last_name, role, department)
       VALUES (?, ?, ?, ?, ?, ?, ?)

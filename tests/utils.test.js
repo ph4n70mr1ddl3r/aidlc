@@ -1,6 +1,7 @@
 const { describe, it, expect } = require('@jest/globals');
 
 const utils = require('../src/utils');
+const { MAX_PAGE_SIZE } = require('../src/constants');
 
 /**
  * Test for paginate function
@@ -28,10 +29,10 @@ describe('paginate', () => {
     expect(result.page).toBe(1);
   });
 
-  it('should cap limit at 100', () => {
+  it('should cap limit at MAX_PAGE_SIZE', () => {
     const req = { query: { page: '1', limit: '200' }, path: '/test' };
     const result = utils.paginate(req);
-    expect(result.limit).toBe(100);
+    expect(result.limit).toBe(MAX_PAGE_SIZE);
   });
 
   it('should safely handle array query values from HPP', () => {

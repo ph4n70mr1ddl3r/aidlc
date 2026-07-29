@@ -332,7 +332,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     }
     console.error('Ticket create error:', err.message);
     req.flash('error', 'Error creating ticket. Please check your input and try again.');
-    res.redirect('/tickets/new');
+    return res.redirect('/tickets/new');
   }
 });
 

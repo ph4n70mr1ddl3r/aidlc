@@ -265,7 +265,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       console.error('Asset create error:', err.message);
       req.flash('error', 'Error creating asset. Please check your input and try again.');
     }
-    res.redirect('/assets/new');
+    return res.redirect('/assets/new');
   }
 });
 
@@ -528,7 +528,7 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     console.error('Asset delete error:', err.message);
     req.flash('error', 'Error deleting asset');
   }
-  res.redirect('/assets');
+  return res.redirect('/assets');
 });
 
 module.exports = router;

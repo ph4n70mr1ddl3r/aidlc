@@ -280,7 +280,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // oversized-password request for a non-existent account would return instantly
   // and leak which usernames exist (timing oracle). bcrypt.compare hashes only
   // the first 72 bytes, so an oversized password is safe to pass through here.
-  const hashToCompare = user ? user.password : DUMMY_HASH;
+  const hashToCompare = (user && user.password) ? user.password : DUMMY_HASH;
   let passwordMatch;
   try {
     passwordMatch = await bcrypt.compare(password, hashToCompare);
