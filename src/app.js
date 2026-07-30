@@ -442,7 +442,6 @@ app.get('/health', healthLimiter, (req, res) => {
   // setting them again here is redundant but harmless — kept for clarity so
   // the health endpoint explicitly documents that its response must not be cached.
   res.type('application/json');
-  res.set('Content-Type', 'application/json');
 
   try {
     const row = _healthCheckStmt.get();
