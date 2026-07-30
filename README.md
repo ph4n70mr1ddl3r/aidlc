@@ -165,7 +165,6 @@ npm run dev          # Start with nodemon (auto-reload)
 npm run seed         # Seed database with sample data
 npm run lint         # Lint with ESLint
 npm run lint:fix     # Lint and auto-fix
-npm run lint:check   # Check lint (alias for lint)
 npm test             # Run the Jest test suite
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with coverage report

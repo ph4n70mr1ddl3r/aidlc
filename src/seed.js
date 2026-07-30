@@ -152,7 +152,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     const now = new Date();
     const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
     const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?) ON CONFLICT(counter_date) DO UPDATE SET next_seq = ?');
-    tickets.forEach((t, i) => {
+    for (const [i, t] of tickets.entries()) {
       const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
       const resolvedAt = t.status === 'resolved' || t.status === 'closed'
         ? new Date(Date.now() - 86400000).toISOString().replace('T', ' ').slice(0, 19)
@@ -160,7 +160,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       insertTicket.run(num, t.title, t.description, t.category, t.priority, t.status,
         t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
         t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);
-    });
+    }
     insertCounter.run(today, tickets.length, tickets.length);
 
     // ========================

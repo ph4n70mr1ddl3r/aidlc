@@ -195,24 +195,22 @@ function clearIpLoginFailure(ip) {
   ipLoginFailures.delete(ip);
 }
 
+function _purgeStaleEntriesFromMap(map, now, staleThreshold) {
+  for (const [key, entry] of map) {
+    if (entry.lockedUntil && now >= entry.lockedUntil) {
+      map.delete(key);
+    } else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
+      map.delete(key);
+    }
+  }
+}
+
 // Purge stale entries every 10 minutes to prevent memory leak.
 const loginFailureCleanup = setInterval(() => {
   const now = Date.now();
   const staleThreshold = now - LOGIN_LOCKOUT_MINUTES * 60 * 1000;
-  for (const [key, entry] of loginFailures) {
-    if (entry.lockedUntil && now >= entry.lockedUntil) {
-      loginFailures.delete(key);
-    } else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
-      loginFailures.delete(key);
-    }
-  }
-  for (const [key, entry] of ipLoginFailures) {
-    if (entry.lockedUntil && now >= entry.lockedUntil) {
-      ipLoginFailures.delete(key);
-    } else if (entry.lastAttempt && entry.lastAttempt < staleThreshold) {
-      ipLoginFailures.delete(key);
-    }
-  }
+  _purgeStaleEntriesFromMap(loginFailures, now, staleThreshold);
+  _purgeStaleEntriesFromMap(ipLoginFailures, now, staleThreshold);
 }, 10 * 60 * 1000);
 if (loginFailureCleanup.unref) {
   loginFailureCleanup.unref();
