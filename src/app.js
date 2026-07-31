@@ -469,7 +469,7 @@ app.get('/', (req, res) => {
   if (req.session.user) {
     return res.redirect('/dashboard');
   }
-  res.redirect('/login');
+  return res.redirect('/login');
 });
 
 // 404 handler

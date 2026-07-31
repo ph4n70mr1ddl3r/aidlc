@@ -32,6 +32,7 @@ const _DASH_RECENT_TICKETS_LIMIT = 10;
 const _DASH_WARRANTY_LIMIT = 20;
 const _DASH_UPCOMING_CHANGES_LIMIT = 5;
 const _DASH_STAFF_WORKLOAD_LIMIT = 8;
+const _DASH_LICENSE_ALERTS_LIMIT = 20;
 
 const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
 // Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
@@ -137,7 +138,7 @@ const stmts = {
     SELECT id, software_name, vendor, expiry_date FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
     ORDER BY expiry_date ASC
-    LIMIT 20
+    LIMIT ${_DASH_LICENSE_ALERTS_LIMIT}
   `),
   // Only select the columns the dashboard template renders (mirrors recentTickets).
   // Avoid SELECT * so sensitive columns like requester_email/requester_phone are

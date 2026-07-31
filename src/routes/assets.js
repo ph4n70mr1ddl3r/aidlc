@@ -320,17 +320,17 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets');
   }
 
-  const existingAsset = _editStmt.get(id);
-  if (!existingAsset) {
-    req.flash('error', 'Asset not found');
-    return res.redirect('/assets');
-  }
-
   // Fail closed on HTTP parameter pollution: reject array payloads.
   const hppErrors = rejectHppArrays(req, ['asset_tag', 'name', 'category', 'manufacturer', 'model', 'serial_number', 'status', 'condition_rating', 'purchase_date', 'purchase_price', 'warranty_expiry', 'assigned_to', 'location', 'notes']);
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/assets/${id}/edit`);
+  }
+
+  const existingAsset = _editStmt.get(id);
+  if (!existingAsset) {
+    req.flash('error', 'Asset not found');
+    return res.redirect('/assets');
   }
 
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));
