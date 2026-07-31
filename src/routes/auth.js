@@ -333,7 +333,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   req.session.user = sessionUser;
   audit({ req, action: 'login', entity: 'user', entityId: user.id, details: `User ${safeUsername} logged in` });
   req.flash('success', `Welcome back, ${user.first_name}!`);
-  res.redirect('/dashboard');
+  return res.redirect('/dashboard');
 }));
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
@@ -351,7 +351,7 @@ router.post('/logout', (req, res) => {
       // Non-critical — cookie clear failure does not prevent logout
     }
     if (!res.headersSent) {
-      res.redirect('/login');
+      return res.redirect('/login');
     }
   });
 });
@@ -483,7 +483,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     }
   }
 
-  res.redirect('/profile');
+  return res.redirect('/profile');
 }));
 
 // Change password
@@ -577,7 +577,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     req.session.user = freshUser;
   }
   req.flash('success', 'Password changed successfully');
-  res.redirect('/profile');
+  return res.redirect('/profile');
 }));
 
 /**

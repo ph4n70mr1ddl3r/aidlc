@@ -344,10 +344,11 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.audit('create', 'vendor', Number(result.lastInsertRowid), `Created vendor ${name}`);
     req.flash('success', `Vendor ${name} created`);
     invalidateDashboardCache();
-    res.redirect('/vendors');
+    return res.redirect('/vendors');
   } catch (err) {
     if (err.message === 'NAME_EXISTS') {
       req.flash('error', 'A vendor with this name already exists');
+      return res.redirect('/vendors/new');
     } else {
       console.error('Vendor create error:', err.message);
       req.flash('error', 'Error creating vendor. Please try again.');
@@ -594,7 +595,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.audit('update', 'vendor', id, `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
     invalidateDashboardCache();
-    res.redirect(`/vendors/${id}`);
+    return res.redirect(`/vendors/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Vendor not found');

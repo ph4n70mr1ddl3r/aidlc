@@ -207,7 +207,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.audit('create', 'change', Number(result.lastInsertRowid), `Created change "${title}"`);
     req.flash('success', 'Change record created');
     invalidateDashboardCache();
-    res.redirect('/changes');
+    return res.redirect('/changes');
   } catch (err) {
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
@@ -375,7 +375,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
     req.flash('success', 'Change updated');
     invalidateDashboardCache();
-    res.redirect(`/changes/${id}`);
+    return res.redirect(`/changes/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Change not found');

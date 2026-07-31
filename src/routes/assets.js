@@ -253,7 +253,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.audit('create', 'asset', Number(id), `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);
     invalidateDashboardCache();
-    res.redirect('/assets');
+    return res.redirect('/assets');
   } catch (err) {
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
@@ -478,7 +478,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
     req.flash('success', 'Asset updated successfully');
     invalidateDashboardCache();
-    res.redirect(`/assets/${id}`);
+    return res.redirect(`/assets/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Asset not found');

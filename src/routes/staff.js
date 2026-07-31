@@ -493,7 +493,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     }
 
     req.flash('success', 'Staff member updated');
-    res.redirect(`/staff/${id}`);
+    return res.redirect(`/staff/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Staff member not found');
@@ -672,7 +672,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
   req.flash('success', 'Password reset successfully');
-  res.redirect(`/staff/${id}`);
+  return res.redirect(`/staff/${id}`);
 }));
 
 // Rate limit staff deactivation (bcrypt DoS, account lockout bypass)

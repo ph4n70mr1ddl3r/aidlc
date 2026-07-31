@@ -223,7 +223,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     req.audit('create', 'license', Number(result.lastInsertRowid), `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created`);
     invalidateDashboardCache();
-    res.redirect('/licenses');
+    return res.redirect('/licenses');
   } catch (err) {
     console.error('License create error:', err.message);
     req.flash('error', 'Error creating license. Please try again.');
@@ -416,7 +416,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
     req.flash('success', 'License updated');
     invalidateDashboardCache();
-    res.redirect(`/licenses/${id}`);
+    return res.redirect(`/licenses/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'License not found');

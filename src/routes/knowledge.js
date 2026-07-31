@@ -290,7 +290,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     req.audit('create', 'knowledge_article', Number(result.lastInsertRowid), `Created article "${safeTitle}"`);
     req.flash('success', 'Article created');
     invalidateDashboardCache();
-    res.redirect(`/knowledge/${Number(result.lastInsertRowid)}`);
+    return res.redirect(`/knowledge/${Number(result.lastInsertRowid)}`);
   } catch (err) {
     console.error('Article create error:', err.message);
     req.flash('error', 'Error creating article. Please try again.');
@@ -501,7 +501,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
     req.flash('success', 'Article updated');
     invalidateDashboardCache();
-    res.redirect(`/knowledge/${id}`);
+    return res.redirect(`/knowledge/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Article not found');

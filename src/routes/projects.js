@@ -260,7 +260,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.audit('create', 'project', Number(result.lastInsertRowid), `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     invalidateDashboardCache();
-    res.redirect(`/projects/${Number(result.lastInsertRowid)}`);
+    return res.redirect(`/projects/${Number(result.lastInsertRowid)}`);
   } catch (err) {
     if (err.message === 'OWNER_NOT_AVAILABLE') {
       req.flash('error', 'Selected owner is not available');
@@ -466,7 +466,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.audit('update', 'project', id, `Updated project ${name}`);
     req.flash('success', 'Project updated successfully');
     invalidateDashboardCache();
-    res.redirect(`/projects/${id}`);
+    return res.redirect(`/projects/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Project not found');

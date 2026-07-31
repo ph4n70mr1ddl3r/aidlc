@@ -320,7 +320,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     req.audit('create', 'ticket', Number(id), `Created ticket ${ticket_number}`);
     req.flash('success', `Ticket ${ticket_number} created successfully`);
     invalidateDashboardCache();
-    res.redirect('/tickets');
+    return res.redirect('/tickets');
   } catch (err) {
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
@@ -557,7 +557,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
     req.flash('success', 'Ticket updated successfully');
     invalidateDashboardCache();
-    res.redirect(`/tickets/${id}`);
+    return res.redirect(`/tickets/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Ticket not found');
