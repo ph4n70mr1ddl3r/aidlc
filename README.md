@@ -142,7 +142,7 @@ Environment variables (set in `.env`):
 | `TRUST_PROXY` | `0` | Set to `1` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0` |
-| `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL (ms); set to `0` to disable caching |
+| `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views (max `100`) |
 

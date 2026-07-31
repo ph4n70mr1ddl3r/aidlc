@@ -1376,3 +1376,41 @@ describe('resetCachedStatements', () => {
     expect(mockDb.prepare).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('resetPageSize', () => {
+  const originalPageEnv = process.env.PAGE_SIZE;
+
+  afterEach(() => {
+    if (originalPageEnv === undefined) {
+      delete process.env.PAGE_SIZE;
+    } else {
+      process.env.PAGE_SIZE = originalPageEnv;
+    }
+    utils.resetPageSize();
+  });
+
+  it('should re-derive PAGE_SIZE from environment', () => {
+    process.env.PAGE_SIZE = '50';
+    utils.resetPageSize();
+    // Verify by exercising paginate with an env-driven page size
+    const req = { query: {}, path: '/test' };
+    const result = utils.paginate(req);
+    expect(result.limit).toBe(50);
+  });
+
+  it('should fall back to DEFAULT_PAGE_SIZE when env is invalid', () => {
+    process.env.PAGE_SIZE = 'not-a-number';
+    utils.resetPageSize();
+    const req = { query: {}, path: '/test' };
+    const result = utils.paginate(req);
+    expect(result.limit).toBe(25);
+  });
+
+  it('should clamp to MAX_PAGE_SIZE for oversized values', () => {
+    process.env.PAGE_SIZE = '9999';
+    utils.resetPageSize();
+    const req = { query: {}, path: '/test' };
+    const result = utils.paginate(req);
+    expect(result.limit).toBe(100);
+  });
+});
