@@ -903,9 +903,21 @@ function resetCachedStatements() {
 /**
  * Derive PAGE_SIZE from environment (testable helper).
  * Returns the effective page size (shared between module init and resetPageSize).
+ * Logs a warning if PAGE_SIZE is set but invalid (non-finite or non-positive),
+ * so operators notice misconfiguration rather than silently falling back to
+ * the default. Values that exceed MAX_PAGE_SIZE are clamped without warning.
  */
 function _derivePageSize() {
-  const p = parseInt(process.env.PAGE_SIZE, 10);
+  const raw = process.env.PAGE_SIZE;
+  if (raw !== undefined && raw !== '') {
+    const p = parseInt(raw, 10);
+    if (!Number.isFinite(p) || p <= 0) {
+      console.warn(
+        `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
+      );
+    }
+  }
+  const p = parseInt(raw, 10);
   const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
   return env || DEFAULT_PAGE_SIZE;
 }

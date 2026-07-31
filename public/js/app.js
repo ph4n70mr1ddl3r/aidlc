@@ -213,3 +213,24 @@ document.addEventListener('visibilitychange', function () {
     }
   });
 });
+
+// Re-mask license keys and clear in-memory storage on page hide.
+// The visibilitychange listener above covers most cases, but bfcache (browser
+// back-forward cache) can persist the page without firing visibilitychange when
+// the user navigates away. The pagehide event fires in both regular navigation
+// and bfcache scenarios, so it is the reliable fallback for clearing sensitive
+// in-memory state before the page is cached.
+document.addEventListener('pagehide', function () {
+  const displays = document.querySelectorAll('[id="license-key-display"]');
+  displays.forEach(function (display) {
+    if (display.dataset.shown === '1') {
+      display.textContent = '****';
+      display.dataset.shown = '';
+    }
+  });
+  // Clear the in-memory key store so cached keys cannot be accessed if the
+  // page is restored from bfcache and the user clicks reveal again.
+  for (const key of Object.keys(_licenseKeys)) {
+    delete _licenseKeys[key];
+  }
+});

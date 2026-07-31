@@ -8,6 +8,50 @@
 and the Jest suite. Prior review history (42+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
+## Review cycle 2026-07-21 (forty-sixth pass)
+
+A forty-sixth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, all EJS views, `public/js`,
+and all 18 test files) found **no new SQL injection, IDOR, CSRF, XSS, auth, or
+error-leakage defects.** Three defense-in-depth and operational-observability
+improvements were applied:
+
+### Fixes applied
+- **`public/js/app.js` — license keys not cleared on bfcache navigation (LOW).**
+  The `visibilitychange` listener re-masks displayed license keys when the tab
+  becomes hidden, but the browser's bfcache (back-forward cache) can persist the
+  page without firing `visibilitychange` when the user navigates away. Added a
+  `pagehide` listener that re-masks any visible license-key display and clears the
+  in-memory `_licenseKeys` store, so keys cannot be accessed from a bfcached page.
+- **`src/app.js` — `/health` endpoint required at least one user in the DB (LOW).**
+  The health check verified DB connectivity AND that the `users` table contained
+  at least one row. A fresh install (before seeding) or a state where all users
+  were deactivated would report unhealthy, confusing load-balancer probes and
+  auto-scaling health checks. Removed the user-existence check; `/health` now
+  only verifies DB connectivity (the `SELECT 1` probe). The unused `_healthUserCheckStmt`
+  prepared statement was also removed.
+- **`src/utils.js` — invalid `PAGE_SIZE` env silently fell back to default with
+  no signal to the operator (LOW).** `_derivePageSize()` silently ignored any
+  non-numeric or non-positive `PAGE_SIZE` value. Added a `console.warn` that
+  fires only when the parsed value is non-finite or non-positive (clamped values
+  like `PAGE_SIZE=9999` still silently cap to `MAX_PAGE_SIZE` without noise), so
+  misconfiguration is visible in startup logs.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`) is
+  server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"` +
+  scheme check; login timing-oracle and all prior fixes intact.
+- `resetCachedStatements` exists on every route module and middleware module for
+  test isolation; all 18 test suites continue to pass.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 360 passed / 360 total.
+- `.env.example` contains only placeholders; no secrets committed.
+
 ## Review cycle 2026-07-21 (forty-fifth pass)
 
 A forty-fifth independent pass (full source re-read of all 11 route modules,

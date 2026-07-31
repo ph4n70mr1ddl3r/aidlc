@@ -431,11 +431,6 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health check (unauthenticated) — rate-limited to prevent abuse
 const _healthCheckStmt = db.prepare('SELECT 1 AS ok');
-// Cache the users-existence check so it is not re-prepared on every health
-// request. The original code called `db.prepare(...)` inside the handler,
-// which recompiles the SQL string on each call — wasteful for a route that
-// may be hit by load-balancer probes many times per second.
-const _healthUserCheckStmt = db.prepare('SELECT id FROM users LIMIT 1');
 const healthLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
@@ -451,13 +446,10 @@ app.get('/health', healthLimiter, (req, res) => {
     if (!row || row.ok !== 1) {
       throw new Error('DB sanity check failed');
     }
-
-    // Additional check: verify we can actually read from users table
-    const userCheck = _healthUserCheckStmt.get();
-    if (!userCheck) {
-      throw new Error('No users found in database');
-    }
-
+    // Only verify DB connectivity here — a user-existence check would cause
+    // the health endpoint to fail on a fresh install (before seeding) and after
+    // a mass deactivation, both of which are valid operational states. The
+    // application logic (login, routes) already gates on user existence.
     res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'ok' });
   } catch {
     res.status(503).json({ status: 'error', message: 'Database unavailable' });
