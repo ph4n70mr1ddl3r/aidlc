@@ -431,6 +431,11 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health check (unauthenticated) — rate-limited to prevent abuse
 const _healthCheckStmt = db.prepare('SELECT 1 AS ok');
+// Cache the users-existence check so it is not re-prepared on every health
+// request. The original code called `db.prepare(...)` inside the handler,
+// which recompiles the SQL string on each call — wasteful for a route that
+// may be hit by load-balancer probes many times per second.
+const _healthUserCheckStmt = db.prepare('SELECT id FROM users LIMIT 1');
 const healthLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30,
@@ -448,7 +453,7 @@ app.get('/health', healthLimiter, (req, res) => {
     }
 
     // Additional check: verify we can actually read from users table
-    const userCheck = db.prepare('SELECT id FROM users LIMIT 1').get();
+    const userCheck = _healthUserCheckStmt.get();
     if (!userCheck) {
       throw new Error('No users found in database');
     }

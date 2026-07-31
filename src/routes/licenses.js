@@ -120,7 +120,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/licenses/index', {
     title: 'Software Licenses', licenses,
-    filters: safeFilters(req.query, ['search', 'license_type', 'sort']),
+    filters: safeFilters(req.query, ['search', 'license_type']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });

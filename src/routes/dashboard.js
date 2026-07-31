@@ -26,6 +26,13 @@ router.use(requireAuth, auditMiddleware, dashboardLimiter); // Added dashboardLi
 // one request at a time. An async DB driver would need a "refreshing" lock
 // to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
+// Named limits keep the query strings readable and make it trivial to tune
+// the caps in one place instead of hunting through raw SQL literals.
+const _DASH_RECENT_TICKETS_LIMIT = 10;
+const _DASH_WARRANTY_LIMIT = 20;
+const _DASH_UPCOMING_CHANGES_LIMIT = 5;
+const _DASH_STAFF_WORKLOAD_LIMIT = 8;
+
 const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
 // Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
 // astronomically large values (days/weeks of stale data) cannot occur.
@@ -84,11 +91,11 @@ const stmts = {
   staffCount: db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1'),
   recentTickets: db.prepare(`
     SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.created_at,
-           u.first_name || ' ' || u.last_name as assigned_name
+            u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.status NOT IN ('closed', 'resolved')
-    ORDER BY t.updated_at DESC LIMIT 10
+    ORDER BY t.updated_at DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
   `),
   // Include already-expired warranties — they are more urgent than expiring-soon.
   // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
@@ -100,12 +107,12 @@ const stmts = {
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
     ORDER BY warranty_expiry ASC
-    LIMIT 20
+    LIMIT ${_DASH_WARRANTY_LIMIT}
   `),
   upcomingChanges: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
-    ORDER BY scheduled_start ASC LIMIT 5
+    ORDER BY scheduled_start ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
   `),
   ticketsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count FROM tickets
@@ -120,7 +127,7 @@ const stmts = {
     WHERE u.is_active = 1
     GROUP BY u.id
     ORDER BY open_tickets DESC
-    LIMIT 8
+    LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT}
   `),
   // Only select the columns the dashboard template renders (expiry_date for
   // ordering/display). Avoid SELECT * so the sensitive license_key column is
@@ -138,11 +145,11 @@ const stmts = {
   // PII-exposure surface of any code that serializes or caches this result.
   myTickets: db.prepare(`
     SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.created_at,
-           u.first_name || ' ' || u.last_name as assigned_name
+            u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.assigned_to = ? AND t.status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC LIMIT 10
+    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
   `)
 };
 
