@@ -6,16 +6,12 @@ const { describe, it, expect } = require('@jest/globals');
 // the age-bucket ORDER BY and the disposed-asset warranty exclusion — without
 // mirroring SQL strings in the test (which would drift from the source).
 //
-// DB_PATH must be set before database.js is required (it reads the env at
-// module-load time). Each Jest test file runs in its own worker, so this does
-// not leak into other suites. Save and restore to isolate from other tests.
-const originalDbPath = process.env.DB_PATH;
-beforeEach(function () {
-  process.env.DB_PATH = ':memory:';
-});
-afterEach(function () {
-  process.env.DB_PATH = originalDbPath;
-});
+// DB_PATH must be set BEFORE database.js is required (it reads the env at
+// module-load time). We use jest.resetModules() to ensure a fresh module
+// graph so the in-memory DB is not polluted by other test files that may have
+// loaded these modules against a file-backed DB.
+jest.resetModules();
+process.env.DB_PATH = ':memory:';
 
 jest.mock('../src/middleware/auth', () => ({
   requireAuth: (req, res, next) => next(),
@@ -82,8 +78,6 @@ describe('asset age distribution ordering', () => {
 describe('warranty expiry alerts exclude disposed assets', () => {
   beforeEach(clearAssets);
   it('reports warrantyExpiring list and count skip disposed assets', () => {
-    // Clear assets inserted by the age-distribution test so counts are deterministic.
-    clearAssets();
     // In-use asset with a soon-expiring warranty — should appear (within 90d).
     insertAsset({ name: 'active-soon', status: 'in_use', warranty_expiry: daysFromNow(30) });
     // Disposed asset with a soon-expiring warranty — must NOT appear.
@@ -99,7 +93,6 @@ describe('warranty expiry alerts exclude disposed assets', () => {
   });
 
   it('dashboard expiringWarranties skip disposed assets', () => {
-    clearAssets();
     // Dashboard uses a 30-day window — keep both warranties inside it.
     insertAsset({ name: 'dash-active', status: 'in_use', warranty_expiry: daysFromNow(10) });
     insertAsset({ name: 'dash-disposed', status: 'disposed', warranty_expiry: daysFromNow(5) });
@@ -107,6 +100,13 @@ describe('warranty expiry alerts exclude disposed assets', () => {
     const list = dashboard.__stmts.expiringWarranties.all().map(r => r.name);
 
     expect(list).toEqual(['dash-active']);
+  });
+});
+
+describe('resetCachedStatements', () => {
+  it('resetCachedStatements is a function that does not throw', () => {
+    expect(typeof reports.resetCachedStatements).toBe('function');
+    expect(() => reports.resetCachedStatements()).not.toThrow();
   });
 });
 
