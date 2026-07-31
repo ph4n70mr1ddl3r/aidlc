@@ -438,9 +438,7 @@ const healthLimiter = rateLimit({
   legacyHeaders: false
 });
 app.get('/health', healthLimiter, (req, res) => {
-  // Cache-Control/Surrogate-Control already set by global middleware above;
-  // setting them again here is redundant but harmless — kept for clarity so
-  // the health endpoint explicitly documents that its response must not be cached.
+  // no-store headers come from the global middleware above; nothing to add here
   res.type('application/json');
 
   try {
@@ -520,11 +518,19 @@ app.use((err, req, res, _next) => {
   const errMsg = (err && err.message) || String(err);
   const detail = process.env.NODE_ENV === 'production' ? 'Something went wrong.' : errMsg;
 
+  // Honor err.status/err.statusCode for known client errors (e.g. body-parser
+  // 413 payload-too-large, 400 malformed JSON) instead of reporting every
+  // error as a 500. Only trust a plausible HTTP status range.
+  const rawStatus = (err && (err.status || err.statusCode)) || 500;
+  const status = Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
+    ? rawStatus
+    : 500;
+
   if (wantsJson) {
-    return res.status(500).json({ error: detail });
+    return res.status(status).json({ error: detail });
   }
 
-  res.status(500).render('pages/error', { title: 'Error', error: { message: detail } });
+  res.status(status).render('pages/error', { title: 'Error', error: { message: detail } });
 });
 
 // ---------------------------------------------------------------------------

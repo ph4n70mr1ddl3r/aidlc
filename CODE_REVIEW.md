@@ -1000,3 +1000,53 @@ update handler was found and fixed:
 ### Tooling
 - `npx eslint .` — clean (exit 0).
 - `npx jest` — 354 passed / 354 total (2 new projects_update regression cases).
+
+## Review cycle 2026-07-31 (forty-seventh pass)
+
+A forty-seventh pass (full re-read of `app.js`, routes, middleware, models,
+tests; fresh `npm audit`) found **no new SQL injection, IDOR, CSRF, XSS, auth,
+or error-leakage defects.** The production audit gate in
+`.github/workflows/ci.yml` (`npm audit --production --audit-level=high`) was
+**failing**: 6 high-severity production advisories through two chains —
+`ejs@3.1.10` → `jake` → `filelist` → `minimatch` → `brace-expansion` (regex
+ReDoS in `brace-expansion`), and `postcss@8.5.15` via `sanitize-html` (Path
+Traversal / source-map disclosure, GHSA-r28c-9q8g-f849).
+
+### Fixes applied
+- **`ejs` `^3.1.10` → `^6.0.1` (HIGH production advisory).** ejs 6 ships with
+  **zero runtime dependencies**, removing the entire `jake`/`filelist`/
+  `minimatch`/`brace-expansion` chain at its root. Verified ejs 6 still exposes
+  `ejs.renderFile` and the Express-compatible `ejs.__express` alias
+  (`lib/cjs/ejs.js`), so the `res.render()` view engine contract is unchanged.
+  The full Jest suite (which renders every EJS template) passes unchanged.
+- **`postcss` patched in lockfile via `npm audit fix` (HIGH production
+  advisory).** `sanitize-html` declares `postcss ^8.3.11`, so `npm audit fix`
+  resolves to the patched `postcss@8.5.25` with no source change. `sanitize-html`
+  was **not** bumped to 2.17.6 on purpose: 2.17.6 switches to
+  `htmlparser2@12`, which is ESM-only and crashes Jest's CommonJS runtime
+  (`Cannot use import statement outside a module` in `tests/hpp.test.js` and
+  `tests/knowledge.test.js`). Keeping `^2.17.4` avoids that, and the patched
+  postcss satisfies the advisory.
+- **`app.js` error handler — body-parser errors misreported as 500 (LOW).**
+  `express.json({ limit: '1mb' })` / `express.urlencoded` reject oversized or
+  malformed bodies with `err.status` = 413/400, but the final error handler
+  hard-coded 500, so oversized payloads and malformed JSON produced 500
+  "Something went wrong" (and a spurious stack-log line) instead of an accurate
+  4xx. The handler now honors `err.status`/`err.statusCode` clamped to a valid
+  `400–599` integer, returning 413 for `entity.too.large` and 400 for
+  `entity.parse.failed`. Verified end-to-end with a live Express smoke test
+  (400/413 observed). Production still returns the generic message; only the
+  status code changes.
+- **`app.js` health check — stale comment removed (cleanup).** The comment at
+  `GET /health` claimed the handler re-set `Cache-Control`/`Surrogate-Control`,
+  but it does not (the global middleware at `app.js:396-408` already sets
+  `no-store` for every response). The comment contradicted the code.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 356 passed / 356 total (18 suites).
+- `npm audit --production --audit-level=high` — **exit 0** (CI gate now passes).
+- Remaining `npm audit` findings are **dev-only** (20 high through the
+  jest/@babel chain, e.g. `braces`, `send`, `path-to-regexp`); they are outside
+  the CI production gate and were left untouched to avoid a breaking Jest major
+  upgrade with no production exposure.
