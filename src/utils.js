@@ -10,9 +10,11 @@ const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
 /**
- * Safely extract a scalar value from a query parameter, guarding against
- * HTTP parameter pollution (HPP) where duplicate keys produce arrays.
- * Returns the first element when the value is an array, or the value itself.
+ * Extract a scalar value from a query parameter. When the value is an array
+ * (HTTP parameter pollution), returns the first element — this is the
+ * fail-open fallback used by utilities that do not have an explicit HPP
+ * guard at the call site. Route handlers that need fail-closed HPP defense
+ * must use rejectHppArrays() before calling this function.
  */
 function safeQueryValue(value) {
   return Array.isArray(value) ? value[0] : value;

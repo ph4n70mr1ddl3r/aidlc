@@ -1050,3 +1050,43 @@ Traversal / source-map disclosure, GHSA-r28c-9q8g-f849).
   jest/@babel chain, e.g. `braces`, `send`, `path-to-regexp`); they are outside
   the CI production gate and were left untouched to avoid a breaking Jest major
   upgrade with no production exposure.
+
+## Review cycle 2026-07-31 (forty-eighth pass)
+
+A forty-eighth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One documentation-inaccuracy fix
+was applied:
+
+### Fixes applied
+- **`utils.js` — `safeQueryValue` comment was misleading (LOW).** The JSDoc
+  claimed the helper "guards against HTTP parameter pollution (HPP)" but the
+  function actually **collapses** arrays to their first element (a fail-open
+  behavior). The real fail-closed HPP defense lives at the route layer via
+  `rejectHppArrays()`, which runs *before* `safeQueryValue` on every write
+  handler. Updated the comment to accurately describe the fail-open collapse
+  behavior and to direct callers that need fail-closed HPP defense to use
+  `rejectHppArrays()` instead.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm audit --production --audit-level=high` — exit 0 (no production
+  vulnerabilities).
+- `npm run lint` — clean (exit 0).
+- `npm test` — 359 passed / 359 total (18 suites).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 359 passed / 359 total (18 suites).
+- `npm audit --production --audit-level=high` — **exit 0**.
+- `.env.example` contains only placeholders; no secrets committed.
