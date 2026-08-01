@@ -87,6 +87,11 @@ jest.mock('../src/constants', () => ({
   MAX_SEARCH: 100
 }));
 
+// Set dev secrets before requiring app.js to suppress the harmless dev-mode
+// console.warn that fires when SESSION_SECRET / CSRF_SECRET are unset.
+process.env.SESSION_SECRET = 'test-session-secret-do-not-use-in-production-32chars!!';
+process.env.CSRF_SECRET = 'test-csrf-secret-do-not-use-in-production-32chars!!';
+
 const app = require('../src/app');
 
 describe('App module', () => {

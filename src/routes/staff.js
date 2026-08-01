@@ -271,7 +271,16 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
 
   const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   try {
-    const result = _staffInsertStmt.run(username.substring(0, MAX_USERNAME), hashedPassword, email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), role, (department || '').substring(0, MAX_SHORT_STR) || null, phone ? phone.substring(0, MAX_PHONE) : null);
+    const result = _staffInsertStmt.run(
+      username.substring(0, MAX_USERNAME),
+      hashedPassword,
+      email.substring(0, MAX_EMAIL),
+      first_name.substring(0, MAX_SHORT_STR),
+      last_name.substring(0, MAX_SHORT_STR),
+      role,
+      (department || '').substring(0, MAX_SHORT_STR) || null,
+      phone ? phone.substring(0, MAX_PHONE) : null
+    );
 
     req.audit('create', 'user', Number(result.lastInsertRowid), `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
@@ -485,8 +494,15 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
         throw new Error('ROLE_CHANGED');
       }
       wasInactive = !recheck.is_active;
-      _staffUpdateStmt.run(email.substring(0, MAX_EMAIL), first_name.substring(0, MAX_SHORT_STR), last_name.substring(0, MAX_SHORT_STR), safeRole,
-        (department || '').substring(0, MAX_SHORT_STR) || null, phone ? phone.substring(0, MAX_PHONE) : null, id);
+      _staffUpdateStmt.run(
+        email.substring(0, MAX_EMAIL),
+        first_name.substring(0, MAX_SHORT_STR),
+        last_name.substring(0, MAX_SHORT_STR),
+        safeRole,
+        (department || '').substring(0, MAX_SHORT_STR) || null,
+        phone ? phone.substring(0, MAX_PHONE) : null,
+        id
+      );
     });
     updateStaff();
 

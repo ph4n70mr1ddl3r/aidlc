@@ -350,9 +350,19 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       if (_vendorNameCreateExistsStmt.get(safeName)) {
         throw new Error('NAME_EXISTS');
       }
-      return _vendorInsertStmt.run(safeName, (contact_person || '').substring(0, MAX_SHORT_STR) || null, (email || '').substring(0, MAX_EMAIL) || null, phone ? phone.substring(0, MAX_PHONE) : null, (address || '').substring(0, MAX_ADDRESS) || null,
-        (website || '').substring(0, MAX_LONG_STR) || null, safeCategory, sContractStart, sContractEnd,
-        (notes || '').substring(0, MAX_NOTES) || null, safeRating);
+      return _vendorInsertStmt.run(
+        safeName,
+        (contact_person || '').substring(0, MAX_SHORT_STR) || null,
+        (email || '').substring(0, MAX_EMAIL) || null,
+        phone ? phone.substring(0, MAX_PHONE) : null,
+        (address || '').substring(0, MAX_ADDRESS) || null,
+        (website || '').substring(0, MAX_LONG_STR) || null,
+        safeCategory,
+        sContractStart,
+        sContractEnd,
+        (notes || '').substring(0, MAX_NOTES) || null,
+        safeRating
+      );
     });
 
     const result = createVendor();
