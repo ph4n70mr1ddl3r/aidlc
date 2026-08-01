@@ -31,8 +31,9 @@ const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
 // Rate limit report data endpoints — aggregation queries are expensive and could
-// be abused for DoS even behind admin/manager auth. Apply to the sub-routes that
-// run expensive queries (not the index landing page).
+// be abused for DoS even behind admin/manager auth. Applied below to the
+// sub-routes that run expensive queries (not the index landing page) so that
+// viewing /reports is not unnecessarily throttled.
 const reportLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 30,
@@ -43,7 +44,6 @@ const reportLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-router.use(reportLimiter);
 
 // ---------------------------------------------------------------------------
 // Cached prepared statements for report queries.
@@ -179,7 +179,7 @@ router.get('/', (req, res) => {
 });
 
 // Ticket Analytics
-router.get('/tickets', (req, res) => {
+router.get('/tickets', reportLimiter, (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
 
@@ -204,7 +204,7 @@ router.get('/tickets', (req, res) => {
 });
 
 // Asset Report
-router.get('/assets', (req, res) => {
+router.get('/assets', reportLimiter, (req, res) => {
   try {
     const byCategory = stmts.assetsByCategory.all();
     const byStatus = stmts.assetsByStatus.all();
@@ -228,7 +228,7 @@ router.get('/assets', (req, res) => {
 });
 
 // Staff Performance
-router.get('/staff', (req, res) => {
+router.get('/staff', reportLimiter, (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
     // Three ? placeholders: open_tickets period, resolved_tickets period, completed_tasks period
