@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -225,6 +225,14 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
 
   // Validate assignee is an active user
+  // Fail closed on a present-but-malformed id ("abc", "3.5", an HPP array)
+  // instead of silently coercing it to NULL via safeId, which would store the
+  // asset unassigned with no user feedback. Absent/empty values legitimately
+  // mean "unassigned".
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect('/assets/new');
+  }
   const createAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
@@ -388,7 +396,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid condition rating');
     return res.redirect(`/assets/${id}/edit`);
   }
-  const safeCondition = condition_rating || 'good';
 
   // Fail closed on malformed purchase price (MEDIUM). A present, non-empty
   // price that fails to parse must be rejected rather than silently stored as
@@ -423,6 +430,13 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
 
   // Validate assignee is an active user
+  // Fail closed on a present-but-malformed id ("abc", "3.5", an HPP array)
+  // instead of silently coercing it to NULL via safeId, which would wipe an
+  // existing assignment with no user feedback (mirrors the create route).
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect(`/assets/${id}/edit`);
+  }
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
@@ -460,11 +474,18 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null || warranty_expiry === '')
         ? current.warranty_expiry
         : sWarranty;
+      // Preserve the stored condition rating when the field is blank on a
+      // partial edit, so editing an unrelated field cannot silently reset a
+      // stored 'poor'/'fair' rating back to the 'good' default. Invalid present
+      // values were already rejected above (fail closed).
+      const resolvedCondition = (condition_rating === undefined || condition_rating === null || condition_rating === '')
+        ? current.condition_rating
+        : condition_rating;
 
       const result = _updateStmt.run(
         asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
         (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
-        (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, safeCondition,
+        (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, resolvedCondition,
         resolvedPurchase, resolvedPrice,
         resolvedWarranty, updateAssignee,
         (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id

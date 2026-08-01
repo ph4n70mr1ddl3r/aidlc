@@ -417,6 +417,14 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     return res.redirect('/profile');
   }
   const phone = sanitizePhone(rawPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently stored as NULL — the fail-closed convention applied to every
+  // other present-but-invalid field. Absent/empty values are allowed (no phone).
+  if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/profile');
+  }
 
   if (!first_name || !last_name || !email) {
     req.flash('error', 'First name, last name, and email are required');

@@ -39,6 +39,14 @@ const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
 // astronomically large values (days/weeks of stale data) cannot occur.
 const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? Math.max(1_000, Math.min(3_600_000, _parsedDTTL)) : 30_000;
 let dashboardCache = { timestamp: 0, data: null };
+// Flag to prevent cache stampede — when a refresh is already in progress,
+// in-flight requests serve the previous cache (or EMPTY_DEFAULTS) instead of
+// all hitting the DB at once when the TTL expires. Safer than a bare TTL when
+// multiple requests can arrive concurrently (e.g. browser tab reloads, health
+// probes that hit the dashboard). The comment above notes better-sqlite3 is
+// single-threaded, but a stampede can still fire from different processes or
+// when the cache is explicitly invalidated multiple times in quick succession.
+let _dashboardRefreshing = false;
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
 // so the template doesn't crash on property access like ticketStats.open.
@@ -158,32 +166,41 @@ function getDashboardData(user) {
   const now = Date.now();
   let shared;
 
-  if (dashboardCache.data && (now - dashboardCache.timestamp) < DASHBOARD_TTL_MS) {
+  if (dashboardCache.data && (now - dashboardCache.timestamp) < DASHBOARD_TTL_MS && !_dashboardRefreshing) {
     shared = dashboardCache.data;
   } else {
-    try {
-      shared = {
-        ticketStats: stmts.ticketStats.get(),
-        assetStats: stmts.assetStats.get(),
-        projectStats: stmts.projectStats.get(),
-        staffCount: stmts.staffCount.get(),
-        recentTickets: stmts.recentTickets.all(),
-        expiringWarranties: stmts.expiringWarranties.all(),
-        upcomingChanges: stmts.upcomingChanges.all(),
-        ticketsByCategory: stmts.ticketsByCategory.all(),
-        staffWorkload: stmts.staffWorkload.all(),
-        licenseAlerts: stmts.licenseAlerts.all()
-      };
-
-      dashboardCache = { timestamp: now, data: shared };
-    } catch (err) {
-      console.error('Dashboard cache refresh error:', err.message);
-      // On DB error, re-use previous cache if available (stale data is better
-      // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
-      // there is no prior cache at all (first-request failure).
-      // Do NOT update the timestamp so the next request retries immediately
-      // instead of waiting for the full TTL before refreshing.
+    // If a refresh is already in progress, serve the previous cache (or defaults)
+    // to avoid a stampede where N concurrent requests all hit the DB simultaneously.
+    if (_dashboardRefreshing) {
       shared = dashboardCache.data || EMPTY_DEFAULTS;
+    } else {
+      _dashboardRefreshing = true;
+      try {
+        shared = {
+          ticketStats: stmts.ticketStats.get(),
+          assetStats: stmts.assetStats.get(),
+          projectStats: stmts.projectStats.get(),
+          staffCount: stmts.staffCount.get(),
+          recentTickets: stmts.recentTickets.all(),
+          expiringWarranties: stmts.expiringWarranties.all(),
+          upcomingChanges: stmts.upcomingChanges.all(),
+          ticketsByCategory: stmts.ticketsByCategory.all(),
+          staffWorkload: stmts.staffWorkload.all(),
+          licenseAlerts: stmts.licenseAlerts.all()
+        };
+
+        dashboardCache = { timestamp: now, data: shared };
+      } catch (err) {
+        console.error('Dashboard cache refresh error:', err.message);
+        // On DB error, re-use previous cache if available (stale data is better
+        // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
+        // there is no prior cache at all (first-request failure).
+        // Do NOT update the timestamp so the next request retries immediately
+        // instead of waiting for the full TTL before refreshing.
+        shared = dashboardCache.data || EMPTY_DEFAULTS;
+      } finally {
+        _dashboardRefreshing = false;
+      }
     }
   }
 
@@ -236,6 +253,7 @@ router.get('/', (req, res) => {
  */
 function resetCachedStatements() {
   dashboardCache = { timestamp: 0, data: null };
+  _dashboardRefreshing = false;
 }
 
 module.exports = router;

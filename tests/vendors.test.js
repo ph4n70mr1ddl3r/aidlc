@@ -51,6 +51,14 @@ describe('validateVendorRating', () => {
     expect(validateVendorRating('abc')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 
+  it('rejects a non-integer JSON numeric literal (regression: parseInt truncated 3.5 to 3)', () => {
+    // A JSON API client can send {"rating": 3.5} as a number, which previously
+    // skipped the string regex and was silently truncated to 3 by parseInt.
+    expect(validateVendorRating(3.5)).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
+    // An integer out of range still surfaces the range error.
+    expect(validateVendorRating(-1)).toEqual({ value: null, error: 'Rating must be between 1 and 5' });
+  });
+
   it('trims whitespace before parsing', () => {
     expect(validateVendorRating(' 3 ')).toEqual({ value: 3, error: null });
     expect(validateVendorRating('4 ')).toEqual({ value: 4, error: null });
@@ -107,6 +115,14 @@ describe('resolveClearableDate (contract date clearing)', () => {
 describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
   it('preserves existing value when rawValue is absent (undefined)', () => {
     expect(resolveOptionalTextField(undefined, 'submitted', 100, 'existing')).toBe('existing');
+  });
+
+  it('preserves existing value when rawValue is null (JSON null)', () => {
+    // Regression: previously only `undefined` preserved the stored value; a
+    // JSON body parser delivers `null` for an omitted field, so
+    // {"email": null} silently wiped the stored email while the sibling date
+    // helper preserved it. null now behaves like absent.
+    expect(resolveOptionalTextField(null, null, 100, 'existing')).toBe('existing');
   });
 
   it('clears field to null when processedValue is empty/null', () => {

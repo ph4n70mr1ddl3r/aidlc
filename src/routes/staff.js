@@ -205,6 +205,14 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
   const phone = sanitizePhone(rawPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently stored as NULL — the fail-closed convention applied to every
+  // other present-but-invalid field. Absent/empty values are allowed (no phone).
+  if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/staff/new');
+  }
 
   if (!username || !password || !email || !first_name || !last_name) {
     req.flash('error', 'All required fields must be filled in');
@@ -370,6 +378,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect(`/staff/${id}/edit`);
   }
   const phone = sanitizePhone(rawPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently stored as NULL — the fail-closed convention applied to every
+  // other present-but-invalid field. Absent/empty values are allowed (no phone).
+  if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/staff/${id}/edit`);
+  }
   if (!email || !first_name || !last_name) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);

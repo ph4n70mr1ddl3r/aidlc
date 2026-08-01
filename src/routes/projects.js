@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -242,6 +242,14 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   }
 
   // Validate owner is an active user
+  // Fail closed on a present-but-malformed owner id ("abc", "3.5", an HPP
+  // array) instead of silently coercing it to NULL via safeId, which would
+  // store the project unassigned with no user feedback. Absent/empty values
+  // legitimately mean "no owner".
+  if (isPresentInvalidId(owner_id)) {
+    req.flash('error', 'Invalid owner');
+    return res.redirect('/projects/new');
+  }
   const safeOwnerId = owner_id ? safeId(owner_id) : null;
 
   try {
@@ -383,6 +391,14 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect(`/projects/${id}/edit`);
     }
 
+    // Fail closed on a present-but-malformed owner id ("abc", "3.5", an HPP
+    // array) instead of silently coercing it to NULL via safeId, which would
+    // wipe an existing assignment with no user feedback. Absent/empty values
+    // legitimately mean "no owner".
+    if (isPresentInvalidId(owner_id)) {
+      req.flash('error', 'Invalid owner');
+      return res.redirect(`/projects/${id}/edit`);
+    }
     const safeOwnerId = owner_id ? safeId(owner_id) : null;
 
     // Verify project exists, validate owner, and update in a single transaction

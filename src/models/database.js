@@ -374,6 +374,7 @@ function initSchema() {
     -- vendor rename triggers a full table scan on the vendors and licenses tables.
     CREATE INDEX IF NOT EXISTS idx_vendors_name_lower ON vendors(LOWER(name));
     CREATE INDEX IF NOT EXISTS idx_licenses_vendor ON licenses(vendor);
+    CREATE INDEX IF NOT EXISTS idx_licenses_vendor_lower ON licenses(LOWER(vendor));
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_user ON ticket_comments(user_id);
     CREATE INDEX IF NOT EXISTS idx_assets_category ON assets(category);
     CREATE INDEX IF NOT EXISTS idx_projects_updated ON projects(updated_at);

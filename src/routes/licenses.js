@@ -307,6 +307,14 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   const software_name = trim(safeQueryValue(req.body.software_name));
+  // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
+  // field (partial submission — preserve stored value) from an explicit empty
+  // string (clear the field). trim() collapses undefined to '', so the raw
+  // values are captured here for the transaction resolution below. Mirrors the
+  // raw-vs-processed split in vendors.js (_resolveOptionalTextField).
+  const rawVendor = req.body.vendor;
+  const rawLicenseType = req.body.license_type;
+  const rawNotes = req.body.notes;
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
   const clearKey = parseBooleanFlag(safeQueryValue(req.body.clear_key));
@@ -407,9 +415,29 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       const resolvedCost = (cost === undefined || cost === null || cost === '')
         ? (existing.cost ?? null)
         : safePositiveFloat(cost, Infinity);
-      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, resolvedKey, license_type || null,
+      // Preserve the stored optional fields when they are ABSENT from the
+      // request (partial submission) instead of wiping them to NULL — the same
+      // class the assets/projects/vendors update paths already handle. An empty
+      // submitted value still CLEARS the field (null), consistent with the
+      // create route semantics. Present-but-invalid values were rejected above.
+      const resolvedVendor = (rawVendor === undefined || rawVendor === null)
+        ? existing.vendor
+        : (vendor === '') ? null : vendor.substring(0, MAX_MEDIUM_STR) || null;
+      const resolvedLicenseType = (rawLicenseType === undefined || rawLicenseType === null)
+        ? existing.license_type
+        : (license_type === '') ? null : license_type;
+      const resolvedNotes = (rawNotes === undefined || rawNotes === null)
+        ? existing.notes
+        : (notes === '') ? null : notes.substring(0, MAX_NOTES) || null;
+      const resolvedPurchase = (purchase_date === undefined || purchase_date === null)
+        ? existing.purchase_date
+        : sPurchase;
+      const resolvedExpiry = (expiry_date === undefined || expiry_date === null)
+        ? existing.expiry_date
+        : sExpiry;
+      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), resolvedVendor, resolvedKey, resolvedLicenseType,
         resolved.seats, resolved.used,
-        sPurchase, sExpiry, resolvedCost, (notes || '').substring(0, MAX_NOTES) || null, id);
+        resolvedPurchase, resolvedExpiry, resolvedCost, resolvedNotes, id);
     });
     updateLicense();
 

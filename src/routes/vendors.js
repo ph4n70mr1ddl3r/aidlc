@@ -50,9 +50,13 @@ function _validateVendorRating(rawValue) {
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
-  // Reject non-integer strings (e.g. "3.5") and non-numeric input — parseInt
-  // silently truncates "3.5" to 3, which would mask malformed submissions.
-  if (typeof value === 'string' && !/^-?\d+$/.test(value)) {
+  // Reject HPP arrays and non-integer values. The string check guards form
+  // submissions ("3.5"); the number check guards JSON API clients that send a
+  // numeric literal ({"rating": 3.5}) which would otherwise slip past the
+  // regex and be silently truncated to 3 by parseInt below.
+  if (Array.isArray(value) ||
+      (typeof value === 'number' && !Number.isInteger(value)) ||
+      (typeof value === 'string' && !/^-?\d+$/.test(value))) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   const n = parseInt(value, 10);
@@ -150,7 +154,11 @@ function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingVal
   // value (NOT the safeQueryValue-collapsed value) is passed here so a
   // `field[]=a&field[]=b` payload actually fails closed instead of silently
   // using the first element.
-  if (rawValue === undefined) {
+  // Absent field (undefined) or explicit JSON null — preserve the existing value
+  // so a null sent via the JSON body parser does not silently wipe a stored
+  // field. Consistent with _resolveClearableDate, which treats null the same as
+  // absent.
+  if (rawValue === undefined || rawValue === null) {
     return existingValue;
   }
   if (Array.isArray(rawValue)) {
@@ -242,6 +250,14 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
   const phone = sanitizePhone(rawPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently stored as NULL — the fail-closed convention applied to every
+  // other present-but-invalid field. Absent/empty values are allowed (no phone).
+  if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/vendors/new');
+  }
   const address = trim(safeQueryValue(req.body.address));
   const website = trim(safeQueryValue(req.body.website));
   const category = trim(safeQueryValue(req.body.category));
@@ -417,6 +433,15 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect(`/vendors/${id}/edit`);
   }
   const phone = sanitizePhone(rawPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently clearing the stored phone via _resolveOptionalTextField — the
+  // fail-closed convention applied to every other present-but-invalid field.
+  // Absent/empty values are allowed (no phone).
+  if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
   const rawAddress = safeQueryValue(req.body.address);
   const address = trim(rawAddress);
   const rawWebsite = safeQueryValue(req.body.website);

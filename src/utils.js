@@ -253,6 +253,33 @@ function safeId(value) {
 }
 
 /**
+ * Detect a present-but-invalid relational id (assigned_to / owner_id / asset_id).
+ * Returns true when the submitted value is present yet cannot parse to a valid
+ * positive integer — e.g. "abc", "3.5", 12.5, or an array/object. Absent
+ * (undefined/null) and empty-string values return false (treated as "clear /
+ * unassign", which callers map to null via safeId).
+ * The write routes use this to fail closed on malformed present ids instead of
+ * silently coercing them to NULL through safeId, which would wipe an existing
+ * assignment with no user-visible error — the same fail-open class eliminated
+ * for cost/budget/spent/dates/rating. Mirrors the strict-input convention of
+ * safeInt (rejects non-integer numbers and non-canonical strings).
+ * @param {*} value - the safeQueryValue-collapsed submitted value
+ * @returns {boolean}
+ */
+function isPresentInvalidId(value) {
+  if (value === undefined || value === null || value === '') {
+    return false;
+  }
+  if (typeof value === 'number') {
+    return !(Number.isInteger(value) && value > 0);
+  }
+  if (typeof value === 'string') {
+    return !/^\d+$/.test(value.trim());
+  }
+  return true;
+}
+
+/**
  * Safely parse a numeric form field, returning `fallback` for NaN / non-finite / negative.
  * Use for monetary values that should be non-negative.
  * @param {*} value
@@ -909,15 +936,12 @@ function resetCachedStatements() {
  */
 function _derivePageSize() {
   const raw = process.env.PAGE_SIZE;
-  if (raw !== undefined && raw !== '') {
-    const p = parseInt(raw, 10);
-    if (!Number.isFinite(p) || p <= 0) {
-      console.warn(
-        `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
-      );
-    }
-  }
   const p = parseInt(raw, 10);
+  if (!Number.isFinite(p) || p <= 0) {
+    console.warn(
+      `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
+    );
+  }
   const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
   return env || DEFAULT_PAGE_SIZE;
 }
@@ -957,7 +981,7 @@ function rejectHppArrays(req, fields) {
 
 module.exports = {
   paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
-  safeId, safePositiveFloat, safeInt, safePositiveInt,
+  safeId, isPresentInvalidId, safePositiveFloat, safeInt, safePositiveInt,
   validatePassword, isValidUsername, isValidEmail, isValidUrl,
   sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal,
   safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,

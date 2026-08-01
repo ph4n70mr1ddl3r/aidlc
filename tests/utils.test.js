@@ -374,6 +374,36 @@ describe('safeId', () => {
   });
 });
 
+describe('isPresentInvalidId', () => {
+  it('returns false for absent / empty values (legitimate "unassign" semantics)', () => {
+    expect(utils.isPresentInvalidId(undefined)).toBe(false);
+    expect(utils.isPresentInvalidId(null)).toBe(false);
+    expect(utils.isPresentInvalidId('')).toBe(false);
+    expect(utils.isPresentInvalidId(0)).toBe(true); // 0 is present but not a valid id
+  });
+
+  it('returns false for valid positive-integer ids (string and number)', () => {
+    expect(utils.isPresentInvalidId('1')).toBe(false);
+    expect(utils.isPresentInvalidId(' 42 ')).toBe(false);
+    expect(utils.isPresentInvalidId(7)).toBe(false);
+  });
+
+  it('returns true for present-but-malformed ids (fail closed)', () => {
+    // Regression: routes used `x ? safeId(x) : null`, silently coercing a
+    // present-but-garbage id ("abc", "3.5", an array) to NULL via safeId and
+    // wiping an existing assignment with no error. The routes now call this
+    // guard to fail closed on such input.
+    expect(utils.isPresentInvalidId('abc')).toBe(true);
+    expect(utils.isPresentInvalidId('3.5')).toBe(true);
+    expect(utils.isPresentInvalidId('0x10')).toBe(true);
+    expect(utils.isPresentInvalidId('-1')).toBe(true);
+    expect(utils.isPresentInvalidId(12.5)).toBe(true);
+    expect(utils.isPresentInvalidId(['1'])).toBe(true);
+    expect(utils.isPresentInvalidId({})).toBe(true);
+    expect(utils.isPresentInvalidId(true)).toBe(true);
+  });
+});
+
 /**
  * Test for safeInt function
  */

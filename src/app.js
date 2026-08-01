@@ -214,8 +214,8 @@ if (!sessionSecret) {
     console.error('ERROR: SESSION_SECRET is required in production');
     process.exit(1);
   }
-  sessionSecret = 'dev-session-secret-not-for-production';
-  console.warn('WARNING: No SESSION_SECRET set — using dev-only fallback (do not use in production)');
+  sessionSecret = crypto.randomBytes(32).toString('hex');
+  console.warn('WARNING: No SESSION_SECRET set — using random ephemeral dev secret (sessions will not survive restart; do not use in production)');
 }
 
 // In production, MemoryStore is not suitable — load an external store.

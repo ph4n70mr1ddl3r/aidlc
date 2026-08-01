@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -190,6 +190,14 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   // Validate assignee is an active user
+  // Fail closed on a present-but-malformed assignee id ("abc", "3.5", an HPP
+  // array) instead of silently coercing it to NULL via safeId, which would
+  // store the change unassigned with no user feedback. Absent/empty values
+  // legitimately mean "unassigned".
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect('/changes/new');
+  }
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
@@ -313,6 +321,14 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   // Validate assignee is an active user
+  // Fail closed on a present-but-malformed assignee id ("abc", "3.5", an HPP
+  // array) instead of silently coercing it to NULL via safeId, which would
+  // wipe an existing assignment with no user feedback. Absent/empty values
+  // legitimately mean "unassigned".
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect(`/changes/${id}/edit`);
+  }
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {

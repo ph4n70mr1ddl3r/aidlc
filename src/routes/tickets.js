@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -79,8 +79,13 @@ const _satisfactionUpdateStmt = db.prepare(
 const _assetExistsStmt = db.prepare('SELECT 1 FROM assets WHERE id = ?');
 const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 
-// Cached statement for ticket update route
-const _updateCheckStmt = db.prepare('SELECT status, assigned_to FROM tickets WHERE id = ?');
+// Cached statement for ticket update route.
+// Loads the requester PII columns and due_date so the update transaction can
+// preserve them on partial submissions and for non-privileged editors whose
+// edit form redacts requester PII (mirrors the show route).
+const _updateCheckStmt = db.prepare(
+  'SELECT status, assigned_to, due_date, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
+);
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
       status = ?, assigned_to = ?, asset_id = ?, due_date = ?, resolution_notes = ?,
@@ -226,6 +231,14 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets/new');
   }
   const requester_phone = sanitizePhone(rawRequesterPhone);
+  // Fail closed on a present-but-malformed phone: a value that sanitizes to
+  // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+  // than silently stored as NULL — the fail-closed convention applied to every
+  // other present-but-invalid field. Absent/empty values are allowed (no phone).
+  if (rawRequesterPhone !== undefined && rawRequesterPhone !== null && rawRequesterPhone !== '' && !requester_phone) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/tickets/new');
+  }
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
@@ -284,6 +297,17 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   }
 
   // Validate assignee is an active user
+  // Fail closed on present-but-malformed assignee/asset ids ("abc", "3.5", an
+  // HPP array) instead of silently coercing them to NULL via safeId. Absent/
+  // empty values legitimately mean "unassigned"/"no asset".
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect('/tickets/new');
+  }
+  if (isPresentInvalidId(asset_id)) {
+    req.flash('error', 'Invalid asset');
+    return res.redirect('/tickets/new');
+  }
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
   const safeAssetId = asset_id ? safeId(asset_id) : null;
 
@@ -395,6 +419,16 @@ router.get('/:id/edit', (req, res) => {
     return res.redirect(`/tickets/${id}`);
   }
 
+  // Redact end-user (requester) PII for non-privileged viewers, matching the
+  // show route. Non-privileged staff who can edit an assigned ticket must not
+  // be able to read requester email/phone/department from the edit form (the
+  // update route preserves the stored values when these fields are absent).
+  if (!isPrivileged(req.session.user)) {
+    delete ticket.requester_email;
+    delete ticket.requester_phone;
+    delete ticket.requester_department;
+  }
+
   const staff = getActiveStaff(db);
   let assets = _assetListStmt.all();
   // Ensure the currently-linked asset appears in the dropdown even when it
@@ -434,13 +468,30 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
+  // Requester PII (email/phone/department) is only editable by privileged users
+  // (admin/manager). Non-privileged editors' forms redact these fields (matching
+  // the show route), so their submissions lack them and the stored values are
+  // preserved inside the transaction rather than failing validation or wiping
+  // the data. requester_name stays editable for everyone.
+  const canEditRequesterPII = isPrivileged(req.session.user);
   const rawRequesterPhone = safeQueryValue(req.body.requester_phone);
-  // Reject overly long phone input before expensive sanitization
-  if (typeof rawRequesterPhone === 'string' && rawRequesterPhone.length > MAX_PHONE) {
-    req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
-    return res.redirect(`/tickets/${id}/edit`);
+  let requester_phone = null;
+  if (canEditRequesterPII) {
+    // Reject overly long phone input before expensive sanitization
+    if (typeof rawRequesterPhone === 'string' && rawRequesterPhone.length > MAX_PHONE) {
+      req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    requester_phone = sanitizePhone(rawRequesterPhone);
+    // Fail closed on a present-but-malformed phone: a value that sanitizes to
+    // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
+    // than silently stored as NULL — the fail-closed convention applied to every
+    // other present-but-invalid field. Absent/empty values are allowed (no phone).
+    if (rawRequesterPhone !== undefined && rawRequesterPhone !== null && rawRequesterPhone !== '' && !requester_phone) {
+      req.flash('error', 'Please enter a valid phone number');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
   }
-  const requester_phone = sanitizePhone(rawRequesterPhone);
 
   if (!title) {
     req.flash('error', 'Title is required');
@@ -483,7 +534,9 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  // Validate requester fields — must be present and within length limits
+  // Validate requester fields. requester_name is rendered for every editor and
+  // must be present; requester email/phone/department are requester PII that
+  // only privileged users can see or modify (see canEditRequesterPII above).
   if (!requester_name) {
     req.flash('error', 'Requester name is required');
     return res.redirect(`/tickets/${id}/edit`);
@@ -492,29 +545,43 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     req.flash('error', `Requester name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (!requester_email) {
-    req.flash('error', 'Requester email is required');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
-  if (requester_email.length > MAX_EMAIL) {
-    req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
-    return res.redirect(`/tickets/${id}/edit`);
-  }
-  if (!isValidEmail(requester_email)) {
-    req.flash('error', 'Please enter a valid requester email address');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
-  if (requester_department && requester_department.length > MAX_SHORT_STR) {
-    req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
-    return res.redirect(`/tickets/${id}/edit`);
-  }
+  if (canEditRequesterPII) {
+    if (!requester_email) {
+      req.flash('error', 'Requester email is required');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    if (requester_email.length > MAX_EMAIL) {
+      req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    if (!isValidEmail(requester_email)) {
+      req.flash('error', 'Please enter a valid requester email address');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    if (requester_department && requester_department.length > MAX_SHORT_STR) {
+      req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
+      return res.redirect(`/tickets/${id}/edit`);
+    }
 
-  if (requester_phone && !isValidPhone(requester_phone)) {
-    req.flash('error', 'Please enter a valid phone number');
-    return res.redirect(`/tickets/${id}/edit`);
+    if (requester_phone && !isValidPhone(requester_phone)) {
+      req.flash('error', 'Please enter a valid phone number');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
   }
 
   // Validate assignee is an active user
+  // Fail closed on present-but-malformed assignee/asset ids ("abc", "3.5", an
+  // HPP array) instead of silently coercing them to NULL via safeId, which
+  // would wipe an existing assignment/link with no user feedback. Absent/empty
+  // values legitimately mean "unassigned"/"no asset".
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (isPresentInvalidId(asset_id)) {
+    req.flash('error', 'Invalid asset');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
   const updateAssignee = assigned_to ? safeId(assigned_to) : null;
   const updateAssetId = asset_id ? safeId(asset_id) : null;
 
@@ -538,9 +605,26 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
         throw new Error('ASSET_NOT_FOUND');
       }
 
+      // Resolve the due date against the freshly-read row: an ABSENT field on a
+      // partial submission preserves the stored value (mirrors projects/assets/
+      // vendors/changes), while an explicit empty string still clears it (null).
+      const resolvedDueDate = (due_date === undefined || due_date === null) ? ticket.due_date : safeDueDate;
+      // Non-privileged editors cannot view or modify requester PII — their edit
+      // form redacts these fields, so absent submissions must preserve the
+      // stored values rather than failing validation or wiping the data.
+      const resolvedRequesterEmail = canEditRequesterPII
+        ? (requester_email || '').substring(0, MAX_EMAIL)
+        : ticket.requester_email;
+      const resolvedRequesterDept = canEditRequesterPII
+        ? (requester_department || '').substring(0, MAX_SHORT_STR) || null
+        : ticket.requester_department;
+      const resolvedRequesterPhone = canEditRequesterPII
+        ? (requester_phone ? requester_phone.substring(0, MAX_PHONE) : null)
+        : ticket.requester_phone;
+
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-        updateAssignee, updateAssetId, safeDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
-        (requester_name || '').substring(0, MAX_SHORT_STR), (requester_email || '').substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null];
+        updateAssignee, updateAssetId, resolvedDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
+        (requester_name || '').substring(0, MAX_SHORT_STR), resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
       const isNowResolved = status === 'resolved' || status === 'closed';
@@ -581,11 +665,14 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   }
 });
 
-// Add comment — any authenticated user can comment on any ticket.
-// This is intentional: IT staff need to collaborate across tickets even if
-// they are not the assignee (e.g. second opinions, status updates from other teams).
+// Add comment — any authenticated user can comment on any ticket they can
+// access. This is intentional: IT staff need to collaborate across tickets
+// (e.g. second opinions, status updates from other teams). Note that
+// "any ticket" is scoped by canAccessResource(): admin/manager can comment on
+// all tickets, while regular staff can only comment on tickets assigned to
+// them (enforced inside the transaction below).
 // Re-checks ticket visibility inside the transaction via canAccessResource()
-// (line ~633) so that staff cannot comment on tickets they shouldn't see.
+// (line ~650) so that staff cannot comment on tickets they shouldn't see.
 router.post('/:id/comments', commentRateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
