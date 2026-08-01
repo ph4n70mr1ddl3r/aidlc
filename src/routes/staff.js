@@ -793,7 +793,7 @@ module.exports = router;
  * the same-named export in all other route modules.
  */
 function resetCachedStatements() {
-  // All cached statements are module-level const bindings from db.prepare(),
+  // _departmentsStmt is a module-level const binding from db.prepare(),
   // so there is no lazy-init to null out — the cache is unused when
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.

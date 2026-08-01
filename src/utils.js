@@ -937,7 +937,7 @@ function resetCachedStatements() {
 function _derivePageSize() {
   const raw = process.env.PAGE_SIZE;
   const p = parseInt(raw, 10);
-  if (!Number.isFinite(p) || p <= 0) {
+  if (raw !== undefined && raw !== '' && (!Number.isFinite(p) || p <= 0)) {
     console.warn(
       `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
     );
