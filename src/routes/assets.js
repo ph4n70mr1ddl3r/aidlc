@@ -104,7 +104,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/assets/index', {
     title: 'Assets', assets, staff,
-    filters: safeFilters(req.query, ['search', 'status', 'category', 'assigned_to', 'sort']),
+    filters: safeFilters(req.query, ['search', 'status', 'category', 'assigned_to']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
