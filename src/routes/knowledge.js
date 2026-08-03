@@ -90,8 +90,10 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   // value when the checkbox is checked; unchecked sends nothing (handled above)
   // or a hidden "0". parseBooleanFlag rejects any other string (e.g. 'false',
   // 'off', 'no') so an API/HTML form with a custom value cannot silently mark
-  // an article featured — and it gates on privilege (non-privileged returns 0).
-  return parseBooleanFlag(is_featured, isPrivileged(user));
+  // an article featured. The privilege gate is already enforced by the early
+  // return above, so `true` is passed here directly — calling isPrivileged
+  // again would be redundant.
+  return parseBooleanFlag(is_featured, true);
 }
 
 // Markdown options are inlined per-call in renderMarkdown to avoid

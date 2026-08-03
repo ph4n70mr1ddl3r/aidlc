@@ -50,12 +50,12 @@ function _validateVendorRating(rawValue) {
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
-  // Reject HPP arrays and non-integer values. The string check guards form
+  // Reject non-integer values. The string check guards form
   // submissions ("3.5"); the number check guards JSON API clients that send a
   // numeric literal ({"rating": 3.5}) which would otherwise slip past the
-  // regex and be silently truncated to 3 by parseInt below.
-  if (Array.isArray(value) ||
-      (typeof value === 'number' && !Number.isInteger(value)) ||
+  // regex and be silently truncated to 3 by parseInt below. Arrays are
+  // rejected by the guard above (line 36), so they do not reach this point.
+  if ((typeof value === 'number' && !Number.isInteger(value)) ||
       (typeof value === 'string' && !/^-?\d+$/.test(value))) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
