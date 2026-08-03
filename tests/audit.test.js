@@ -73,3 +73,18 @@ describe('audit middleware', () => {
     expect(row.details).toBe('Viewed audit log');
   });
 });
+
+describe('audit route safeFilters sort preservation', () => {
+  it('includes sort in safeFilters so the template filter bar reflects current sort', () => {
+    // Regression: audit/index.ejs renders a sort dropdown that reads filters.sort,
+    // but src/routes/audit.js previously omitted 'sort' from the safeFilters
+    // allowlist, so filters.sort was always undefined and the dropdown never
+    // reflected the user's selection.
+    const { safeFilters } = require('../src/utils');
+    const query = { action: 'create', entity_type: 'ticket', sort: 'oldest' };
+    const result = safeFilters(query, ['action', 'entity_type', 'sort']);
+    expect(result.sort).toBe('oldest');
+    expect(result.action).toBe('create');
+    expect(result.entity_type).toBe('ticket');
+  });
+});
