@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -51,7 +51,7 @@ const _showMembersStmt = db.prepare(`
     WHERE pm.project_id = ?
     LIMIT 100
   `);
-const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date FROM projects WHERE id = ?');
+const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -318,7 +318,12 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
-  const staff = getActiveStaff(db);
+  // Ensure the current owner appears in the dropdown even when they have since
+  // been deactivated (is_active = 0). Without this, an edit form would silently
+  // render "Select owner" for an inactive owner and re-saving would wipe the
+  // stored owner (data loss). The update route preserves the current owner when
+  // the submitted value is unchanged, so the dropdown value is saveable.
+  const staff = ensureAssigneeInList(getActiveStaff(db), project.owner_id, db);
   res.render('pages/projects/form', { title: 'Edit Project', project, staff, isEdit: true });
 });
 
@@ -446,7 +451,13 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         }
       }
 
-      if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
+      // Preserve the current (possibly deactivated) owner when the submitted
+      // value is unchanged, so editing an unrelated field on a project whose
+      // owner has since been deactivated does not force a reassignment or wipe
+      // the stored value — the edit form includes the inactive owner via
+      // ensureAssigneeInList. Assigning to a DIFFERENT inactive user is still
+      // rejected (fail closed).
+      if (safeOwnerId && !isActiveUser(db, safeOwnerId) && Number(safeOwnerId) !== Number(existingProject.owner_id)) {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
 

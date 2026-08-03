@@ -1,12 +1,95 @@
 # Code Review Notes
 
-**Date:** 2026-07-21
+**Date:** 2026-08-03
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (42+ consecutive "code review" hardening
+and the Jest suite. Prior review history (47+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+## Review cycle 2026-08-03 (forty-seventh pass)
+
+A forty-seventh independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, all EJS views, `public/js`,
+and all 19 test files) found **no new SQL injection, IDOR, CSRF, XSS, auth, or
+error-leakage defects.** Two data-preservation gaps (one medium, one low) were
+found and fixed across all four assignee/owner resources:
+
+### Fixes applied
+- **`tickets.js` / `assets.js` / `projects.js` / `changes.js` — editing a record
+  whose assignee/owner was later deactivated silently wiped the assignment
+  (MEDIUM).** The edit forms build the assignee/owner `<select>` from
+  `getActiveStaff()`, which only returns `is_active = 1` users. When the current
+  assignee had since been deactivated, no `<option>` matched, the browser
+  silently fell back to the first option ("Unassigned"/"Select owner"), and
+  re-saving stored `NULL` — wiping the assignment with no user feedback.
+  Deactivation deliberately keeps the assignee on resolved/closed records for
+  historical attribution (staff.js `_unassignTicketsStmt` etc. only clear open/
+  in-progress items), and assets are never unassigned, so this was reachable via
+  normal usage (e.g. re-titling a resolved ticket or relocating an asset still
+  assigned to a departed employee).
+  - Added a shared pure helper `ensureAssigneeInList(staff, currentAssigneeId, db)`
+    in `src/utils.js` (mirrors `ensureLinkedAssetInList` in tickets.js) that
+    prepends the deactivated assignee/owner to the dropdown list so the select
+    renders the current value as selected.
+  - Each edit form route now passes its list through the helper: `tickets.js`
+    (edit GET), `assets.js`, `projects.js`, `changes.js`.
+  - The update transactions now preserve the current assignee/owner when the
+    submitted id is **unchanged** even if inactive (so the new dropdown value is
+    saveable), while still rejecting reassignment to a **different** inactive
+    user (`ASSIGNEE_NOT_AVAILABLE` / `OWNER_NOT_AVAILABLE`, fail closed).
+  - `projects.js` `_projectBudgetSpentStmt` now also selects `owner_id` so the
+    transaction-consistent row exposes the current owner for the comparison.
+- **`vendors.js` — partial update could persist `contract_end < contract_start`
+  (LOW).** The update route validated the date range against only the *submitted*
+  values, but contract dates resolve to the stored value when a field is absent.
+  A partial PUT submitting only `contract_start` (past the stored `contract_end`)
+  passed the outer check (submitted `contract_end` was null) and persisted an
+  end-before-start pair. The check now runs inside the transaction against the
+  **resolved** values (mirroring `changes.js` `SCHEDULED_END_BEFORE_START`),
+  throwing `CONTRACT_END_BEFORE_START` and redirecting with the same user-facing
+  message. The outer submitted-only check was removed.
+
+### False positives / non-defects reconfirmed
+- **Ticket-list visibility for regular staff (reviewed, not a defect).** All
+  authenticated staff can enumerate ticket *metadata* on the list page, while
+  detail routes enforce `canAccessResource()`. This matches the app's shared
+  queue design: the dashboard's "Recent Tickets" and "Team Workload" panels are
+  likewise visible to all staff, `requester_name` is not part of the app's
+  redacted-PII set (only email/phone/department are redacted on detail routes),
+  and the list never exposes requester email/phone/department.
+- **Per-GET `req.audit('read', …)` inserts (reviewed, not a defect).** The 13
+  read-audit call sites (detail pages, reports) are the intended audit trail for
+  sensitive views (e.g. license-key reveals, staff profiles) and are bounded by
+  audit-log retention/pruning; the app consistently rate-limits writes rather
+  than reads.
+- **`knowledge/show.ejs:28` `<%- article.renderedContent %>` (reviewed, not a
+  defect).** The content is authored in-app by staff and run through
+  `marked.parse` → `sanitize-html` (strict config) before rendering; the `<%-`
+  sink is server-sanitized. Unrestricted full-HTML authoring is the knowledge
+  feature's documented behavior, so escaping (not the sink) is the correct
+  control.
+- All SQL still flows through whitelisted helpers with bound params; IDOR/TOCTOU
+  ownership rechecks remain inside `db.transaction`; CSRF tokens on all
+  state-changing forms; the only `<%-` sink is server-sanitized; login
+  timing-oracle and all prior fixes intact.
+
+### Test coverage added
+- `tests/partial_update.test.js` — 14 new tests: `ensureAssigneeInList` unit
+  coverage (prepend inactive assignee / no dupe / null & unknown id); update-route
+  preservation of an unchanged inactive assignee/owner for tickets, assets,
+  changes, and projects (asserting the assignment survives the UPDATE, not just
+  the redirect); rejection of reassignment to a different inactive user for all
+  four; ticket edit form rendering the inactive assignee in the dropdown; and
+  vendors partial-update date-range rejection (plus an in-range acceptance check).
+  The projects tests locate the project-UPDATE `run` call by argument count to
+  ignore the post-transaction `recalcProjectProgress` write.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 405 passed / 405 total (baseline 391 + 14 new).
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-07-21 (forty-sixth pass)
 

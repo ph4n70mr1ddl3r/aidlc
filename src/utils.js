@@ -665,6 +665,43 @@ function getActiveStaff(db) {
   return _getActiveStaffStmt(db).all();
 }
 
+// Cached prepared statement for ensureAssigneeInList — fetches a single user's
+// dropdown columns so a deactivated assignee/owner can still be shown as
+// "selected" in edit forms. Module-level cache (single db instance).
+let _assigneeByIdStmt = null;
+function _getAssigneeByIdStmt(db) {
+  if (!_assigneeByIdStmt) {
+    _assigneeByIdStmt = db.prepare('SELECT id, first_name, last_name FROM users WHERE id = ?');
+  }
+  return _assigneeByIdStmt;
+}
+
+/**
+ * Ensure the resource's current assignee/owner appears in the active-staff
+ * dropdown even when they have since been deactivated (is_active = 0).
+ * getActiveStaff() only returns active users, so without this an edit form
+ * would render a <select> with no matching option — the browser silently falls
+ * back to the first option ("Unassigned") and re-saving wipes the stored
+ * assignment (data loss). Returns a new array (does not mutate the input); a
+ * null/unknown assignee id returns the input unchanged. Mirrors
+ * ensureLinkedAssetInList in tickets.js.
+ * @param {Array} staff - active staff list from getActiveStaff(db)
+ * @param {number|null} currentAssigneeId - the resource's stored assigned_to/owner_id
+ * @param {import('better-sqlite3').Database} db
+ * @returns {Array}
+ */
+function ensureAssigneeInList(staff, currentAssigneeId, db) {
+  if (currentAssigneeId == null) {
+    return staff;
+  }
+  const cid = Number(currentAssigneeId);
+  if (staff.some(s => Number(s.id) === cid)) {
+    return staff;
+  }
+  const assignee = _getAssigneeByIdStmt(db).get(cid);
+  return assignee ? [assignee, ...staff] : staff;
+}
+
 // Cached prepared statements for pruneAuditLog — called on every startup.
 let _pruneCutoffStmt = null;
 let _pruneDeleteStmt = null;
@@ -920,6 +957,7 @@ function resetCachedStatements() {
   _progressSelectStmt = null;
   _progressUpdateStmt = null;
   _activeStaffStmt = null;
+  _assigneeByIdStmt = null;
   _pruneCutoffStmt = null;
   _pruneDeleteStmt = null;
   _countQueryCache.clear();
@@ -987,6 +1025,7 @@ module.exports = {
   safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,
   daysUntil, usagePercent, isExpiringSoon, titleCase,
   getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog,
+  ensureAssigneeInList,
   asyncHandler, countQuery, selectQuery,
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,

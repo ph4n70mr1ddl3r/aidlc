@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -438,7 +438,14 @@ router.get('/:id/edit', (req, res) => {
   if (ticket.asset_id) {
     assets = ensureLinkedAssetInList(assets, _assetByIdStmt.get(ticket.asset_id));
   }
-  res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff, assets, isEdit: true });
+  // Ensure the current assignee appears in the dropdown even when they have
+  // since been deactivated (is_active = 0). Without this, an edit form would
+  // silently render "Unassigned" for an inactive assignee and re-saving would
+  // wipe the assignment (data loss). The update route preserves the current
+  // assignee when the submitted value is unchanged, so the dropdown value is
+  // saveable.
+  const assigneeOptions = ensureAssigneeInList(staff, ticket.assigned_to, db);
+  res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff: assigneeOptions, assets, isEdit: true });
 });
 
 // Update ticket
@@ -598,7 +605,13 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       if (!canAccessResource(req, ticket)) {
         throw new Error('ACCESS_DENIED');
       }
-      if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+      // Preserve the current (possibly deactivated) assignee when the submitted
+      // value is unchanged, so editing an unrelated field on a ticket whose
+      // assignee has since been deactivated does not force a reassignment or
+      // wipe the stored value — the edit form includes the inactive assignee
+      // via ensureAssigneeInList. Assigning to a DIFFERENT inactive user is
+      // still rejected (fail closed).
+      if (updateAssignee && !isActiveUser(db, updateAssignee) && Number(updateAssignee) !== Number(ticket.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
       if (updateAssetId && !_assetExistsStmt.get(updateAssetId)) {

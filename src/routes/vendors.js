@@ -521,10 +521,6 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid contract end date');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
-    req.flash('error', 'Contract end must be on or after contract start');
-    return res.redirect(`/vendors/${id}/edit`);
-  }
 
   // Validate rating range upfront instead of silently defaulting to null
   const { value: safeRating, error: ratingErr } = _validateVendorRating(req.body.rating);
@@ -608,6 +604,14 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       if (resolvedEndDate.error) {
         throw new Error('INVALID_CONTRACT_END');
       }
+      // Validate the date range against the RESOLVED values, not just the
+      // submitted ones. On a partial submission that changes only
+      // contract_start, the unchanged stored contract_end is compared too, so a
+      // start moved beyond the stored end is rejected instead of persisted.
+      // Mirrors the resolved-value range checks in changes.js.
+      if (resolvedStartDate.value && resolvedEndDate.value && resolvedEndDate.value < resolvedStartDate.value) {
+        throw new Error('CONTRACT_END_BEFORE_START');
+      }
 
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
@@ -638,6 +642,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     }
     if (err.message === 'NAME_EXISTS') {
       req.flash('error', 'Another vendor with this name already exists');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
+    if (err.message === 'CONTRACT_END_BEFORE_START') {
+      req.flash('error', 'Contract end must be on or after contract start');
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message.startsWith('INVALID_')) {

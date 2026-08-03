@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -260,7 +260,13 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Change not found');
     return res.redirect('/changes');
   }
-  const staff = getActiveStaff(db);
+  // Ensure the current assignee appears in the dropdown even when they have
+  // since been deactivated (is_active = 0). Without this, an edit form would
+  // silently render "Unassigned" for an inactive assignee and re-saving would
+  // wipe the assignment (data loss). The update route preserves the current
+  // assignee when the submitted value is unchanged, so the dropdown value is
+  // saveable.
+  const staff = ensureAssigneeInList(getActiveStaff(db), change.assigned_to, db);
   res.render('pages/changes/form', { title: 'Edit Change', change, staff, isEdit: true });
 });
 
@@ -341,7 +347,13 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
 
-      if (safeAssignee && !isActiveUser(db, safeAssignee)) {
+      // Preserve the current (possibly deactivated) assignee when the submitted
+      // value is unchanged, so editing an unrelated field on a change whose
+      // assignee has since been deactivated does not force a reassignment or
+      // wipe the stored value — the edit form includes the inactive assignee
+      // via ensureAssigneeInList. Assigning to a DIFFERENT inactive user is
+      // still rejected (fail closed).
+      if (safeAssignee && !isActiveUser(db, safeAssignee) && Number(safeAssignee) !== Number(existingChange.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 

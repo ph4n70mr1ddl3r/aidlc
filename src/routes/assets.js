@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -316,7 +316,13 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
-  const staff = getActiveStaff(db);
+  // Ensure the current assignee appears in the dropdown even when they have
+  // since been deactivated (is_active = 0). Without this, an edit form would
+  // silently render "Unassigned" for an inactive assignee and re-saving would
+  // wipe the assignment (data loss). The update route preserves the current
+  // assignee when the submitted value is unchanged, so the dropdown value is
+  // saveable.
+  const staff = ensureAssigneeInList(getActiveStaff(db), asset.assigned_to, db);
   res.render('pages/assets/form', { title: 'Edit Asset', asset, staff, isEdit: true });
 });
 
@@ -449,7 +455,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       if (!current) {
         throw new Error('NOT_FOUND');
       }
-      if (updateAssignee && !isActiveUser(db, updateAssignee)) {
+      if (updateAssignee && !isActiveUser(db, updateAssignee) && Number(updateAssignee) !== Number(current.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 

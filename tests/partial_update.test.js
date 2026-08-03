@@ -312,3 +312,227 @@ describe('assignee/owner id fail-closed — a present-but-malformed id must be r
     expect(redirectCalls[0]).toBe('/tickets/1/edit');
   });
 });
+
+describe('ensureAssigneeInList (dropdown helper)', () => {
+  it('prepends a deactivated current assignee to the active staff list', () => {
+    const utils = require('../src/utils');
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReturnValue({ id: 5, first_name: 'Zed', last_name: 'T' });
+    const result = utils.ensureAssigneeInList([{ id: 1, first_name: 'A', last_name: 'B' }], 5, db);
+    expect(result.map(r => r.id)).toEqual([5, 1]);
+  });
+
+  it('returns the list unchanged when the assignee is already present (no dupes)', () => {
+    const utils = require('../src/utils');
+    const db = jest.requireMock('../src/models/database');
+    const staff = [{ id: 5, first_name: 'Zed', last_name: 'T' }];
+    expect(utils.ensureAssigneeInList(staff, 5, db)).toBe(staff);
+  });
+
+  it('returns the list unchanged for a null or unknown assignee id', () => {
+    const utils = require('../src/utils');
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReturnValue(null);
+    const staff = [{ id: 1, first_name: 'A', last_name: 'B' }];
+    expect(utils.ensureAssigneeInList(staff, null, db)).toBe(staff);
+    expect(utils.ensureAssigneeInList(staff, 999, db)).toBe(staff);
+  });
+});
+
+describe('inactive assignee preservation on update (regression: wiped to unassigned on edit)', () => {
+  it('tickets update preserves the current (inactive) assignee when unchanged', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().run.mockClear();
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ id: 1, status: 'open', assigned_to: 5, due_date: null, requester_name: 'Bob', requester_email: 'bob@x.com', requester_department: null, requester_phone: null })
+      .mockReturnValueOnce(null) // isActiveUser(5) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const ticketsRouter = require('../src/routes/tickets');
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com', assigned_to: '5'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/tickets/1');
+    expect(flashCalls.some(([t]) => t === 'error')).toBe(false);
+    const params = lastRunParams();
+    expect(params[5]).toBe(5); // assigned_to column
+  });
+
+  it('tickets update still rejects switching to a DIFFERENT inactive assignee', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ id: 1, status: 'open', assigned_to: 5, due_date: null, requester_name: 'Bob', requester_email: 'bob@x.com', requester_department: null, requester_phone: null })
+      .mockReturnValueOnce(null) // isActiveUser(6) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const ticketsRouter = require('../src/routes/tickets');
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com', assigned_to: '6'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/tickets/1/edit');
+    expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+  });
+
+  it('assets update preserves the current (inactive) assignee when unchanged', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().run.mockClear();
+    db.prepare().get.mockReset();
+    const asset = { id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', condition_rating: 'good', purchase_price: 100, purchase_date: '2024-01-01', warranty_expiry: null, assigned_to: 5, manufacturer: null, model: null, serial_number: null, location: null, notes: null };
+    db.prepare().get
+      .mockReturnValueOnce(asset)  // outer existingAsset fetch
+      .mockReturnValueOnce(asset)  // transaction-consistent re-fetch
+      .mockReturnValueOnce(null)   // isActiveUser(5) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const assetsRouter = require('../src/routes/assets');
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', assigned_to: '5'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/assets/1');
+    const params = lastRunParams();
+    expect(params[11]).toBe(5); // assigned_to column
+  });
+
+  it('assets update still rejects switching to a DIFFERENT inactive assignee', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    const asset = { id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', condition_rating: 'good', purchase_price: 100, purchase_date: '2024-01-01', warranty_expiry: null, assigned_to: 5, manufacturer: null, model: null, serial_number: null, location: null, notes: null };
+    db.prepare().get
+      .mockReturnValueOnce(asset)
+      .mockReturnValueOnce(asset)
+      .mockReturnValueOnce(null) // isActiveUser(6) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const assetsRouter = require('../src/routes/assets');
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', assigned_to: '6'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/assets/1/edit');
+  });
+
+  it('changes update preserves the current (inactive) assignee when unchanged', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().run.mockClear();
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ id: 1, title: 'Server upgrade', description: null, change_type: 'maintenance', status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null, actual_start: null, actual_end: null, impact: null, assigned_to: 5 })
+      .mockReturnValueOnce(null) // isActiveUser(5) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const changesRouter = require('../src/routes/changes');
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Server upgrade', change_type: 'maintenance', status: 'scheduled', assigned_to: '5'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/changes/1');
+    const params = lastRunParams();
+    expect(params[10]).toBe(5); // assigned_to column
+  });
+
+  it('changes update still rejects switching to a DIFFERENT inactive assignee', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ id: 1, title: 'Server upgrade', description: null, change_type: 'maintenance', status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null, actual_start: null, actual_end: null, impact: null, assigned_to: 5 })
+      .mockReturnValueOnce(null) // isActiveUser(6) -> deactivated
+      .mockReturnValue({ id: 1 });
+    const changesRouter = require('../src/routes/changes');
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Server upgrade', change_type: 'maintenance', status: 'scheduled', assigned_to: '6'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/changes/1/edit');
+  });
+
+  it('projects update preserves the current (inactive) owner when unchanged', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().run.mockClear();
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ budget: null, spent: null, status: 'in_progress', priority: 'medium', start_date: null, end_date: null, owner_id: 5 })
+      .mockReturnValueOnce(null) // isActiveUser(5) -> deactivated
+      .mockReturnValue({ total: 0, done: 0 }); // recalcProjectProgress progress query
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      name: 'Net migration', status: 'in_progress', owner_id: '5'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/projects/1');
+    // The project UPDATE run has 10 args; the recalc progress run has 2 — find
+    // the project update to read its owner_id (index 8).
+    const projectUpdate = db.prepare().run.mock.calls.find(c => c.length === 10);
+    expect(projectUpdate[8]).toBe(5);
+  });
+
+  it('projects update still rejects switching to a DIFFERENT inactive owner', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ budget: null, spent: null, status: 'in_progress', priority: 'medium', start_date: null, end_date: null, owner_id: 5 })
+      .mockReturnValueOnce(null) // isActiveUser(6) -> deactivated
+      .mockReturnValue({ total: 0, done: 0 });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      name: 'Net migration', status: 'in_progress', owner_id: '6'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/projects/1/edit');
+  });
+});
+
+describe('edit forms include a deactivated current assignee/owner in the dropdown', () => {
+  it('ticket edit form renders the inactive assignee in the staff dropdown', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    db.prepare().get
+      .mockReturnValueOnce({ id: 1, status: 'open', assigned_to: 5, due_date: null, requester_name: 'Bob', requester_email: 'bob@x.com', requester_department: 'IT', requester_phone: null })
+      .mockReturnValue({ id: 5, first_name: 'Zed', last_name: 'T' });
+    const ticketsRouter = require('../src/routes/tickets');
+    const h = lastHandlerFor(ticketsRouter, 'get', '/:id/edit');
+    const { renderArgs } = runHandler(h, {}, { id: '1' }, { id: 1, role: 'admin' });
+    expect(renderArgs).not.toBeNull();
+    expect(renderArgs.staff.map(s => Number(s.id))).toContain(5);
+  });
+});
+
+describe('vendors update — partial submission cannot persist contract_end < contract_start', () => {
+  it('rejects a partial update that moves contract_start past the stored contract_end', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().get.mockReset();
+    db.prepare().get.mockReturnValue({
+      id: 1, name: 'Acme', contact_person: null, email: null, phone: null,
+      address: null, website: null, category: null, notes: null, rating: 4,
+      contract_start: '2024-01-01', contract_end: '2024-01-01', is_active: 1
+    });
+    const vendorsRouter = require('../src/routes/vendors');
+    const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
+    // Only contract_start submitted: without resolved-value checking, the
+    // stored contract_end (2024-01-01) would be preserved and the range check
+    // skipped, persisting an invalid end < start pair.
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      name: 'Acme', contract_start: '2025-01-01'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/vendors/1/edit');
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Contract end must be on or after contract start')).toBe(true);
+  });
+
+  it('still accepts a partial update that keeps the dates in range', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().run.mockClear();
+    db.prepare().get.mockReset();
+    db.prepare().get.mockReturnValue({
+      id: 1, name: 'Acme', contact_person: null, email: null, phone: null,
+      address: null, website: null, category: null, notes: null, rating: 4,
+      contract_start: '2024-01-01', contract_end: '2025-01-01', is_active: 1
+    });
+    const vendorsRouter = require('../src/routes/vendors');
+    const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      name: 'Acme', contract_start: '2024-06-01'
+    }, { id: '1' });
+    expect(redirectCalls[0]).toBe('/vendors/1');
+  });
+});
