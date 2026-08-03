@@ -114,7 +114,7 @@ const stmts = {
     SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
   `),
   warrantyExpiring: db.prepare(`
-    SELECT id, name, asset_tag, warranty_expiry, status, model, assigned_to FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
+    SELECT name, asset_tag, warranty_expiry FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
     ORDER BY warranty_expiry ASC LIMIT 500
   `),
   // ORDER BY age_group sorts the buckets LEXICOGRAPHICALLY, which puts '< 1 year'

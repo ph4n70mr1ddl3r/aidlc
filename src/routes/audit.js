@@ -50,7 +50,8 @@ router.get('/', auditLimiter, (req, res) => {
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
   const entries = selectQuery(db, `
-    SELECT a.*, u.first_name || ' ' || u.last_name as user_name
+    SELECT a.action, a.entity_type, a.entity_id, a.ip_address, a.details, a.created_at,
+      u.first_name || ' ' || u.last_name as user_name
     FROM audit_log a
     LEFT JOIN users u ON a.user_id = u.id
     WHERE ${whereClause}
