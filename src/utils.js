@@ -257,13 +257,10 @@ function safeId(value) {
  * Returns true when the submitted value is present yet cannot parse to a valid
  * positive integer — e.g. "abc", "3.5", 12.5, or an array/object. Absent
  * (undefined/null) and empty-string values return false (treated as "clear /
- * unassign", which callers map to null via safeId).
- * The write routes use this to fail closed on malformed present ids instead of
- * silently coercing them to NULL through safeId, which would wipe an existing
- * assignment with no user-visible error — the same fail-open class eliminated
- * for cost/budget/spent/dates/rating. Mirrors the strict-input convention of
- * safeInt (rejects non-integer numbers and non-canonical strings).
- * @param {*} value - the safeQueryValue-collapsed submitted value
+ * unassign"). The write routes use this to fail closed on malformed present ids
+ * instead of silently coercing them to NULL through safeId, which would wipe an
+ * existing assignment with no user-visible error.
+ * @param {*} value
  * @returns {boolean}
  */
 function isPresentInvalidId(value) {

@@ -133,19 +133,13 @@ function _resolveClearableDate(rawValue, existingValue) {
  * the field is ABSENT from the request (partial submission). An empty submitted
  * value CLEARS the field (null), consistent with the create route.
  * When present and non-empty, the value is truncated to maxLen (if provided).
- * Extracted to eliminate the repeated raw !== undefined ? ... pattern (appeared
- * 8 times across the update route for contact_person, email, phone, address,
- * website, category, notes, and rating).
- * @param {*} rawBodyValue - The raw req.body[field] value (NOT collapsed by
- *   safeQueryValue). Used to detect absence (undefined) vs empty ("").
- * @param {string|null} processedValue - The already-processed value (trimmed,
- *   sanitized, lowercased, etc.) or null if the value should be cleared.
- * @param {number|null} maxLen - Max string length to truncate to, or null for
- *   non-string fields (category, rating)
- * @param {*} existingValue - The current value from the DB
- * @returns {*|{error: boolean}|null} - existingValue (field absent), null (field
- *   empty — clear), processedValue string (field present + valid), or
- *   {error: true} (HPP array — invalid)
+ * Extracted to eliminate the repeated raw !== undefined ? ... pattern.
+ * @param {*} rawBodyValue - the raw req.body[field] value (NOT collapsed by
+ *   safeQueryValue) so absence (undefined) vs empty ("") can be distinguished.
+ * @param {string|null} processedValue - the already-processed value or null
+ * @param {number|null} maxLen - max string length to truncate to, or null
+ * @param {*} existingValue - the current value from the DB
+ * @returns {*|{error: boolean}|null}
  */
 function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingValue) {
   // Reject arrays from HTTP parameter pollution so a polluted payload does not

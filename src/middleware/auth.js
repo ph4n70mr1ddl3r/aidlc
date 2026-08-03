@@ -7,16 +7,11 @@ const _authVerifiedSym = Symbol('authVerified');
 
 function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
   req.session.destroy((err) => {
-    if (res.headersSent) {
-      return;
-    }
     if (err) {
       console.error(errMsg, err.message);
     }
     res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
-    if (!res.headersSent) {
-      res.redirect(redirectUrl);
-    }
+    res.redirect(redirectUrl);
   });
 }
 

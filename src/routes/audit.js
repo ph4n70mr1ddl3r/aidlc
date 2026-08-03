@@ -60,7 +60,7 @@ router.get('/', auditLimiter, (req, res) => {
 
   res.render('pages/audit/index', {
     title: 'Audit Log', entries,
-    filters: safeFilters(req.query, ['action', 'entity_type', 'sort']),
+    filters: safeFilters(req.query, ['action', 'entity_type']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
