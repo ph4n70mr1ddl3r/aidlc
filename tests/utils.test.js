@@ -1433,9 +1433,6 @@ describe('badge constants', () => {
 });
 
 /**
- * Test for resetCachedStatements function
- */
-/**
  * Test for rejectHppArrays function (HTTP Parameter Pollution rejection)
  */
 describe('rejectHppArrays', () => {
