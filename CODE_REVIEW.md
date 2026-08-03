@@ -5,8 +5,70 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (48+ consecutive "code review" hardening
+and the Jest suite. Prior review history (49+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+## Review cycle 2026-08-04 (forty-ninth pass)
+
+A forty-ninth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One dependency-security gap and
+one defense-in-depth inconsistency were found and fixed:
+
+### Fixes applied
+- **`package.json` — `ip-address@10.2.0` (HIGH) and `sanitize-html@2.17.4`
+  (moderate) vulnerabilities (HIGH / MEDIUM).** `npm audit --production
+  --audit-level=high` surfaced two findings:
+  - `ip-address@10.2.0` (via `express-rate-limit@8.5.2`) has three HIGH
+    advisories (GHSA-mwp4-54f8-5fhr: leading-zero-SSRF, GHSA-4xrf-jv44-h6hh:
+    CIDR-suffix trust bypass, GHSA-22jq-vg5j-6vgg: IPv4-mapped misclassification).
+    Fixed by adding an `overrides` pin to `ip-address@^10.4.0` in
+    `package.json` — the latest patch eliminates all three.
+  - `sanitize-html@2.17.4` has a moderate advisory (GHSA-vccv-cmxp-4j9h) for
+    incomplete URI-scheme validation on `action`/`formaction`/`data`/`poster`/
+    `background` attributes. Pinning to `sanitize-html@2.17.5` (which uses
+    `htmlparser2@10.1.0` — CJS-compatible with Jest) closes the advisory.
+    `sanitize-html@2.17.6` was deliberately skipped: it switched to
+    `htmlparser2@12` which is ESM-only and breaks Jest's CommonJS runtime
+    (the same regression the 47th pass locked in with `2.17.4`).
+    `npm audit --production --audit-level=high` now exits 0.
+- **`src/routes/*.js` — internal `SELECT *` over-fetch (LOW, defense-in-depth).**
+  Eight prepared statements across five route files used `SELECT *` on
+  single-row edit/show queries: `assets.js` (`_editStmt`), `tickets.js`
+  (`_editTicketStmt`), `licenses.js` (`_showLicenseStmt`), `knowledge.js`
+  (`_editArticleStmt`), `vendors.js` (`_showVendorStmt`), `changes.js`
+  (`_editChangeStmt`), `projects.js` (`_taskExistsStmt`, `_selectProjectByIdStmt`).
+  These queries were never exposed to templates (the edit/show handlers read
+  only the columns they use), but `SELECT *` widens the data surface of any
+  future code that serializes, caches, or logs the result — and is inconsistent
+  with the explicit-column-list convention already enforced on all public
+  list/dashboard/report queries (e.g. `dashboard.js` `myTickets`, `licenseAlerts`).
+  Replaced all eight with explicit column lists matching the target table
+  schema, consistent with the defense-in-depth model applied in prior passes
+  (10th, 14th).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm audit --production --audit-level=high` — **exit 0** (no production
+  vulnerabilities).
+- `npm run lint` — clean (exit 0).
+- `npm test` — 407 passed / 407 total (20 suites).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 407 passed / 407 total (20 suites).
+- `npm audit --production --audit-level=high` — **exit 0**.
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-08-04 (forty-eighth pass)
 

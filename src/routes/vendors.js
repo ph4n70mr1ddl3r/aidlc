@@ -165,7 +165,7 @@ function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingVal
 }
 
 // Cached prepared statements for show/edit routes (static SQL).
-const _showVendorStmt = db.prepare('SELECT * FROM vendors WHERE id = ?');
+const _showVendorStmt = db.prepare('SELECT id, name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active, created_at, updated_at FROM vendors WHERE id = ?');
 const _vendorStatusStmt = db.prepare('SELECT is_active FROM vendors WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE vendors SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE vendors SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ?');

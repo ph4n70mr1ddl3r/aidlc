@@ -25,7 +25,7 @@ const _showChangeStmt = db.prepare(`
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE c.id = ?
   `);
-const _editChangeStmt = db.prepare('SELECT * FROM change_log WHERE id = ?');
+const _editChangeStmt = db.prepare('SELECT id, title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to, created_at, updated_at FROM change_log WHERE id = ?');
 const _deleteChangeStmt = db.prepare('DELETE FROM change_log WHERE id = ?');
 
 // Cached prepared statements for create/update routes

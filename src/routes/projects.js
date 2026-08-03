@@ -71,7 +71,7 @@ const _taskInsertStmt = db.prepare(`
     INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
-const _taskExistsStmt = db.prepare('SELECT * FROM project_tasks WHERE id = ? AND project_id = ?');
+const _taskExistsStmt = db.prepare('SELECT id, project_id, title, description, status, priority, assigned_to, due_date, completed_at, created_at, updated_at FROM project_tasks WHERE id = ? AND project_id = ?');
 const _taskQuickStatusStmt = db.prepare(`
     UPDATE project_tasks SET status = ?,
       completed_at = CASE WHEN ? THEN datetime('now') ELSE NULL END,
@@ -95,7 +95,7 @@ const _memberByIdStmt = db.prepare('SELECT id, role FROM project_members WHERE i
 const _leadMemberCountStmt = db.prepare("SELECT COUNT(*) as lead_count FROM project_members WHERE project_id = ? AND role = 'lead'");
 
 // Cached prepared statement for project select by ID (used in edit route)
-const _selectProjectByIdStmt = db.prepare('SELECT * FROM projects WHERE id = ?');
+const _selectProjectByIdStmt = db.prepare('SELECT id, name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id, created_at, updated_at FROM projects WHERE id = ?');
 
 const _projectInsertStmt = db.prepare(`
     INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)

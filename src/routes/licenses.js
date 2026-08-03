@@ -78,7 +78,7 @@ const licenseKeyLimiter = rateLimit({
 });
 
 // Cached prepared statements for show/edit routes (static SQL).
-const _showLicenseStmt = db.prepare('SELECT * FROM licenses WHERE id = ?');
+const _showLicenseStmt = db.prepare('SELECT id, software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes, created_at, updated_at FROM licenses WHERE id = ?');
 const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
 
 // Cached prepared statements for create/update routes

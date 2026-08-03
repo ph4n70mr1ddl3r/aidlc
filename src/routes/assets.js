@@ -30,7 +30,7 @@ const _relatedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
   `);
-const _editStmt = db.prepare('SELECT * FROM assets WHERE id = ?');
+const _editStmt = db.prepare('SELECT id, asset_tag, name, category, manufacturer, model, serial_number, status, condition_rating, purchase_date, purchase_price, warranty_expiry, assigned_to, location, notes FROM assets WHERE id = ?');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL WHERE asset_id = ?');
 const _deleteStmt = db.prepare('DELETE FROM assets WHERE id = ?');
 const _insertStmt = db.prepare(`

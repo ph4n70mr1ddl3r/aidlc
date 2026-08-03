@@ -70,7 +70,7 @@ const _showCommentsStmt = db.prepare(`
     WHERE tc.ticket_id = ?
     ORDER BY tc.created_at ASC
   `);
-const _editTicketStmt = db.prepare('SELECT * FROM tickets WHERE id = ?');
+const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
 const _ticketAssigneeStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
 const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(

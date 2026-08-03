@@ -39,7 +39,7 @@ const _showArticleStmt = db.prepare(`
     LEFT JOIN users u ON k.author_id = u.id
     WHERE k.id = ?
   `);
-const _editArticleStmt = db.prepare('SELECT * FROM knowledge_articles WHERE id = ?');
+const _editArticleStmt = db.prepare('SELECT id, title, content, category, tags, author_id, status, views, is_featured, created_at, updated_at FROM knowledge_articles WHERE id = ?');
 const _viewCountStmt = db.prepare('UPDATE knowledge_articles SET views = views + 1 WHERE id = ?');
 const _deleteArticleStmt = db.prepare('DELETE FROM knowledge_articles WHERE id = ?');
 
