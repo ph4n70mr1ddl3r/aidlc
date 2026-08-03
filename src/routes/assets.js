@@ -21,7 +21,10 @@ router.use(requireAuth, auditMiddleware);
 // Cached prepared statements for show/edit/delete routes (static SQL).
 // List/index queries build dynamic WHERE clauses so can't be cached.
 const _showStmt = db.prepare(`
-    SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name, u.email as assigned_email
+    SELECT a.id, a.asset_tag, a.name, a.category, a.manufacturer, a.model, a.serial_number,
+      a.status, a.condition_rating, a.purchase_date, a.purchase_price, a.warranty_expiry,
+      a.assigned_to, a.location, a.notes, a.created_at, a.updated_at,
+      u.first_name || ' ' || u.last_name as assigned_name, u.email as assigned_email
     FROM assets a
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE a.id = ?
@@ -92,7 +95,9 @@ router.get('/', (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
 
   const assets = selectQuery(db, `
-    SELECT a.*, u.first_name || ' ' || u.last_name as assigned_name
+    SELECT a.id, a.asset_tag, a.name, a.manufacturer, a.category, a.status, a.condition_rating,
+      a.location, a.assigned_to, a.created_at,
+      u.first_name || ' ' || u.last_name as assigned_name
     FROM assets a
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE ${whereClause}

@@ -34,7 +34,8 @@ router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showArticleStmt = db.prepare(`
-    SELECT k.*, u.first_name || ' ' || u.last_name as author_name
+    SELECT k.id, k.title, k.content, k.category, k.tags, k.author_id, k.status, k.views, k.is_featured, k.created_at, k.updated_at,
+      u.first_name || ' ' || u.last_name as author_name
     FROM knowledge_articles k
     LEFT JOIN users u ON k.author_id = u.id
     WHERE k.id = ?
@@ -186,7 +187,8 @@ router.get('/', (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
 
   const articles = selectQuery(db, `
-    SELECT k.*, u.first_name || ' ' || u.last_name as author_name
+    SELECT k.id, k.title, k.status, k.category, k.tags, k.author_id, k.views, k.is_featured, k.updated_at,
+      u.first_name || ' ' || u.last_name as author_name
     FROM knowledge_articles k
     LEFT JOIN users u ON k.author_id = u.id
     WHERE ${whereClause}

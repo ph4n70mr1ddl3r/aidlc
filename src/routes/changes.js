@@ -20,7 +20,10 @@ router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showChangeStmt = db.prepare(`
-    SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
+    SELECT c.id, c.title, c.description, c.change_type, c.status, c.priority,
+      c.scheduled_start, c.scheduled_end, c.actual_start, c.actual_end, c.impact,
+      c.assigned_to, c.created_at, c.updated_at,
+      u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE c.id = ?
@@ -93,7 +96,9 @@ router.get('/', (req, res) => {
   const totalPages = Math.ceil(total / limit) || 1;
 
   const changes = selectQuery(db, `
-    SELECT c.*, u.first_name || ' ' || u.last_name as assigned_name
+    SELECT c.id, c.title, c.change_type, c.status, c.priority, c.scheduled_start, c.scheduled_end,
+      c.created_at, c.assigned_to,
+      u.first_name || ' ' || u.last_name as assigned_name
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE ${whereClause}

@@ -27,7 +27,9 @@ router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showProjectStmt = db.prepare(`
-    SELECT p.*, u.first_name || ' ' || u.last_name as owner_name
+    SELECT p.id, p.name, p.description, p.status, p.priority, p.start_date, p.end_date,
+      p.budget, p.spent, p.progress, p.owner_id, p.created_at, p.updated_at,
+      u.first_name || ' ' || u.last_name as owner_name
     FROM projects p
     LEFT JOIN users u ON p.owner_id = u.id
     WHERE p.id = ?
@@ -137,7 +139,9 @@ router.get('/', (req, res) => {
   // Use LEFT JOIN with conditional aggregation instead of correlated subqueries
   // for task counts — avoids N+1 query pattern on large project lists.
   const projects = selectQuery(db, `
-    SELECT p.*, u.first_name || ' ' || u.last_name as owner_name,
+    SELECT p.id, p.name, p.description, p.status, p.priority, p.start_date, p.end_date,
+      p.budget, p.spent, p.progress, p.created_at, p.updated_at,
+      u.first_name || ' ' || u.last_name as owner_name,
       COALESCE(tCounts.task_count, 0) as task_count,
       COALESCE(tCounts.done_count, 0) as done_count
     FROM projects p
