@@ -5,7 +5,7 @@
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE } = require('./constants');
 let PAGE_SIZE;
 
-const ACRONYMS = new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IoT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVMe', 'OAuth', 'PCIe', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']);
+const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
 const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 

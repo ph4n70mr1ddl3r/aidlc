@@ -1,12 +1,53 @@
 # Code Review Notes
 
-**Date:** 2026-08-03
+**Date:** 2026-08-04
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (47+ consecutive "code review" hardening
+and the Jest suite. Prior review history (48+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+## Review cycle 2026-08-04 (forty-eighth pass)
+
+A forty-eighth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, all EJS views, `public/js`,
+and all 20 test files) found **no new SQL injection, IDOR, CSRF, XSS, auth, or
+error-leakage defects.** One correctness bug in `titleCase` was found and fixed:
+
+### Fixes applied
+- **`utils.js` — `titleCase` silently mangled mixed-case acronyms (LOW).** The
+  `ACRONYMS` set contained four mixed-case entries — `IoT`, `NVMe`, `OAuth`,
+  `PCIe` — but the lookup path in `titleCase` called `word.toUpperCase()` and
+  checked `ACRONYMS.has(upper)`. Since `"NVME" !== "NVMe"`, these four
+  acronyms were never matched: `titleCase('nvme_drive')` returned `"Nvme Drive"`,
+  `titleCase('oauth_token')` returned `"Oauth Token"`, etc. Normalized all four
+  set entries to their fully-uppercase forms (`'IOT'`, `'NVME'`, `'OAUTH'`,
+  `'PCIE'`) so the `.toUpperCase()` lookup succeeds. The function renders
+  acronyms in all-caps by design (the existing `SOP`, `API`, `DNS` entries
+  already behaved this way), so the observable output is correct; only the
+  previously-missing acronyms were affected.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink is server-sanitized;
+  login timing-oracle and all prior fixes intact.
+- `resetCachedStatements` exists on every route module and middleware module for
+  test isolation; all 20 test suites continue to pass.
+
+### Test coverage added
+- `tests/utils.test.js` — added a regression case asserting that
+  `titleCase('nvme_drive')`, `titleCase('oauth_token')`, `titleCase('pcie_slot')`,
+  and `titleCase('iot_device')` all render the acronym in all-caps, catching a
+  future regression where mixed-case set entries would silently break the
+  lookup again.
+
+### Tooling
+- `npx eslint .` — clean (exit 0).
+- `npx jest` — 407 passed / 407 total (baseline 405 + 2 new).
+- `.env.example` contains only placeholders; no secrets committed.
 
 ## Review cycle 2026-08-03 (forty-seventh pass)
 

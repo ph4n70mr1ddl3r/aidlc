@@ -539,6 +539,18 @@ describe('titleCase', () => {
   it('should not split words containing acronyms (SOPHISTICATED)', () => {
     expect(utils.titleCase('sophisticated_approach')).toBe('Sophisticated Approach');
   });
+
+  it('should preserve mixed-case acronyms when normalized to uppercase (NVMe, OAuth, PCIe, IoT)', () => {
+    // Regression: the ACRONYMS set previously contained mixed-case entries
+    // ("NVMe", "OAuth", "PCIe", "IoT") but titleCase looked them up via
+    // .toUpperCase(), so these acronyms were never recognized. Normalizing
+    // the set entries to uppercase fixes the lookup. titleCase renders
+    // acronyms in all-caps (the function's established convention).
+    expect(utils.titleCase('nvme_drive')).toBe('NVME Drive');
+    expect(utils.titleCase('oauth_token')).toBe('OAUTH Token');
+    expect(utils.titleCase('pcie_slot')).toBe('PCIE Slot');
+    expect(utils.titleCase('iot_device')).toBe('IOT Device');
+  });
 });
 
 /**
