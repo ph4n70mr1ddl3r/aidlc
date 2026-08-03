@@ -261,7 +261,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
-  const safeUsername = (typeof username === 'string' ? username : '').toLowerCase();
+  const safeUsername = username.toLowerCase();
   // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
   let clientIp = req.ip || 'unknown';
   if (typeof clientIp === 'string' && clientIp.startsWith('::ffff:')) {
