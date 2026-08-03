@@ -12,20 +12,12 @@ const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
 const crypto = require('crypto');
 // ---------------------------------------------------------------------------
-// Normalize NODE_ENV early — MUST happen BEFORE any module that depends on it
-// (constants.js evaluates SESSION_COOKIE_OPTIONS.secure against NODE_ENV at
-// require time). Default to 'development' so NODE_ENV is always defined.
-// The local variable is used to normalize the value before setting it on
-// process.env so all modules (including third-party dependencies) see a
-// consistent value regardless of require order.
+// Normalize NODE_ENV early so every module (including constants.js which
+// evaluates SESSION_COOKIE_OPTIONS.secure at require time) sees a consistent
+// value. Default to 'development' when unset. dotenv runs first above and may
+// have loaded a value from .env; this trims/lowercases whatever is present.
 // ---------------------------------------------------------------------------
-const NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
-Object.defineProperty(process.env, 'NODE_ENV', {
-  value: NODE_ENV,
-  writable: true,
-  configurable: true,
-  enumerable: true
-});
+process.env.NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
 
 const utilsModule = require('./utils');
 const { prefersJson } = utilsModule;
