@@ -778,6 +778,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     // Validate assignee inside the transaction so a concurrent deactivation
     // between the check and the UPDATE is not possible.
     const updateTask = db.transaction(() => {
+      const existingTask = _taskExistsStmt.get(taskId, projectId);
+      if (!existingTask) {
+        throw new Error('NOT_FOUND');
+      }
       if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
@@ -787,7 +791,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (due_date && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority || 'medium', safeTaskAssignee, safeDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      // Preserve existing priority when absent instead of silently defaulting to
+      // 'medium' — partial edits must not overwrite an existing stored priority.
+      const effectivePriority = priority || existingTask.priority;
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, safeTaskAssignee, safeDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -894,7 +901,14 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       req.flash('error', 'Invalid user');
       return res.redirect(`/projects/${id}`);
     }
-    const safeRole = VALID_MEMBER_ROLES.includes(role) ? role : 'member';
+    // Fail closed on absent or invalid role — silent fallback to 'member' would
+    // let a client omit the role field and get a privileged membership without
+    // explicit intent. Consistent with the fail-closed enum pattern used everywhere
+    // else in the route (e.g. task priority, ticket status, staff role).
+    if (!role || !VALID_MEMBER_ROLES.includes(role)) {
+      req.flash('error', 'Invalid role');
+      return res.redirect(`/projects/${id}`);
+    }
 
     // Verify project still exists, validate user is active, and add member in a
     // single transaction to avoid TOCTOU races: the project could be deleted or
@@ -906,7 +920,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       if (!isActiveUser(db, safeUserId)) {
         throw new Error('USER_NOT_AVAILABLE');
       }
-      return _memberInsertStmt.run(id, safeUserId, safeRole).changes;
+      return _memberInsertStmt.run(id, safeUserId, role).changes;
     });
     const changes = addMember();
 

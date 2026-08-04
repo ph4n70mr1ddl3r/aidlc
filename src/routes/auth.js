@@ -131,12 +131,23 @@ function purgeStaleEntries(map) {
   // and evict the next unlocked entry so the map doesn't grow unbounded.
   // We use a simple linear scan since the eviction only triggers when the
   // map is at capacity (10k entries) and stops as soon as one entry is freed.
+  let evicted = false;
   for (const [key, val] of map) {
     if (val && val.lockedUntil && Date.now() < val.lockedUntil) {
       continue;
     }
     map.delete(key);
+    evicted = true;
     break;
+  }
+  // When every entry is locked, force-evict the oldest entry regardless of lock
+  // state so the map can make room. Without this, a sustained attack that locks
+  // all entries would cause the map to grow past MAX_LOGIN_FAILURES_MAP_SIZE.
+  if (!evicted) {
+    const oldest = map.keys().next().value;
+    if (oldest !== undefined) {
+      map.delete(oldest);
+    }
   }
 }
 

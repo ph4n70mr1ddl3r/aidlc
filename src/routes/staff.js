@@ -140,20 +140,21 @@ router.get('/', (req, res) => {
   // employees' email/phone via the directory listing. Only privileged users
   // (admin/manager) and the user themselves receive those fields; everyone
   // else gets them zeroed out before rendering.
+  // Use a shallow copy per row to avoid mutating the DB query result objects
+  // in-place — a mutated row object could leak through a cache or middleware.
   const viewer = req.session.user;
   const viewerPrivileged = isPrivileged(viewer);
-  if (!viewerPrivileged) {
-    for (const s of staff) {
-      if (Number(s.id) !== Number(viewer.id)) {
-        s.email = null;
-        s.phone = null;
-        s.department = null;
+  const renderedStaff = viewerPrivileged
+    ? staff
+    : staff.map(s => {
+      if (Number(s.id) === Number(viewer.id)) {
+        return s;
       }
-    }
-  }
+      return { ...s, email: null, phone: null, department: null };
+    });
 
   res.render('pages/staff/index', {
-    title: 'Staff', staff, departments,
+    title: 'Staff', staff: renderedStaff, departments,
     filters: safeFilters(req.query, ['search', 'status', 'role', 'department']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
