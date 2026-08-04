@@ -170,6 +170,7 @@ const stmts = {
     ) ptDone ON ptDone.assigned_to = u.id
     WHERE u.is_active = 1
     ORDER BY resolved_tickets DESC
+    LIMIT 200
   `)
 };
 

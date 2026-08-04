@@ -351,6 +351,12 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 router.post('/logout', (req, res) => {
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
+  } else {
+    // Audit logout attempts with a missing session user — this can happen when
+    // a session cookie persists after the session store entry is deleted
+    // (e.g. manual store cleanup). The audit trail should still record the
+    // attempt even though we cannot attribute it to a specific user ID.
+    audit({ req, action: 'logout', entity: 'user', entityId: null, details: 'Logout with no active session' });
   }
   req.session.destroy((err) => {
     if (err) {

@@ -5,14 +5,65 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (49+ consecutive "code review" hardening
+and the Jest suite. Prior review history (53+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
-  Fiftieth pass performed and documented below (2026-08-04).
-  Fifty-first pass performed and documented below (2026-08-04).
-  Fifty-second pass performed and documented below (2026-08-04).
-  Fifty-third pass performed and documented below (2026-08-04).
+  Fifty-fourth pass performed and documented below (2026-08-04).
+  Fifty-fifth pass performed and documented below (2026-08-04).
+  Fifty-sixth pass performed and documented below (2026-08-04).
 
-## Review cycle 2026-08-04 (fifty-third pass)
+## Review cycle 2026-08-04 (fifty-sixth pass)
+
+A fifty-sixth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Three minor consistency and
+defense-in-depth gaps were found and fixed:
+
+### Fixes applied
+- **`src/routes/knowledge.js` — update and delete routes omitted `access_denied`
+  audit on authorization failure (LOW).** The edit GET route and the show GET
+  route both recorded an `access_denied` audit entry when a non-owner non-
+  privileged user attempted to edit or view a non-published article, but the
+  update PUT and delete DELETE routes silently redirected without auditing. A
+  compromised or misconfigured privileged account that was also an article
+  author could not be distinguished from an unauthorized access attempt in the
+  audit log. Added `req.audit('access_denied', 'knowledge_article', id, ...)`
+  to both the update and delete authorization guards, matching the existing
+  pattern on the edit GET and show GET routes.
+- **`src/routes/auth.js` — logout handler skipped audit when `session.user` was
+  absent (LOW).** The `/logout` POST handler only audited when
+  `req.session.user` existed; a persisted session cookie pointing to a
+  deleted/expired session store entry would log no audit trail. Added an
+  `else` branch that audits a `null`-entityId logout attempt so the trail
+  remains complete even when the session user object is missing.
+- **`src/routes/reports.js` — `staffPerformance` query lacked a row cap
+  (LOW, defense-in-depth).** All other aggregation queries in the app carry a
+  `LIMIT` (dashboard lists cap at 5–20 rows; ticket/staff/asset reports use
+  `selectQuery` with pagination). The staff performance report returned every
+  active user, which could be expensive on a large organization. Added
+  `LIMIT 200` to the `staffPerformance` statement, consistent with the
+  defense-in-depth convention applied to every other list/report query.
+- **`CODE_REVIEW.md` — duplicate "forty-sixth pass" entry removed.** A prior
+  review cycle dated 2026-07-21 was incorrectly labeled "forty-sixth pass"
+  (the same number was already used for the 2026-07-26 pass). Renamed the
+  earlier entry to "forty-second pass" to restore unique numbering.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 431 passed / 431 total (20 suites; no new tests — all changes are
+  behavioral consistency fixes covered by existing test suites).
+
+## Review cycle 2026-08-04 (fifty-fifth pass)
 
 A fifty-third independent pass (full re-read of all 11 route modules, both
 middleware modules, utils, constants, models, all EJS views,
@@ -385,9 +436,9 @@ found and fixed across all four assignee/owner resources:
 - `npx jest` — 405 passed / 405 total (baseline 391 + 14 new).
 - `.env.example` contains only placeholders; no secrets committed.
 
-## Review cycle 2026-07-21 (forty-sixth pass)
+## Review cycle 2026-07-21 (forty-second pass)
 
-A forty-sixth independent pass (full source re-read of all 11 route modules,
+A forty-second independent pass (full source re-read of all 11 route modules,
 both middleware modules, utils, constants, models, all EJS views, `public/js`,
 and all 18 test files) found **no new SQL injection, IDOR, CSRF, XSS, auth, or
 error-leakage defects.** Three defense-in-depth and operational-observability

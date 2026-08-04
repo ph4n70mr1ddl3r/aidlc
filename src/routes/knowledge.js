@@ -397,6 +397,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   }
   const isOwner = existing.author_id === req.session.user.id;
   if (!isOwner && !isPrivileged(req.session.user)) {
+    req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
   }
@@ -537,6 +538,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   }
   const isOwner = existing.author_id === req.session.user.id;
   if (!isOwner && !isPrivileged(req.session.user)) {
+    req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article');
     req.flash('error', 'You can only delete your own articles');
     return res.redirect('/knowledge');
   }
