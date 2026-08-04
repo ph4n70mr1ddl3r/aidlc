@@ -191,6 +191,38 @@ describe('ticket edit form — requester PII redacted for non-privileged users',
   });
 });
 
+describe('ticket show page — requester PII loaded then redacted for non-privileged viewers', () => {
+  const ticketsRouter = require('../src/routes/tickets');
+
+  beforeEach(() => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, ticket_number: 'TCK-1', title: 'Broken laptop', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com',
+      requester_department: 'IT', requester_phone: '555-123-4567'
+    });
+  });
+
+  it('keeps requester PII for privileged viewers (regression: dropped from show query)', () => {
+    const h = lastHandlerFor(ticketsRouter, 'get', '/:id');
+    const { renderArgs } = runHandler(h, {}, { id: '1' }, { id: 1, role: 'admin' });
+    expect(renderArgs).not.toBeNull();
+    expect(renderArgs.ticket.requester_email).toBe('bob@x.com');
+    expect(renderArgs.ticket.requester_department).toBe('IT');
+    expect(renderArgs.ticket.requester_phone).toBe('555-123-4567');
+  });
+
+  it('redacts requester email/phone/department for staff viewers', () => {
+    const h = lastHandlerFor(ticketsRouter, 'get', '/:id');
+    const { renderArgs } = runHandler(h, {}, { id: '1' }, { id: 2, role: 'staff' });
+    expect(renderArgs).not.toBeNull();
+    expect(renderArgs.ticket.requester_email).toBeUndefined();
+    expect(renderArgs.ticket.requester_phone).toBeUndefined();
+    expect(renderArgs.ticket.requester_department).toBeUndefined();
+  });
+});
+
 describe('phone fail-closed — a present-but-malformed value must be rejected, not stored as NULL', () => {
   it('tickets create rejects a garbage phone', () => {
     const ticketsRouter = require('../src/routes/tickets');

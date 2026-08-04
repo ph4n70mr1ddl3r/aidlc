@@ -57,7 +57,8 @@ const _assetByIdStmt = db.prepare('SELECT id, asset_tag, name FROM assets WHERE 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showTicketStmt = db.prepare(`
     SELECT t.id, t.ticket_number, t.title, t.description, t.category, t.priority, t.status,
-      t.requester_name, t.assigned_to, t.asset_id, t.due_date, t.resolved_at,
+      t.requester_name, t.requester_email, t.requester_department, t.requester_phone,
+      t.assigned_to, t.asset_id, t.due_date, t.resolved_at,
       t.resolution_notes, t.satisfaction_rating, t.created_at, t.updated_at,
       u.first_name || ' ' || u.last_name as assigned_name,
       a.name as asset_name, a.asset_tag
