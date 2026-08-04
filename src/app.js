@@ -460,6 +460,12 @@ app.get('/', (req, res) => {
 app.use((req, res) => {
   // Honor content negotiation so AJAX clients (Accept: application/json / */*)
   // receive JSON rather than an HTML 404 page, mirroring the error handler.
+  // This URL is served in two representations (HTML and JSON) selected by the
+  // Accept header, so advertise the variation for intermediaries (RFC 9110
+  // §12.5.3). Cache-Control: no-store already prevents caching, but Vary: Accept
+  // is the correct protocol behavior for a content-negotiated response and
+  // protects against any future proxy/CDN that keys on Vary.
+  res.set('Vary', 'Accept');
   if (prefersJson(req)) {
     return res.status(404).json({ error: 'Not found' });
   }
@@ -479,6 +485,12 @@ app.use((err, req, res, _next) => {
   // prefersJson() uses content negotiation so AJAX callers (Accept: */* or
   // application/json) correctly receive JSON instead of an HTML error page.
   const wantsJson = prefersJson(req);
+
+  // The error response is also content-negotiated (HTML vs JSON based on
+  // Accept), so advertise the variation (RFC 9110 §12.5.3) the same way the
+  // 404 handler does — correct protocol behavior for intermediaries even
+  // though Cache-Control: no-store is set on every response.
+  res.set('Vary', 'Accept');
 
   if (err.code === 'EBADCSRFTOKEN') {
     if (wantsJson) {

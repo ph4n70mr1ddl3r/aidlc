@@ -73,7 +73,11 @@ jest.mock('../src/utils', () => ({
   CONDITION_BADGE: {},
   CHANGE_TYPE_BADGE: {},
   ROLE_BADGE: {},
-  pruneAuditLog: jest.fn(() => 0)
+  pruneAuditLog: jest.fn(() => 0),
+  // Faithful passthrough of the real implementation so the app's 404/error
+  // content negotiation behaves correctly under HTTP-level tests (the real
+  // utils module is mocked here to avoid its DB-backed prepared statements).
+  prefersJson: jest.fn((req) => Boolean(req && typeof req.accepts === 'function') && req.accepts(['json', 'html']) === 'json')
 }));
 
 jest.mock('../src/constants', () => ({
@@ -128,5 +132,65 @@ describe('NODE_ENV handling', () => {
     // Jest sets NODE_ENV to 'test'; the app module reads and normalizes it
     // (trim + toLowerCase) at require time. The value should survive unchanged.
     expect(process.env.NODE_ENV).toBe('test');
+  });
+});
+
+describe('Content negotiation — Vary: Accept header', () => {
+  let server, port;
+
+  beforeAll((done) => {
+    // Boot the real (mocked-dependency) app on an ephemeral port so the actual
+    // 404/error handlers and Express middleware chain are exercised, mirroring
+    // the HTTP-level harness in tests/csrf.test.js.
+    server = app.listen(0, () => {
+      port = server.address().port;
+      done();
+    });
+  });
+
+  afterAll((done) => {
+    server.close(done);
+  });
+
+  it('serves an HTML 404 with Vary: Accept', async () => {
+    const res = await fetch(`http://localhost:${port}/no-such-page`, {
+      headers: { Accept: 'text/html' }
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get('vary')).toBe('Accept');
+  });
+
+  it('serves a JSON 404 with Vary: Accept', async () => {
+    const res = await fetch(`http://localhost:${port}/no-such-page`, {
+      headers: { Accept: 'application/json' }
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get('vary')).toBe('Accept');
+    const body = await res.json();
+    expect(body.error).toBe('Not found');
+  });
+
+  it('serves an HTML error response with Vary: Accept', async () => {
+    // A malformed JSON body trips express.json (err.status 400) before any
+    // route runs, exercising the app-level error handler end-to-end.
+    const res = await fetch(`http://localhost:${port}/health`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/html' },
+      body: '{invalid json'
+    });
+    expect(res.status).toBe(400);
+    expect(res.headers.get('vary')).toBe('Accept');
+  });
+
+  it('serves a JSON error response with Vary: Accept', async () => {
+    const res = await fetch(`http://localhost:${port}/health`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{invalid json'
+    });
+    expect(res.status).toBe(400);
+    expect(res.headers.get('vary')).toBe('Accept');
+    const body = await res.json();
+    expect(body.error).toBeDefined();
   });
 });

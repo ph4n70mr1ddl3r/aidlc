@@ -10,6 +10,43 @@ and the Jest suite. Prior review history (49+ consecutive "code review" hardenin
   Fiftieth pass performed and documented below (2026-08-04).
   Fifty-first pass performed and documented below (2026-08-04).
   Fifty-second pass performed and documented below (2026-08-04).
+  Fifty-third pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-04 (fifty-third pass)
+
+A fifty-third independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One HTTP-protocol correctness gap
+was found and fixed:
+
+### Fixes applied
+- **`src/app.js` — content-negotiated 404/error responses did not advertise
+  `Vary: Accept` (INFO, protocol correctness).** The 404 handler and the
+  app-level error handler both select between an HTML page and a JSON body
+  based on the `Accept` request header (via `prefersJson()`), but neither set
+  the `Vary: Accept` response header. Per RFC 9110 §12.5.3, a server whose
+  response representation varies on a request header MUST advertise it in
+  `Vary`; omitting it lets an intermediary that keys variants on `Vary` serve
+  the wrong representation (e.g. an HTML error page cached under one URL and
+  served to a JSON client). `Cache-Control: no-store` is set on every response
+  so no intermediary should cache these today, but `Vary: Accept` is the
+  correct protocol behavior for a content-negotiated endpoint and costs
+  nothing. Both handlers now `res.set('Vary', 'Accept')` before branching.
+  Added four HTTP-level regression tests in `tests/app.test.js` (boot the real
+  app on an ephemeral port via the existing mocked-dependency harness,
+  mirroring `tests/csrf.test.js`) covering the HTML and JSON variants of both
+  the 404 handler and the error handler (the latter exercised end-to-end via a
+  malformed-JSON body that trips `express.json` with `err.status = 400`).
+
+### False positives / non-defects reconfirmed
+- `Vary: Accept` on `res.set` is applied before the JSON/HTML branch in both
+  handlers, so both representations carry the header.
+- The error handler's `EBADCSRFTOKEN` redirect and the JSON/HTML error paths
+  all retain the header without interfering with status codes or flash
+  behavior.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 431 passed / 431 total (20 suites; 427 baseline + 4 new).
 
 ## Review cycle 2026-08-04 (fifty-second pass)
 
