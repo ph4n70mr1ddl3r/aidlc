@@ -39,7 +39,8 @@ const _showProjectStmt = db.prepare(`
 // tickets _assignedTicketsStmt LIMIT 10, assets _assetDropdownLimit).
 const _TASK_SHOW_LIMIT = 200;
 const _showTasksStmt = db.prepare(`
-    SELECT pt.*, u.first_name || ' ' || u.last_name as assigned_name
+    SELECT pt.id, pt.title, pt.status, pt.priority, pt.due_date,
+      u.first_name || ' ' || u.last_name as assigned_name
     FROM project_tasks pt
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
@@ -47,7 +48,7 @@ const _showTasksStmt = db.prepare(`
     LIMIT ${_TASK_SHOW_LIMIT}
   `);
 const _showMembersStmt = db.prepare(`
-    SELECT pm.*, u.first_name || ' ' || u.last_name as member_name, u.email, u.role as user_role
+    SELECT pm.id, pm.role, u.first_name || ' ' || u.last_name as member_name
     FROM project_members pm
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?

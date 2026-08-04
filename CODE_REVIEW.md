@@ -6,7 +6,60 @@
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (49+ consecutive "code review" hardening
-commits) was cross-checked to confirm findings were not already addressed.
+  commits) was cross-checked to confirm findings were not already addressed.
+  Fiftieth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-04 (fiftieth pass)
+
+A fiftieth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One functional regression
+introduced by the forty-ninth pass and four remaining over-fetch statements
+were found and fixed:
+
+### Fixes applied
+- **`src/routes/tickets.js` — `_showTicketStmt` no longer loads requester PII
+  (MEDIUM, functional regression).** The forty-ninth pass dropped
+  `requester_email`/`requester_department`/`requester_phone` from the show
+  statement on the grounds that "non-privileged viewers already have these
+  deleted client-side, so loading them is unnecessary." That reasoning ignored
+  the privileged (admin/manager) viewer: `views/pages/tickets/show.ejs`
+  renders a Requester section (email/phone/department) for every user, so after
+  the change the section displayed `-` for **everyone**, including the
+  privileged users who are supposed to see the details (and who still see them
+  on the edit form via `_editTicketStmt`). Restored the three columns to
+  `_showTicketStmt`; the existing show-route redaction (`delete` for
+  non-privileged users) preserves the access control. Added regression tests
+  covering both the privileged (PII present) and staff (PII redacted) cases.
+- **`src/routes/tickets.js` — `_showCommentsStmt` `tc.*` over-fetch (LOW,
+  defense-in-depth).** Replaced `SELECT tc.*` with the explicit
+  `ticket_comments` column list rendered by the show template (`id`,
+  `ticket_id`, `user_id`, `comment`, `is_internal`, `created_at`).
+- **`src/routes/projects.js` — `_showTasksStmt` `pt.*` over-fetch (LOW,
+  defense-in-depth).** Replaced with the columns the project show template
+  renders (`id`, `title`, `status`, `priority`, `due_date` + joined
+  `assigned_name`).
+- **`src/routes/projects.js` — `_showMembersStmt` `pm.*` over-fetch (LOW,
+  defense-in-depth).** Replaced `SELECT pm.*, u.email, u.role as user_role`
+  with only what the template renders (`pm.id`, `pm.role` + joined
+  `member_name`), dropping the unused `u.email`/`u.role` columns.
+- **`src/routes/staff.js` — `_assignedTasksStmt` `pt.*` over-fetch (LOW,
+  defense-in-depth).** Replaced with the columns the staff show template
+  renders (`id`, `title`, `due_date` + joined `project_name`, `project_id`).
+
+### False positives / non-defects reconfirmed
+- All remaining list/dashboard/report/show queries use explicit column lists;
+  the only two `SELECT *` references left in `src/` are explanatory comments in
+  `dashboard.js`.
+- Requester PII redaction on the ticket **edit** form and update-route
+  preservation on partial submissions still intact (covered by the existing
+  `partial_update.test.js` suites).
+- `public/js/app.js` reviewed: CSP-safe data-attribute handlers, double-submit
+  guard preserves the submitter's name/value via a hidden input before
+  disabling buttons, license-key reveal keeps the full key out of the DOM and
+  clears in-memory keys on `pagehide`/`visibilitychange` (bfcache mitigation),
+  and all mutating fetches carry the CSRF token. No client-side issues found.
 
 ## Review cycle 2026-08-04 (forty-ninth pass)
 

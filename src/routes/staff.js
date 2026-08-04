@@ -20,7 +20,7 @@ const _assignedTicketsStmt = db.prepare(`
     LIMIT 10
   `);
 const _assignedTasksStmt = db.prepare(`
-    SELECT pt.*, p.name as project_name, p.id as project_id
+    SELECT pt.id, pt.title, pt.due_date, p.name as project_name, p.id as project_id
     FROM project_tasks pt
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'

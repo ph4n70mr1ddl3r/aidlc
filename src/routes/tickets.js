@@ -68,7 +68,8 @@ const _showTicketStmt = db.prepare(`
     WHERE t.id = ?
   `);
 const _showCommentsStmt = db.prepare(`
-    SELECT tc.*, u.first_name || ' ' || u.last_name as author_name, u.role as author_role
+    SELECT tc.id, tc.ticket_id, tc.user_id, tc.comment, tc.is_internal, tc.created_at,
+      u.first_name || ' ' || u.last_name as author_name, u.role as author_role
     FROM ticket_comments tc
     LEFT JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
