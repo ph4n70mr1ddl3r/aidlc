@@ -29,7 +29,7 @@ Enterprise IT Department Management Application — a full-stack web app for man
 
 ## Prerequisites
 
-- Node.js >= 18
+- Node.js >= 20
 - npm >= 8
 
 ## Quick Start

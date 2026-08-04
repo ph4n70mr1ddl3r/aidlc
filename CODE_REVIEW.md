@@ -8,6 +8,71 @@
 and the Jest suite. Prior review history (49+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
   Fiftieth pass performed and documented below (2026-08-04).
+  Fifty-first pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-04 (fifty-first pass)
+
+A fifty-first independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One defense-in-depth gap in the
+seed production guard and two toolchain/documentation drift items were found
+and fixed:
+
+### Fixes applied
+- **`src/seed.js` — `runSeed()` production guard could be bypassed by a
+  case/whitespace `NODE_ENV` variant (LOW, defense-in-depth).** `app.js`
+  normalizes `NODE_ENV` via `trim().toLowerCase()` and then treats any
+  `'production'` match as production; the seed CLI block does the same for its
+  own early-exit. But the `runSeed()` guard itself compared the **raw**
+  `process.env.NODE_ENV === 'production'`, so a programmatic caller running
+  with `NODE_ENV="Production "` or `"PRODUCTION"` would have slipped past the
+  guard and wiped all data in an environment the rest of the app treats as
+  production. `runSeed()` now normalizes the same way (trim + lowercase)
+  before the `SEED_DANGER` check. Added a regression test asserting the guard
+  fires under `NODE_ENV="Production "` and that no rows are written.
+- **`package.json` / `README.md` — stale Node engine floor (INFO, toolchain
+  alignment).** `engines.node` and the README prerequisites claimed `>= 18`,
+  while `.nvmrc` pins `20` and the CI matrix tests `[20, 22]`; Node 18 reached
+  end-of-life on 2025-04-30 and is no longer covered by CI. Aligned
+  `engines.node` to `>=20.0.0` and README to `Node.js >= 20` so the declared
+  support floor matches what is actually tested.
+- **`.github/workflows/ci.yml` — deprecated `npm audit --production` flag
+  (INFO, CI hygiene).** npm 9+ warns `Use --omit=dev instead`. Switched the
+  CI audit step to `npm audit --omit=dev --audit-level=high` — identical
+  semantics (production deps only) without the deprecation warning.
+
+### False positives / non-defects reconfirmed
+- SQL injection: every dynamic query goes through `quoteColumn()`/`buildFilters`
+  (column + operator allowlists), `safeSort()` (keyed map, fail-closed default),
+  and `addSearch()` (identifier validation + LIKE escaping with `ESCAPE '\'`);
+  all values are bound parameters. Verified all 40 `req.query.*` read sites
+  route through `safeQueryValue()` and the list routes through
+  `buildFilters()`/`addSearch()`.
+- XSS: the only `<%-` sink is `knowledge/show.ejs` `renderedContent`, which is
+  `sanitize-html` output from the `marked` pipeline (`input` tag disallowed,
+  `rel="noopener noreferrer"` forced on links); every other user-controlled
+  value renders via `<%=`. All `<%-` occurrences otherwise are EJS partial
+  includes.
+- IDOR/TOCTOU: ownership/role rechecks remain inside `db.transaction` for
+  ticket update/comment/status/satisfaction/delete, project task/member CRUD,
+  article update/delete, and staff deactivation; `canAccessResource()` still
+  gates ticket visibility inside the write transactions.
+- Auth/session: login does a constant-time bcrypt compare against a
+  pre-computed dummy hash before any length-based or lockout early-return
+  (no username enumeration via timing); per-account + per-IP lockout maps are
+  bounded and purged; sessions regenerate on login/profile/password change;
+  `password_changed_at` change invalidates existing sessions.
+- Request hardening: TRACE/TRACK dropped at the edge, `query parser: simple`
+  (no `qs` prototype-pollution surface), method-override only honors the POST
+  body `_method`, doubleCsrf with a separate secret, `rejectHppArrays()`
+  fail-closed on every write route, `express-rate-limit` v8 with per-account
+  comment keying.
+- Requester PII redaction (show + edit forms) and dashboard/license/audit
+  queries use explicit column lists — no `SELECT *` remains in `src/`.
+- `npm audit` (full, including dev deps) — **exit 0**, 0 vulnerabilities.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 423 passed / 423 total (20 suites).
 
 ## Review cycle 2026-08-04 (fiftieth pass)
 

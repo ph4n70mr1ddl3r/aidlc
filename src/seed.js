@@ -322,7 +322,14 @@ function runSeed(db, adminPw, staffPw) {
   // Guard against accidental data destruction — audit_log and all tables are
   // wiped in a single transaction. Requiring an explicit env var prevents
   // someone from running `npm run seed` on production by mistake.
-  if (process.env.NODE_ENV === 'production' && process.env.SEED_DANGER !== '1') {
+  // Normalize NODE_ENV the same way app.js does (trim + lowercase) so the
+  // guard cannot be bypassed by case/whitespace variants (e.g. NODE_ENV="Production "):
+  // app.js treats those as production, so seeding must refuse to run too —
+  // otherwise a programmatic caller could wipe data in an environment the rest
+  // of the app considers production. The CLI path below already normalizes for
+  // its own early-exit; this keeps runSeed() itself safe for any caller.
+  const env = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
+  if (env === 'production' && process.env.SEED_DANGER !== '1') {
     throw new Error(
       'Seeding in production is disabled. Set SEED_DANGER=1 to override.'
     );

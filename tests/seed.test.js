@@ -97,4 +97,28 @@ describe('seed.js runSeed', () => {
     expect(bcrypt.compareSync('Admin123!', user.password)).toBe(true);
     db.close();
   });
+
+  it('refuses to seed under a case/whitespace NODE_ENV variant of production', () => {
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    db.exec(getSchemaSQL());
+
+    const { runSeed } = require('../src/seed');
+    const original = process.env.NODE_ENV;
+    try {
+      // app.js normalizes NODE_ENV via trim().toLowerCase(); the runSeed guard
+      // must do the same so "Production " (or "PRODUCTION") cannot bypass it.
+      process.env.NODE_ENV = 'Production ';
+      expect(() => runSeed(db, 'Admin123!', 'Staff123!')).toThrow(/Seeding in production is disabled/);
+      // Nothing may be written when the guard fires.
+      expect(db.prepare('SELECT COUNT(*) as c FROM users').get().c).toBe(0);
+    } finally {
+      if (original === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = original;
+      }
+    }
+    db.close();
+  });
 });
