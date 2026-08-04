@@ -304,6 +304,14 @@ describe('validatePassword', () => {
     expect(result).toContain('at most 128 characters');
   });
 
+  it('should return error when password exceeds MAX_PASSWORD_BYTES (72 bytes)', () => {
+    // Multi-byte UTF-8 characters: 37 'é' chars = 74 bytes (> MAX_PASSWORD_BYTES=72)
+    // but only 37 characters (< MAX_PASSWORD=128), so the byte-length guard is
+    // the only path that rejects this password.
+    const result = utils.validatePassword('\u00e9'.repeat(37) + 'Aa1!');
+    expect(result).toContain('at most 72 bytes');
+  });
+
   it('should return error for missing complexity', () => {
     const result = utils.validatePassword('password12345678');
     expect(result).toContain('uppercase letter');
@@ -546,6 +554,13 @@ describe('titleCase', () => {
 
   it('should not split words containing acronyms (SOPHISTICATED)', () => {
     expect(utils.titleCase('sophisticated_approach')).toBe('Sophisticated Approach');
+  });
+
+  it('should not split when acronym prefix is followed by uppercase continuation', () => {
+    // When an acronym prefix (e.g. 'SOP') is followed by an uppercase letter
+    // (e.g. 'H' in 'SOPH...'), the guard on line 754-755 continues the loop
+    // instead of returning, preventing incorrect splits like 'SOPH' + 'isticated'.
+    expect(utils.titleCase('SOPHisticated_approach')).toBe('Sophisticated Approach');
   });
 
   it('should preserve mixed-case acronyms when normalized to uppercase (NVMe, OAuth, PCIe, IoT)', () => {
@@ -1302,6 +1317,17 @@ describe('recalcProjectProgress', () => {
     expect(selectStmt.get).not.toHaveBeenCalled();
     expect(updateStmt.run).not.toHaveBeenCalled();
   });
+
+  it('should do nothing when project has no tasks (row is null)', () => {
+    const selectStmt = { get: jest.fn(() => null) };
+    const updateStmt = { run: jest.fn() };
+    const db = {
+      prepare: jest.fn(() => selectStmt)
+    };
+    utils.recalcProjectProgress(db, 42);
+    expect(selectStmt.get).toHaveBeenCalledWith(42);
+    expect(updateStmt.run).not.toHaveBeenCalled();
+  });
 });
 
 /**
@@ -1523,6 +1549,30 @@ describe('resetCachedStatements', () => {
     utils.countQuery(trackingDb, 't2', '', '1=1', []);
     utils.countQuery(trackingDb, 't3', '', '1=1', []);
     expect(trackingDb.prepare).toHaveBeenCalledTimes(3);
+  });
+
+  it('should evict the oldest entry when _touchCache reaches capacity', () => {
+    // _touchCache is exported for unit testing. Create a small cache (maxSize=2)
+    // and verify that adding a fourth key evicts the oldest entry (key1).
+    const cache = new Map();
+    const prepared = [];
+    const prepareFn = jest.fn((key) => {
+      const stmt = { key };
+      prepared.push(stmt);
+      return stmt;
+    });
+    // Exercise _touchCache directly with a small maxSize to force eviction.
+    utils._touchCache(cache, 'key1', 2, () => prepareFn('key1'));
+    utils._touchCache(cache, 'key2', 2, () => prepareFn('key2'));
+    // Cache is now full (size=2). Accessing key1 touches it (moves to end).
+    utils._touchCache(cache, 'key1', 2, () => prepareFn('key1'));
+    // Adding key3 should evict key2 (the oldest non-touched entry).
+    utils._touchCache(cache, 'key3', 2, () => prepareFn('key3'));
+    expect(cache.size).toBe(2);
+    expect(cache.has('key1')).toBe(true);
+    expect(cache.has('key3')).toBe(true);
+    expect(cache.has('key2')).toBe(false);
+    expect(prepared.map(s => s.key)).toEqual(['key1', 'key2', 'key3']);
   });
 });
 

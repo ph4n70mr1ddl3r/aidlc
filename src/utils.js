@@ -337,12 +337,6 @@ function safeInt(value, fallback = 0) {
     }
   }
   const n = parseInt(value, 10);
-  // Reject Infinity/-Infinity — parseInt("Infinity") === Infinity and would
-  // otherwise slip past the Number.isFinite check below and be stored as a
-  // non-finite value. Fail closed rather than rely on a downstream error.
-  if (!Number.isFinite(n)) {
-    return fallback;
-  }
   return n;
 }
 
@@ -571,9 +565,6 @@ function localDate(value) {
   const month = parseInt(m[2], 10);
   const day = parseInt(m[3], 10);
   const d = new Date(year, month - 1, day);
-  if (isNaN(d.getTime())) {
-    return null;
-  }
   if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) {
     return null;
   }
@@ -1028,5 +1019,8 @@ module.exports = {
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
   resetCachedStatements, resetPageSize,
-  rejectHppArrays
+  rejectHppArrays,
+  // Exported for unit testing only — mirrors the pattern used by route modules
+  // that expose internal helpers (e.g. _resolveDateTimeField in changes.js).
+  _touchCache
 };

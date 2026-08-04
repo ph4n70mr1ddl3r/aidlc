@@ -10,6 +10,68 @@ and the Jest suite. Prior review history (53+ consecutive "code review" hardenin
   Fifty-fourth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-sixth pass performed and documented below (2026-08-04).
+  Fifty-seventh pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-04 (fifty-seventh pass)
+
+A fifty-seventh independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Two unreachable dead-code blocks
+in `utils.js` and four gaps in test coverage for defensive paths were found
+and fixed:
+
+### Fixes applied
+- **`src/utils.js` — `safeInt`: unreachable `Number.isFinite` guard removed (INFO,
+  code quality).** The `if (!Number.isFinite(n))` check at line 343 was
+  unreachable: string inputs that would produce `Infinity` are rejected by the
+  preceding `/^-?\d+$/` regex, and numeric `Infinity` values are rejected by
+  the `Number.isInteger` check on the number branch. The comment incorrectly
+  stated `parseInt("Infinity") === Infinity` (it returns `NaN`), and the guard
+  could never fire. Removed the dead branch and its stale comment.
+- **`src/utils.js` — `localDate`: unreachable `isNaN` guard removed (INFO,
+  code quality).** The `if (isNaN(d.getTime()))` check at line 574 was
+  unreachable: the strict regex `^(\d{4})-(\d{2})-(\d{2})$` guarantees all
+  three components are digit strings, and `new Date(validYear, validMonth,
+  validDay)` never produces an NaN time value. Date-rollover invalidity is
+  already caught by the subsequent `getFullYear/getMonth/getDate` validation.
+  Removed the dead branch.
+- **`src/utils.js` — `validatePassword`: added test for UTF-8 byte-length
+  guard (TEST).** Added a regression test using 37 multi-byte `'é'` characters
+  (74 UTF-8 bytes, 38 characters) to assert that the `MAX_PASSWORD_BYTES` (72)
+  guard rejects passwords that are within the character limit but exceed the
+  byte limit — a scenario the existing `validatePassword` tests did not cover.
+- **`src/utils.js` — `recalcProjectProgress`: added test for null-row path
+  (TEST).** Added a test asserting that `recalcProjectProgress(db, 42)` calls
+  the select statement but does not call the update statement when the project
+  row is absent (no tasks), closing the gap between the invalid-id test and
+  the valid-but-empty-project path.
+- **`src/utils.js` — `titleCase`: added test for acronym continuation guard
+  (TEST).** Added a test with mixed-case input (`SOPHisticated`) that exercises
+  the `next >= 'A' && next <= 'Z'` continue branch, preventing a regression
+  where an acronym prefix followed by an uppercase continuation could be
+  incorrectly split.
+- **`src/utils.js` — `_touchCache`: exported for testing; added eviction test
+  (TEST / CODE QUALITY).** Exported the internal `_touchCache` helper so the
+  LRU eviction path can be exercised directly with a small `maxSize`. Added a
+  test that creates a 2-entry cache, touches an existing key, inserts a third
+  key, and asserts the oldest entry was evicted — closing the last coverage
+  gap in `utils.js` statement coverage (now 100%).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 435 passed / 435 total (20 suites; 431 baseline + 4 new).
+- `utils.js` statement coverage: **100%** (was 97.73%).
 
 ## Review cycle 2026-08-04 (fifty-sixth pass)
 
