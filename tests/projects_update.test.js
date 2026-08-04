@@ -28,7 +28,7 @@ jest.mock('../src/routes/dashboard', () => {
 function runHandler(handler, body, params = {}) {
   const redirectCalls = [];
   const flashCalls = [];
-  const req = { body, params, method: 'PUT', session: { user: { id: 1, role: 'admin' } }, flash: (type, msg) => flashCalls.push([type, msg]) };
+  const req = { body, params, method: 'PUT', session: { user: { id: 1, role: 'admin' } }, flash: (type, msg) => flashCalls.push([type, msg]), audit: jest.fn() };
   const res = {
     redirect: (to) => {
       redirectCalls.push(to);
@@ -85,5 +85,65 @@ describe('Projects update handler — no double-redirect regression', () => {
     } finally {
       console.error = origError;
     }
+  });
+});
+
+describe('Projects task assignee — fail closed on malformed id (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  it('rejects a malformed assigned_to on task full-update instead of silently wiping it', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Fix bug', status: 'in_progress', priority: 'medium', assigned_to: 'abc'
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('Invalid assignee');
+    expect(stmt.run).not.toHaveBeenCalled();
+  });
+
+  it('rejects a malformed assigned_to on task add instead of creating the task unassigned', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'post', '/:id/tasks');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Fix bug', status: 'todo', priority: 'medium', assigned_to: '3.5'
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('Invalid assignee');
+    expect(stmt.run).not.toHaveBeenCalled();
+  });
+
+  it('still allows an empty assigned_to to mean "unassign" on task full-update', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Fix bug', status: 'in_progress', priority: 'medium', assigned_to: ''
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid assignee')).toBe(false);
+    expect(stmt.run).toHaveBeenCalled();
+  });
+
+  it('still allows an empty assigned_to to mean "unassigned" on task add', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'post', '/:id/tasks');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Fix bug', status: 'todo', priority: 'medium', assigned_to: ''
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid assignee')).toBe(false);
+    expect(stmt.run).toHaveBeenCalled();
   });
 });

@@ -9,6 +9,42 @@ and the Jest suite. Prior review history (49+ consecutive "code review" hardenin
   commits) was cross-checked to confirm findings were not already addressed.
   Fiftieth pass performed and documented below (2026-08-04).
   Fifty-first pass performed and documented below (2026-08-04).
+  Fifty-second pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-04 (fifty-second pass)
+
+A fifty-second independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One data-integrity inconsistency
+in the project task routes was found and fixed:
+
+### Fixes applied
+- **`src/routes/projects.js` — task add / task full-update routes silently
+  coerced a present-but-malformed `assigned_to` to NULL (LOW, data
+  integrity).** `tickets.js`, `changes.js`, and `assets.js` all reject a
+  present-but-malformed assignee id (`"abc"`, `"3.5"`, an HPP array) with an
+  `Invalid assignee` error via `isPresentInvalidId()` before falling through to
+  `safeId()`. The two project **task** write routes skipped that guard, so a
+  typo'd/tampered `assigned_to` was silently coerced to NULL: a task update
+  wiped the existing assignment with no user feedback, and a task add created
+  the task unassigned. The same routes already fail closed on `due_date`
+  (`INVALID_DUE_DATE`), and `projects.js` already guards `owner_id` on
+  project create/update — making this an internal inconsistency as well.
+  Added the `isPresentInvalidId()` guard (flash `Invalid assignee`, redirect
+  back to the project) to both the task add (`POST /:id/tasks`) and task
+  full-update (`PUT /:projectId/tasks/:taskId`) routes. Empty/absent values
+  still legitimately mean "unassigned". Added four regression tests in
+  `tests/projects_update.test.js` covering the reject-on-create, reject-on-
+  update, and empty-value-still-unassigns paths.
+
+### False positives / non-defects reconfirmed
+- The other relational-id write sites are already fail-closed: `owner_id`
+  (projects create/update), `user_id` (member add via `!safeUserId`),
+  `assigned_to`/`asset_id` (tickets create/update), `assigned_to`
+  (changes create/update), `assigned_to` (assets create/update).
+- `npm run lint` — clean (exit 0).
+- `npm test` — 427 passed / 427 total (20 suites).
 
 ## Review cycle 2026-08-04 (fifty-first pass)
 

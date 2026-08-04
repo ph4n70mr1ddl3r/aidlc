@@ -592,6 +592,16 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     return res.redirect(`/projects/${projectId}`);
   }
 
+  // Fail closed on a present-but-malformed assignee id ("abc", "3.5", an HPP
+  // array) instead of silently coercing it to NULL via safeId, which would
+  // create the task unassigned with no user feedback. Absent/empty values
+  // legitimately mean "unassigned" (mirrors the owner validation on this
+  // resource and the assignee validation in tickets/changes/assets).
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
+    return res.redirect(`/projects/${projectId}`);
+  }
+
   try {
     const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
     // Verify project still exists, validate assignee, and insert the task in a
@@ -750,6 +760,16 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   }
   if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid task priority');
+    return res.redirect(`/projects/${projectId}`);
+  }
+
+  // Fail closed on a present-but-malformed assignee id ("abc", "3.5", an HPP
+  // array) instead of silently coercing it to NULL via safeId, which would
+  // wipe an existing assignment with no user feedback. Absent/empty values
+  // legitimately mean "unassigned" (mirrors the owner validation on this
+  // resource and the assignee validation in tickets/changes/assets).
+  if (isPresentInvalidId(assigned_to)) {
+    req.flash('error', 'Invalid assignee');
     return res.redirect(`/projects/${projectId}`);
   }
 
