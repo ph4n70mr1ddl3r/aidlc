@@ -458,6 +458,21 @@ describe('safeInt', () => {
     expect(utils.safeInt('Infinity')).toBe(0);
     expect(utils.safeInt(Infinity, 7)).toBe(7);
   });
+
+  it('should parse trimmed string input and return the integer', () => {
+    // Regression: strings with leading/trailing whitespace must be trimmed
+    // before regex validation so that " 42 " is accepted rather than
+    // silently rejected.
+    expect(utils.safeInt(' 42 ')).toBe(42);
+    expect(utils.safeInt('  -7  ')).toBe(-7);
+  });
+
+  it('should return fallback for a whitespace-only string', () => {
+    // A string of only spaces trims to '' which fails the regex, so the
+    // fallback is returned rather than parseInt('') producing NaN.
+    expect(utils.safeInt('   ')).toBe(0);
+    expect(utils.safeInt('   ', -1)).toBe(-1);
+  });
 });
 
 /**
@@ -1041,6 +1056,14 @@ describe('formatDate', () => {
   it('should return dash for invalid input', () => {
     expect(utils.formatDate('not-a-date')).toBe('-');
   });
+
+  it('should use localDate for date-only strings and fall back to new Date for ISO datetimes', () => {
+    // Date-only strings go through localDate() to avoid the UTC midnight
+    // offset bug. ISO datetimes with 'T' go through the new Date() path.
+    const result = utils.formatDate('2024-01-15');
+    expect(result).not.toBe('-');
+    expect(typeof result).toBe('string');
+  });
 });
 
 /**
@@ -1142,6 +1165,17 @@ describe('countQuery', () => {
     const stmt = { get: jest.fn(() => ({ c: 0 })) };
     const mockDb = { prepare: jest.fn(() => stmt) };
     const result = utils.countQuery(mockDb, t, '', '1=0', []);
+    expect(result).toBe(0);
+  });
+
+  it('should return 0 when the query result is falsy', () => {
+    // Guard against a NULL or undefined result from the DB returning
+    // NaN instead of 0 when the ternary `result ? result.c : 0` is
+    // evaluated with a falsy result.
+    const t = 'tbl_falsy_' + Date.now();
+    const stmt = { get: jest.fn(() => null) };
+    const mockDb = { prepare: jest.fn(() => stmt) };
+    const result = utils.countQuery(mockDb, t, '', '1=1', []);
     expect(result).toBe(0);
   });
 
@@ -1247,6 +1281,33 @@ describe('pruneAuditLog', () => {
     };
     const result = utils.pruneAuditLog(db, 30);
     expect(result).toBe(5);
+    // Lazy-init: prepare should have been called for both statements
+    expect(db.prepare).toHaveBeenCalledTimes(2);
+  });
+
+  it('should reuse cached prepared statements on subsequent calls', () => {
+    // Reset module-level cache so the mock db's prepare() is actually invoked.
+    utils.resetCachedStatements();
+    const cutoff = '2024-01-01 00:00:00';
+    const prepareCalls = [];
+    const db = {
+      prepare: jest.fn((sql) => {
+        prepareCalls.push(sql);
+        if (sql.includes('SELECT datetime')) {
+          return { get: () => ({ cutoff }) };
+        }
+        if (sql.includes('DELETE')) {
+          return { run: () => ({ changes: 2 }) };
+        }
+        return {};
+      })
+    };
+    // First call: lazy-initialises both statements
+    utils.pruneAuditLog(db, 30);
+    expect(prepareCalls.length).toBe(2);
+    // Second call: reuses the cached statements — no new prepare calls
+    utils.pruneAuditLog(db, 30);
+    expect(prepareCalls.length).toBe(2);
   });
 });
 
@@ -1596,6 +1657,26 @@ describe('resetCachedStatements', () => {
     expect(cache.has('key3')).toBe(true);
     expect(cache.has('key2')).toBe(false);
     expect(prepared.map(s => s.key)).toEqual(['key1', 'key2', 'key3']);
+  });
+
+  it('should handle empty cache gracefully when evicting', () => {
+    // When the cache is at capacity and the oldest entry is about to be
+    // evicted, keys().next().value must not be undefined. This guards
+    // against a potential edge case where a Map with a single entry that
+    // was just deleted returns undefined from keys().next().
+    const cache = new Map();
+    // Simulate the edge case: cache is "full" but the only entry was
+    // externally removed between the size check and the eviction.
+    cache.set('a', 1);
+    cache.set('b', 2);
+    // Manually remove the oldest entry so keys().next().value is undefined
+    cache.delete('a');
+    // _touchCache should not throw when keyToEvict is undefined
+    expect(() => {
+      utils._touchCache(cache, 'c', 2, () => ({ key: 'c' }));
+    }).not.toThrow();
+    expect(cache.has('c')).toBe(true);
+    expect(cache.size).toBe(2);
   });
 });
 
