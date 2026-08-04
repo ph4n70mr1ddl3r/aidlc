@@ -915,6 +915,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     } else {
       req.audit('create', 'project_member', null, `Added member #${safeUserId} to project #${id}`);
       req.flash('success', 'Member added');
+      invalidateDashboardCache();
     }
   } catch (err) {
     if (err.message === 'PROJECT_NOT_FOUND') {
@@ -969,6 +970,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
     } else {
       req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
       req.flash('success', 'Member removed');
+      invalidateDashboardCache();
     }
   } catch (err) {
     if (err.message === 'PROJECT_NOT_FOUND') {
