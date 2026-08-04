@@ -690,7 +690,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 // all tickets, while regular staff can only comment on tickets assigned to
 // them (enforced inside the transaction below).
 // Re-checks ticket visibility inside the transaction via canAccessResource()
-// (line ~650) so that staff cannot comment on tickets they shouldn't see.
+// (line ~739) so that staff cannot comment on tickets they shouldn't see.
 router.post('/:id/comments', commentRateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {

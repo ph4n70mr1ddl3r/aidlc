@@ -477,6 +477,29 @@ describe('isValidUrl', () => {
 });
 
 /**
+ * Test for isValidAssetTag function
+ */
+describe('isValidAssetTag', () => {
+  it('should accept valid asset tags (AST-XXX with 3+ digits)', () => {
+    expect(utils.isValidAssetTag('AST-001')).toBe(true);
+    expect(utils.isValidAssetTag('AST-999')).toBe(true);
+    expect(utils.isValidAssetTag('AST-123')).toBe(true);
+    expect(utils.isValidAssetTag('AST-1000')).toBe(true);
+  });
+
+  it('should reject malformed asset tags', () => {
+    expect(utils.isValidAssetTag('AST-01')).toBe(false);
+    expect(utils.isValidAssetTag('ast-001')).toBe(false);
+    expect(utils.isValidAssetTag('XYZ-001')).toBe(false);
+    expect(utils.isValidAssetTag('AST001')).toBe(false);
+    expect(utils.isValidAssetTag('')).toBe(false);
+    expect(utils.isValidAssetTag(null)).toBe(false);
+    expect(utils.isValidAssetTag(undefined)).toBe(false);
+    expect(utils.isValidAssetTag(123)).toBe(false);
+  });
+});
+
+/**
  * Test for isValidDate function
  */
 describe('isValidDate', () => {
