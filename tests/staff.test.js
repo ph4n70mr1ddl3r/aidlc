@@ -308,4 +308,43 @@ describe('staff bcrypt error handling', () => {
     expect(redirectedTo).toBe('/staff/new');
     expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
   });
+
+  async function runStaffResetPassword(id, body) {
+    const staffRouterForTest = require('../src/routes/staff');
+    const h = lastHandlerFor(staffRouterForTest, 'put', '/:id/reset-password');
+    let redirectedTo = null;
+    const flashCalls = [];
+    let caughtErr = null;
+    const req = {
+      body,
+      params: { id: String(id) },
+      method: 'PUT',
+      session: { user: { id: 1, role: 'admin' } },
+      flash: (type, msg) => flashCalls.push([type, msg])
+    };
+    const res = {
+      redirect: (to) => {
+        redirectedTo = to;
+      },
+      render: () => {},
+      status: () => res,
+      json: () => {}
+    };
+    await h(req, res, (err) => {
+      caughtErr = err;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    return { redirectedTo, flashCalls, caughtErr };
+  }
+
+  it('reset-password route surfaces a flash error when bcrypt.compare throws', async () => {
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockRejectedValueOnce(new Error('bcrypt OOM'));
+    const { redirectedTo, flashCalls } = await runStaffResetPassword(2, {
+      new_password: 'NewP@ssw0rd!Aa1',
+      current_password: 'Admin123!@#'
+    });
+    expect(redirectedTo).toBe('/staff/2');
+    expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
+  });
 });

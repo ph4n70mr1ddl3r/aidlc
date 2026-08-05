@@ -662,7 +662,15 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect(`/staff/${id}`);
   }
   const adminUser = _adminPasswordStmt.get(req.session.user.id);
-  if (!adminUser || !(await bcrypt.compare(current_password, adminUser.password))) {
+  let passwordMatch;
+  try {
+    passwordMatch = await bcrypt.compare(current_password, adminUser && adminUser.password ? adminUser.password : '');
+  } catch (err) {
+    console.error('bcrypt.compare error during staff password reset:', err.message);
+    req.flash('error', 'An error occurred. Please try again.');
+    return res.redirect(`/staff/${id}`);
+  }
+  if (!adminUser || !passwordMatch) {
     req.flash('error', 'Your current password is incorrect');
     return res.redirect(`/staff/${id}`);
   }
