@@ -337,14 +337,30 @@ describe('staff bcrypt error handling', () => {
     return { redirectedTo, flashCalls, caughtErr };
   }
 
-  it('reset-password route surfaces a flash error when bcrypt.compare throws', async () => {
+  it('reset-password short-circuits when the admin session user row is missing (no bcrypt.compare timing leak)', async () => {
+    // Regression: when _adminPasswordStmt.get(req.session.user.id) returns
+    // undefined (e.g. the session references a deleted admin row), the handler
+    // must reject BEFORE calling bcrypt.compare. Previously it passed '' to
+    // bcrypt.compare, leaking whether the admin row exists via timing.
     bcrypt.compare.mockClear();
-    bcrypt.compare.mockRejectedValueOnce(new Error('bcrypt OOM'));
-    const { redirectedTo, flashCalls } = await runStaffResetPassword(2, {
-      new_password: 'NewP@ssw0rd!Aa1',
-      current_password: 'Admin123!@#'
+    const dbMock = jest.requireMock('../src/models/database');
+    const origPrepare = dbMock.prepare;
+    dbMock.prepare = jest.fn((sql) => {
+      if (sql.includes('SELECT password FROM users WHERE id')) {
+        return { get: () => null };
+      }
+      return origPrepare(sql);
     });
-    expect(redirectedTo).toBe('/staff/2');
-    expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
+    try {
+      const { redirectedTo, flashCalls } = await runStaffResetPassword(2, {
+        new_password: 'NewP@ssw0rd!Aa1',
+        current_password: 'Admin123!@#'
+      });
+      expect(redirectedTo).toBe('/staff/2');
+      expect(flashCalls.some(([t, m]) => t === 'error' && /incorrect/i.test(m))).toBe(true);
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    } finally {
+      dbMock.prepare = origPrepare;
+    }
   });
 });

@@ -662,15 +662,23 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect(`/staff/${id}`);
   }
   const adminUser = _adminPasswordStmt.get(req.session.user.id);
+  // Short-circuit when the admin row is missing so bcrypt.compare is never
+  // invoked with a zero-length hash (which would leak timing information about
+  // whether the admin row exists). Mirrors the early-return pattern used in
+  // the profile password-change route in auth.js.
+  if (!adminUser) {
+    req.flash('error', 'Your current password is incorrect');
+    return res.redirect(`/staff/${id}`);
+  }
   let passwordMatch;
   try {
-    passwordMatch = await bcrypt.compare(current_password, adminUser && adminUser.password ? adminUser.password : '');
+    passwordMatch = await bcrypt.compare(current_password, adminUser.password);
   } catch (err) {
     console.error('bcrypt.compare error during staff password reset:', err.message);
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect(`/staff/${id}`);
   }
-  if (!adminUser || !passwordMatch) {
+  if (!passwordMatch) {
     req.flash('error', 'Your current password is incorrect');
     return res.redirect(`/staff/${id}`);
   }
