@@ -98,6 +98,13 @@ const MAX_AUDIT_DETAILS = 4000; // max length of audit log details to prevent un
 // Bcrypt
 const BCRYPT_SALT_ROUNDS = 12;
 
+// Badge severity mappings — centralized so templates and utils share the same
+// source of truth. Kept in constants.js (not utils.js) because they are static
+// data mappings, not utility functions.
+const CONDITION_BADGE = Object.freeze({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
+const CHANGE_TYPE_BADGE = Object.freeze({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
+const ROLE_BADGE = Object.freeze({ admin: 'critical', manager: 'high', staff: 'medium' });
+
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
 const DEFAULT_PAGE_SIZE = 25;     // default rows per page (overridable via PAGE_SIZE env, max MAX_PAGE_SIZE)
@@ -118,5 +125,6 @@ module.exports = {
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_SEARCH, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSET_TAG_RE,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
-  BCRYPT_SALT_ROUNDS
+  BCRYPT_SALT_ROUNDS,
+  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE
 };

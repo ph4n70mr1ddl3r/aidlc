@@ -1,7 +1,8 @@
 const { describe, it, expect } = require('@jest/globals');
 
 const utils = require('../src/utils');
-const { MAX_PAGE_SIZE } = require('../src/constants');
+const constants = require('../src/constants');
+const { MAX_PAGE_SIZE } = constants;
 
 /**
  * Test for paginate function
@@ -1554,19 +1555,19 @@ describe('escapeHtml', () => {
 });
 
 /**
- * Test for badge constants
+ * Test for badge constants (now exported from constants.js)
  */
 describe('badge constants', () => {
   it('CONDITION_BADGE maps all known conditions', () => {
-    expect(utils.CONDITION_BADGE).toEqual({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
+    expect(constants.CONDITION_BADGE).toEqual({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
   });
 
   it('CHANGE_TYPE_BADGE maps all known change types', () => {
-    expect(utils.CHANGE_TYPE_BADGE).toEqual({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
+    expect(constants.CHANGE_TYPE_BADGE).toEqual({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
   });
 
   it('ROLE_BADGE maps all known roles', () => {
-    expect(utils.ROLE_BADGE).toEqual({ admin: 'critical', manager: 'high', staff: 'medium' });
+    expect(constants.ROLE_BADGE).toEqual({ admin: 'critical', manager: 'high', staff: 'medium' });
   });
 });
 

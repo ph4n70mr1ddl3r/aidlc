@@ -5,13 +5,55 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (58+ consecutive "code review" hardening
+and the Jest suite. Prior review history (59+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Fifty-ninth pass performed and documented below (2026-08-05).
   Fifty-eighth pass performed and documented below (2026-08-05).
   Fifty-seventh pass performed and documented below (2026-08-04).
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-05 (fifty-ninth pass)
+
+A fifty-ninth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One code-organization improvement
+and two regression tests were added:
+
+### Fixes applied
+- **`src/constants.js` — badge severity mappings moved from `utils.js` (INFO, code quality).**
+  The three static badge-constant maps (`CONDITION_BADGE`, `CHANGE_TYPE_BADGE`,
+  `ROLE_BADGE`) were moved from `src/utils.js` into `src/constants.js` alongside
+  the other static data mappings (enums, max-lengths, session config). They are
+  imported by `utils.js` (so the `badgeClass()` caller-surface is unchanged) and
+  by `app.js` directly (so `res.locals` wiring continues to work). This is a
+  pure reorganization — no behavioral change — but it places badge data in the
+  same module as all other badge-adjacent constants, making the constants module
+  the single source of truth for every constant the templates consume via
+  `res.locals.CONSTANTS`.
+- **`tests/audit.test.js` — invalid-action and invalid-entity regression tests
+  added (TEST).** Two regression cases assert that `audit()` silently drops
+  requests with an invalid `action` or an invalid `entity` without inserting a
+  row into `audit_log`. This guards against a future caller passing a typo'd
+  string that would otherwise bypass the allowlist check and store garbage in
+  the audit trail.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 463 passed / 463 total (21 suites; +2 new regression tests).
+- `utils.js` statement coverage: **100%**; branch coverage: **100%**.
 
 ## Review cycle 2026-08-05 (fifty-eighth pass)
 

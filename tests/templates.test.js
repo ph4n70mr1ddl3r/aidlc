@@ -36,9 +36,9 @@ function baseLocals() {
     titleCase: utils.titleCase,
     isPrivileged: utils.isPrivileged,
     badgeClass: utils.badgeClass,
-    CONDITION_BADGE: utils.CONDITION_BADGE,
-    CHANGE_TYPE_BADGE: utils.CHANGE_TYPE_BADGE,
-    ROLE_BADGE: utils.ROLE_BADGE,
+    CONDITION_BADGE: constants.CONDITION_BADGE,
+    CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
+    ROLE_BADGE: constants.ROLE_BADGE,
     CONSTANTS: constants
   };
 }

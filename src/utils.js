@@ -2,7 +2,7 @@
  * Shared utilities for routes
  */
 
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = require('./constants');
 let PAGE_SIZE;
 
 const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
@@ -936,16 +936,14 @@ function isPrivileged(user) {
   return user != null && (user.role === 'admin' || user.role === 'manager');
 }
 
-// Map a value to a badge severity class using a whitelist mapping.
-// Falls back to the value itself if not found in the mapping.
-// Used in EJS templates to keep badge severity logic DRY.
+/**
+ * Map a value to a badge severity class using a whitelist mapping.
+ * Falls back to the value itself if not found in the mapping.
+ * Used in EJS templates to keep badge severity logic DRY.
+ */
 function badgeClass(value, mapping) {
   return (mapping && Object.hasOwn(mapping, value)) ? mapping[value] : value;
 }
-
-const CONDITION_BADGE = Object.freeze({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
-const CHANGE_TYPE_BADGE = Object.freeze({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
-const ROLE_BADGE = Object.freeze({ admin: 'critical', manager: 'high', staff: 'medium' });
 
 /**
  * Reset module-level cached prepared statements (test use only).

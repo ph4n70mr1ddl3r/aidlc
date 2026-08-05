@@ -72,6 +72,18 @@ describe('audit middleware', () => {
     expect(row.entity_type).toBe('audit_log');
     expect(row.details).toBe('Viewed audit log');
   });
+
+  it('rejects an invalid action without inserting a row', () => {
+    expect(() => audit({ req: null, action: 'foo', entity: 'ticket', entityId: 10, details: 'x' })).not.toThrow();
+    const row = db.prepare("SELECT id FROM audit_log WHERE action = 'foo'").get();
+    expect(row).toBeUndefined();
+  });
+
+  it('rejects an invalid entity type without inserting a row', () => {
+    expect(() => audit({ req: null, action: 'read', entity: 'foo', entityId: 10, details: 'x' })).not.toThrow();
+    const row = db.prepare("SELECT id FROM audit_log WHERE entity_type = 'foo'").get();
+    expect(row).toBeUndefined();
+  });
 });
 
 describe('audit route safeFilters sort preservation', () => {

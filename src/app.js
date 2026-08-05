@@ -22,7 +22,7 @@ process.env.NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE
 const utilsModule = require('./utils');
 const { prefersJson } = utilsModule;
 const constantsModule = require('./constants');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE } = constantsModule;
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
 
 // ---------------------------------------------------------------------------
@@ -390,9 +390,9 @@ app.use((req, res, next) => {
   res.locals.titleCase = utilsModule.titleCase;
   res.locals.isPrivileged = utilsModule.isPrivileged;
   res.locals.badgeClass = utilsModule.badgeClass;
-  res.locals.CONDITION_BADGE = utilsModule.CONDITION_BADGE;
-  res.locals.CHANGE_TYPE_BADGE = utilsModule.CHANGE_TYPE_BADGE;
-  res.locals.ROLE_BADGE = utilsModule.ROLE_BADGE;
+  res.locals.CONDITION_BADGE = CONDITION_BADGE;
+  res.locals.CHANGE_TYPE_BADGE = CHANGE_TYPE_BADGE;
+  res.locals.ROLE_BADGE = ROLE_BADGE;
   // Reuse the hoisted CONSTANTS object shared across all requests.
   res.locals.CONSTANTS = TEMPLATE_CONSTANTS;
   next();
