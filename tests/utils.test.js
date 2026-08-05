@@ -1687,24 +1687,24 @@ describe('resetCachedStatements', () => {
     expect(prepared.map(s => s.key)).toEqual(['key1', 'key2', 'key3']);
   });
 
-  it('should handle empty cache gracefully when evicting', () => {
-    // When the cache is at capacity and the oldest entry is about to be
-    // evicted, keys().next().value must not be undefined. This guards
-    // against a potential edge case where a Map with a single entry that
-    // was just deleted returns undefined from keys().next().
+  it('should evict the oldest entry and handle the theoretical edge case', () => {
+    // The cache-eviction path in _touchCache relies on cache.keys().next().value
+    // being defined when cache.size >= maxSize. With valid maxSize (> 0) this
+    // is guaranteed — a non-empty Map always has at least one key. The previous
+    // undefined-guard was removed as unreachable dead code (same pattern as
+    // safeInt / localDate guards removed in prior review passes). This test
+    // confirms _touchCache evicts correctly when the cache is at capacity.
     const cache = new Map();
-    // Simulate the edge case: cache is "full" but the only entry was
-    // externally removed between the size check and the eviction.
-    cache.set('a', 1);
-    cache.set('b', 2);
-    // Manually remove the oldest entry so keys().next().value is undefined
-    cache.delete('a');
-    // _touchCache should not throw when keyToEvict is undefined
-    expect(() => {
-      utils._touchCache(cache, 'c', 2, () => ({ key: 'c' }));
-    }).not.toThrow();
-    expect(cache.has('c')).toBe(true);
+    utils._touchCache(cache, 'key1', 2, () => ({ key: 'key1' }));
+    utils._touchCache(cache, 'key2', 2, () => ({ key: 'key2' }));
+    // Touch key1 to move it to the end (most recently used)
+    utils._touchCache(cache, 'key1', 2, () => ({ key: 'key1' }));
+    // Adding key3 should evict key2 (now the oldest entry).
+    utils._touchCache(cache, 'key3', 2, () => ({ key: 'key3' }));
     expect(cache.size).toBe(2);
+    expect(cache.has('key1')).toBe(true);
+    expect(cache.has('key3')).toBe(true);
+    expect(cache.has('key2')).toBe(false);
   });
 });
 

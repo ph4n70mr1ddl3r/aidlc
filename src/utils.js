@@ -836,9 +836,11 @@ function _touchCache(cache, key, maxSize, prepareFn) {
     stmt = prepareFn();
     if (cache.size >= maxSize) {
       const keyToEvict = cache.keys().next().value;
-      if (keyToEvict !== undefined) {
-        cache.delete(keyToEvict);
-      }
+      // keyToEvict is always defined here because cache.size >= maxSize > 0
+      // guarantees the Map is non-empty. This mirror's the unreachable
+      // undefined-guard pattern removed from safeInt and localDate in prior
+      // review passes — the branch could never fire with valid maxSize values.
+      cache.delete(keyToEvict);
     }
     cache.set(key, stmt);
   }

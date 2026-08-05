@@ -1,16 +1,64 @@
 # Code Review Notes
 
-**Date:** 2026-08-04
+**Date:** 2026-08-05
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (53+ consecutive "code review" hardening
+and the Jest suite. Prior review history (58+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
-  Fifty-fourth pass performed and documented below (2026-08-04).
-  Fifty-fifth pass performed and documented below (2026-08-04).
-  Fifty-sixth pass performed and documented below (2026-08-04).
+  Fifty-eighth pass performed and documented below (2026-08-05).
   Fifty-seventh pass performed and documented below (2026-08-04).
+  Fifty-sixth pass performed and documented below (2026-08-04).
+  Fifty-fifth pass performed and documented below (2026-08-04).
+  Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-05 (fifty-eighth pass)
+
+A fifty-eighth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One unreachable dead-code branch
+in `_touchCache` was found and fixed, and the associated test was corrected to
+properly exercise the eviction path:
+
+### Fixes applied
+- **`src/utils.js` — `_touchCache`: unreachable `keyToEvict !== undefined` guard
+  removed (INFO, code quality).** The `if (keyToEvict !== undefined)` check at
+  line 839 was unreachable: the guard is entered only when `cache.size >= maxSize`.
+  Both callers pass `maxSize = 500` (`_COUNT_CACHE_MAX` / `_SELECT_CACHE_MAX`), so
+  entering the branch requires `cache.size >= 500`, which means the Map is
+  non-empty and `cache.keys().next().value` is always a defined key. The comment
+  incorrectly described a TOCTOU-race scenario ("externally removed between the
+  size check and the eviction") that cannot occur in single-threaded Node.js.
+  Removed the dead branch, consistent with the identical `Number.isFinite` guard
+  removed from `safeInt` and the `isNaN` guard removed from `localDate` in prior
+  review passes.
+- **`tests/utils.test.js` — `_touchCache` eviction test corrected (TEST).** The
+  existing test named "should handle empty cache gracefully when evicting" did
+  not actually enter the eviction branch: it created a 2-entry cache, deleted
+  one entry (size=1), then called `_touchCache` with `maxSize=2`, so
+  `cache.size >= maxSize` was `1 >= 2` = false and the eviction code was never
+  reached. Replaced with a correct eviction regression test that fills the cache
+  to capacity, touches an existing key to rotate it to the tail, inserts a third
+  key, and asserts the oldest non-touched entry was evicted — closing the gap
+  and restoring 100% branch coverage on `utils.js`.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 461 passed / 461 total (21 suites; no new tests — one existing
+  test was rewritten for correctness).
+- `utils.js` statement coverage: **100%**; branch coverage: **100%** (was 99.69%).
 
 ## Review cycle 2026-08-04 (fifty-seventh pass)
 
