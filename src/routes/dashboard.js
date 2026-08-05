@@ -237,6 +237,11 @@ function getDashboardData(user) {
  */
 function invalidateDashboardCache() {
   dashboardCache = { timestamp: 0, data: null };
+  // Reset the refreshing flag so a concurrent or subsequent invalidation
+  // does not leave the cache in a half-refreshed state where the next
+  // request serves EMPTY_DEFAULTS indefinitely instead of triggering a
+  // fresh aggregation query.
+  _dashboardRefreshing = false;
 }
 
 router.get('/', (req, res) => {

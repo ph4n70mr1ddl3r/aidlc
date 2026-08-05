@@ -931,7 +931,7 @@ function prefersJson(req) {
  * @returns {boolean}
  */
 function isPrivileged(user) {
-  return Boolean(user && (user.role === 'admin' || user.role === 'manager'));
+  return user != null && (user.role === 'admin' || user.role === 'manager');
 }
 
 // Map a value to a badge severity class using a whitelist mapping.
