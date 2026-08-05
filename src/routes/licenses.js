@@ -53,9 +53,6 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   if (usedPresent && !Number.isFinite(used)) {
     return { seats, used, error: 'Invalid used seats' };
   }
-  if (!Number.isFinite(seats) || !Number.isFinite(used)) {
-    return { seats, used, error: 'Invalid seat count' };
-  }
   const finalSeats = Math.max(1, seats);
   const finalUsed = used;
   if (finalUsed < 0) {

@@ -389,6 +389,13 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge');
   }
 
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+
   // Authorization check
   const existing = _editArticleStmt.get(id);
   if (!existing) {
@@ -400,13 +407,6 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You can only edit your own articles');
     return res.redirect(`/knowledge/${id}`);
-  }
-
-  // Fail closed on HTTP parameter pollution: reject array payloads.
-  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
-  if (hppErrors.length > 0) {
-    req.flash('error', 'Invalid request parameters');
-    return res.redirect(`/knowledge/${id}/edit`);
   }
 
   const title = trim(safeQueryValue(req.body.title));
