@@ -10,11 +10,13 @@ beforeEach(function () {
   // Clear cached modules so they re-load against the in-memory DB
   delete require.cache[require.resolve('../src/models/database')];
   delete require.cache[require.resolve('../src/utils')];
+  delete require.cache[require.resolve('../src/routes/staff')];
 });
 afterEach(function () {
   process.env.DB_PATH = originalDbPath;
   delete require.cache[require.resolve('../src/models/database')];
   delete require.cache[require.resolve('../src/utils')];
+  delete require.cache[require.resolve('../src/routes/staff')];
 });
 
 jest.mock('../src/middleware/auth', () => ({
@@ -34,6 +36,16 @@ jest.mock('../src/routes/dashboard', () => ({
 jest.mock('../src/routes/auth', () => ({
   clearLoginFailure: jest.fn(),
   clearIpLoginFailure: jest.fn()
+}));
+
+// Mock bcryptjs so tests can control hash/compare behavior (e.g. force errors).
+// The seedUsers helper still uses hashSync directly (not via the mock) because
+// it runs before the routes module is required and its own bcrypt import is
+// unaffected by this mock.
+jest.mock('bcryptjs', () => ({
+  hash: jest.fn(() => Promise.resolve('hashed')),
+  hashSync: jest.fn(() => 'hashed-sync'),
+  compare: jest.fn(() => Promise.resolve(true))
 }));
 
 // Re-require db fresh each time via a helper to pick up the in-memory DB
@@ -248,5 +260,52 @@ describe('staff show route PII redaction', () => {
     // Null/undefined should return false
     expect(isPrivileged(null)).toBe(false);
     expect(isPrivileged(undefined)).toBe(false);
+  });
+});
+
+describe('staff bcrypt error handling', () => {
+  // Regression: bcrypt.hash in the create and password-reset routes previously
+  // ran outside the try block, so an unexpected bcrypt error (OOM, etc.) would
+  // surface as a generic 500 instead of a user-facing flash message.
+  const bcrypt = require('bcryptjs');
+  const { lastHandlerFor } = require('./helpers');
+
+  async function runStaffCreate(body) {
+    const staffRouterForTest = require('../src/routes/staff');
+    const h = lastHandlerFor(staffRouterForTest, 'post', '/');
+    let redirectedTo = null;
+    const flashCalls = [];
+    let caughtErr = null;
+    const req = {
+      body,
+      params: {},
+      method: 'POST',
+      session: { user: { id: 1, role: 'admin' } },
+      flash: (type, msg) => flashCalls.push([type, msg])
+    };
+    const res = {
+      redirect: (to) => {
+        redirectedTo = to;
+      },
+      render: () => {},
+      status: () => res,
+      json: () => {}
+    };
+    await h(req, res, (err) => {
+      caughtErr = err;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    return { redirectedTo, flashCalls, caughtErr };
+  }
+
+  it('create route surfaces a flash error when bcrypt.hash throws', async () => {
+    bcrypt.hash.mockClear();
+    bcrypt.hash.mockRejectedValueOnce(new Error('bcrypt OOM'));
+    const { redirectedTo, flashCalls } = await runStaffCreate({
+      username: 'newuser', password: 'Passw0rd!Aa1', email: 'new@example.com',
+      first_name: 'New', last_name: 'User', role: 'staff'
+    });
+    expect(redirectedTo).toBe('/staff/new');
+    expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
   });
 });

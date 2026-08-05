@@ -575,12 +575,27 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     return res.redirect('/login');
   }
 
-  if (!(await bcrypt.compare(current_password, user.password))) {
+  let passwordMatch;
+  try {
+    passwordMatch = await bcrypt.compare(current_password, user.password);
+  } catch (err) {
+    console.error('bcrypt.compare error during password change:', err.message);
+    req.flash('error', 'An error occurred. Please try again.');
+    return res.redirect('/profile');
+  }
+  if (!passwordMatch) {
     req.flash('error', 'Current password is incorrect');
     return res.redirect('/profile');
   }
 
-  const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
+  let hashed;
+  try {
+    hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
+  } catch (err) {
+    console.error('bcrypt.hash error during password change:', err.message);
+    req.flash('error', 'An error occurred. Please try again.');
+    return res.redirect('/profile');
+  }
   _getPasswordUpdateStmt().run(hashed, req.session.user.id);
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });

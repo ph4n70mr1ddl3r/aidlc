@@ -157,3 +157,63 @@ describe('login success path (regression: password column dropped from SELECT)',
     expect(redirectedTo).toBe('/login');
   });
 });
+
+describe('profile password change bcrypt error handling', () => {
+  // Regression: bcrypt.compare / bcrypt.hash previously ran outside any
+  // try-catch in the profile-password-change route, so an unexpected error
+  // (OOM, malformed stored hash) would surface as a generic 500 instead of a
+  // user-facing flash message. The bcrypt calls are now wrapped so the handler
+  // returns a flash error and redirects back to /profile.
+
+  async function runPasswordChange(body) {
+    const authRouterForTest = require('../src/routes/auth');
+    const h = lastHandlerFor(authRouterForTest, 'put', '/profile/password');
+    let redirectedTo = null;
+    const flashCalls = [];
+    let caughtErr = null;
+    const req = {
+      body,
+      params: {},
+      method: 'PUT',
+      session: { user: { id: 1, role: 'admin', password_changed_at: null } },
+      flash: (type, msg) => flashCalls.push([type, msg])
+    };
+    const res = {
+      redirect: (to) => {
+        redirectedTo = to;
+      },
+      render: () => {},
+      status: () => res,
+      json: () => {}
+    };
+    await h(req, res, (err) => {
+      caughtErr = err;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    return { redirectedTo, flashCalls, caughtErr };
+  }
+
+  it('redirects to /profile with a flash error when bcrypt.compare throws', async () => {
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockRejectedValueOnce(new Error('bcrypt OOM'));
+    mockStmt.get.mockReturnValueOnce({ password: '$2a$12$existinghash' });
+    const { redirectedTo, flashCalls } = await runPasswordChange({
+      current_password: 'old', new_password: 'NewP@ssw0rd!Aa1', confirm_password: 'NewP@ssw0rd!Aa1'
+    });
+    expect(redirectedTo).toBe('/profile');
+    expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
+  });
+
+  it('redirects to /profile with a flash error when bcrypt.hash throws', async () => {
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockResolvedValue(true);
+    bcrypt.hash.mockClear();
+    bcrypt.hash.mockRejectedValueOnce(new Error('bcrypt OOM'));
+    mockStmt.get.mockReturnValueOnce({ password: '$2a$12$existinghash' });
+    const { redirectedTo, flashCalls } = await runPasswordChange({
+      current_password: 'old', new_password: 'NewP@ssw0rd!Aa1', confirm_password: 'NewP@ssw0rd!Aa1'
+    });
+    expect(redirectedTo).toBe('/profile');
+    expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
+  });
+});

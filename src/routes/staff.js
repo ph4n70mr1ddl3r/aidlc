@@ -270,8 +270,8 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
 
-  const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
   try {
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
     const result = _staffInsertStmt.run(
       username.substring(0, MAX_USERNAME),
       hashedPassword,
@@ -680,8 +680,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect('/staff');
   }
 
-  const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
   try {
+    const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
     const result = _passwordResetStmt.run(hashed, id);
     if (result.changes === 0) {
       console.error('Staff password reset: user not found (possibly deleted concurrently)');

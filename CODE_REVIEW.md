@@ -5,14 +5,70 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (59+ consecutive "code review" hardening
+and the Jest suite. Prior review history (60+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixtieth pass performed and documented below (2026-08-05).
   Fifty-ninth pass performed and documented below (2026-08-05).
   Fifty-eighth pass performed and documented below (2026-08-05).
   Fifty-seventh pass performed and documented below (2026-08-04).
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-05 (sixtieth pass)
+
+A sixtieth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Three places where bcrypt
+operations ran outside their protective try-catch blocks were found and fixed:
+
+### Fixes applied
+- **`src/routes/staff.js` — create route `bcrypt.hash` outside try block (LOW, error handling).**
+  The `POST /` handler called `bcrypt.hash(password, BCRYPT_SALT_ROUNDS)` before
+  the `try` block, so an unexpected bcrypt error (OOM, malformed input) would
+  surface as a generic 500 via `asyncHandler` instead of a user-facing flash
+  message. Moved the hash call inside the `try` block so DB errors and bcrypt
+  errors are both caught and redirected with a consistent `"Error creating staff
+  member. Please try again."` flash.
+- **`src/routes/staff.js` — password-reset route `bcrypt.hash` outside try block (LOW, error handling).**
+  Same pattern on `PUT /:id/reset-password`: `bcrypt.hash(new_password, ...)`
+  ran before the `try` block. Moved it inside so bcrypt errors are caught and
+  redirected with `"Error resetting password. Please try again."`.
+- **`src/routes/auth.js` — profile password change `bcrypt.compare` / `bcrypt.hash`
+  outside try-catch (LOW, error handling).** The `PUT /profile/password` handler
+  called `bcrypt.compare(current_password, user.password)` and
+  `bcrypt.hash(new_password, ...)` without wrapping them in try-catch. A bcrypt
+  error would propagate through `asyncHandler` to Express's error handler and
+  render a generic error page. Wrapped both calls in explicit try-catch blocks
+  that redirect to `/profile` with `"An error occurred. Please try again."`.
+
+### Tests added
+- **`tests/auth-login.test.js`** — two regression tests asserting that
+  `PUT /profile/password` redirects to `/profile` with an error flash when
+  `bcrypt.compare` or `bcrypt.hash` rejects.
+- **`tests/staff.test.js`** — one regression test asserting that
+  `POST /` redirects to `/staff/new` with an error flash when `bcrypt.hash`
+  rejects on staff creation. Also added `jest.mock('bcryptjs', ...)` at the
+  top of the file so bcrypt errors can be forced in tests, and added
+  `delete require.cache[require.resolve('../src/routes/staff')]` to
+  `beforeEach`/`afterEach` so the in-memory DB reset propagates to the staff
+  route module.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm run lint` — clean (exit 0).
+- `npm test` — 466 passed / 466 total (21 suites; +3 new regression tests).
+- `utils.js` statement coverage: **100%**; branch coverage: **100%**.
 
 ## Review cycle 2026-08-05 (fifty-ninth pass)
 
