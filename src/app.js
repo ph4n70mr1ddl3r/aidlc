@@ -186,11 +186,24 @@ app.set('view cache', process.env.NODE_ENV === 'production');
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
-// Only honor method override from the POST form body (`_method` field). This
-// prevents a query-string or header `_method=DELETE` override from silently
-// upgrading a CSRF-exempt GET into a state-changing request (defense-in-depth
-// on top of doubleCsrf, which validates after method-override runs).
-app.use(methodOverride((req) => (req.body && typeof req.body._method === 'string' ? req.body._method : undefined)));
+// Only honor method override from POST requests. Prefer the body `_method`
+// field (the CSRF-safe channel used by the JSON/tests path), then fall back to
+// the query string — every EJS form in the app encodes the override in the
+// action URL (e.g. action="/licenses/1?_method=PUT"). A GET/HEAD request can
+// never be upgraded to a state-changing method via the query string (the
+// hardening that motivated the body-only restriction), and doubleCsrf runs
+// after method-override so any overridden request still requires a valid CSRF
+// token. Array values from HTTP parameter pollution are rejected (not a
+// string → no override), failing closed to the POST route.
+app.use(methodOverride((req) => {
+  if (req.body && typeof req.body._method === 'string') {
+    return req.body._method;
+  }
+  if (req.method === 'POST' && typeof req.query._method === 'string') {
+    return req.query._method;
+  }
+  return undefined;
+}));
 // Static assets with cache-control in production
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0,
@@ -346,6 +359,7 @@ const TEMPLATE_CONSTANTS = Object.freeze({
   MAX_PHONE: constantsModule.MAX_PHONE,
   MAX_ADDRESS: constantsModule.MAX_ADDRESS,
   MAX_PASSWORD: constantsModule.MAX_PASSWORD,
+  MIN_PASSWORD: constantsModule.MIN_PASSWORD,
   MAX_USERNAME: constantsModule.MAX_USERNAME,
   MAX_ASSET_TAG: constantsModule.MAX_ASSET_TAG,
   MAX_SEARCH: constantsModule.MAX_SEARCH,

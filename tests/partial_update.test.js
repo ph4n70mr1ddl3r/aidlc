@@ -90,6 +90,33 @@ describe('assets update — partial submission preserves stored fields', () => {
     const params = lastRunParams();
     expect(params[7]).toBe('fair');
   });
+
+  it('rejects a partial update that would persist warranty expiry before purchase date', () => {
+    // Stored: purchase=2024-01-01, warranty=2026-06-01. The edit moves
+    // purchase_date forward to 2027-01-01 and leaves warranty_expiry empty. The
+    // submitted-only range check (sWarranty is null) passes, but the RESOLVED
+    // warranty is still the stored 2026-06-01 → warranty < purchase must be
+    // rejected (mirrors the vendors/changes/projects resolved-value fix).
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      status: 'in_use', condition_rating: 'good', purchase_price: 100,
+      purchase_date: '2024-01-01', warranty_expiry: '2026-06-01', assigned_to: null,
+      manufacturer: null, model: null, serial_number: null, location: null, notes: null
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use',
+      purchase_date: '2027-01-01'
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/assets/1/edit']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('Warranty expiry must be on or after purchase date');
+    expect(stmt.run).not.toHaveBeenCalled();
+  });
 });
 
 describe('licenses update — partial submission preserves stored optional fields', () => {

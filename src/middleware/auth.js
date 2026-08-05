@@ -1,6 +1,7 @@
 const db = require('../models/database');
 const { isPrivileged } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } = require('../constants');
+const { audit } = require('./audit');
 
 const _authVerifiedSym = Symbol('authVerified');
 
@@ -109,6 +110,18 @@ function requireRole(...roles) {
       return;
     }
     if (!roles.includes(req.session.user.role)) {
+      // Record the denied attempt in the audit log — a compromised staff
+      // account probing privileged endpoints (or any user exploring admin-only
+      // routes) leaves the same trail the knowledge.js authorization guards
+      // record via req.audit('access_denied', ...). audit() never throws, so a
+      // logging failure cannot break the redirect.
+      audit({
+        req,
+        action: 'access_denied',
+        entity: 'user',
+        entityId: req.session.user.id,
+        details: `Role "${req.session.user.role}" not authorized for ${req.method} ${req.originalUrl}`
+      });
       req.flash('error', 'You do not have permission to access this page');
       return res.redirect('/');
     }

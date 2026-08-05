@@ -485,6 +485,14 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null || warranty_expiry === '')
         ? current.warranty_expiry
         : sWarranty;
+      // Validate the warranty range against the RESOLVED values, not just the
+      // submitted ones. A partial edit that moves purchase_date forward while
+      // leaving warranty_expiry blank would otherwise pass the submitted-only
+      // check above yet persist a warranty that expires before purchase. Mirrors
+      // the resolved-value range checks in vendors.js / changes.js / projects.js.
+      if (resolvedPurchase && resolvedWarranty && resolvedWarranty < resolvedPurchase) {
+        throw new Error('WARRANTY_BEFORE_PURCHASE');
+      }
       // Preserve the stored condition rating when the field is blank on a
       // partial edit, so editing an unrelated field cannot silently reset a
       // stored 'poor'/'fair' rating back to the 'good' default. Invalid present
@@ -518,6 +526,10 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
+      return res.redirect(`/assets/${id}/edit`);
+    }
+    if (err.message === 'WARRANTY_BEFORE_PURCHASE') {
+      req.flash('error', 'Warranty expiry must be on or after purchase date');
       return res.redirect(`/assets/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {

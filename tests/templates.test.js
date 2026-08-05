@@ -73,6 +73,36 @@ describe('res.locals wiring guards', () => {
     // CONSTANTS is hoisted from constants module
     expect(appSrc).toMatch(/res\.locals\.CONSTANTS\s*=/);
   });
+
+  it('every CONSTANTS.* key referenced by templates is exported by constants.js and wired into app.js TEMPLATE_CONSTANTS', () => {
+    // Regression guard: MIN_PASSWORD was referenced by three password forms but
+    // omitted from TEMPLATE_CONSTANTS, so minlength="" and a broken pattern
+    // regex silently disabled client-side password validation. Collect every
+    // `CONSTANTS.<KEY>` referenced across views and cross-check both the
+    // constants module exports and the TEMPLATE_CONSTANTS object in app.js.
+    const appSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8');
+    const constantsBlock = appSrc.slice(appSrc.indexOf('TEMPLATE_CONSTANTS'), appSrc.indexOf('});', appSrc.indexOf('TEMPLATE_CONSTANTS')));
+    const wiredKeys = new Set([...constantsBlock.matchAll(/([A-Z_]+):\s*constantsModule\.[A-Z_]+/g)].map((m) => m[1]));
+
+    const viewsDir = path.join(__dirname, '..', 'views');
+    const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = path.join(dir, e.name);
+      return e.isDirectory() ? walk(p) : (e.name.endsWith('.ejs') ? [p] : []);
+    });
+
+    const referencedKeys = new Set();
+    for (const file of walk(viewsDir)) {
+      const src = fs.readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/CONSTANTS\.([A-Z_]+)/g)) {
+        referencedKeys.add(m[1]);
+      }
+    }
+    expect(referencedKeys.size).toBeGreaterThan(0);
+    for (const key of referencedKeys) {
+      expect(constants[key]).toBeDefined();
+      expect(wiredKeys.has(key)).toBe(true);
+    }
+  });
 });
 
 describe('templates render without ReferenceError', () => {

@@ -418,6 +418,15 @@ describe('isPresentInvalidId', () => {
     expect(utils.isPresentInvalidId({})).toBe(true);
     expect(utils.isPresentInvalidId(true)).toBe(true);
   });
+
+  it('treats the string "0" as present-but-invalid, consistent with numeric 0 (regression: silently cleared)', () => {
+    // Prior behavior: the string branch used /^\d+$/, so "0" was "valid" and
+    // safeId("0") returned null → a present owner_id/assigned_to of "0" wiped
+    // the stored value with no user-visible error. Numeric 0 was already
+    // rejected; the string form must fail closed too.
+    expect(utils.isPresentInvalidId('0')).toBe(true);
+    expect(utils.isPresentInvalidId(' 0 ')).toBe(true);
+  });
 });
 
 /**
@@ -457,6 +466,16 @@ describe('safeInt', () => {
     expect(utils.safeInt('Infinity', 0)).toBe(0);
     expect(utils.safeInt('Infinity')).toBe(0);
     expect(utils.safeInt(Infinity, 7)).toBe(7);
+  });
+
+  it('should return fallback for non-primitive inputs (object/boolean)', () => {
+    // Regression: safeInt({}) previously fell through to parseInt({}) and
+    // returned NaN instead of the fallback, breaking the fail-closed contract.
+    // A malformed JSON body could deliver an object where a scalar was expected.
+    expect(utils.safeInt({}, 0)).toBe(0);
+    expect(utils.safeInt({ id: 1 })).toBe(0);
+    expect(utils.safeInt(true, 0)).toBe(0);
+    expect(utils.safeInt(false, 0)).toBe(0);
   });
 
   it('should parse trimmed string input and return the integer', () => {
@@ -1055,6 +1074,15 @@ describe('formatDate', () => {
 
   it('should return dash for invalid input', () => {
     expect(utils.formatDate('not-a-date')).toBe('-');
+  });
+
+  it('should return dash for a well-formatted but invalid date (e.g. month 13)', () => {
+    // Regression: formatDate accepts the YYYY-MM-DD format regex but delegates
+    // to localDate which validates the actual calendar date. A formatted but
+    // impossible date like 2024-13-01 must render as '-' not crash.
+    expect(utils.formatDate('2024-13-01')).toBe('-');
+    expect(utils.formatDate('2024-02-30')).toBe('-');
+    expect(utils.formatDate('2023-04-31')).toBe('-');
   });
 
   it('should use localDate for date-only strings and fall back to new Date for ISO datetimes', () => {

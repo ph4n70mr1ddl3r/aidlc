@@ -11,9 +11,13 @@ const { describe, it, expect } = require('@jest/globals');
 // bcrypt.compare is invoked even when the username does not exist and the
 // password is oversized.
 
+// The db mock's prepared statement is exposed via a module-scoped variable so
+// individual tests can override the returned row (e.g. to simulate a stored
+// password hash on the success path) and to inspect the SQL passed to prepare().
+let mockStmt;
 jest.mock('../src/models/database', () => {
-  const stmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 1, lastInsertRowid: 1 })) };
-  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn), close: jest.fn() };
+  mockStmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 1, lastInsertRowid: 1 })) };
+  return { prepare: jest.fn(() => mockStmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn), close: jest.fn() };
 });
 
 jest.mock('../src/middleware/auth', () => ({
@@ -56,7 +60,11 @@ async function runLogin(body) {
     params: {},
     method: 'POST',
     ip: '203.0.113.5',
-    session: {},
+    session: {
+      // regenerate is exercised only on the successful-login path (fixation
+      // protection); absent on failed paths which return before reaching it.
+      regenerate: (cb) => cb()
+    },
     flash: (type, msg) => flashCalls.push([type, msg])
   };
   const res = { redirect: (to) => {
@@ -64,6 +72,12 @@ async function runLogin(body) {
   }, render: () => {}, status: () => res, json: () => {} };
   const handler = lastHandlerFor(authRouter, 'post', '/login');
   await handler(req, res, () => {});
+  // asyncHandler's wrapper does not return the inner async handler's promise,
+  // so awaiting the wrapper alone resumes before the handler finishes (its
+  // continuation is queued as a microtask). Flush the microtask queue so
+  // post-await redirects/flashes are observable. setImmediate fires in the
+  // check phase, after all pending microtasks have run.
+  await new Promise((resolve) => setImmediate(resolve));
   return { redirectedTo, flashCalls };
 }
 
@@ -95,5 +109,51 @@ describe('login HPP/timing-oracle defense', () => {
     const { redirectedTo } = await runLogin({ username: 'someone', password: ['x', 'y'] });
     expect(redirectedTo).toBe('/login');
     expect(bcrypt.compare).not.toHaveBeenCalled();
+  });
+});
+
+describe('login success path (regression: password column dropped from SELECT)', () => {
+  // Commit 0d176e0 excluded `password` from the login SELECT. Because
+  // hashToCompare then always fell back to the pre-computed DUMMY_HASH, every
+  // real login failed AND any active account could be signed into by submitting
+  // the dummy hash's known plaintext ("dummy") — a complete auth bypass. The
+  // existing suites never caught it because they mock bcrypt.compare to always
+  // return false (so the success path is never exercised) and never assert the
+  // query shape. These tests close both gaps.
+
+  it('login SELECT includes the password column', () => {
+    const db = jest.requireMock('../src/models/database');
+    const loginSql = db.prepare.mock.calls.find(([sql]) => sql.includes('FROM users WHERE username'));
+    expect(loginSql).toBeDefined();
+    expect(loginSql[0]).toMatch(/\bpassword\b/);
+  });
+
+  it('redirects to /dashboard when the stored password hash matches', async () => {
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockResolvedValueOnce(true);
+    mockStmt.get.mockReturnValueOnce({
+      id: 5, username: 'admin', password: '$2a$12$fakehash',
+      email: 'admin@company.com', first_name: 'Admin', last_name: 'User',
+      role: 'admin', department: null, phone: null, avatar: null,
+      is_active: 1, last_login: null, password_changed_at: null
+    });
+    const { redirectedTo, flashCalls } = await runLogin({ username: 'admin', password: 'CorrectP@ssw0rd!' });
+    expect(redirectedTo).toBe('/dashboard');
+    expect(flashCalls.some(([t, m]) => t === 'success' && m.includes('Admin'))).toBe(true);
+  });
+
+  it('rejects a wrong password even when the username exists (no known-hash bypass)', async () => {
+    // This is the regression guard for the auth bypass: with the password column
+    // restored, a correct stored hash + wrong password must NOT authenticate.
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockResolvedValueOnce(false);
+    mockStmt.get.mockReturnValueOnce({
+      id: 5, username: 'admin', password: '$2a$12$fakehash',
+      email: 'admin@company.com', first_name: 'Admin', last_name: 'User',
+      role: 'admin', department: null, phone: null, avatar: null,
+      is_active: 1, last_login: null, password_changed_at: null
+    });
+    const { redirectedTo } = await runLogin({ username: 'admin', password: 'dummy' });
+    expect(redirectedTo).toBe('/login');
   });
 });

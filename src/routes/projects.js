@@ -477,6 +477,16 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         ? existingProject.end_date
         : sEnd;
 
+      // Validate the date range against the RESOLVED values, not just the
+      // submitted ones. A partial edit that moves start_date forward while
+      // leaving end_date empty would otherwise pass the submitted-only check
+      // above (submitted sEnd is null) yet persist end < start against the
+      // preserved stored end date. Mirrors the resolved-value range checks in
+      // vendors.js and changes.js.
+      if (resolvedStart && resolvedEnd && resolvedEnd < resolvedStart) {
+        throw new Error('DATE_RANGE_INVALID');
+      }
+
       const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
         preservedBudget, preservedSpent, safeOwnerId, id);
       if (result.changes === 0) {
@@ -510,6 +520,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
     if ((err.message === 'INVALID_BUDGET' || err.message === 'INVALID_SPENT') && err.flash) {
       req.flash('error', err.flash);
+      return res.redirect(`/projects/${id}/edit`);
+    }
+    if (err.message === 'DATE_RANGE_INVALID') {
+      req.flash('error', 'End date must be on or after start date');
       return res.redirect(`/projects/${id}/edit`);
     }
     console.error('Project update error:', err.message);
@@ -791,10 +805,17 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (due_date && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
+      // Preserve the existing due date when absent/empty on a partial edit, so a
+      // hand-crafted PUT that omits due_date cannot silently wipe a stored date.
+      // Mirrors resolvedDueDate in tickets.js and the date preservation in the
+      // project update route above.
+      const effectiveDueDate = (due_date === undefined || due_date === null || due_date === '')
+        ? existingTask.due_date
+        : safeDueDate;
       // Preserve existing priority when absent instead of silently defaulting to
       // 'medium' — partial edits must not overwrite an existing stored priority.
       const effectivePriority = priority || existingTask.priority;
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, safeTaskAssignee, safeDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, safeTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');

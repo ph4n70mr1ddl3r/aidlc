@@ -88,6 +88,60 @@ describe('Projects update handler — no double-redirect regression', () => {
   });
 });
 
+describe('Projects update — date range validated against resolved values (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  it('rejects a partial update that would persist end_date before start_date', () => {
+    // Stored: start=2026-01-01, end=2026-06-01. The edit moves start_date
+    // forward to 2026-12-01 and leaves end_date empty. The submitted-only
+    // range check (sEnd is null) passes, but the RESOLVED end date is still the
+    // stored 2026-06-01 → end < start must be rejected (mirrors the vendors /
+    // changes resolved-value fix), not silently persisted.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: '2026-01-01', end_date: '2026-06-01'
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium',
+      start_date: '2026-12-01'
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/projects/1/edit']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('End date must be on or after start date');
+    expect(stmt.run).not.toHaveBeenCalled();
+  });
+});
+
+describe('Projects task full-update — preserves stored due_date on partial submission (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  it('does not wipe the stored task due_date when the field is absent', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: null,
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium'
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    // First run() call is the task full-update; run(...params) is called with
+    // spread args, so the call's args array IS the params array:
+    // [title, description, status, priority, assigned_to, due_date, done, taskId, projectId]
+    const firstRunArgs = stmt.run.mock.calls[0];
+    expect(firstRunArgs[5]).toBe('2026-05-05');
+  });
+});
+
 describe('Projects task assignee — fail closed on malformed id (regression)', () => {
   const projectsRouter = require('../src/routes/projects');
 

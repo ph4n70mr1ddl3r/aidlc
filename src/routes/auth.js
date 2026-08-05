@@ -38,7 +38,7 @@ const profileLimiter = rateLimit({
 let _loginStmt = null;
 function _getLoginStmt() {
   if (!_loginStmt) {
-    _loginStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
+    _loginStmt = db.prepare('SELECT id, username, password, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at FROM users WHERE username = ? AND is_active = 1');
   }
   return _loginStmt;
 }

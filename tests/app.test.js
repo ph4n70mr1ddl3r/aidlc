@@ -194,3 +194,98 @@ describe('Content negotiation — Vary: Accept header', () => {
     expect(body.error).toBeDefined();
   });
 });
+
+describe('Method override — query-string _method on POST forms (regression)', () => {
+  // Commit 060bed5 restricted method-override to read _method ONLY from the
+  // request body, but every EJS form encodes the override in the action URL
+  // (action="/licenses/1?_method=PUT"). The getter ignored the query string, so
+  // all edit/delete forms submitted as POST with no matching route and 404'd —
+  // the app could read but never modify or delete data. The fix restores the
+  // query-string channel for POST requests only (a GET can never be upgraded,
+  // preserving the original CSRF-hardening intent), and doubleCsrf still runs
+  // after the override so an overridden write requires a valid token.
+  //
+  // These tests register routes on the LIVE mocked tickets router so the real
+  // method-override + CSRF middleware chain in src/app.js is exercised over HTTP.
+  let server, port;
+
+  beforeAll((done) => {
+    const ticketsRouter = require('../src/routes/tickets');
+    ticketsRouter.put('/method-test/:id', (req, res) => res.json({ dispatched: 'PUT', id: req.params.id }));
+    ticketsRouter.delete('/method-test/:id', (req, res) => res.json({ dispatched: 'DELETE', id: req.params.id }));
+    ticketsRouter.get('/method-test/:id', (req, res) => res.json({ dispatched: 'GET', id: req.params.id }));
+    server = app.listen(0, () => {
+      port = server.address().port;
+      done();
+    });
+  });
+
+  afterAll((done) => {
+    server.close(done);
+  });
+
+  async function getCsrf() {
+    const res = await fetch(`http://localhost:${port}/health`);
+    const cookies = res.headers.getSetCookie();
+    const csrfCookie = cookies.find((c) => c.startsWith('csrf-token='));
+    const token = csrfCookie ? csrfCookie.split('csrf-token=')[1].split(';')[0] : '';
+    return { cookies: cookies.join('; '), token };
+  }
+
+  it('dispatches POST /tickets/method-test/7?_method=PUT to the PUT handler (browser form shape)', async () => {
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=PUT`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'PUT', id: '7' });
+  });
+
+  it('dispatches POST /tickets/method-test/7?_method=DELETE to the DELETE handler', async () => {
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=DELETE`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'DELETE', id: '7' });
+  });
+
+  it('dispatches POST with _method=PUT in the body (legacy channel)', async () => {
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token, _method: 'PUT' }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'PUT', id: '7' });
+  });
+
+  it('does NOT upgrade a GET via ?_method=DELETE (CSRF hardening preserved)', async () => {
+    const { cookies } = await getCsrf();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=DELETE`, {
+      method: 'GET',
+      headers: { Cookie: cookies }
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'GET', id: '7' });
+  });
+
+  it('rejects an overridden write without a valid CSRF token', async () => {
+    const { cookies } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: 'invalid-token' }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=PUT`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(403);
+  });
+});

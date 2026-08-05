@@ -255,7 +255,7 @@ function safeId(value) {
 /**
  * Detect a present-but-invalid relational id (assigned_to / owner_id / asset_id).
  * Returns true when the submitted value is present yet cannot parse to a valid
- * positive integer — e.g. "abc", "3.5", 12.5, or an array/object. Absent
+ * positive integer — e.g. "abc", "3.5", "0", 12.5, or an array/object. Absent
  * (undefined/null) and empty-string values return false (treated as "clear /
  * unassign"). The write routes use this to fail closed on malformed present ids
  * instead of silently coercing them to NULL through safeId, which would wipe an
@@ -271,7 +271,7 @@ function isPresentInvalidId(value) {
     return !(Number.isInteger(value) && value > 0);
   }
   if (typeof value === 'string') {
-    return !/^\d+$/.test(value.trim());
+    return !/^[1-9]\d*$/.test(value.trim());
   }
   return true;
 }
@@ -335,6 +335,15 @@ function safeInt(value, fallback = 0) {
     if (!/^-?\d+$/.test(value)) {
       return fallback;
     }
+  }
+  // Reject non-string, non-number inputs (objects, booleans, symbols) that
+  // fall through to parseInt — parseInt silently coerces them to NaN rather
+  // than the explicit fallback, breaking the fail-closed contract of the
+  // function. Guard here so callers that accidentally pass a non-primitive
+  // (e.g. a form field that parsed as an object from a malformed JSON body)
+  // get the fallback instead of an undefined/NaN result.
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return fallback;
   }
   const n = parseInt(value, 10);
   return n;
