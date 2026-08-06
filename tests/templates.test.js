@@ -233,3 +233,152 @@ describe('templates render without ReferenceError', () => {
     expect(html).toContain('Network');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Full-template render regression: every view must render without throwing.
+// This guards the exact bug class that has bitten this codebase before — a
+// template referencing a helper that is not wired into res.locals, or a stray
+// `<% } %>` silently dropping a dynamic section (both previously shipped and
+// escaped because the affected page was not covered by a render test). Each
+// fixture supplies the minimal-but-realistic locals the route passes.
+// ---------------------------------------------------------------------------
+describe('every template renders without error (regression)', () => {
+  const ticket = {
+    id: 1, ticket_number: 'TK-2026-0001', title: 'Printer jam <script>alert(1)</script>',
+    description: 'Paper jam', category: 'hardware', priority: 'high', status: 'in_progress',
+    requester_name: 'Lisa Park', requester_email: 'l.park@company.com', requester_department: 'Marketing',
+    requester_phone: '555-0101', assigned_to: 3, assigned_name: 'Maya Patel', due_date: '2099-01-01',
+    asset_name: 'HP LaserJet', asset_tag: 'AST-007', created_at: '2026-01-01 09:00',
+    updated_at: '2026-01-02 10:00', resolved_at: null, satisfaction_rating: 0, resolution_notes: null
+  };
+  const comment = {
+    id: 1, author_name: 'Maya Patel', author_role: 'staff', is_internal: 1,
+    comment: 'Investigating <script>alert(2)</script>', created_at: '2026-01-01 10:00'
+  };
+  const staffViewer = { id: 1, first_name: 'Sarah', last_name: 'Chen', role: 'admin', email: 'admin@company.com', department: 'IT' };
+  const staffUser = {
+    id: 2, username: 'mpatel', first_name: 'Maya', last_name: 'Patel', email: 'm.patel@company.com',
+    phone: '555-0103', role: 'staff', department: 'IT', is_active: 1, last_login: '2026-01-02 09:00',
+    created_at: '2025-01-01', updated_at: '2025-01-01'
+  };
+
+  // Each fixture maps a page to the exact locals the route passes. The factory
+  // form avoids cross-test mutation of the shared objects above.
+  const fixtures = [
+    { name: 'auth/login (no reason)', file: 'auth/login.ejs', locals: () => ({ ...baseLocals(), title: 'Login', reason: '' }) },
+    { name: 'auth/login (deactivated)', file: 'auth/login.ejs', locals: () => ({ ...baseLocals(), title: 'Login', reason: 'deactivated' }) },
+    { name: 'auth/login (password_changed)', file: 'auth/login.ejs', locals: () => ({ ...baseLocals(), title: 'Login', reason: 'password_changed' }) },
+    { name: 'auth/login (injected reason is ignored)', file: 'auth/login.ejs', locals: () => ({ ...baseLocals(), title: 'Login', reason: '"><script>alert(1)</script>' }) },
+    { name: 'auth/profile', file: 'auth/profile.ejs', locals: () => ({ ...baseLocals(), title: 'My Profile', profileUser: { ...staffViewer, username: 'schen' } }) },
+    { name: 'tickets/show (privileged)', file: 'tickets/show.ejs', locals: () => ({ ...baseLocals(), title: ticket.ticket_number, ticket, comments: [comment] }) },
+    { name: 'tickets/show (staff viewer)', file: 'tickets/show.ejs', locals: () => ({ ...baseLocals(), user: { ...staffViewer, role: 'staff' }, title: ticket.ticket_number, ticket: { ...ticket, assigned_to: 2 }, comments: [] }) },
+    { name: 'tickets/show (resolved, satisfaction)', file: 'tickets/show.ejs', locals: () => ({ ...baseLocals(), title: ticket.ticket_number, ticket: { ...ticket, status: 'resolved', resolved_at: '2026-01-03 09:00', satisfaction_rating: 4, resolution_notes: 'Replaced drum' }, comments: [] }) },
+    { name: 'tickets/index', file: 'tickets/index.ejs', locals: () => ({ ...baseLocals(), title: 'Tickets', tickets: [ticket], filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/tickets' }) },
+    { name: 'tickets/form (new)', file: 'tickets/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Ticket', ticket: {}, isEdit: false, staff: [staffUser] }) },
+    { name: 'tickets/form (edit)', file: 'tickets/form.ejs', locals: () => ({ ...baseLocals(), title: 'Edit Ticket', ticket, isEdit: true, staff: [staffUser] }) },
+    { name: 'staff/show (admin)', file: 'staff/show.ejs', locals: () => ({
+      ...baseLocals(), title: 'Staff', staffUser,
+      assignedTickets: [ticket], assignedTasks: [{ id: 1, title: 'Migrate DB', project_id: 1, project_name: 'Cloud', due_date: '2099-01-01' }],
+      projectMemberships: [{ project_id: 1, project_name: 'Cloud', project_status: 'in_progress', project_role: 'lead' }],
+      assignedAssets: [{ id: 1, asset_tag: 'AST-007', name: 'HP LaserJet', status: 'in_use' }]
+    }) },
+    { name: 'staff/show (staff viewing self)', file: 'staff/show.ejs', locals: () => ({
+      ...baseLocals(), user: { ...staffViewer, role: 'staff', id: 2 }, title: 'Staff', staffUser,
+      assignedTickets: [], assignedTasks: [], projectMemberships: [], assignedAssets: []
+    }) },
+    { name: 'staff/index', file: 'staff/index.ejs', locals: () => ({ ...baseLocals(), title: 'Staff', staff: [staffUser], filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/staff' }) },
+    { name: 'staff/form (new)', file: 'staff/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Staff Member', staffMember: {}, isEdit: false, viewerRole: 'admin' }) },
+    { name: 'staff/form (edit)', file: 'staff/form.ejs', locals: () => ({ ...baseLocals(), title: 'Edit Staff Member', staffMember: staffUser, isEdit: true, viewerRole: 'admin' }) },
+    { name: 'vendors/show (active)', file: 'vendors/show.ejs', locals: () => ({ ...baseLocals(), title: 'Vendor', vendor: { id: 1, name: 'Dell', contact_person: 'Mike', email: 'm@dell.com', phone: '555', address: 'Addr', website: 'https://dell.com', category: 'hardware', contract_start: '2024-01-01', contract_end: '2026-01-01', rating: 4, is_active: 1, notes: null } }) },
+    { name: 'vendors/show (inactive, no data)', file: 'vendors/show.ejs', locals: () => ({ ...baseLocals(), title: 'Vendor', vendor: { id: 2, name: 'X', contact_person: null, email: null, phone: null, address: null, website: 'not-a-url', category: null, contract_start: null, contract_end: null, rating: 0, is_active: 0, notes: 'n' } }) },
+    { name: 'vendors/index', file: 'vendors/index.ejs', locals: () => ({ ...baseLocals(), title: 'Vendors', vendors: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/vendors' }) },
+    { name: 'vendors/form (new)', file: 'vendors/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Vendor', vendor: {}, isEdit: false }) },
+    { name: 'licenses/show (privileged)', file: 'licenses/show.ejs', locals: () => ({ ...baseLocals(), title: 'License', license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 9, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null } }) },
+    { name: 'licenses/show (zero seats, no key, perpetual)', file: 'licenses/show.ejs', locals: () => ({ ...baseLocals(), title: 'License', license: { id: 2, software_name: 'Win Server', vendor: 'MS', license_key: null, license_type: 'perpetual', total_seats: 0, used_seats: 0, purchase_date: '2024-01-01', expiry_date: null, cost: null, notes: 'x' } }) },
+    { name: 'licenses/show (restricted)', file: 'licenses/show.ejs', locals: () => ({ ...baseLocals(), user: { ...staffViewer, role: 'staff' }, title: 'License', license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null } }) },
+    { name: 'licenses/index', file: 'licenses/index.ejs', locals: () => ({ ...baseLocals(), title: 'Licenses', licenses: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/licenses' }) },
+    { name: 'licenses/form (new)', file: 'licenses/form.ejs', locals: () => ({ ...baseLocals(), title: 'New License', license: {}, isEdit: false }) },
+    { name: 'projects/show', file: 'projects/show.ejs', locals: () => ({ ...baseLocals(), title: 'Project', project: { id: 1, name: 'Cloud', description: 'D', status: 'in_progress', priority: 'high', start_date: null, end_date: null, budget: null, spent: null, progress: 0, owner_name: 'Sarah Chen', created_at: '2026-01-01' }, tasks: [], members: [], staff: [staffUser] }) },
+    { name: 'projects/index', file: 'projects/index.ejs', locals: () => ({ ...baseLocals(), title: 'Projects', projects: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/projects' }) },
+    { name: 'projects/form (new)', file: 'projects/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Project', project: {}, isEdit: false, staff: [staffUser] }) },
+    { name: 'changes/show', file: 'changes/show.ejs', locals: () => ({ ...baseLocals(), title: 'Change', change: { id: 1, title: 'Patch', change_type: 'maintenance', status: 'scheduled', priority: 'high', impact: null, description: null, scheduled_start: '2026-05-01 02:00', scheduled_end: '2026-05-01 04:00', actual_start: null, actual_end: null, assigned_name: 'Maya Patel' } }) },
+    { name: 'changes/index', file: 'changes/index.ejs', locals: () => ({ ...baseLocals(), title: 'Changes', changes: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/changes' }) },
+    { name: 'changes/form (new)', file: 'changes/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Change', isEdit: false, change: {}, staff: [staffUser] }) },
+    { name: 'knowledge/show (published)', file: 'knowledge/show.ejs', locals: () => ({ ...baseLocals(), title: 'VPN Guide', article: { id: 1, title: 'VPN Guide', status: 'published', category: 'how_to', tags: 'vpn', author_name: 'Sarah Chen', views: 5, updated_at: '2026-01-01', renderedContent: '<p>Connect to <strong>vpn.company.com</strong></p>' }, markedFallback: false }) },
+    { name: 'knowledge/show (markdown fallback)', file: 'knowledge/show.ejs', locals: () => ({ ...baseLocals(), title: 'VPN Guide', article: { id: 1, title: 'VPN Guide', status: 'published', category: 'how_to', tags: 'vpn', author_name: 'Sarah Chen', views: 5, updated_at: '2026-01-01', renderedContent: 'plain text' }, markedFallback: true }) },
+    { name: 'knowledge/index', file: 'knowledge/index.ejs', locals: () => ({ ...baseLocals(), title: 'Knowledge Base', articles: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/knowledge' }) },
+    { name: 'knowledge/form (new)', file: 'knowledge/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Article', article: {}, isEdit: false }) },
+    { name: 'knowledge/form (edit)', file: 'knowledge/form.ejs', locals: () => ({ ...baseLocals(), title: 'Edit Article', article: { id: 1, title: 'VPN', category: 'how_to', status: 'published', tags: 'vpn', content: '# Hi', is_featured: 1 }, isEdit: true }) },
+    { name: 'assets/show', file: 'assets/show.ejs', locals: () => ({ ...baseLocals(), title: 'Asset', asset: { id: 1, name: 'MacBook Pro', asset_tag: 'AST-001', status: 'in_use', condition_rating: 'good', category: 'laptop', warranty_expiry: '2099-01-01', purchase_date: '2020-01-01', purchase_price: 1999, assigned_name: 'Sarah', assigned_email: 'admin@company.com' }, relatedTickets: [] }) },
+    { name: 'assets/index', file: 'assets/index.ejs', locals: () => ({ ...baseLocals(), title: 'Assets', assets: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/assets' }) },
+    { name: 'assets/form (new)', file: 'assets/form.ejs', locals: () => ({ ...baseLocals(), title: 'New Asset', asset: {}, isEdit: false, staff: [staffUser] }) },
+    { name: 'reports/index', file: 'reports/index.ejs', locals: () => ({ ...baseLocals(), title: 'Reports' }) },
+    { name: 'reports/tickets (empty)', file: 'reports/tickets.ejs', locals: () => ({ ...baseLocals(), title: 'Ticket Analytics', period: 30, ticketsByDay: [], byCategory: [], byPriority: [], avgResolution: { avg_days: null }, slaStats: { total_resolved: 0, within_1d: 0, within_3d: 0, within_7d: 0 }, topResolvers: [] }) },
+    { name: 'reports/tickets (data)', file: 'reports/tickets.ejs', locals: () => ({ ...baseLocals(), title: 'Ticket Analytics', period: 7, ticketsByDay: [{ date: '2026-01-01', count: 3 }], byCategory: [{ category: 'network', count: 3 }], byPriority: [{ priority: 'critical', count: 1 }], avgResolution: { avg_days: 2.5 }, slaStats: { total_resolved: 10, within_1d: 4, within_3d: 8, within_7d: 9 }, topResolvers: [{ name: 'Sarah Chen', resolved: 5 }] }) },
+    { name: 'reports/assets', file: 'reports/assets.ejs', locals: () => ({ ...baseLocals(), title: 'Asset Report', byCategory: [], byStatus: [], byCondition: [], totalValue: { total: 0 }, warrantyCount: 0, warrantyExpiring: [], ageDistribution: [] }) },
+    { name: 'reports/staff', file: 'reports/staff.ejs', locals: () => ({ ...baseLocals(), title: 'Staff Performance', performance: [], period: 30 }) },
+    { name: 'audit/index', file: 'audit/index.ejs', locals: () => ({ ...baseLocals(), title: 'Audit Log', entries: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/audit' }) },
+    { name: 'dashboard', file: 'dashboard.ejs', locals: () => ({ ...baseLocals(), title: 'Dashboard', ticketStats: { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 0 }, assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 }, projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 }, staffCount: { total: 0 }, expiringWarranties: [], licenseAlerts: [], myTickets: [], staffWorkload: [], upcomingChanges: [], recentTickets: [], ticketsByCategory: [] }) },
+    { name: '404', file: '404.ejs', locals: () => ({ ...baseLocals(), title: 'Not Found' }) },
+    { name: 'error', file: 'error.ejs', locals: () => ({ ...baseLocals(), title: 'Error', error: { message: 'Something went wrong' } }) },
+    { name: 'error (no error object)', file: 'error.ejs', locals: () => ({ ...baseLocals(), title: 'Error' }) }
+  ];
+
+  it.each(fixtures)('renders $name without throwing', ({ file, locals }) => {
+    expect(() => render(file, locals())).not.toThrow();
+  });
+
+  it('tickets/show HTML-escapes user-controlled ticket and comment content', () => {
+    const html = render('tickets/show.ejs', {
+      ...baseLocals(), title: ticket.ticket_number, ticket, comments: [comment]
+    });
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(html).not.toContain('<script>alert(2)</script>');
+    expect(html).toContain('&lt;script&gt;alert(2)&lt;/script&gt;');
+  });
+
+  it('licenses/show masks the license key for privileged users and hides it for staff', () => {
+    const priv = render('licenses/show.ejs', {
+      ...baseLocals(), title: 'License',
+      license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
+    });
+    expect(priv).toContain('****1234');
+    expect(priv).not.toContain('SECRET-KEY-1234');
+    expect(priv).not.toContain('SECRET-KEY');
+    const restricted = render('licenses/show.ejs', {
+      ...baseLocals(), user: { ...staffViewer, role: 'staff' }, title: 'License',
+      license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
+    });
+    expect(restricted).toContain('Restricted');
+    expect(restricted).not.toContain('SECRET-KEY-1234');
+  });
+
+  it('licenses/show seat percentage is guarded against total_seats = 0', () => {
+    const html = render('licenses/show.ejs', {
+      ...baseLocals(), title: 'License',
+      license: { id: 2, software_name: 'Win Server', vendor: 'MS', license_key: null, license_type: 'perpetual', total_seats: 0, used_seats: 0, purchase_date: '2024-01-01', expiry_date: null, cost: null, notes: null }
+    });
+    expect(html).toContain('Perpetual');
+    expect(html).not.toContain('NaN');
+  });
+
+  it('staff/show shows restricted contact info to a non-privileged viewer of another user', () => {
+    const html = render('staff/show.ejs', {
+      ...baseLocals(), user: { ...staffViewer, role: 'staff', id: 99 }, title: 'Staff', staffUser,
+      assignedTickets: [], assignedTasks: [], projectMemberships: [], assignedAssets: []
+    });
+    expect(html).toContain('Restricted');
+    expect(html).not.toContain('m.patel@company.com');
+  });
+
+  it('login template only renders static messages — the raw reason query value is never output', () => {
+    // The `reason` local is used purely as a branch selector; an attacker-supplied
+    // value must never be echoed into the page (reflected XSS via crafted URL).
+    const html = render('auth/login.ejs', {
+      ...baseLocals(), title: 'Login', reason: '"><script>alert(1)</script>'
+    });
+    expect(html).not.toContain('alert(1)');
+    expect(html).not.toContain('"><script>');
+  });
+});

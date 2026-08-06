@@ -7,6 +7,10 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (60+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-third pass performed and documented below (2026-08-06).
+  Sixty-second and sixty-first passes were applied via commits `d468181` /
+  `75cfbac` / `fac696a` (bcrypt short-circuit + try-catch in staff
+  password-reset) but were not yet documented in this file.
   Sixtieth pass performed and documented below (2026-08-05).
   Fifty-ninth pass performed and documented below (2026-08-05).
   Fifty-eighth pass performed and documented below (2026-08-05).
@@ -14,6 +18,51 @@ and the Jest suite. Prior review history (60+ consecutive "code review" hardenin
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-06 (sixty-third pass)
+
+A sixty-third independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Two low-severity robustness gaps
+were fixed, and the largest remaining test-coverage gap was closed.
+
+### Fixes applied
+- **`views/pages/auth/login.ejs` — unguarded optional `reason` local (LOW, robustness).**
+  `login.ejs` referenced `reason` without a `typeof` guard (`reason ===
+  'deactivated'`), so any future render path that omitted `reason` would throw a
+  `ReferenceError` and 500 the page. The current route always passes `reason`,
+  so this is not reachable today, but it was the only template referencing an
+  optional local without the `typeof` guard the codebase applies everywhere else
+  (`error.ejs` guards `error`; `header.ejs` guards `title`). Aligned it with the
+  established pattern. Verified the raw query value is never echoed into the
+  page (reflected-XSS safe by construction — the local is used purely as a
+  branch selector).
+
+### Testing added
+- **`tests/templates.test.js` — full-template render regression suite.** The
+  previous template coverage rendered only 6 of the app's ~40 views. This is
+  the exact bug class that has bitten this codebase before (a template
+  referencing a helper not wired into `res.locals`, or a stray `<% } %>`
+  silently dropping a dynamic section — both shipped and escaped because the
+  affected page was not render-tested). Added a fixtures-driven suite that
+  renders every template (login, tickets show/index/form, staff show/index/form,
+  vendors show/index/form, licenses show/index/form, projects show/index/form,
+  changes show/index/form, knowledge show/index/form, assets show/index/form,
+  reports index/tickets/assets/staff, audit, dashboard, 404, error) with the
+  minimal-but-realistic locals each route passes, plus targeted assertions:
+  - `tickets/show` HTML-escapes `<script>` in ticket titles and comments.
+  - `licenses/show` masks the license key (`****1234`) for privileged users and
+    shows `Restricted` to staff; the full key never appears in HTML.
+  - `licenses/show` guards the seat percentage against `total_seats = 0` (no `NaN`).
+  - `staff/show` shows `Restricted` contact info to a non-privileged viewer of
+    another user.
+  - `login` only renders static reason messages — attacker-supplied `?reason=`
+    values are never reflected into the page.
+
+### Verification
+- `npm run lint` — clean (exit 0).
+- `npm test` — **521 passed / 521 total** (21 suites; was 467 before this pass).
 
 ## Review cycle 2026-08-05 (sixtieth pass)
 
