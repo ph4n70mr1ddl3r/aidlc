@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (60+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-fifth pass performed and documented below (2026-08-06).
   Sixty-fourth pass performed and documented below (2026-08-06).
   Sixty-third pass performed and documented below (2026-08-06).
   Sixty-second and sixty-first passes were applied via commits `d468181` /
@@ -19,6 +20,46 @@ and the Jest suite. Prior review history (60+ consecutive "code review" hardenin
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-06 (sixty-fifth pass)
+
+A sixty-fifth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One defense-in-depth gap in the
+method-override middleware was found and fixed, and `npm audit` reported
+**0 vulnerabilities** across all dependencies.
+
+### Fixes applied
+- **`src/app.js` — body `_method` override was honored on non-POST requests (LOW, defense-in-depth).**
+  The query-string channel is correctly gated on `req.method === 'POST'` (a
+  GET/HEAD can never be upgraded to a state-changing method), and the comment
+  above the middleware states "Only honor method override from POST requests."
+  But the body channel (`req.body._method`) was checked *without* the method
+  guard, so a GET carrying an `application/x-www-form-urlencoded` body of
+  `_method=DELETE` was silently upgraded to a DELETE — contradicting the
+  documented invariant. Not exploitable today (doubleCsrf runs after the
+  override and still requires a valid token for the resulting write), but it
+  was a genuine inconsistency between the stated policy and the enforcement.
+  Added the `req.method === 'POST'` guard to the body channel so the two
+  channels enforce the identical rule. Browser form overrides (query string)
+  and the body channel used by the JSON/tests path are both POST, so behavior
+  for all legitimate clients is unchanged.
+
+### Testing added
+- **`tests/app.test.js` — GET-with-body method override regression test.**
+  The existing suite covered the query-string channel's GET rejection but not
+  the body channel. Native `fetch()` rejects GET-with-body, so the test uses
+  Node's `http.request` directly (as a curl/python-requests-style client would)
+  to assert a GET with a urlencoded `_method=DELETE` body still dispatches to
+  the GET handler. Guards the POST-only guard on the body channel against
+  regression.
+
+### Verification
+- `npm audit` — **0 vulnerabilities.**
+- `npm run lint` — clean (exit 0).
+- `npm test` — **522 passed / 522 total** (21 suites; was 521 — the new
+  regression test).
 
 ## Review cycle 2026-08-06 (sixty-fourth pass)
 

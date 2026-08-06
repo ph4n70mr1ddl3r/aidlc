@@ -196,7 +196,7 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // token. Array values from HTTP parameter pollution are rejected (not a
 // string → no override), failing closed to the POST route.
 app.use(methodOverride((req) => {
-  if (req.body && typeof req.body._method === 'string') {
+  if (req.method === 'POST' && req.body && typeof req.body._method === 'string') {
     return req.body._method;
   }
   if (req.method === 'POST' && typeof req.query._method === 'string') {

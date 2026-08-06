@@ -1,3 +1,4 @@
+const http = require('http');
 const { describe, it, expect } = require('@jest/globals');
 
 jest.mock('dotenv');
@@ -276,6 +277,38 @@ describe('Method override — query-string _method on POST forms (regression)', 
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ dispatched: 'GET', id: '7' });
+  });
+
+  it('does NOT upgrade a GET via a urlencoded body _method=DELETE (POST-only guard on the body channel)', (done) => {
+    getCsrf().then(({ cookies }) => {
+      const body = new URLSearchParams({ _method: 'DELETE' }).toString();
+      // Native fetch() rejects GET-with-body, but an HTTP client (curl,
+      // python-requests, a non-conforming library) can send one. Use the http
+      // module directly to exercise the server's handling of that case.
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: '/tickets/method-test/7',
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(body),
+          Cookie: cookies
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', (c) => {
+          data += c;
+        });
+        res.on('end', () => {
+          expect(res.statusCode).toBe(200);
+          expect(JSON.parse(data)).toEqual({ dispatched: 'GET', id: '7' });
+          done();
+        });
+      });
+      req.on('error', done);
+      req.end(body);
+    }).catch(done);
   });
 
   it('rejects an overridden write without a valid CSRF token', async () => {
