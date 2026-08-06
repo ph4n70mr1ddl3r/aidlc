@@ -1,4 +1,5 @@
 const { describe, it, expect, beforeEach } = require('@jest/globals');
+const { lastHandlerFor } = require('./helpers');
 
 // marked v18 ships ESM-only; jest's CJS runtime cannot `require()` it (production
 // works because Node 22+ supports `require(esm)`). Mock it to mirror the real v18
@@ -25,8 +26,9 @@ jest.mock('marked', () => {
 // Mock the heavy/route dependencies so the module loads in isolation.
 // `sanitize-html` is left REAL so the sanitization pipeline is exercised.
 jest.mock('../src/models/database', () => {
-  const stmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 0 })) };
-  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn() };
+  const mockGet = jest.fn(() => null);
+  const stmt = { get: mockGet, all: jest.fn(() => []), run: jest.fn(() => ({ changes: 0, lastInsertRowid: 1 })) };
+  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn), close: jest.fn() };
 });
 
 jest.mock('../src/middleware/auth', () => ({
@@ -196,5 +198,45 @@ describe('resolveSafeStatus', () => {
 
   it('non-privileged user without status input gets existing status preserved', () => {
     expect(resolveSafeStatus(staff, undefined, 'published')).toBe('published');
+  });
+});
+
+describe('delete article route — ACCESS_DENIED handling (regression)', () => {
+  const db = require('../src/models/database');
+  const knowledgeRouter = require('../src/routes/knowledge');
+
+  it('shows permission error (not generic) when concurrent role change triggers ACCESS_DENIED inside transaction', () => {
+    // First get() call (outer existence check): article exists, user IS the author.
+    // Second get() call (transaction recheck): author changed concurrently,
+    // so the user is no longer the owner — this triggers ACCESS_DENIED.
+    db.prepare.mock.calls.forEach(([_sql]) => {
+      // We only care about the statement objects; the mockGet is on each stmt.
+    });
+    // The mock returns the same stmt object for every prepare() call.
+    const mockGet = db.prepare().get;
+    mockGet.mockReturnValueOnce({ id: 1, author_id: 1, title: 'Test Article' }) // outer check — user is owner
+      .mockReturnValueOnce({ id: 1, author_id: 2, title: 'Test Article' }); // recheck — author changed
+
+    const handler = lastHandlerFor(knowledgeRouter, 'delete', '/:id');
+    let redirectedTo = null;
+    const flashCalls = [];
+    const req = {
+      params: { id: '1' },
+      session: { user: { id: 1, role: 'staff' } },
+      flash: (type, msg) => flashCalls.push([type, msg])
+    };
+    const res = {
+      redirect: (to) => {
+        redirectedTo = to;
+      },
+      render: () => {},
+      status: () => res,
+      json: () => {}
+    };
+
+    handler(req, res, () => {});
+
+    expect(redirectedTo).toBe('/knowledge');
+    expect(flashCalls).toEqual([['error', 'You can only delete your own articles']]);
   });
 });

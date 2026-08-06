@@ -5,8 +5,9 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (66+ consecutive "code review" hardening
+and the Jest suite. Prior review history (68+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
   Sixty-fifth pass performed and documented below (2026-08-06).
@@ -75,6 +76,31 @@ and the Jest suite. Prior review history (66+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-06 (sixty-eighth pass)
+
+A sixty-eighth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One consistency gap in the
+knowledge article delete handler was found and fixed:
+
+### Fixes applied
+- **`src/routes/knowledge.js` — delete handler did not distinguish `ACCESS_DENIED` from generic errors (LOW, UX consistency).**
+  The update handler explicitly caught `ACCESS_DENIED` (concurrent role-change
+  inside the transaction) and surfaced `"You can only edit your own articles"`.
+  The delete handler's catch block only had the generic `"Error deleting article"`
+  branch, so a concurrent role change between the outer authorization check and
+  the transaction recheck would show a misleading generic error instead of the
+  permission-specific message. Added the same `ACCESS_DENIED` branch to the
+  delete catch, mirroring the update handler exactly.
+
+### Verification
+- `npm audit` — **0 vulnerabilities.**
+- `npm run lint` — clean (exit 0).
+- `npm test` — **535 passed / 535 total** (22 suites; was 534 — +1 new regression
+  test asserting the delete handler surfaces the permission-specific flash when
+  `ACCESS_DENIED` is thrown inside the transaction).
 
 ## Review cycle 2026-08-06 (sixty-seventh pass)
 

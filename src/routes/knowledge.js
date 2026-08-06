@@ -571,8 +571,12 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Article delete error:', err.message);
-    req.flash('error', 'Error deleting article');
+    if (err.message === 'ACCESS_DENIED') {
+      req.flash('error', 'You can only delete your own articles');
+    } else {
+      console.error('Article delete error:', err.message);
+      req.flash('error', 'Error deleting article');
+    }
   }
   return res.redirect('/knowledge');
 });
