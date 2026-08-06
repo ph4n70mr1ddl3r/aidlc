@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (60+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-fourth pass performed and documented below (2026-08-06).
   Sixty-third pass performed and documented below (2026-08-06).
   Sixty-second and sixty-first passes were applied via commits `d468181` /
   `75cfbac` / `fac696a` (bcrypt short-circuit + try-catch in staff
@@ -18,6 +19,38 @@ and the Jest suite. Prior review history (60+ consecutive "code review" hardenin
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+
+## Review cycle 2026-08-06 (sixty-fourth pass)
+
+A sixty-fourth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One robustness gap in the process
+shutdown wiring and one piece of unreachable dead code were found and fixed.
+
+### Fixes applied
+- **`src/app.js` — process-level handlers registered even when the app is required by tests (LOW, robustness).**
+  `process.on('SIGTERM'/'SIGINT'/'unhandledRejection'/'uncaughtException')` were
+  registered unconditionally at module load. When app.js is `require()`d by the
+  test suite, a stray unhandled rejection would invoke `shutdown()` — which calls
+  `server.close()`, `db.close()`, and `process.exit(1)` — killing the entire jest
+  run with an opaque failure instead of jest's own per-test reporting. The
+  handlers are now registered inside the same `require.main === module` guard
+  already applied to `server.listen()`, so they only run in the real server
+  process.
+- **`src/routes/licenses.js` — unreachable `finalUsed < 0` guard in `_resolveSeats` (LOW, dead code).**
+  `safePositiveInt` never returns a negative value (it returns the fallback for
+  negatives), and a present-but-invalid `used_seats` collapses to `Infinity` and
+  is rejected by the existing `!Number.isFinite(used)` check. By the time the
+  `finalUsed < 0` branch is reached, `used` is guaranteed non-negative, so the
+  guard was unreachable dead code. Removed it and documented why; existing
+  fail-closed behavior for negative/garbage input is unchanged and still covered
+  by `tests/licenses.test.js` (`resolveSeats('-1')` → `Invalid used seats`).
+
+### Verification
+- `npm run lint` — clean (exit 0).
+- `npm test` — **521 passed / 521 total** (21 suites; unchanged from the
+  sixty-third pass — the fixes were behavior-preserving).
 
 ## Review cycle 2026-08-06 (sixty-third pass)
 

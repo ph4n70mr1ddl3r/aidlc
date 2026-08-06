@@ -648,15 +648,23 @@ function shutdown(signal, exitCode = 0) {
     process.exit(dbClosed ? exitCode : 1);
   });
 }
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', (reason && reason.message) || String(reason));
-  shutdown('UNHANDLED_REJECTION', 1);
-});
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', (err && err.message) || String(err));
-  shutdown('UNCAUGHT_EXCEPTION', 1);
-});
+// Register process-level handlers only when the app is the entry point.
+// When app.js is require()d (e.g. by the test suite), a stray unhandled
+// rejection would otherwise invoke shutdown() — which calls server.close(),
+// db.close(), and process.exit(1) — killing the entire jest run with an
+// opaque failure instead of jest's own per-test reporting. Mirrors the
+// require.main === module guard applied to server.listen() above.
+if (require.main === module) {
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', (reason && reason.message) || String(reason));
+    shutdown('UNHANDLED_REJECTION', 1);
+  });
+  process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', (err && err.message) || String(err));
+    shutdown('UNCAUGHT_EXCEPTION', 1);
+  });
+}
 
 module.exports = app;
