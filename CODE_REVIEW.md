@@ -5,8 +5,9 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (68+ consecutive "code review" hardening
+and the Jest suite. Prior review history (69+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-ninth pass performed and documented below (2026-08-06).
   Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
@@ -76,6 +77,50 @@ and the Jest suite. Prior review history (68+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-06 (sixty-ninth pass)
+
+A sixty-ninth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Two comment-accuracy issues and
+one API-contract gap were found and fixed:
+
+### Fixes applied
+- **`src/routes/dashboard.js` — misleading `__stmts` export comment (INFO, doc).**
+  The comment on `module.exports.__stmts = stmts` stated that unit tests in
+  `tests/dashboard.test.js` *and* `tests/reports.test.js` use this export to
+  verify the disposed-asset warranty exclusion. In reality, `tests/reports.test.js`
+  exercises the *reports* module's own `__stmts` (age-bucket ordering, reports-
+  side warranty queries); it does reference `dashboard.__stmts.expiringWarranties`
+  only to verify the *same* disposed-asset exclusion pattern on the dashboard
+  side, which is a different assertion than the reports module's own statements.
+  Updated the comment to accurately describe which test file uses which export.
+- **`src/routes/reports.js` — same misleading `__stmts` export comment (INFO, doc).**
+  The `__stmts` comment claimed it "verify[s] the age-bucket ordering and the
+  disposed-asset warranty exclusion against regression." The disposed-asset
+  warranty exclusion lives in `dashboard.js` (`expiringWarranties`), not in any
+  reports statement. The reports module's `__stmts` is used by
+  `tests/reports.test.js` to assert statement shapes and verify the age-bucket
+  ordering and the *reports-side* warranty queries (`warrantyExpiring`,
+  `warrantyExpiringCount`). Updated the comment to accurately describe the export
+  and its test consumers.
+- **`tests/reset_cached_statements.test.js` — added `resetCachedStatements` API
+  contract regression suite (TEST / robustness).** Every route and middleware
+  module in the app exports a `resetCachedStatements` function so the test suite
+  can isolate state between suites. If a new module is added without this export,
+  cached prepared statements from one test leak into the next, producing flaky
+  failures that are hard to diagnose. Added a fixtures-driven suite that requires
+  every module in `src/routes/` and `src/middleware/` and asserts that
+  `resetCachedStatements` exists and is a callable function. Guards against
+  future modules omitting the export.
+
+### Verification
+- `npm audit` — **0 vulnerabilities.**
+- `npm run lint` — clean (exit 0).
+- `npm test` — **549 passed / 549 total** (23 suites; was 535 — +14 new
+  regression tests asserting the `resetCachedStatements` API contract across all
+  route and middleware modules).
 
 ## Review cycle 2026-08-06 (sixty-eighth pass)
 

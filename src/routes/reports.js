@@ -251,7 +251,8 @@ module.exports.resolveReportPeriod = resolveReportPeriod;
 // Exposed for unit testing against a real in-memory DB (mirrors the test-export
 // pattern in dashboard.js / vendors.js / knowledge.js). Unit tests in
 // tests/reports.test.js use this export to assert statement shapes and verify
-// the age-bucket ordering and disposed-asset warranty exclusion against regression.
+// the age-bucket ordering and the disposed-asset warranty exclusion on the
+// reports-side queries (warrantyExpiring / warrantyExpiringCount) against regression.
 module.exports.__stmts = stmts;
 /**
  * Reset module-level cached prepared statements (test use only).
