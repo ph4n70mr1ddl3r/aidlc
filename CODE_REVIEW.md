@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (66+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
+  Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
   Sixty-fifth pass performed and documented below (2026-08-06).
   Sixty-fourth pass performed and documented below (2026-08-06).
@@ -80,25 +81,34 @@ and the Jest suite. Prior review history (66+ consecutive "code review" hardenin
 A sixty-seventh independent pass (full re-read of all 11 route modules, both
 middleware modules, utils, constants, models, seed, all EJS views,
 `public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
-CSRF, XSS, auth, or error-leakage defects.** One test-coverage gap was found
-and fixed: the audit route's GET `/` handler was untested end-to-end —
-`audit.test.js` only covered the middleware helpers and `safeFilters`, but not
-the full route against a real database.
+CSRF, XSS, auth, or error-leakage defects.** Two places where test-export
+comments on `__stmts` misattributed the regression guard to the export itself
+(rather than the unit tests that use it) were found and fixed: the exports
+are test harnesses, not guards — the tests in `tests/dashboard.test.js` and
+`tests/reports.test.js` are what enforce the invariants.
 
 ### Fixes applied
-- **`tests/audit_route.test.js` — add audit route integration tests (TEST).**
-  Added a fixtures-driven suite that exercises the real `GET /` handler against
-  an in-memory SQLite database: pagination (page/limit/totalPages/total/baseUrl),
-  filtering by `action` and `entity_type`, sorting (`default` vs `oldest`),
-  `safeFilters` preserving the current sort/action in the template context, and
-  graceful handling of invalid filter values. Guards against a regression where
-  the audit index page silently drops filter params or sort state.
+- **`src/routes/dashboard.js` — misleading comment on `__stmts` export (INFO, doc).**
+  The comment on `module.exports.__stmts = stmts` stated that the export
+  "Guards the disposed-asset warranty exclusion in expiringWarranties against
+  regression." The export merely exposes prepared statements to the test
+  harness; the guard is the test in `tests/reports.test.js` (line 95) that
+  asserts a disposed asset is absent from `expiringWarranties.all()`. Replaced
+  the inaccurate self-attribution with a correct description of the export's
+  purpose and the tests that use it.
+- **`src/routes/reports.js` — same misleading comment on `__stmts` export
+  (INFO, doc).** The `__stmts` comment claimed it "Guards the age-bucket
+  ordering and the disposed-asset warranty exclusion against regression." The
+  export is a test harness; the guards are in `tests/reports.test.js` (age
+  distribution ORDER BY assertion at line 71 and disposed-asset exclusion at
+  line 91). Updated the comment to accurately describe the export and its
+  test consumers.
 
 ### Verification
 - `npm audit` — **0 vulnerabilities.**
 - `npm run lint` — clean (exit 0).
-- `npm test` — **534 passed / 534 total** (22 suites; was 527 — 7 new
-  audit-route integration tests).
+- `npm test` — **534 passed / 534 total** (22 suites; unchanged from the
+  sixty-sixth pass — comment-only fix, no behavioral change).
 
 ## Review cycle 2026-08-06 (sixty-sixth pass)
 

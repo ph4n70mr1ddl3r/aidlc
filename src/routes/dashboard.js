@@ -265,6 +265,7 @@ module.exports = router;
 module.exports.invalidateDashboardCache = invalidateDashboardCache;
 module.exports.resetCachedStatements = resetCachedStatements;
 // Exposed for unit testing against a real in-memory DB (mirrors the test-export
-// pattern in tickets.js / vendors.js). Guards the disposed-asset warranty
-// exclusion in expiringWarranties against regression.
+// pattern in tickets.js / vendors.js). Unit tests in tests/dashboard.test.js and
+// tests/reports.test.js use this export to assert statement shapes and verify
+// the disposed-asset warranty exclusion against regression.
 module.exports.__stmts = stmts;
