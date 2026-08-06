@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-08-05
+**Date:** 2026-08-06
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (60+ consecutive "code review" hardening
+and the Jest suite. Prior review history (65+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
   Sixty-fifth pass performed and documented below (2026-08-06).
   Sixty-fourth pass performed and documented below (2026-08-06).
@@ -20,6 +20,88 @@ and the Jest suite. Prior review history (60+ consecutive "code review" hardenin
   Fifty-sixth pass performed and documented below (2026-08-04).
   Fifty-fifth pass performed and documented below (2026-08-04).
   Fifty-fourth pass performed and documented below (2026-08-04).
+  Fifty-third pass performed and documented below (2026-08-04).
+  Fifty-second pass performed and documented below (2026-08-04).
+  Fifty-first pass performed and documented below (2026-08-04).
+  Fiftieth pass performed and documented below (2026-08-04).
+  Forty-ninth pass performed and documented below (2026-08-04).
+  Forty-eighth pass performed and documented below (2026-08-03).
+  Forty-seventh pass performed and documented below (2026-08-03).
+  Forty-sixth pass performed and documented below (2026-08-03).
+  Forty-fifth pass performed and documented below (2026-08-03).
+  Forty-fourth pass performed and documented below (2026-08-03).
+  Forty-third pass performed and documented below (2026-08-03).
+  Forty-second pass performed and documented below (2026-08-03).
+  Forty-first pass performed and documented below (2026-08-03).
+  Fortieth pass performed and documented below (2026-08-03).
+  Thirty-ninth pass performed and documented below (2026-08-02).
+  Thirty-eighth pass performed and documented below (2026-08-02).
+  Thirty-seventh pass performed and documented below (2026-08-02).
+  Thirty-sixth pass performed and documented below (2026-08-02).
+  Thirty-fifth pass performed and documented below (2026-08-02).
+  Thirty-fourth pass performed and documented below (2026-08-02).
+  Thirty-third pass performed and documented below (2026-08-01).
+  Thirty-second pass performed and documented below (2026-08-01).
+  Thirty-first pass performed and documented below (2026-08-01).
+  Thirtieth pass performed and documented below (2026-08-01).
+  Twenty-ninth pass performed and documented below (2026-07-31).
+  Twenty-eighth pass performed and documented below (2026-07-31).
+  Twenty-seventh pass performed and documented below (2026-07-31).
+  Twenty-sixth pass performed and documented below (2026-07-30).
+  Twenty-fifth pass performed and documented below (2026-07-30).
+  Twenty-fourth pass performed and documented below (2026-07-30).
+  Twenty-third pass performed and documented below (2026-07-29).
+  Twenty-second pass performed and documented below (2026-07-29).
+  Twenty-first pass performed and documented below (2026-07-29).
+  Twentieth pass performed and documented below (2026-07-28).
+  Nineteenth pass performed and documented below (2026-07-28).
+  Eighteenth pass performed and documented below (2026-07-27).
+  Seventeenth pass performed and documented below (2026-07-27).
+  Sixteenth pass performed and documented below (2026-07-26).
+  Fifteenth pass performed and documented below (2026-07-26).
+  Fourteenth pass performed and documented below (2026-07-25).
+  Thirteenth pass performed and documented below (2026-07-25).
+  Twelfth pass performed and documented below (2026-07-24).
+  Eleventh pass performed and documented below (2026-07-24).
+  Tenth pass performed and documented below (2026-07-23).
+  Ninth pass performed and documented below (2026-07-23).
+  Eighth pass performed and documented below (2026-07-22).
+  Seventh pass performed and documented below (2026-07-22).
+  Sixth pass performed and documented below (2026-07-21).
+  Fifth pass performed and documented below (2026-07-21).
+  Fourth pass performed and documented below (2026-07-20).
+  Third pass performed and documented below (2026-07-19).
+  Second pass performed and documented below (2026-07-18).
+  First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-06 (sixty-sixth pass)
+
+A sixty-sixth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One test-coverage gap was found
+and fixed: five edit-form templates lacked regression-render tests.
+
+### Fixes applied
+- **`tests/templates.test.js` — add missing edit-form regression fixtures (LOW, test coverage).**
+  The `every template renders without error` suite previously covered new-form
+  variants for assets, changes, licenses, projects, and vendors, but omitted the
+  corresponding edit-form variants. Without these, a regression that breaks an
+  edit form (e.g. a missing `isEdit` local, a changed template variable name, or
+  a stray `<% } %>` that drops a conditional section) would not be caught by the
+  render suite — the same bug class that the dashboard stray-closing-brace
+  regression (fix 44) and the `daysUntil` / `usagePercent` missing-locals
+  regression (fix 35) represent. Added five fixtures covering
+  `assets/form (edit)`, `changes/form (edit)`, `licenses/form (edit)`,
+  `projects/form (edit)`, and `vendors/form (edit)`, each with realistic
+  edit-route locals (including `isEdit: true` and the full resource object the
+  route passes).
+
+### Verification
+- `npm audit` — **0 vulnerabilities.**
+- `npm run lint` — clean (exit 0).
+- `npm test` — **527 passed / 527 total** (21 suites; was 522 — 5 new
+  regression-render tests).
 
 ## Review cycle 2026-08-06 (sixty-fifth pass)
 
