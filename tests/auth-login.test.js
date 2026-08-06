@@ -216,4 +216,34 @@ describe('profile password change bcrypt error handling', () => {
     expect(redirectedTo).toBe('/profile');
     expect(flashCalls.some(([t, m]) => t === 'error' && /error/i.test(m))).toBe(true);
   });
+
+  it('redirects to /login with a flash error when the password update affects 0 rows (concurrent deletion race)', async () => {
+    bcrypt.compare.mockClear();
+    bcrypt.compare.mockResolvedValue(true);
+    bcrypt.hash.mockClear();
+    bcrypt.hash.mockResolvedValue('new-hash');
+    // First get() call: password SELECT for bcrypt.compare
+    mockStmt.get.mockReturnValueOnce({ password: '$2a$12$existinghash' });
+    // Second get() call: profile SELECT (after update) — not reached due to early return
+    mockStmt.get.mockReturnValueOnce(null);
+    // run the update with changes=0 to simulate concurrent deletion
+    // Override the password update stmt to return changes=0
+    const db = jest.requireMock('../src/models/database');
+    const originalPrepare = db.prepare;
+    db.prepare = jest.fn((sql) => {
+      if (sql.includes('UPDATE users SET password')) {
+        return { run: jest.fn(() => ({ changes: 0 })) };
+      }
+      return originalPrepare.call(db, sql);
+    });
+    try {
+      const { redirectedTo, flashCalls } = await runPasswordChange({
+        current_password: 'old', new_password: 'NewP@ssw0rd!Aa1', confirm_password: 'NewP@ssw0rd!Aa1'
+      });
+      expect(redirectedTo).toBe('/login');
+      expect(flashCalls.some(([t, m]) => t === 'error' && /not found/i.test(m))).toBe(true);
+    } finally {
+      db.prepare = originalPrepare;
+    }
+  });
 });

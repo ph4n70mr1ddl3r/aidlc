@@ -596,7 +596,12 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect('/profile');
   }
-  _getPasswordUpdateStmt().run(hashed, req.session.user.id);
+  const updateResult = _getPasswordUpdateStmt().run(hashed, req.session.user.id);
+  if (updateResult.changes === 0) {
+    console.error('Password change: user not found (possibly deleted concurrently)');
+    req.flash('error', 'User not found. Please log in again.');
+    return res.redirect('/login');
+  }
 
   audit({ req, action: 'update', entity: 'user', entityId: req.session.user.id, details: 'Changed own password' });
   invalidateDashboardCache();

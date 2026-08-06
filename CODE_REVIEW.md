@@ -7,8 +7,9 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (69+ consecutive "code review" hardening
   commits) was cross-checked to confirm findings were not already addressed.
-  Sixty-ninth pass performed and documented below (2026-08-06).
-  Sixty-eighth pass performed and documented below (2026-08-06).
+   Sixty-ninth pass performed and documented below (2026-08-06).
+   Seventieth pass performed and documented below (2026-08-06).
+   Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
   Sixty-fifth pass performed and documented below (2026-08-06).
@@ -77,6 +78,43 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-06 (seventieth pass)
+
+A seventieth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** One defense-in-depth gap in the
+profile password-change route was found and fixed:
+
+### Fixes applied
+- **`src/routes/auth.js` — password-change route did not verify `result.changes`
+  (LOW, defense-in-depth).** The `PUT /profile/password` handler called
+  `_getPasswordUpdateStmt().run(hashed, req.session.user.id)` without checking
+  whether any row was actually updated. If the user row were deleted between the
+  preceding `SELECT password` (which verifies the stored hash) and the `UPDATE`,
+  the handler would silently proceed to session regeneration and flash a success
+  message despite the password never being persisted. The staff password-reset
+  route (`PUT /:id/reset-password`) already guards this with
+  `if (result.changes === 0)`; the profile route was missing the same check.
+  Added the guard so a 0-change update surfaces `"User not found. Please log in
+  again."` and redirects to `/login`, consistent with the staff route's
+  `"Staff member not found"` guard.
+
+### Testing added
+- **`tests/auth-login.test.js` — password-change 0-row-update regression test
+  added (TEST).** Overrides the password-update prepared statement to return
+  `changes: 0`, runs the full password-change handler with a valid current
+  password, and asserts that the handler redirects to `/login` with an error
+  flash containing "not found". Guards against a future regression that drops
+  the `result.changes` check.
+
+### Verification
+- `npm audit` — **0 vulnerabilities.**
+- `npm run lint` — clean (exit 0).
+- `npm test` — **550 passed / 550 total** (23 suites; was 549 — +1 new
+  regression test asserting the 0-row-update guard on the profile password
+  change route).
 
 ## Review cycle 2026-08-06 (sixty-ninth pass)
 
