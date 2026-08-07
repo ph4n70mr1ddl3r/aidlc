@@ -118,7 +118,7 @@ const SORT_MAP = Object.freeze({
 
 // List projects (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
   const qPriority = safeQueryValue(req.query.priority);
@@ -136,6 +136,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'projects', 'p', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   // Use LEFT JOIN with conditional aggregation instead of correlated subqueries
   // for task counts — avoids N+1 query pattern on large project lists.

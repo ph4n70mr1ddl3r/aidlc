@@ -73,7 +73,7 @@ const _changeUpdateStmt = db.prepare(`
 
 // List changes (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
   const qChangeType = safeQueryValue(req.query.change_type);
@@ -94,6 +94,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'change_log', 'c', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const changes = selectQuery(db, `
     SELECT c.id, c.title, c.change_type, c.status, c.priority, c.scheduled_start, c.scheduled_end,

@@ -73,7 +73,7 @@ const SORT_MAP = Object.freeze({
 
 // List assets (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
   const qStatus = safeQueryValue(req.query.status);
@@ -93,6 +93,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'assets', 'a', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const assets = selectQuery(db, `
     SELECT a.id, a.asset_tag, a.name, a.manufacturer, a.category, a.status, a.condition_rating,

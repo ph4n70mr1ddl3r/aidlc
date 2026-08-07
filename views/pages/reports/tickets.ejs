@@ -8,6 +8,8 @@
       <option value="30" <%= String(period) === '30' ? 'selected' : '' %>>Last 30 days</option>
       <option value="90" <%= String(period) === '90' ? 'selected' : '' %>>Last 90 days</option>
       <option value="365" <%= String(period) === '365' ? 'selected' : '' %>>Last year</option>
+      <% const presetPeriods = ['7', '30', '90', '365']; %>
+      <% if (!presetPeriods.includes(String(period))) { %><option value="<%= period %>" selected>Last <%= period %> days</option><% } %>
     </select>
   </form>
 </div>

@@ -386,4 +386,34 @@ describe('every template renders without error (regression)', () => {
     expect(html).not.toContain('alert(1)');
     expect(html).not.toContain('"><script>');
   });
+
+  it('reports period select renders a selected "Last N days" option for non-preset periods', () => {
+    // resolveReportPeriod accepts any integer in [1, 365] (e.g. ?period=45), so
+    // a non-preset period must still render a matching selected <option> —
+    // otherwise the browser falls back to "Last 7 days" while the data reflects
+    // the requested window, misrepresenting the report period.
+    for (const file of ['reports/tickets.ejs', 'reports/staff.ejs']) {
+      const html = render(file, {
+        ...baseLocals(), title: 'Report', period: 45, ticketsByDay: [], byCategory: [],
+        byPriority: [], avgResolution: { avg_days: null },
+        slaStats: { total_resolved: 0, within_1d: 0, within_3d: 0, within_7d: 0 },
+        topResolvers: [], performance: []
+      });
+      expect(html).toContain('<option value="45" selected>Last 45 days</option>');
+      // Preset options must not claim selection for a non-preset period.
+      expect(html).not.toContain('<option value="7" selected>');
+      expect(html).not.toContain('<option value="30" selected>');
+      expect(html).not.toContain('<option value="90" selected>');
+      expect(html).not.toContain('<option value="365" selected>');
+    }
+    // A preset period must not render the synthetic "Last N days" option.
+    const presetHtml = render('reports/tickets.ejs', {
+      ...baseLocals(), title: 'Ticket Analytics', period: 7, ticketsByDay: [], byCategory: [],
+      byPriority: [], avgResolution: { avg_days: null },
+      slaStats: { total_resolved: 0, within_1d: 0, within_3d: 0, within_7d: 0 },
+      topResolvers: []
+    });
+    expect(presetHtml).toContain('<option value="7" selected>');
+    expect(presetHtml).not.toContain('Last 7 days</option><option value="7"');
+  });
 });

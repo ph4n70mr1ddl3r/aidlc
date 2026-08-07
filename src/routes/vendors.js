@@ -182,7 +182,7 @@ const _vendorInsertStmt = db.prepare(`
 
 // List vendors (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
   const qIsActive = safeQueryValue(req.query.is_active);
@@ -199,6 +199,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'vendors', 'v', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const vendors = selectQuery(db, `
     SELECT v.id, v.name, v.contact_person, v.email, v.category, v.contract_end, v.rating, v.is_active

@@ -209,6 +209,58 @@ describe('audit route — GET /', () => {
     expect(typeof locals.baseUrl).toBe('string');
   });
 
+  it('clamps an out-of-range page to the last page instead of an empty page', () => {
+    const handler = lastHandlerFor(router, 'get', '/');
+    const req = {
+      query: { page: '99', limit: '2' },
+      session: { user: { id: 1 } },
+      path: '/audit',
+      audit: jest.fn()
+    };
+    const res = {
+      locals: {},
+      render: jest.fn(),
+      set: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
+    handler(req, res, () => {});
+    const locals = res.render.mock.calls[0][1];
+    // 5 entries / 2 per page = 3 pages; ?page=99 must clamp to page 3.
+    expect(locals.page).toBe(3);
+    expect(locals.totalPages).toBe(3);
+    expect(locals.total).toBe(5);
+    // The clamped offset (page 3 → OFFSET 4) returns the final entry rather
+    // than an empty page that would render a broken "Showing N–M" (M < N).
+    expect(locals.entries.length).toBe(1);
+  });
+
+  it('renders the same rows for a page beyond the last as for the actual last page', () => {
+    const handler = lastHandlerFor(router, 'get', '/');
+    const run = (page) => {
+      const req = {
+        query: { page, limit: '2' },
+        session: { user: { id: 1 } },
+        path: '/audit',
+        audit: jest.fn()
+      };
+      const res = {
+        locals: {},
+        render: jest.fn(),
+        set: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        json: jest.fn()
+      };
+      handler(req, res, () => {});
+      return res.render.mock.calls[0][1];
+    };
+    const lastPage = run('3');
+    const beyondLastPage = run('999');
+    expect(lastPage.page).toBe(3);
+    expect(beyondLastPage.page).toBe(lastPage.page);
+    expect(beyondLastPage.entries).toEqual(lastPage.entries);
+  });
+
   it('ignores invalid filter values (doesn\'t crash, returns all entries)', () => {
     const handler = lastHandlerFor(router, 'get', '/');
     const req = {

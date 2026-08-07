@@ -95,7 +95,7 @@ const _licenseUpdateStmt = db.prepare(`
 
 // List licenses (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qLicenseType = safeQueryValue(req.query.license_type);
   const filters = buildFilters({
@@ -110,6 +110,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'licenses', 'l', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const licenses = selectQuery(db, `
     SELECT l.id, l.software_name, l.vendor, l.license_type, l.total_seats, l.used_seats,

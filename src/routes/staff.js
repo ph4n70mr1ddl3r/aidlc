@@ -85,7 +85,7 @@ const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE
 
 // List staff (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   // Whitelist known departments from DB
   let departments = [];
@@ -112,6 +112,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'users', 'u', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const staff = selectQuery(db, `
     SELECT u.id, u.username, u.email, u.first_name, u.last_name, u.role,

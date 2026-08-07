@@ -9,6 +9,7 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   commits) was cross-checked to confirm findings were not already addressed.
    Sixty-ninth pass performed and documented below (2026-08-06).
    Seventieth pass performed and documented below (2026-08-06).
+   Seventy-first pass performed and documented below (2026-08-07).
    Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
@@ -78,6 +79,55 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-07 (seventy-first pass)
+
+A seventy-first independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** Two user-facing correctness bugs in
+paginated list rendering and the report period filter were found and fixed:
+
+### Fixes applied
+- **Pagination did not clamp an out-of-range `page` to `totalPages` (LOW, all 9 list routes).**
+  `paginate()` clamps `page` to `[1, MAX_PAGE]` only, and has no knowledge of
+  `totalPages` at call time. A request like `/tickets?page=999` therefore ran
+  the list query with `OFFSET (page-1)*limit` beyond the data, returned an empty
+  table, and passed the raw `page` to the pagination partial — which rendered a
+  broken `Showing N–M of total` range with **M < N** (e.g. "Showing 26–25 of 10
+  records"). Applied the same clamp in all 9 paginated list routes (tickets,
+  staff, assets, licenses, projects, changes, vendors, knowledge, audit):
+  `page = Math.min(requestedPage, totalPages)` and `offset = (page - 1) * limit`
+  computed **after** `totalPages`, so an out-of-range page now renders the actual
+  final page of data instead of an empty list. The URL query parameter is left
+  untouched (the view and pagination links reflect the clamped page).
+- **Report period filter-state mismatch for non-preset periods (LOW).**
+  `resolveReportPeriod()` accepts any integer in `[1, 365]` (e.g. `?period=45`),
+  but the period `<select>` in `reports/tickets.ejs` and `reports/staff.ejs` only
+  marked `7/30/90/365` as `selected`. For any other value the browser silently
+  fell back to "Last 7 days" while the charts/tables reflected the requested
+  window (e.g. 45 days), misrepresenting the period. Added a synthetic
+  `selected` option `Last N days` when `period` is not one of the four presets,
+  so the dropdown always reflects the window actually queried.
+
+### Test coverage added
+- `tests/pagination_clamp.test.js` — cross-route contract suite (9 cases) that
+  loads every paginated list route against an in-memory SQLite DB and asserts a
+  request for `?page=999` on an empty table clamps to `page === totalPages === 1`.
+  Guards against any future route dropping the clamp.
+- `tests/audit_route.test.js` — 2 integration cases: an out-of-range `page=99`
+  clamps to the last page (page 3, OFFSET 4 → 1 entry) and renders the **same
+  rows** as a request for the actual last page, never an empty page.
+- `tests/templates.test.js` — report period select regression: a non-preset
+  `period` (45) renders `<option value="45" selected>Last 45 days</option>`,
+  no preset claims `selected`, and a preset (7) renders without the synthetic
+  option.
+
+### Verification
+- `npm run lint` — clean (exit 0).
+- `npm test` — **562 passed / 562 total** (24 suites; was 550 — +12 new: 9
+  pagination-clamp contract cases, 2 audit integration cases, 1 template case).
+- `npm audit` — 0 vulnerabilities (unchanged).
 
 ## Review cycle 2026-08-06 (seventieth pass)
 

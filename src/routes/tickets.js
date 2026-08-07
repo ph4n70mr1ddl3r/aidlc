@@ -159,7 +159,7 @@ function ensureLinkedAssetInList(assets, linkedAsset) {
 
 // List tickets (paginated)
 router.get('/', (req, res) => {
-  const { page, limit, offset } = paginate(req);
+  const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
   const qPriority = safeQueryValue(req.query.priority);
@@ -181,6 +181,11 @@ router.get('/', (req, res) => {
 
   const total = countQuery(db, 'tickets', 't', whereClause, params);
   const totalPages = Math.ceil(total / limit) || 1;
+  // Clamp the requested page to the actual page count so a page beyond the
+  // last one (e.g. ?page=999) renders the final page instead of an empty list
+  // with a broken "Showing N–M" range (M < N) in the pagination partial.
+  const page = Math.min(requestedPage, totalPages);
+  const offset = (page - 1) * limit;
 
   const tickets = selectQuery(db, `
     SELECT t.id, t.ticket_number, t.title, t.requester_name, t.category, t.priority, t.status, t.created_at, u.first_name || ' ' || u.last_name as assigned_name
