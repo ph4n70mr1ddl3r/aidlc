@@ -42,6 +42,27 @@ function runHandler(handler, body, params = {}) {
   return { redirectedTo, flashCalls, req, res };
 }
 
+// Variant of runHandler that captures JSON responses (for routes that return
+// JSON like the license key-reveal endpoint).
+function runHandlerWithJson(handler, body, params = {}) {
+  const jsonCalls = [];
+  const req = { body, params, method: 'POST', session: { user: { id: 1, role: 'admin' } }, flash: () => {} };
+  const res = {
+    redirect: () => {},
+    render: () => {},
+    status: (code) => {
+      return { json: (data) => {
+        jsonCalls.push({ code, data }); return res;
+      } };
+    },
+    json: (data) => {
+      jsonCalls.push({ code: 200, data }); return res;
+    }
+  };
+  handler(req, res, () => {});
+  return { jsonCalls, req, res };
+}
+
 describe('HPP array rejection (regression — fail closed)', () => {
   describe('assets routes', () => {
     const assetsRouter = require('../src/routes/assets');
@@ -483,6 +504,28 @@ describe('HPP array rejection (regression — fail closed)', () => {
       }, { id: '2' });
       expect(redirectedTo).not.toBeNull();
       expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
+
+  describe('licenses key-reveal route', () => {
+    const licensesRouter = require('../src/routes/licenses');
+
+    it('rejects array payload on license key reveal (HPP guard)', () => {
+      // The key-reveal route is POST /:id/key. The HPP guard rejects arrays
+      // before the DB query runs, returning 400 JSON.
+      const h = lastHandlerFor(licensesRouter, 'post', '/:id/key');
+      const { jsonCalls } = runHandlerWithJson(h, { license_key: ['a', 'b'] }, { id: '1' });
+      expect(jsonCalls.length).toBe(1);
+      expect(jsonCalls[0].code).toBe(400);
+      expect(jsonCalls[0].data.error).toBe('Invalid request parameters');
+    });
+
+    it('returns 400 for invalid ID on license key reveal', () => {
+      const h = lastHandlerFor(licensesRouter, 'post', '/:id/key');
+      const { jsonCalls } = runHandlerWithJson(h, {}, { id: 'invalid' });
+      expect(jsonCalls.length).toBe(1);
+      expect(jsonCalls[0].code).toBe(400);
+      expect(jsonCalls[0].data.error).toBe('Invalid license ID');
     });
   });
 });

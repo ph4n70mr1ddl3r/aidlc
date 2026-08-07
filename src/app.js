@@ -290,7 +290,14 @@ const csrfConfig = doubleCsrf({
     httpOnly: true
   },
   getCsrfTokenFromRequest: (req) => req.body?._csrf || req.headers['x-csrf-token'],
-  size: 64
+  size: 64,
+  // Set the CSRF cookie on every request (including GET) so that API endpoints
+  // and health checks also establish the cookie. Without this, any client that
+  // fetches a token-only endpoint (e.g. /health) would not receive the cookie,
+  // making subsequent CSRF-protected writes fail. The token is still only
+  // *validated* on write methods (PUT/POST/DELETE/PATCH) — GET/HEAD/OPTIONS
+  // skip validation as before.
+  skipCsrfProtection: (req) => ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
 });
 app.use(csrfConfig.doubleCsrfProtection);
 
@@ -412,6 +419,10 @@ app.use((req, res, next) => {
   // Expires header omitted — Cache-Control: no-store already prevents caching;
   // a fixed 1970 date is redundant and may confuse some HTTP intermediaries.
   res.set('Surrogate-Control', 'no-store');
+  // Prevent JavaScript from reading the CSRF cookie (mitigates XSS-based
+  // token theft). The cookie is httpOnly so JS cannot read it anyway, but
+  // this header provides defense-in-depth in case httpOnly is misconfigured.
+  res.set('X-Content-Type-Options', 'nosniff');
   next();
 });
 

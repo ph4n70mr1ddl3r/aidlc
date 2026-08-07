@@ -255,6 +255,12 @@ router.get('/:id', (req, res) => {
 // are not checked by doubleCsrfProtection and could leak keys via cross-site
 // request forgery.
 router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads.
+  const hppErrors = rejectHppArrays(req, ['license_key']);
+  if (hppErrors.length > 0) {
+    return res.status(400).json({ error: 'Invalid request parameters' });
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     return res.status(400).json({ error: 'Invalid license ID' });
@@ -266,7 +272,12 @@ router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => 
       return res.status(404).json({ error: 'License not found' });
     }
     req.audit('read', 'license', id, `Revealed license key for ${license.software_name}`);
-    res.json({ key: license.license_key || '' });
+    // Escape the license key before embedding it in JSON to prevent XSS if the
+    // key contains characters that could break out of a JSON string context.
+    // While JSON.stringify handles this safely, we explicitly escape to ensure
+    // the response is safe even if consumed in a <script> context.
+    const escapedKey = (license.license_key || '').replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/'/g, '\\u0027');
+    res.json({ key: escapedKey });
   } catch (err) {
     console.error('License key reveal error:', err.message);
     res.status(500).json({ error: 'Error retrieving license key' });
