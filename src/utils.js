@@ -642,6 +642,33 @@ function recalcProjectProgress(db, projectId) {
   _getProgressUpdateStmt(db).run(progress, projectId);
 }
 
+/**
+ * Resolve an optional text field on update: preserve the existing value when
+ * the field is ABSENT from the request (partial submission). An empty submitted
+ * value CLEARS the field (null), consistent with the create route.
+ * When present and non-empty, the value is truncated to maxLen (if provided).
+ * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
+ * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution
+ * so a polluted payload fails closed instead of silently corrupting data.
+ * @param {*} rawValue - the raw req.body[field] value (NOT collapsed by safeQueryValue)
+ * @param {string|null} processedValue - the already-processed value or null
+ * @param {number|null} maxLen - max string length to truncate to, or null
+ * @param {*} existingValue - the current value from the DB
+ * @returns {*|{error: boolean}|null}
+ */
+function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
+  if (rawValue === undefined || rawValue === null) {
+    return existingValue;
+  }
+  if (Array.isArray(rawValue)) {
+    return { error: true };
+  }
+  if (processedValue !== null && processedValue !== '') {
+    return maxLen ? processedValue.substring(0, maxLen) : processedValue;
+  }
+  return null;
+}
+
 // Cached prepared statement for getActiveStaff — called on every list/form route.
 // Module-level cache (safe because the app uses a single db instance).
 let _activeStaffStmt = null;
@@ -652,14 +679,27 @@ function _getActiveStaffStmt(db) {
   return _activeStaffStmt;
 }
 
+// TTL cache for getActiveStaff to avoid a DB query on every list/form request.
+// Invalidation is handled by calling resetCachedStatements in route modules on write.
+let _activeStaffCache = null;
+let _activeStaffCacheTime = 0;
+const ACTIVE_STAFF_CACHE_MS = 30_000; // 30 seconds
+
 /**
  * Fetch active staff list (id, first_name, last_name).
  * Centralized to avoid repeating the same query across routes.
+ * Results are cached for 30 seconds and invalidated on write operations.
  * @param {import('better-sqlite3').Database} db
  * @returns {Array<{id: number, first_name: string, last_name: string}>}
  */
 function getActiveStaff(db) {
-  return _getActiveStaffStmt(db).all();
+  const now = Date.now();
+  if (_activeStaffCache && (now - _activeStaffCacheTime) < ACTIVE_STAFF_CACHE_MS) {
+    return _activeStaffCache;
+  }
+  _activeStaffCache = _getActiveStaffStmt(db).all();
+  _activeStaffCacheTime = now;
+  return _activeStaffCache;
 }
 
 // Cached prepared statement for ensureAssigneeInList — fetches a single user's
@@ -903,8 +943,10 @@ function selectQuery(db, sql, params) {
  *   internal comment flag) behind a privilege check before allowing 1.
  * @returns {0|1}
  */
-function parseBooleanFlag(value, privileged = true) {
-  if (!privileged) {
+function parseBooleanFlag(value, allowSet = true) {
+  // When allowSet is false the caller is unprivileged — reject ALL inputs
+  // (including '1') so that privilege checks gate the ability to set the flag.
+  if (!allowSet) {
     return 0;
   }
   return (value === '1' || value === 'true' || value === 'on') ? 1 : 0;
@@ -954,6 +996,8 @@ function resetCachedStatements() {
   _progressSelectStmt = null;
   _progressUpdateStmt = null;
   _activeStaffStmt = null;
+  _activeStaffCache = null;
+  _activeStaffCacheTime = 0;
   _assigneeByIdStmt = null;
   _pruneCutoffStmt = null;
   _pruneDeleteStmt = null;
@@ -1031,5 +1075,8 @@ module.exports = {
   rejectHppArrays,
   // Exported for unit testing only — mirrors the pattern used by route modules
   // that expose internal helpers (e.g. _resolveDateTimeField in changes.js).
-  _touchCache
+  _touchCache,
+  // Shared across vendors.js and licenses.js for absent-vs-empty partial-update
+  // resolution; also tested directly in utils.test.js for regression coverage.
+  resolveOptionalField
 };

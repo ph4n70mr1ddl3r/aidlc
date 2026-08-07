@@ -1378,6 +1378,32 @@ describe('getActiveStaff', () => {
     const result = utils.getActiveStaff(db);
     expect(result).toEqual(staff);
   });
+
+  it('returns cached results within the TTL window', () => {
+    const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
+    const stmt = { all: jest.fn(() => staff) };
+    const db = { prepare: jest.fn(() => stmt) };
+    const result1 = utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(1);
+    const result2 = utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(1); // still cached
+    expect(result2).toEqual(staff);
+  });
+
+  it('refreshes cache after TTL expires', () => {
+    jest.useFakeTimers();
+    utils.resetCachedStatements();
+    const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
+    const stmt = { all: jest.fn(() => staff) };
+    const db = { prepare: jest.fn(() => stmt) };
+    utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(1);
+    // Advance past the 30s TTL
+    jest.advanceTimersByTime(31_000);
+    utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
 });
 
 /**
@@ -1744,5 +1770,33 @@ describe('resetPageSize', () => {
     const req = { query: {}, path: '/test' };
     const result = utils.paginate(req);
     expect(result.limit).toBe(100);
+  });
+});
+
+describe('resolveOptionalField (shared absent-vs-empty resolver)', () => {
+  it('preserves existing value when rawValue is absent (undefined)', () => {
+    expect(utils.resolveOptionalField(undefined, 'submitted', 100, 'existing')).toBe('existing');
+  });
+
+  it('preserves existing value when rawValue is null (JSON null)', () => {
+    expect(utils.resolveOptionalField(null, null, 100, 'existing')).toBe('existing');
+  });
+
+  it('clears field to null when processedValue is empty/null', () => {
+    expect(utils.resolveOptionalField('', '', 100, 'existing')).toBeNull();
+    expect(utils.resolveOptionalField(' ', '', 100, 'existing')).toBeNull();
+    expect(utils.resolveOptionalField('submitted', null, 100, 'existing')).toBeNull();
+  });
+
+  it('accepts a new value and truncates to maxLen', () => {
+    expect(utils.resolveOptionalField('submitted', 'submitted', 5, 'existing')).toBe('submi');
+  });
+
+  it('returns the value unchanged when maxLen is null', () => {
+    expect(utils.resolveOptionalField('hardware', 'hardware', null, 'existing')).toBe('hardware');
+  });
+
+  it('rejects arrays from HTTP parameter pollution (fails closed)', () => {
+    expect(utils.resolveOptionalField(['a'], 'a', null, 'existing')).toEqual({ error: true });
   });
 });

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag, rejectHppArrays, resolveOptionalField } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -272,12 +272,9 @@ router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => 
       return res.status(404).json({ error: 'License not found' });
     }
     req.audit('read', 'license', id, `Revealed license key for ${license.software_name}`);
-    // Escape the license key before embedding it in JSON to prevent XSS if the
-    // key contains characters that could break out of a JSON string context.
-    // While JSON.stringify handles this safely, we explicitly escape to ensure
-    // the response is safe even if consumed in a <script> context.
-    const escapedKey = (license.license_key || '').replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/'/g, '\\u0027');
-    res.json({ key: escapedKey });
+    // res.json() safely serializes the key (escapes quotes, control chars, etc.).
+    // No manual HTML escaping is needed — the response is JSON, not HTML.
+    res.json({ key: license.license_key || '' });
   } catch (err) {
     console.error('License key reveal error:', err.message);
     res.status(500).json({ error: 'Error retrieving license key' });
@@ -321,7 +318,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // field (partial submission — preserve stored value) from an explicit empty
   // string (clear the field). trim() collapses undefined to '', so the raw
   // values are captured here for the transaction resolution below. Mirrors the
-  // raw-vs-processed split in vendors.js (_resolveOptionalTextField).
+  // raw-vs-processed split mirrors the pattern in vendors.js (resolveOptionalField).
   const rawVendor = req.body.vendor;
   const rawLicenseType = req.body.license_type;
   const rawNotes = req.body.notes;
@@ -430,15 +427,12 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // class the assets/projects/vendors update paths already handle. An empty
       // submitted value still CLEARS the field (null), consistent with the
       // create route semantics. Present-but-invalid values were rejected above.
-      const resolvedVendor = (rawVendor === undefined || rawVendor === null)
-        ? existing.vendor
-        : (vendor === '') ? null : vendor.substring(0, MAX_MEDIUM_STR) || null;
-      const resolvedLicenseType = (rawLicenseType === undefined || rawLicenseType === null)
-        ? existing.license_type
-        : (license_type === '') ? null : license_type;
-      const resolvedNotes = (rawNotes === undefined || rawNotes === null)
-        ? existing.notes
-        : (notes === '') ? null : notes.substring(0, MAX_NOTES) || null;
+      const resolvedVendor = resolveOptionalField(rawVendor, vendor || null, MAX_MEDIUM_STR, existing.vendor);
+      if (resolvedVendor && resolvedVendor.error) { throw new Error('INVALID_VENDOR'); }
+      const resolvedLicenseType = resolveOptionalField(rawLicenseType, license_type || null, null, existing.license_type);
+      if (resolvedLicenseType && resolvedLicenseType.error) { throw new Error('INVALID_LICENSE_TYPE'); }
+      const resolvedNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, existing.notes);
+      if (resolvedNotes && resolvedNotes.error) { throw new Error('INVALID_NOTES'); }
       const resolvedPurchase = (purchase_date === undefined || purchase_date === null)
         ? existing.purchase_date
         : sPurchase;

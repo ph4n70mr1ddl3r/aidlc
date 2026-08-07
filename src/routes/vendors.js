@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -120,41 +120,6 @@ function _resolveClearableDate(rawValue, existingValue) {
   return { error: false, value: parsed };
 }
 
-/**
- * Resolve an optional text field on update: preserve the existing value when
- * the field is ABSENT from the request (partial submission). An empty submitted
- * value CLEARS the field (null), consistent with the create route.
- * When present and non-empty, the value is truncated to maxLen (if provided).
- * Extracted to eliminate the repeated raw !== undefined ? ... pattern.
- * @param {*} rawBodyValue - the raw req.body[field] value (NOT collapsed by
- *   safeQueryValue) so absence (undefined) vs empty ("") can be distinguished.
- * @param {string|null} processedValue - the already-processed value or null
- * @param {number|null} maxLen - max string length to truncate to, or null
- * @param {*} existingValue - the current value from the DB
- * @returns {*|{error: boolean}|null}
- */
-function _resolveOptionalTextField(rawValue, processedValue, maxLen, existingValue) {
-  // Reject arrays from HTTP parameter pollution so a polluted payload does not
-  // silently clear or corrupt stored data. Mirrors the array guards in safeId,
-  // safeInt, safePositiveFloat, and _resolveClearableDate. The raw request
-  // value (NOT the safeQueryValue-collapsed value) is passed here so a
-  // `field[]=a&field[]=b` payload actually fails closed instead of silently
-  // using the first element.
-  // Absent field (undefined) or explicit JSON null — preserve the existing value
-  // so a null sent via the JSON body parser does not silently wipe a stored
-  // field. Consistent with _resolveClearableDate, which treats null the same as
-  // absent.
-  if (rawValue === undefined || rawValue === null) {
-    return existingValue;
-  }
-  if (Array.isArray(rawValue)) {
-    return { error: true };
-  }
-  if (processedValue !== null && processedValue !== '') {
-    return maxLen ? processedValue.substring(0, maxLen) : processedValue;
-  }
-  return null;
-}
 
 // Cached prepared statements for show/edit routes (static SQL).
 const _showVendorStmt = db.prepare('SELECT id, name, contact_person, email, phone, address, website, category, contract_start, contract_end, notes, rating, is_active, created_at, updated_at FROM vendors WHERE id = ?');
@@ -437,7 +402,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const phone = sanitizePhone(rawPhone);
   // Fail closed on a present-but-malformed phone: a value that sanitizes to
   // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
-  // than silently clearing the stored phone via _resolveOptionalTextField — the
+      // than silently clearing the stored phone via resolveOptionalField — the
   // fail-closed convention applied to every other present-but-invalid field.
   // Absent/empty values are allowed (no phone).
   if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {
@@ -533,37 +498,33 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // For each optional field: if the field was present in the request body
       // (even empty), use the submitted value (empty -> null to allow clearing).
       // If the field was absent (partial submission), preserve the existing value.
-      // Uses _resolveOptionalTextField to eliminate 8-way duplication of the
-      // raw-undefined check pattern. The req.body.raw values are passed as the
-      // first arg so the function can detect absence (undefined) vs empty ("") —
-      // HPP array rejection already ran above, so the internal array guard is
-      // defense-in-depth only. Processed (trimmed/sanitized) values are the
-      // second arg, avoiding redundant safeQueryValue calls inside the txn.
-      const safeContactPerson = _resolveOptionalTextField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
+      // Uses resolveOptionalField (shared from utils.js) to eliminate 8-way
+      // duplication of the raw-undefined check pattern.
+      const safeContactPerson = resolveOptionalField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
       if (safeContactPerson && safeContactPerson.error) {
         throw new Error('INVALID_CONTACT_PERSON');
       }
-      const safeEmail = _resolveOptionalTextField(req.body.email, email || null, MAX_EMAIL, existing.email);
+      const safeEmail = resolveOptionalField(req.body.email, email || null, MAX_EMAIL, existing.email);
       if (safeEmail && safeEmail.error) {
         throw new Error('INVALID_EMAIL');
       }
-      const safePhone = _resolveOptionalTextField(req.body.phone, phone || null, MAX_PHONE, existing.phone);
+      const safePhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, existing.phone);
       if (safePhone && safePhone.error) {
         throw new Error('INVALID_PHONE');
       }
-      const safeAddress = _resolveOptionalTextField(req.body.address, address || null, MAX_ADDRESS, existing.address);
+      const safeAddress = resolveOptionalField(req.body.address, address || null, MAX_ADDRESS, existing.address);
       if (safeAddress && safeAddress.error) {
         throw new Error('INVALID_ADDRESS');
       }
-      const safeWebsite = _resolveOptionalTextField(req.body.website, website || null, MAX_LONG_STR, existing.website);
+      const safeWebsite = resolveOptionalField(req.body.website, website || null, MAX_LONG_STR, existing.website);
       if (safeWebsite && safeWebsite.error) {
         throw new Error('INVALID_WEBSITE');
       }
-      const safeCategory = _resolveOptionalTextField(req.body.category, category || null, null, existing.category);
+      const safeCategory = resolveOptionalField(req.body.category, category || null, null, existing.category);
       if (safeCategory && safeCategory.error) {
         throw new Error('INVALID_CATEGORY');
       }
-      const safeNotes = _resolveOptionalTextField(req.body.notes, notes || null, MAX_NOTES, existing.notes);
+      const safeNotes = resolveOptionalField(req.body.notes, notes || null, MAX_NOTES, existing.notes);
       if (safeNotes && safeNotes.error) {
         throw new Error('INVALID_NOTES');
       }
@@ -792,7 +753,7 @@ module.exports = router;
 module.exports.validateVendorRating = _validateVendorRating;
 module.exports.resolveVendorRatingOnUpdate = _resolveVendorRatingOnUpdate;
 module.exports.resolveClearableDate = _resolveClearableDate;
-module.exports.resolveOptionalTextField = _resolveOptionalTextField;
+module.exports.resolveOptionalTextField = resolveOptionalField;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with

@@ -74,6 +74,11 @@ function runAuditPrune() {
     } catch (err) {
       console.error('Audit log pruning error:', err.message);
     }
+    // Log a warning on first-run failure so a startup DB lock or transient error
+    // is not silently swallowed — the periodic interval will retry automatically.
+    if (!_pruneInterval) {
+      console.warn('Initial audit log prune failed — will retry on next interval');
+    }
   }
 }
 runAuditPrune();
@@ -251,18 +256,21 @@ if (process.env.SESSION_STORE) {
 // session. Placing it first ensures req.cookies is populated for all middleware.
 app.use(cookieParser());
 
-app.use(session({
-  name: SESSION_COOKIE,
-  secret: sessionSecret,
-  store: sessionStore,
-  resave: false,
-  saveUninitialized: false,
-  rolling: true,
-  cookie: {
-    ...SESSION_COOKIE_OPTIONS,
-    maxAge: SESSION_MAX_AGE
-  }
-}));
+  // Re-evaluate secure flag at session-config time so it is always correct
+  // regardless of when constants.js was required relative to NODE_ENV normalization.
+  app.use(session({
+    name: SESSION_COOKIE,
+    secret: sessionSecret,
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      ...SESSION_COOKIE_OPTIONS,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: SESSION_MAX_AGE
+    }
+  }));
 
 app.use(flash());
 
