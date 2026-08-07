@@ -828,7 +828,7 @@ module.exports = router;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
- * the same-named export in all other route modules.
+ * the same-named export in middleware/auth.js, audit.js, utils.js, etc.
  */
 function resetCachedStatements() {
   // _departmentsStmt is a module-level const binding from db.prepare(),

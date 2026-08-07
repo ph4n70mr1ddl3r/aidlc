@@ -29,6 +29,19 @@ const kbWriteLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Rate limit article reads (show/edit) to prevent rapid enumeration or
+// resource exhaustion from repeated markdown parsing + sanitization on each view.
+// Non-privileged users can only see published articles (filtered in-query),
+// but privileged users can see drafts/archived too — this limiter protects
+// against an admin/manager hammering the show/edit endpoints with many IDs.
+const kbReadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: 'Too many article requests. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
@@ -159,7 +172,7 @@ function renderMarkdown(content) {
 }
 
 // List articles (paginated)
-router.get('/', (req, res) => {
+router.get('/', kbReadLimiter, (req, res) => {
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
@@ -308,7 +321,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
 });
 
 // Show article
-router.get('/:id', (req, res) => {
+router.get('/:id', kbReadLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
@@ -363,7 +376,7 @@ router.get('/:id', (req, res) => {
 });
 
 // Edit article (author or admin/manager only)
-router.get('/:id/edit', (req, res) => {
+router.get('/:id/edit', kbReadLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');
