@@ -1383,7 +1383,7 @@ describe('getActiveStaff', () => {
     const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
     const stmt = { all: jest.fn(() => staff) };
     const db = { prepare: jest.fn(() => stmt) };
-    const result1 = utils.getActiveStaff(db);
+    utils.getActiveStaff(db);
     expect(stmt.all).toHaveBeenCalledTimes(1);
     const result2 = utils.getActiveStaff(db);
     expect(stmt.all).toHaveBeenCalledTimes(1); // still cached

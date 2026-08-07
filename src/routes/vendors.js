@@ -402,7 +402,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const phone = sanitizePhone(rawPhone);
   // Fail closed on a present-but-malformed phone: a value that sanitizes to
   // nothing (e.g. "abc", or a non-string JSON value) must be rejected rather
-      // than silently clearing the stored phone via resolveOptionalField — the
+  // than silently clearing the stored phone via resolveOptionalField — the
   // fail-closed convention applied to every other present-but-invalid field.
   // Absent/empty values are allowed (no phone).
   if (rawPhone !== undefined && rawPhone !== null && rawPhone !== '' && !phone) {

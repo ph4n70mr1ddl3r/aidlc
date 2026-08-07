@@ -428,11 +428,17 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // submitted value still CLEARS the field (null), consistent with the
       // create route semantics. Present-but-invalid values were rejected above.
       const resolvedVendor = resolveOptionalField(rawVendor, vendor || null, MAX_MEDIUM_STR, existing.vendor);
-      if (resolvedVendor && resolvedVendor.error) { throw new Error('INVALID_VENDOR'); }
+      if (resolvedVendor && resolvedVendor.error) {
+        throw new Error('INVALID_VENDOR');
+      }
       const resolvedLicenseType = resolveOptionalField(rawLicenseType, license_type || null, null, existing.license_type);
-      if (resolvedLicenseType && resolvedLicenseType.error) { throw new Error('INVALID_LICENSE_TYPE'); }
+      if (resolvedLicenseType && resolvedLicenseType.error) {
+        throw new Error('INVALID_LICENSE_TYPE');
+      }
       const resolvedNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, existing.notes);
-      if (resolvedNotes && resolvedNotes.error) { throw new Error('INVALID_NOTES'); }
+      if (resolvedNotes && resolvedNotes.error) {
+        throw new Error('INVALID_NOTES');
+      }
       const resolvedPurchase = (purchase_date === undefined || purchase_date === null)
         ? existing.purchase_date
         : sPurchase;

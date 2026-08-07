@@ -256,21 +256,21 @@ if (process.env.SESSION_STORE) {
 // session. Placing it first ensures req.cookies is populated for all middleware.
 app.use(cookieParser());
 
-  // Re-evaluate secure flag at session-config time so it is always correct
-  // regardless of when constants.js was required relative to NODE_ENV normalization.
-  app.use(session({
-    name: SESSION_COOKIE,
-    secret: sessionSecret,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: {
-      ...SESSION_COOKIE_OPTIONS,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: SESSION_MAX_AGE
-    }
-  }));
+// Re-evaluate secure flag at session-config time so it is always correct
+// regardless of when constants.js was required relative to NODE_ENV normalization.
+app.use(session({
+  name: SESSION_COOKIE,
+  secret: sessionSecret,
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+  rolling: true,
+  cookie: {
+    ...SESSION_COOKIE_OPTIONS,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: SESSION_MAX_AGE
+  }
+}));
 
 app.use(flash());
 
