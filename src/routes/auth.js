@@ -274,7 +274,12 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 
   const safeUsername = username.toLowerCase();
   // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
+  // Guard against req.ip being an array (e.g. from HPP on X-Forwarded-For)
+  // — falling through to a non-string key would serialize oddly in the lockout map.
   let clientIp = req.ip || 'unknown';
+  if (Array.isArray(clientIp)) {
+    clientIp = String(clientIp[0]) || 'unknown';
+  }
   if (typeof clientIp === 'string' && clientIp.startsWith('::ffff:')) {
     clientIp = clientIp.slice(7);
   }

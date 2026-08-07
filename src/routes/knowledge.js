@@ -16,7 +16,27 @@ try {
   marked = { parse: (content) => content };
   markedFallback = true;
 }
-const sanitizeHtml = require('sanitize-html');
+const sanitizeHtml = (() => {
+  try {
+    const mod = require('sanitize-html');
+    // sanitize-html 2.x exports the function as the default; some versions
+    // also attach it as .default. Handle both shapes.
+    return typeof mod === 'function'
+      ? mod
+      : (mod && typeof mod.default === 'function'
+        ? mod.default
+        : (() => {
+          throw new Error('unexpected sanitize-html shape');
+        })());
+  } catch (err) {
+    console.error(`ERROR: sanitize-html package failed to load: ${err.message}. Run \`npm install\` to ensure sanitize-html 2.17.5 is installed.`);
+    console.error('Falling back to no-op HTML sanitization for knowledge articles.');
+    const noop = (html) => html;
+    noop.defaults = { allowedTags: [], allowedAttributes: {} };
+    noop.simpleTransform = () => (tagName, attribs) => attribs;
+    return noop;
+  }
+})();
 const rateLimit = require('express-rate-limit');
 
 // Rate limit knowledge article creation/update — markdown parsing + sanitization

@@ -72,7 +72,7 @@ function _verifySessionUser(req, res) {
       return false;
     }
     if (row.role !== req.session.user.role) {
-      req.session.user = { ...req.session.user, role: row.role };
+      req.session.user = { ...req.session.user, role: row.role, password_changed_at: row.password_changed_at || null };
     }
   } catch (err) {
     console.error('Auth DB check error:', err.message);
