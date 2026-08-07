@@ -55,11 +55,6 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   }
   const finalSeats = Math.max(1, seats);
   const finalUsed = used;
-  // No negative-used guard is needed here: safePositiveInt never returns a
-  // negative value (it returns the fallback), and a present-but-invalid value
-  // collapses to Infinity and is rejected by the !Number.isFinite(used) check
-  // above — so `used` is guaranteed non-negative at this point. The old
-  // `finalUsed < 0` branch was unreachable dead code.
   if (finalUsed > finalSeats) {
     return { seats: finalSeats, used: finalUsed, error: 'Used seats cannot exceed total seats' };
   }

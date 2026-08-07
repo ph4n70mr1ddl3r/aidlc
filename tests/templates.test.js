@@ -416,4 +416,37 @@ describe('every template renders without error (regression)', () => {
     expect(presetHtml).toContain('<option value="7" selected>');
     expect(presetHtml).not.toContain('Last 7 days</option><option value="7"');
   });
+
+  it('knowledge/index status filter shows only published to non-privileged users', () => {
+    const html = render('knowledge/index.ejs', {
+      ...baseLocals(),
+      user: { id: 1, first_name: 'Ada', last_name: 'Lovelace', role: 'staff', email: 'ada@company.com', department: 'IT' },
+      title: 'Knowledge Base',
+      articles: [
+        { id: 1, title: 'Published Article', status: 'published', category: 'how_to', author_name: 'Admin', views: 5, is_featured: 0, updated_at: '2026-01-01 10:00' }
+      ],
+      filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/knowledge'
+    });
+    // Staff users must NOT see draft or archived options in the filter.
+    expect(html).not.toContain('<option value="draft"');
+    expect(html).not.toContain('<option value="archived"');
+    // Published must be visible.
+    expect(html).toContain('<option value="published"');
+    // The published article should be rendered.
+    expect(html).toContain('Published Article');
+  });
+
+  it('knowledge/index status filter shows all statuses to privileged users', () => {
+    const html = render('knowledge/index.ejs', {
+      ...baseLocals(),
+      user: { id: 1, first_name: 'Admin', last_name: 'User', role: 'admin', email: 'admin@company.com', department: 'IT' },
+      title: 'Knowledge Base',
+      articles: [],
+      filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/knowledge'
+    });
+    // Admins see all status filter options.
+    expect(html).toContain('<option value="published"');
+    expect(html).toContain('<option value="draft"');
+    expect(html).toContain('<option value="archived"');
+  });
 });

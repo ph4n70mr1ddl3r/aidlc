@@ -240,3 +240,21 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
     expect(flashCalls).toEqual([['error', 'You can only delete your own articles']]);
   });
 });
+
+describe('sanitize-html module availability (regression)', () => {
+  // sanitize-html 2.17.6 switched to ESM-only (htmlparser2@12), which would
+  // crash the require() at src/routes/knowledge.js:19 with "Cannot use import
+  // statement outside a module" inside Jest. The package.json pins ^2.17.4 so
+  // the CJS 2.17.5 build is used. This test fails if the pin is ever removed.
+  it('sanitize-html is loadable as a CommonJS module', () => {
+    const sanitizeHtml = require('sanitize-html');
+    expect(typeof sanitizeHtml).toBe('function');
+  });
+
+  it('sanitize-html exposes the expected API surface used by knowledge.js', () => {
+    const sanitizeHtml = require('sanitize-html');
+    expect(typeof sanitizeHtml.defaults).toBe('object');
+    expect(Array.isArray(sanitizeHtml.defaults.allowedTags)).toBe(true);
+    expect(typeof sanitizeHtml.simpleTransform).toBe('function');
+  });
+});

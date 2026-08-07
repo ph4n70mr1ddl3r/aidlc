@@ -42,14 +42,16 @@ function seedAuditData(db) {
   db.exec('DELETE FROM audit_log');
   db.pragma('foreign_keys = ON');
   const insert = db.prepare(
-    'INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address) VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip_address, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
   );
-  // Use null user_id to avoid FK constraint (users table is empty)
-  insert.run(null, 'create', 'ticket', 1, 'Created ticket TK-001', '127.0.0.1');
-  insert.run(null, 'update', 'ticket', 1, 'Updated ticket TK-001', '127.0.0.1');
-  insert.run(null, 'read', 'asset', 2, 'Viewed asset AST-002', '127.0.0.2');
-  insert.run(null, 'delete', 'vendor', 3, 'Deleted vendor Acme', '127.0.0.1');
-  insert.run(null, 'login', 'user', null, 'User logged in', '127.0.0.1');
+  // Use null user_id to avoid FK constraint (users table is empty).
+  // Distinct created_at values so the ordering assertions below actually
+  // exercise the sort direction instead of relying on tie-breaking.
+  insert.run(null, 'create', 'ticket', 1, 'Created ticket TK-001', '127.0.0.1', '2026-01-01 10:00:00');
+  insert.run(null, 'update', 'ticket', 1, 'Updated ticket TK-001', '127.0.0.1', '2026-01-02 10:00:00');
+  insert.run(null, 'read', 'asset', 2, 'Viewed asset AST-002', '127.0.0.2', '2026-01-03 10:00:00');
+  insert.run(null, 'delete', 'vendor', 3, 'Deleted vendor Acme', '127.0.0.1', '2026-01-04 10:00:00');
+  insert.run(null, 'login', 'user', null, 'User logged in', '127.0.0.1', '2026-01-05 10:00:00');
 }
 
 describe('audit route — GET /', () => {
@@ -69,7 +71,7 @@ describe('audit route — GET /', () => {
     auditModule.resetCachedStatements();
   });
 
-  it('returns paginated entries ordered by created_at DESC (all same timestamp, so order is insertion-order)', () => {
+  it('returns paginated entries ordered by created_at DESC', () => {
     const handler = lastHandlerFor(router, 'get', '/');
     const req = {
       query: {},
@@ -88,14 +90,9 @@ describe('audit route — GET /', () => {
     expect(res.render).toHaveBeenCalledTimes(1);
     const locals = res.render.mock.calls[0][1];
     expect(locals.entries.length).toBe(5);
-    // All entries have the same timestamp so order is non-deterministic;
-    // assert that the full set of expected actions is present.
-    const actions = locals.entries.map(e => e.action);
-    expect(actions).toContain('create');
-    expect(actions).toContain('update');
-    expect(actions).toContain('read');
-    expect(actions).toContain('delete');
-    expect(actions).toContain('login');
+    // Newest-first is the default sort, so the rows must be in reverse
+    // chronological order of the distinct created_at values above.
+    expect(locals.entries.map(e => e.action)).toEqual(['login', 'delete', 'read', 'update', 'create']);
   });
 
   it('filters by action', () => {
@@ -156,12 +153,8 @@ describe('audit route — GET /', () => {
     };
     handler(req, res, () => {});
     const locals = res.render.mock.calls[0][1];
-    // All entries have the same timestamp so order is non-deterministic;
-    // assert that the full set is present regardless of sort direction.
-    const actions = locals.entries.map(e => e.action);
-    expect(actions).toContain('create');
-    expect(actions).toContain('login');
-    expect(actions.length).toBe(5);
+    // sort=oldest must actually reverse the chronological order (ASC).
+    expect(locals.entries.map(e => e.action)).toEqual(['create', 'update', 'read', 'delete', 'login']);
   });
 
   it('includes sort in safeFilters so the template reflects the current sort', () => {

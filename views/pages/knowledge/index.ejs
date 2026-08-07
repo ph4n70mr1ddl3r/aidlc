@@ -11,11 +11,11 @@
   </select>
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
-    <option value="published" <%= filters.status === 'published' ? 'selected' : '' %>>Published</option>
-    <% if (isPrivileged(user)) { %>
-    <option value="draft" <%= filters.status === 'draft' ? 'selected' : '' %>>Draft</option>
-    <option value="archived" <%= filters.status === 'archived' ? 'selected' : '' %>>Archived</option>
-    <% } %>
+    <% CONSTANTS.KB_STATUSES.forEach(s => { %>
+      <% if (s === 'published' || isPrivileged(user)) { %>
+        <option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option>
+      <% } %>
+    <% }) %>
   </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/knowledge" class="btn btn-sm btn-outline">Clear</a>
