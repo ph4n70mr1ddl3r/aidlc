@@ -64,23 +64,15 @@ const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
 const _parsedInterval = parseInt(process.env.PRUNE_AUDIT_INTERVAL_MS, 10);
 const pruneIntervalMs = Number.isFinite(_parsedInterval) ? _parsedInterval : 86_400_000; // 24h
 let _pruneInterval = null;
-function runAuditPrune() {
-  if (Number.isFinite(pruneDays) && pruneDays > 0) {
-    try {
-      const pruned = utilsModule.pruneAuditLog(db, pruneDays);
-      if (pruned > 0) {
-        console.log(`Pruned ${pruned} audit log entries older than ${pruneDays} days`);
-      }
-    } catch (err) {
-      console.error('Audit log pruning error:', err.message);
-    }
-    // Log a warning on first-run failure so a startup DB lock or transient error
-    // is not silently swallowed — the periodic interval will retry automatically.
-    if (!_pruneInterval) {
-      console.warn('Initial audit log prune failed — will retry on next interval');
-    }
-  }
-}
+// createAuditLogPruner emits the "initial prune failed" warning only when the
+// startup run actually throws (tracked via first-run state), rather than relying
+// on `!_pruneInterval` — which was always true for the startup run because the
+// interval handle is assigned after the initial synchronous call, so the warning
+// previously fired on every startup even when pruning succeeded.
+const runAuditPrune = utilsModule.createAuditLogPruner(
+  (days) => utilsModule.pruneAuditLog(db, days),
+  { days: pruneDays }
+);
 runAuditPrune();
 if (Number.isFinite(pruneDays) && pruneDays > 0 && Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
   _pruneInterval = setInterval(runAuditPrune, pruneIntervalMs);

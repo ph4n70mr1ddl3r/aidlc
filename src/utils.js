@@ -766,6 +766,41 @@ function pruneAuditLog(db, retentionDays) {
 }
 
 /**
+ * Create a function that prunes audit log entries on a schedule. Tracks whether
+ * the first run has completed so the "initial prune failed" warning is emitted
+ * only when the first run actually throws — previously the warning fired on
+ * every startup whenever PRUNE_AUDIT_DAYS was set, even when the startup prune
+ * succeeded (the interval handle was not yet assigned when the startup run
+ * executed, so `!intervalHandle` was always true on the first call). Subsequent
+ * interval runs that fail log only an error; the warning is first-run-only.
+ * @param {Function} pruneFn - `(retentionDays) => number of rows deleted`
+ * @param {Object} [opts]
+ * @param {number} [opts.days] - retention period in days (non-finite or <=0 disables pruning)
+ * @param {Object} [opts.logger] - logger with `log`/`error`/`warn`; defaults to console
+ * @returns {Function}
+ */
+function createAuditLogPruner(pruneFn, { days, logger = console } = {}) {
+  let firstRunDone = false;
+  return function runAuditPrune() {
+    if (!Number.isFinite(days) || days <= 0) {
+      return;
+    }
+    try {
+      const pruned = pruneFn(days);
+      if (pruned > 0) {
+        logger.log(`Pruned ${pruned} audit log entries older than ${days} days`);
+      }
+    } catch (err) {
+      logger.error('Audit log pruning error:', err.message);
+      if (!firstRunDone) {
+        logger.warn('Initial audit log prune failed — will retry on next interval');
+      }
+    }
+    firstRunDone = true;
+  };
+}
+
+/**
  * Title-case a string: replace underscores with spaces and capitalize each word.
  * Centralized helper to avoid repeating the regex pattern across templates.
  * Handles null/undefined gracefully.
@@ -1066,6 +1101,7 @@ module.exports = {
   safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,
   daysUntil, usagePercent, isExpiringSoon, titleCase,
   getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog,
+  createAuditLogPruner,
   ensureAssigneeInList,
   asyncHandler, countQuery, selectQuery,
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,

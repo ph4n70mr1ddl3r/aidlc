@@ -75,6 +75,10 @@ jest.mock('../src/utils', () => ({
   CHANGE_TYPE_BADGE: {},
   ROLE_BADGE: {},
   pruneAuditLog: jest.fn(() => 0),
+  // PRUNE_AUDIT_DAYS is unset in these tests, so the app wires up a no-op
+  // pruner; the real createAuditLogPruner behavior is covered in
+  // tests/audit-prune.test.js against the actual utils module.
+  createAuditLogPruner: jest.fn(() => () => {}),
   // Faithful passthrough of the real implementation so the app's 404/error
   // content negotiation behaves correctly under HTTP-level tests (the real
   // utils module is mocked here to avoid its DB-backed prepared statements).
