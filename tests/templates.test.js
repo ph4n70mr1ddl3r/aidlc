@@ -417,6 +417,26 @@ describe('every template renders without error (regression)', () => {
     expect(presetHtml).not.toContain('Last 7 days</option><option value="7"');
   });
 
+  it('reports/staff shows N/A avg resolution for staff with zero resolved tickets', () => {
+    // staffPerformance COALESCEs avg_resolution_days to 0, so the value is never
+    // null — the old `!= null` check made the N/A branch dead and a staff member
+    // with no resolved tickets misleadingly displayed "0.0 days". Gate on
+    // resolved_tickets > 0 instead so zero-resolution staff read as N/A.
+    const zeroResolved = render('reports/staff.ejs', {
+      ...baseLocals(), title: 'Staff Performance', period: 30,
+      performance: [{ id: 1, name: 'Ada Lovelace', role: 'staff', open_tickets: 1, resolved_tickets: 0, avg_resolution_days: 0, completed_tasks: 0 }]
+    });
+    expect(zeroResolved).toContain('>N/A<');
+    expect(zeroResolved).not.toContain('0.0 days');
+
+    const withResolved = render('reports/staff.ejs', {
+      ...baseLocals(), title: 'Staff Performance', period: 30,
+      performance: [{ id: 2, name: 'Grace Hopper', role: 'staff', open_tickets: 0, resolved_tickets: 5, avg_resolution_days: 2.333, completed_tasks: 3 }]
+    });
+    expect(withResolved).toContain('2.3 days');
+    expect(withResolved).not.toContain('>N/A<');
+  });
+
   it('knowledge/index status filter shows only published to non-privileged users', () => {
     const html = render('knowledge/index.ejs', {
       ...baseLocals(),

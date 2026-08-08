@@ -223,11 +223,20 @@ if (!sessionSecret) {
 // In production, MemoryStore is not suitable — load an external store.
 // Set SESSION_STORE to the package name of a connect-compatible session store
 // (e.g. SESSION_STORE=connect-sqlite3). The package must be installed separately.
-// Only module names matching /^(connect-|@[\w-]+\/connect-)/ are accepted to
-// prevent arbitrary code execution via a SESSION_STORE pointing to any module.
+// Only the two documented forms are accepted, anchored end-to-end:
+//   connect-<name>            (unscoped, e.g. connect-sqlite3)
+//   @<scope>/connect-<name>   (scoped, e.g. @my-org/connect-sqlite3)
+// This prevents arbitrary code execution via a SESSION_STORE pointing at any
+// module. NOTE: a naive /[\\/]/ separator check must NOT be combined with the
+// scoped alternative — every scoped package name legitimately contains one '/',
+// so such a check would make the documented @scope/connect-* form impossible
+// to load (dead branch). The single anchored regex below is sufficient: it
+// permits exactly one '/' (the scope delimiter) and rejects path traversal
+// (../, absolute paths), backslashes, and any extra separators.
+const SESSION_STORE_RE = /^(connect-[\w-]+|@[\w-]+\/connect-[\w-]+)$/;
 let sessionStore;
 if (process.env.SESSION_STORE) {
-  if (!/^(connect-|@[\w-]+\/connect-)/.test(process.env.SESSION_STORE) || /[\\/]/.test(process.env.SESSION_STORE)) {
+  if (!SESSION_STORE_RE.test(process.env.SESSION_STORE)) {
     console.error(`ERROR: SESSION_STORE "${process.env.SESSION_STORE}" does not match expected pattern (must be connect-* or @scope/connect-*)`);
     process.exit(1);
   }
@@ -678,4 +687,7 @@ if (require.main === module) {
   });
 }
 
+// Exposed for unit testing the SESSION_STORE allowlist (tests/app.test.js) —
+// mirrors the pattern of route modules exporting internals for regression tests.
 module.exports = app;
+module.exports.SESSION_STORE_RE = SESSION_STORE_RE;

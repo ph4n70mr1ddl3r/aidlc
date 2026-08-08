@@ -9,8 +9,9 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   commits) was cross-checked to confirm findings were not already addressed.
    Sixty-ninth pass performed and documented below (2026-08-06).
    Seventieth pass performed and documented below (2026-08-06).
-   Seventy-first pass performed and documented below (2026-08-07).
-   Sixty-eighth pass performed and documented below (2026-08-06).
+    Seventy-first pass performed and documented below (2026-08-07).
+    Eightieth pass performed and documented below (2026-08-08).
+    Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
   Sixty-fifth pass performed and documented below (2026-08-06).
@@ -79,6 +80,56 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-08 (eightieth pass)
+
+An eightieth independent pass (full source re-read of all 11 route modules,
+both middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+production dependency advisory was remediated and two latent bugs were fixed:
+
+### Fixes applied
+- **Production dependency advisory remediated: `nanoid` < 3.3.17 (GHSA-2v37-7h3g-55p8, HIGH).**
+  `npm audit` reported 1 high-severity advisory through the production tree
+  (`nanoid@3.3.16` via `sanitize-html@2.17.5 → postcss@8.5.25`). Ran `npm audit fix`
+  to upgrade `nanoid` to 3.3.18. Verified `npm audit --omit=dev` and full
+  `npm audit` now both report **0 vulnerabilities**. Only `package-lock.json`
+  changed (6 insertions / 6 deletions); `package.json` untouched and no API change.
+- **`app.js` — scoped SESSION_STORE support was an unreachable dead branch (LOW).**
+  The validation combined an allowlist regex `/^(connect-|@[\w-]+\/connect-)/`
+  (which explicitly permits scoped packages) with a blanket `/[\//]/` path-
+  separator rejection (added in commit 7179b59 as "defense-in-depth"). Since every
+  scoped package name (`@scope/connect-sqlite3`) legitimately contains a single
+  `/`, the two checks were contradictory and the documented `@scope/connect-*`
+  form could never load. Replaced both with a single anchored allowlist regex
+  `^(connect-[\w-]+|@[\w-]+\/connect-[\w-]+)$` that permits exactly one `/` (the
+  scope delimiter) while still rejecting path traversal (`../evil`,
+  `connect-x/../../evil`), absolute paths, backslashes, bare prefixes
+  (`connect-`, `@scope/connect-`), and extra segments. Exported as
+  `SESSION_STORE_RE` for unit tests.
+- **`reports/staff.ejs` — misleading "0.0 days" for staff with no resolved tickets (LOW).**
+  `staffPerformance` COALESCEs `avg_resolution_days` to 0, so it is never null —
+  the template's `!= null` N/A branch was dead code and a staff member with zero
+  resolved tickets displayed "0.0 days" (implying instant resolution). The cell
+  now shows "N/A" when `resolved_tickets === 0` and the computed average
+  otherwise. (`reports/tickets.ejs` uses the genuinely-nullable `AVG(...)`, so its
+  N/A branch is correct as-is.)
+
+### Test coverage added
+- `tests/app.test.js` — `SESSION_STORE_RE` allowlist suite (5 cases): unscoped
+  accept, scoped accept (regression for the dead branch), traversal/absolute/
+  backslash rejection, bare-prefix rejection, extra-segment rejection.
+- `tests/templates.test.js` — `reports/staff.ejs` regression: zero-resolved
+  staff renders `N/A` (no `0.0 days`); staff with resolved tickets renders the
+  rounded average.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **595 passed / 595 total** (26 suites; was 589 — +6 new:
+  5 SESSION_STORE allowlist cases, 1 staff-report N/A template case).
+- `npm audit` (both `--omit=dev` and full) — **0 vulnerabilities** (was 1 high
+  `nanoid` advisory; remediated via `npm audit fix`).
 
 ## Review cycle 2026-08-07 (seventy-first pass)
 

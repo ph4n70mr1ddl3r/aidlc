@@ -140,6 +140,41 @@ describe('NODE_ENV handling', () => {
   });
 });
 
+describe('SESSION_STORE allowlist', () => {
+  // Regression: commit 7179b59 added a /[\\/]/ path-separator rejection next to
+  // the scoped-package alternative @[\w-]+\/connect- — but every scoped package
+  // name legitimately contains a '/', so the two checks were contradictory and
+  // made the documented @scope/connect-* form impossible to load (dead branch).
+  // The fix folds both into one anchored regex that permits exactly one '/'
+  // (the scope delimiter) while still rejecting traversal and backslashes.
+  it('accepts an unscoped connect-* session store', () => {
+    expect(app.SESSION_STORE_RE.test('connect-sqlite3')).toBe(true);
+    expect(app.SESSION_STORE_RE.test('connect-redis')).toBe(true);
+  });
+
+  it('accepts a scoped @scope/connect-* session store (regression: dead branch)', () => {
+    expect(app.SESSION_STORE_RE.test('@scope/connect-sqlite3')).toBe(true);
+    expect(app.SESSION_STORE_RE.test('@my-org/connect-pg-simple')).toBe(true);
+  });
+
+  it('rejects path traversal, absolute paths, and backslashes', () => {
+    expect(app.SESSION_STORE_RE.test('../evil')).toBe(false);
+    expect(app.SESSION_STORE_RE.test('connect-sqlite3/../../evil')).toBe(false);
+    expect(app.SESSION_STORE_RE.test('/etc/passwd')).toBe(false);
+    expect(app.SESSION_STORE_RE.test('connect-foo\\evil')).toBe(false);
+  });
+
+  it('rejects a bare prefix with no package name', () => {
+    expect(app.SESSION_STORE_RE.test('connect-')).toBe(false);
+    expect(app.SESSION_STORE_RE.test('@scope/connect-')).toBe(false);
+  });
+
+  it('rejects extra path segments beyond the scope delimiter', () => {
+    expect(app.SESSION_STORE_RE.test('@scope/connect-sqlite3/sub')).toBe(false);
+    expect(app.SESSION_STORE_RE.test('@scope/connect-sqlite3/../../evil')).toBe(false);
+  });
+});
+
 describe('Content negotiation — Vary: Accept header', () => {
   let server, port;
 
