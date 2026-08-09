@@ -2221,3 +2221,63 @@ was applied:
 - `npm test` — 359 passed / 359 total (18 suites).
 - `npm audit --production --audit-level=high` — **exit 0**.
 - `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-08-09 (forty-ninth pass)
+
+A forty-ninth pass (full source re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) found **no new SQL injection, IDOR,
+CSRF, XSS, auth, or error-leakage defects.** This pass completed a
+`normalizeIp` hardening refactor (IP fallback/prefix normalization shared
+across `audit.js`, `auth.js`, and `tickets.js`) and fixed one critical
+regression introduced mid-refactor:
+
+### Fixes applied
+- **`reports.js` — CRITICAL: `resolveReportPeriod` function body deleted
+  (syntax error).** The refactor accidentally removed the body of
+  `resolveReportPeriod()` (`src/routes/reports.js:17-28`), leaving
+  `function resolveReportPeriod(raw, fallback = 30) {` immediately followed by
+  `const router = require('express').Router();` — a `SyntaxError: Unexpected
+  end of input` that broke `node src/app.js` and the whole report suite.
+  Restored the full function body (array/HPP rejection → `safeQueryValue` →
+  `safeInt` clamp to `[1, 365]`) from the pre-refactor HEAD version. Verified
+  via `node -e "require('./src/routes/reports.js')"` before and after.
+- **`audit.js` — dead code removed after `normalizeIp` refactor.** The inline
+  `::ffff:` prefix strip (which predated the shared helper) was now redundant;
+  `audit()` delegates entirely to `normalizeIp(req?.ip ?? null)`, which strips
+  the IPv6-mapped prefix and fails closed to `'unknown'` for missing/non-string/
+  array values (HPP on `X-Forwarded-For`), so no raw non-string value ever
+  reaches `audit_log.ip_address`.
+- **`auth.js` / `tickets.js` — switched to shared `normalizeIp`.** The login
+  lockout key and the comment rate-limit IP fallback key previously each had
+  their own inline prefix-strip/array-guard logic; both now use
+  `normalizeIp()`, keeping the audit trail, lockout map, and rate-limit keys
+  consistent (strip `::ffff:`, fall back to `'unknown'`). Verified
+  `rateLimit.ipKeyGenerator('unknown')` round-trips without throwing.
+- **`utils.js` — formatting cleanup.** Stray double-space after
+  `isValidAssetTag` in the export list removed.
+
+### New regression tests
+- `tests/utils.test.js` — new `normalizeIp` suite: plain IPv4/IPv6 pass
+  through; `::ffff:` prefix stripped; `undefined`/`null`/`''`/number fall back
+  to `'unknown'`; arrays (HPP) fall back to `'unknown'`.
+- `tests/audit.test.js` — IPv6-mapped IP stored normalized; array `req.ip`
+  stored as `'unknown'`; absent `req.ip` stored as `'unknown'`.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 603 passed / 603 total (26 suites).
+- `npm audit --production --audit-level=high` — **exit 0**.
+- `.env.example` contains only placeholders; no secrets committed.

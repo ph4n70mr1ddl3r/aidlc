@@ -1,5 +1,6 @@
 const db = require('../models/database');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES, MAX_AUDIT_DETAILS } = require('../constants');
+const { normalizeIp } = require('../utils');
 
 // Cache the prepared statement — audit() is called on every write route
 // and prepare() is relatively expensive. Lazily initialized so tests can
@@ -46,11 +47,10 @@ function audit({ req, action, entity, entityId, details }) {
 
     const uid = req?.session?.user?.id ?? null;
     // Normalize IP: req.ip may return an IPv6-mapped address (e.g. "::ffff:1.2.3.4")
-    // behind a proxy; strip the prefix for consistent audit logging.
-    let ip = req?.ip ?? null;
-    if (typeof ip === 'string' && ip.startsWith('::ffff:')) {
-      ip = ip.slice(7);
-    }
+    // behind a proxy, or an array (HPP on X-Forwarded-For). normalizeIp strips the
+    // prefix and falls back to 'unknown' so no raw non-string value ever reaches
+    // the audit_log table.
+    const ip = normalizeIp(req?.ip ?? null);
     // Coerce details to a string before the length check — a future caller
     // passing a non-string (object/number) would otherwise make `details.length`
     // undefined (always passing the truncation guard) or throw on `.substring`.

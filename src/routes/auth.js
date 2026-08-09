@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -276,13 +276,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
   // Guard against req.ip being an array (e.g. from HPP on X-Forwarded-For)
   // — falling through to a non-string key would serialize oddly in the lockout map.
-  let clientIp = req.ip || 'unknown';
-  if (Array.isArray(clientIp)) {
-    clientIp = String(clientIp[0]) || 'unknown';
-  }
-  if (typeof clientIp === 'string' && clientIp.startsWith('::ffff:')) {
-    clientIp = clientIp.slice(7);
-  }
+  const clientIp = normalizeIp(req.ip);
   const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing

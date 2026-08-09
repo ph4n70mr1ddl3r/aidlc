@@ -1,3 +1,4 @@
+const rateLimit = require('express-rate-limit');
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
@@ -25,7 +26,6 @@ function resolveReportPeriod(raw, fallback = 30) {
   const v = safeQueryValue(raw);
   return Math.max(1, Math.min(365, safeInt(v, fallback)));
 }
-const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager, auditMiddleware);

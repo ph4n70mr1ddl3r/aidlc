@@ -1023,6 +1023,24 @@ function badgeClass(value, mapping) {
 }
 
 /**
+ * Normalize an Express req.ip value: strip the IPv6-mapped ::ffff: prefix
+ * (produced behind proxies) and fall back to 'unknown' when the value is
+ * absent, non-string, or an array (HPP on X-Forwarded-For). Consistent
+ * across audit.js, auth.js, and any future caller.
+ * @param {*} ip
+ * @returns {string}
+ */
+function normalizeIp(ip) {
+  if (!ip || typeof ip !== 'string') {
+    return 'unknown';
+  }
+  if (ip.startsWith('::ffff:')) {
+    return ip.slice(7);
+  }
+  return ip;
+}
+
+/**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances.
  */
@@ -1108,7 +1126,7 @@ module.exports = {
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
   resetCachedStatements, resetPageSize,
-  rejectHppArrays,
+  rejectHppArrays, normalizeIp,
   // Exported for unit testing only — mirrors the pattern used by route modules
   // that expose internal helpers (e.g. _resolveDateTimeField in changes.js).
   _touchCache,

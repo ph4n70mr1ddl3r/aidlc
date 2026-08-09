@@ -63,6 +63,37 @@ describe('safeQueryValue', () => {
   });
 });
 
+/**
+ * Test for normalizeIp function (IPv6-mapped prefix strip + HPP/fallback guard)
+ */
+describe('normalizeIp', () => {
+  it('passes a plain IPv4 address through unchanged', () => {
+    expect(utils.normalizeIp('203.0.113.7')).toBe('203.0.113.7');
+  });
+
+  it('passes a plain IPv6 address through unchanged', () => {
+    expect(utils.normalizeIp('2001:db8::1')).toBe('2001:db8::1');
+  });
+
+  it('strips the IPv6-mapped ::ffff: prefix produced behind proxies', () => {
+    expect(utils.normalizeIp('::ffff:203.0.113.7')).toBe('203.0.113.7');
+  });
+
+  it('falls back to unknown for missing or non-string values', () => {
+    expect(utils.normalizeIp(undefined)).toBe('unknown');
+    expect(utils.normalizeIp(null)).toBe('unknown');
+    expect(utils.normalizeIp('')).toBe('unknown');
+    expect(utils.normalizeIp(42)).toBe('unknown');
+  });
+
+  it('falls back to unknown for arrays from HTTP parameter pollution', () => {
+    // Regression: req.ip can be an array when X-Forwarded-For is polluted.
+    // normalizeIp must not crash and must not serialize an array downstream.
+    expect(utils.normalizeIp(['203.0.113.7', '198.51.100.2'])).toBe('unknown');
+    expect(utils.normalizeIp([])).toBe('unknown');
+  });
+});
+
 describe('parseBooleanFlag', () => {
   it('maps canonical checked values to 1 for a privileged caller', () => {
     expect(utils.parseBooleanFlag('1', true)).toBe(1);

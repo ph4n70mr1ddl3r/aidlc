@@ -73,6 +73,24 @@ describe('audit middleware', () => {
     expect(row.details).toBe('Viewed audit log');
   });
 
+  it('stores a normalized ip_address when req.ip is IPv6-mapped', () => {
+    audit({ req: { ip: '::ffff:203.0.113.7' }, action: 'read', entity: 'ticket', entityId: null, details: 'mapped' });
+    const row = db.prepare('SELECT ip_address FROM audit_log WHERE details = \'mapped\' ORDER BY id DESC LIMIT 1').get();
+    expect(row.ip_address).toBe('203.0.113.7');
+  });
+
+  it('falls back to unknown when req.ip is an array (HPP on X-Forwarded-For)', () => {
+    audit({ req: { ip: ['203.0.113.7', '198.51.100.2'] }, action: 'read', entity: 'ticket', entityId: null, details: 'array-ip' });
+    const row = db.prepare('SELECT ip_address FROM audit_log WHERE details = \'array-ip\' ORDER BY id DESC LIMIT 1').get();
+    expect(row.ip_address).toBe('unknown');
+  });
+
+  it('falls back to unknown when req.ip is absent', () => {
+    audit({ req: {}, action: 'read', entity: 'ticket', entityId: null, details: 'no-ip' });
+    const row = db.prepare('SELECT ip_address FROM audit_log WHERE details = \'no-ip\' ORDER BY id DESC LIMIT 1').get();
+    expect(row.ip_address).toBe('unknown');
+  });
+
   it('rejects an invalid action without inserting a row', () => {
     expect(() => audit({ req: null, action: 'foo', entity: 'ticket', entityId: 10, details: 'x' })).not.toThrow();
     const row = db.prepare("SELECT id FROM audit_log WHERE action = 'foo'").get();
