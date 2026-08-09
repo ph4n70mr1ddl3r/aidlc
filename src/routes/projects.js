@@ -471,14 +471,17 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
 
-      // Preserve existing start/end dates when the field is absent/empty
-      // on a partial edit, so editing unrelated fields cannot wipe a stored
-      // date. A present but invalid date was already rejected before the
-      // transaction. Mirrors the date preservation in assets.js / vendors.js.
-      const resolvedStart = (start_date === undefined || start_date === null || start_date === '')
+      // Resolve start/end dates against the freshly-read transaction-consistent
+      // row. An ABSENT field (partial API submission) preserves the stored value;
+      // an EMPTY submitted value ('' — the form's <input type="date"> sends ''
+      // when the user clears it) CLEARS it (null). This matches the absent-vs-
+      // empty convention used by vendors.js, licenses.js, and changes.js;
+      // previously an empty date was treated as "preserve", which made it
+      // impossible to clear a project start/end date via the edit form.
+      const resolvedStart = (start_date === undefined || start_date === null)
         ? existingProject.start_date
         : sStart;
-      const resolvedEnd = (end_date === undefined || end_date === null || end_date === '')
+      const resolvedEnd = (end_date === undefined || end_date === null)
         ? existingProject.end_date
         : sEnd;
 

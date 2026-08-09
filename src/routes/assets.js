@@ -476,18 +476,25 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       // preserve-existing fallback).
       const safeStatus = VALID_STATUSES.includes(status) ? status : current.status;
 
-      // Preserve the stored price/dates when the field is blank on a partial
-      // edit, so editing an unrelated field can't wipe them. Invalid values
-      // were already rejected above (fail closed). Read from the current
-      // transaction-consistent row to avoid TOCTOU between the outer fetch
-      // and this UPDATE.
+      // Resolve price and dates against the freshly-read transaction-consistent
+      // row to avoid a TOCTOU between the outer fetch and this UPDATE.
+      // - Price (money): an ABSENT *or* EMPTY field preserves the stored value —
+      //   a blank money field is not a "clear to NULL" signal (a NULL price is
+      //   indistinguishable from "free" and would mislead reports), so only an
+      //   explicit numeric value replaces it. Mirrors licenses.js cost handling.
+      // - Dates: an ABSENT field (partial API submission) preserves the stored
+      //   value, but an EMPTY submitted value ('' — the form's <input type="date">
+      //   sends '' when the user clears it) CLEARS it (null). This matches the
+      //   absent-vs-empty convention used by vendors.js, licenses.js, and
+      //   changes.js; previously an empty date was treated as "preserve", which
+      //   made it impossible to clear a purchase/warranty date via the edit form.
       const resolvedPrice = (purchase_price === undefined || purchase_price === null || purchase_price === '')
         ? (current.purchase_price ?? null)
         : safePositiveFloat(purchase_price, Infinity);
-      const resolvedPurchase = (purchase_date === undefined || purchase_date === null || purchase_date === '')
+      const resolvedPurchase = (purchase_date === undefined || purchase_date === null)
         ? current.purchase_date
         : sPurchase;
-      const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null || warranty_expiry === '')
+      const resolvedWarranty = (warranty_expiry === undefined || warranty_expiry === null)
         ? current.warranty_expiry
         : sWarranty;
       // Validate the warranty range against the RESOLVED values, not just the

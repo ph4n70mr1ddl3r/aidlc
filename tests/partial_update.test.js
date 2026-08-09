@@ -117,6 +117,48 @@ describe('assets update — partial submission preserves stored fields', () => {
     expect(errorFlash[1]).toBe('Warranty expiry must be on or after purchase date');
     expect(stmt.run).not.toHaveBeenCalled();
   });
+
+  it('clears a stored warranty_expiry when the field is submitted empty (regression: empty preserved the stale date)', () => {
+    // Stored warranty_expiry = '2026-06-01'. Submitting warranty_expiry: '' must
+    // CLEAR it (null), matching vendors.js / licenses.js / changes.js (absent
+    // preserves, empty clears). Previously the empty value was treated as
+    // "preserve existing", so a purchase/warranty date could never be unset via
+    // the edit form.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      status: 'in_use', condition_rating: 'good', purchase_price: 100,
+      purchase_date: '2024-01-01', warranty_expiry: '2026-06-01', assigned_to: null,
+      manufacturer: null, model: null, serial_number: null, location: null, notes: null
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use',
+      warranty_expiry: ''
+    }, { id: '1' });
+    const params = lastRunParams();
+    expect(params[10]).toBeNull(); // warranty_expiry column (index 10)
+  });
+
+  it('still preserves a stored warranty_expiry when the field is ABSENT (partial API submission)', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      status: 'in_use', condition_rating: 'good', purchase_price: 100,
+      purchase_date: '2024-01-01', warranty_expiry: '2026-06-01', assigned_to: null,
+      manufacturer: null, model: null, serial_number: null, location: null, notes: null
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use'
+    }, { id: '1' });
+    const params = lastRunParams();
+    expect(params[10]).toBe('2026-06-01'); // preserved — field was absent, not cleared
+  });
 });
 
 describe('licenses update — partial submission preserves stored optional fields', () => {

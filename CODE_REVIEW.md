@@ -80,6 +80,60 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
+  Eighty-second pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-10 (eighty-second pass)
+
+An eighty-second independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus `npm audit`. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+cross-module data-handling consistency bug in optional-date resolution was
+found and fixed:
+
+### Fixes applied
+- **`assets.js` / `projects.js` — an empty-string date submission preserved the stale value instead of clearing it (LOW, data correctness / UX).**
+  The optional-date resolvers on the `PUT /:id` (update) routes treated an
+  EMPTY submitted value (`''` — exactly what an `<input type="date">` sends
+  when the user clears the field) the same as an ABSENT field (partial API
+  submission), i.e. both preserved the stored value. Consequence: a user could
+  set a purchase date / warranty expiry (assets) or start / end date
+  (projects), but could **never unset it** via the edit form — clearing the
+  field and saving silently re-persisted the old date.
+
+  This was inconsistent with the three sibling modules that already implement
+  the documented **absent-preserves / empty-clears** convention: `vendors.js`
+  (`_resolveClearableDate`), `licenses.js` (date resolvers), and `changes.js`
+  (`_resolveDateTimeField`) all treat `''` as an explicit clear-to-NULL and
+  only `undefined` as "preserve existing". The money fields (`purchase_price` /
+  `budget` / `spent` / `cost`) intentionally *keep* preserve-on-empty across
+  all modules (a blank money field is not a "clear to NULL" signal), so the
+  inconsistency was isolated to dates.
+
+  Removed the `=== ''` clause from `resolvedPurchase` / `resolvedWarranty`
+  (`assets.js`) and `resolvedStart` / `resolvedEnd` (`projects.js`) so that an
+  empty submitted date clears the column (NULL) while an absent field still
+  preserves the stored value. The transaction-internal resolved-value range
+  checks (warranty ≥ purchase, end ≥ start) are unaffected — a cleared date is
+  `null`, which short-circuits the range check exactly as before.
+
+### Test coverage added
+- `tests/partial_update.test.js` — assets update: submitting `warranty_expiry:`
+  ` ''` against a stored `'2026-06-01'` now CLEARS it (NULL); submitting the
+  field ABSENT still preserves `'2026-06-01'`. Locks in both branches of the
+  absent-vs-empty distinction.
+- `tests/projects_update.test.js` — projects update: submitting `start_date:
+  ''` against a stored `'2026-01-15'` now CLEARS it (NULL) while the absent
+  `end_date` is preserved; the absent-`start_date` case still preserves.
+
+  Both new "clears" tests were verified to FAIL against the pre-fix code
+  (empty preserved the stale value) and PASS with the fix.
+
+### Verification
+- `npm run lint` — clean (exit 0).
+- `npm test` — **607 passed / 607 total** (26 suites; was 603 — +4 new
+  regression tests: 2 assets date-clear, 2 projects date-clear).
+- `npm audit` (both `--omit=dev` and full) — **0 vulnerabilities** (unchanged).
 
 ## Review cycle 2026-08-08 (eightieth pass)
 

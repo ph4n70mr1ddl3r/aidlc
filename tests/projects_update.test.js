@@ -201,3 +201,56 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
     expect(stmt.run).toHaveBeenCalled();
   });
 });
+
+describe('Projects update — empty date clears, absent preserves (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  // The project UPDATE run has 10 args; the recalc progress run has 2 — find
+  // the project update (10-arg call) to read its date columns.
+  // [name(0), description(1), status(2), priority(3), start_date(4), end_date(5),
+  //  budget(6), spent(7), owner_id(8), id(9)]
+  function projectUpdateParams() {
+    const db = jest.requireMock('../src/models/database');
+    return db.prepare().run.mock.calls.find(c => c.length === 10);
+  }
+
+  it('clears a stored start_date when the field is submitted empty', () => {
+    // Stored start_date = '2026-01-15'. Submitting start_date: '' must CLEAR it
+    // (null), matching vendors.js / licenses.js / changes.js (absent preserves,
+    // empty clears). Previously the empty value was treated as "preserve",
+    // which made it impossible to unset a project start/end date via the form.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: '2026-01-15', end_date: '2026-06-01', owner_id: null
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium', start_date: ''
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    const params = projectUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[4]).toBeNull(); // start_date cleared
+    expect(params[5]).toBe('2026-06-01'); // end_date preserved (field was absent)
+  });
+
+  it('preserves a stored start_date when the field is ABSENT (partial API submission)', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: '2026-01-15', end_date: '2026-06-01', owner_id: null
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium'
+    }, { id: '1' });
+    const params = projectUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[4]).toBe('2026-01-15'); // preserved — field was absent, not cleared
+  });
+});
