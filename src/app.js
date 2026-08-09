@@ -112,6 +112,18 @@ app.set('query parser', 'simple');
 const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
 const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
 const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+// Methods a POST may be overridden to via `_method`. Restricted to the write
+// verbs the app actually uses (every EJS form encodes ?_method=PUT or =DELETE;
+// PATCH is allowed for parity/symmetry but no form currently uses it). An
+// allowlist — rather than passing the raw `_method` string straight through —
+// restores the disallowed-methods guarantee above: a POST carrying
+// `_method=TRACE` is seen as POST by the early TRACE/TRACK guard (which runs
+// before methodOverride) and was then rewritten to TRACE here, bypassing the
+// 405 (it only 404'd because no route matches TRACE). It also prevents a POST
+// being downgraded to GET, which would otherwise skip CSRF validation (GET is
+// in skipCsrfProtection). TRACE/TRACK/CONNECT/HEAD/arbitrary strings are all
+// rejected → the override is a no-op and the request stays a plain POST.
+const _OVERRIDE_METHODS = new Set(['PUT', 'DELETE', 'PATCH']);
 app.use((req, res, next) => {
   if (_DISALLOWED_METHODS.has(req.method)) {
     return res.status(405).set('Allow', _ALLOWED_METHODS).end();
@@ -191,15 +203,23 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // hardening that motivated the body-only restriction), and doubleCsrf runs
 // after method-override so any overridden request still requires a valid CSRF
 // token. Array values from HTTP parameter pollution are rejected (not a
-// string → no override), failing closed to the POST route.
+// string → no override), failing closed to the POST route. The overridden
+// value is validated against _OVERRIDE_METHODS (PUT/DELETE/PATCH) so an exotic
+// `_method` (TRACE/TRACK/CONNECT/…) cannot bypass the disallowed-methods
+// guard above or downgrade a POST to a CSRF-exempt GET.
 app.use(methodOverride((req) => {
+  let raw;
   if (req.method === 'POST' && req.body && typeof req.body._method === 'string') {
-    return req.body._method;
+    raw = req.body._method;
+  } else if (req.method === 'POST' && typeof req.query._method === 'string') {
+    raw = req.query._method;
+  } else {
+    return undefined;
   }
-  if (req.method === 'POST' && typeof req.query._method === 'string') {
-    return req.query._method;
-  }
-  return undefined;
+  // methodOverride uppercases the returned value; uppercase explicitly so the
+  // allowlist check is exact and a lowercase `put` still overrides correctly.
+  const m = raw.toUpperCase();
+  return _OVERRIDE_METHODS.has(m) ? m : undefined;
 }));
 // Static assets with cache-control in production
 app.use(express.static(path.join(__dirname, '..', 'public'), {

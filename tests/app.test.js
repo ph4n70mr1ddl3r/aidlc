@@ -254,6 +254,10 @@ describe('Method override — query-string _method on POST forms (regression)', 
     ticketsRouter.put('/method-test/:id', (req, res) => res.json({ dispatched: 'PUT', id: req.params.id }));
     ticketsRouter.delete('/method-test/:id', (req, res) => res.json({ dispatched: 'DELETE', id: req.params.id }));
     ticketsRouter.get('/method-test/:id', (req, res) => res.json({ dispatched: 'GET', id: req.params.id }));
+    // A POST handler lets the method-override allowlist tests observe whether an
+    // exotic `_method` (TRACE/CONNECT/etc.) was overridden (would leave this
+    // route unmatched → 404) or correctly ignored (stays POST → 200).
+    ticketsRouter.post('/method-test/:id', (req, res) => res.json({ dispatched: 'POST', id: req.params.id }));
     server = app.listen(0, () => {
       port = server.address().port;
       done();
@@ -359,6 +363,67 @@ describe('Method override — query-string _method on POST forms (regression)', 
       body
     });
     expect(res.status).toBe(403);
+  });
+
+  it('does NOT override to TRACE via ?_method=TRACE (disallowed-method guard not bypassable) — stays POST', async () => {
+    // The TRACE/TRACK 405 guard runs before methodOverride, so it only ever
+    // sees the original POST. Before the allowlist, `?_method=TRACE` rewrote
+    // req.method to TRACE here, bypassing the guard (it merely 404'd because
+    // no route matches TRACE). With the allowlist, TRACE is rejected → the
+    // request stays a POST and dispatches to the POST handler (200).
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=TRACE`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'POST', id: '7' });
+  });
+
+  it('does NOT override to an arbitrary method (CONNECT) — stays POST', async () => {
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=CONNECT`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'POST', id: '7' });
+  });
+
+  it('does NOT downgrade a POST to GET via ?_method=GET (keeps CSRF protection) — stays POST', async () => {
+    // GET is CSRF-exempt (skipCsrfProtection), so a POST→GET downgrade would
+    // let a tokenless request reach a read route. The allowlist keeps the
+    // request a POST (CSRF still required → the GET handler never runs).
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7?_method=GET`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'POST', id: '7' });
+  });
+
+  it('still honors an allowlisted override via the body channel (PATCH/lowercase)', async () => {
+    // Sanity: the allowlist accepts the documented write verbs and is
+    // case-insensitive (methodOverride uppercases). Register a throwaway PATCH
+    // handler, then override a POST to it.
+    const ticketsRouter = require('../src/routes/tickets');
+    ticketsRouter.patch('/method-test/:id', (req, res) => res.json({ dispatched: 'PATCH', id: req.params.id }));
+    const { cookies, token } = await getCsrf();
+    const body = new URLSearchParams({ _csrf: token, _method: 'patch' }).toString();
+    const res = await fetch(`http://localhost:${port}/tickets/method-test/7`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies },
+      body
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ dispatched: 'PATCH', id: '7' });
   });
 });
 

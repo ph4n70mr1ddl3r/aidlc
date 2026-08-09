@@ -81,6 +81,68 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
   Eighty-second pass performed and documented below (2026-08-10).
+  Eighty-third pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-10 (eighty-third pass)
+
+An eighty-third independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus `npm audit`. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+defense-in-depth gap in HTTP method handling was found and fixed:
+
+### Fixes applied
+- **`app.js` — the disallowed-methods (TRACE/TRACK) guard was bypassable via
+  the `_method` override (LOW, defense-in-depth).** The TRACE/TRACK 405
+  middleware is registered as the very first middleware so it sees the *raw*
+  HTTP method, but `methodOverride` is registered ~80 lines *later* and rewrote
+  `req.method` from the `_method` body/query value afterward. A `POST` carrying
+  `_method=TRACE` therefore passed the guard as `POST` and was then rewritten
+  to `TRACE`, reaching the router as TRACE. It currently only 404'd (no route
+  matches TRACE), but the *guarantee* that TRACE/TRACK are rejected with 405
+  was violated, and any future route/middleware keying on `req.method` could be
+  reached with an exotic method. The same path also allowed downgrading a POST
+  to GET (`_method=GET`), which skips CSRF validation (GET is in
+  `skipCsrfProtection`) — a tokenless POST could reach a read route.
+
+  Restricted the override to an allowlist `_OVERRIDE_METHODS = {PUT, DELETE,
+  PATCH}` — exactly the write verbs the app uses (every EJS form encodes
+  `?_method=PUT` or `=DELETE`; PATCH is included for parity). TRACE/TRACK/
+  CONNECT/GET/HEAD/arbitrary strings now leave `req.method` as the original
+  POST (CSRF still required, write limiter still applies). The check is
+  case-insensitive (`raw.toUpperCase()`) so a lowercase `put` still overrides.
+
+### Test coverage added
+- `tests/app.test.js` (method-override suite) — +4 tests against the live
+  middleware chain (a `POST /method-test/:id` handler was registered so the
+  stay-on-POST outcome is observable):
+  - `?_method=TRACE` no longer overrides → dispatches POST (200), not TRACE
+    (previously 404). Verified to **FAIL** pre-fix (server log showed
+    `TRACE /tickets/method-test/7?_method=TRACE 404`).
+  - `?_method=CONNECT` (arbitrary method) → stays POST.
+  - `?_method=GET` no longer downgrades → stays POST (CSRF kept). Pre-fix it
+    dispatched GET and the server logged `GET ...?_method=GET 200`.
+  - `_method=patch` (lowercase, body channel) still overrides to the PATCH
+    handler — sanity that the allowlist preserves real overrides.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **611 passed / 611 total** (26 suites; was 607 — +4 new
+  regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-10 (eighty-second pass)
 
