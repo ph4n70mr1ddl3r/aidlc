@@ -490,7 +490,12 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   const safePhone = phone ? phone.substring(0, MAX_PHONE) : null;
   const userId = req.session.user.id;
   try {
-    _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
+    const updateResult = _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
+    if (updateResult.changes === 0) {
+      console.error('Profile update: user not found (possibly deleted concurrently)');
+      req.flash('error', 'User not found. Please log in again.');
+      return res.redirect('/login');
+    }
 
     // Regenerate session to prevent fixation — consistent with the password-change route
     try {

@@ -247,3 +247,61 @@ describe('profile password change bcrypt error handling', () => {
     }
   });
 });
+
+describe('profile update 0-row-update guard (regression)', () => {
+  // Regression: the profile UPDATE route previously ran _getProfileUpdateStmt().run()
+  // without checking result.changes. If the user row were deleted between the earlier
+  // SELECT and the UPDATE, 0 rows would be affected but the handler would proceed to
+  // regenerate the session and flash success — a TOCTOU gap inconsistent with the
+  // password-change route which already guards with `if (updateResult.changes === 0)`.
+  // Mirrors the pass-70 fix for the profile password-change route.
+
+  async function runProfileUpdate(body) {
+    const authRouterForTest = require('../src/routes/auth');
+    const h = lastHandlerFor(authRouterForTest, 'put', '/profile');
+    let redirectedTo = null;
+    const flashCalls = [];
+    let caughtErr = null;
+    const req = {
+      body,
+      params: {},
+      method: 'PUT',
+      session: { user: { id: 1, role: 'admin', password_changed_at: null } },
+      flash: (type, msg) => flashCalls.push([type, msg])
+    };
+    const res = {
+      redirect: (to) => {
+        redirectedTo = to;
+      },
+      render: () => {},
+      status: () => res,
+      json: () => {}
+    };
+    await h(req, res, (err) => {
+      caughtErr = err;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    return { redirectedTo, flashCalls, caughtErr };
+  }
+
+  it('redirects to /login with a flash error when the profile update affects 0 rows (concurrent deletion race)', async () => {
+    // Override the profile update stmt to return changes=0
+    const db = jest.requireMock('../src/models/database');
+    const originalPrepare = db.prepare;
+    db.prepare = jest.fn((sql) => {
+      if (sql.includes('UPDATE users SET first_name')) {
+        return { run: jest.fn(() => ({ changes: 0 })) };
+      }
+      return originalPrepare.call(db, sql);
+    });
+    try {
+      const { redirectedTo, flashCalls } = await runProfileUpdate({
+        first_name: 'Ada', last_name: 'Lovelace', email: 'ada@company.com', phone: '555-0101'
+      });
+      expect(redirectedTo).toBe('/login');
+      expect(flashCalls.some(([t, m]) => t === 'error' && /not found/i.test(m))).toBe(true);
+    } finally {
+      db.prepare = originalPrepare;
+    }
+  });
+});
