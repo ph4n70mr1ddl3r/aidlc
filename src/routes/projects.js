@@ -835,11 +835,15 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (due_date && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
-      // Preserve the existing due date when absent/empty on a partial edit, so a
+      // Preserve the existing due date when ABSENT on a partial edit, so a
       // hand-crafted PUT that omits due_date cannot silently wipe a stored date.
-      // Mirrors resolvedDueDate in tickets.js and the date preservation in the
-      // project update route above.
-      const effectiveDueDate = (due_date === undefined || due_date === null || due_date === '')
+      // An EMPTY submitted value ('' from a cleared <input type="date">) CLEARS
+      // it (null), matching the absent-vs-empty convention used by tickets.js
+      // / assets.js / vendors.js / licenses.js / changes.js. Previously empty
+      // was treated as "preserve", which made it impossible to clear a task due
+      // date via the project page form. Mirrors resolvedStart/resolvedEnd in
+      // the project update route above.
+      const effectiveDueDate = (due_date === undefined || due_date === null)
         ? existingTask.due_date
         : safeDueDate;
       // Preserve existing priority when absent instead of silently defaulting to

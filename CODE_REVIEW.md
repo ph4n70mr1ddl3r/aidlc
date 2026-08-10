@@ -7,7 +7,8 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (85+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
-  Eighty-sixth pass performed and documented below (2026-08-11).
+   Eighty-seventh pass performed and documented below (2026-08-11).
+   Eighty-sixth pass performed and documented below (2026-08-11).
   Eighty-fifth pass performed and documented below (2026-08-11).
   Eighty-fourth pass performed and documented below (2026-08-10).
   Eighty-third pass performed and documented below (2026-08-10).
@@ -88,6 +89,74 @@ commits) was cross-checked to confirm findings were not already addressed.
   Eighty-second pass performed and documented below (2026-08-10).
   Eighty-third pass performed and documented below (2026-08-10).
   Eighty-fourth pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-11 (eighty-seventh pass)
+
+An eighty-seventh independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+cross-route convention inconsistency and one defensive-coding gap were found
+and fixed:
+
+### Fixes applied
+- **`src/routes/projects.js` — task full-update `effectiveDueDate` silently preserved an empty string instead of clearing it (LOW, convention inconsistency).**
+  The task full-update route used
+  `(due_date === undefined || due_date === null || due_date === '') ? existingTask.due_date : safeDueDate`,
+  so an explicit empty string (exactly what an `<input type="date">` sends when
+  the user clears the field) was treated the same as an ABSENT field, preserving
+  the stale stored date. Consequence: a user could set a task due date but could
+  **never unset it** via the project task edit form — clearing the field and
+  saving silently re-persisted the old date. This was inconsistent with the
+  documented **absent-preserves / empty-clears** convention applied on every
+  other update route in the app: `tickets.js` (`resolvedDueDate`), `assets.js`
+  (`resolvedPurchase`/`resolvedWarranty`), `vendors.js` (`_resolveClearableDate`),
+  `licenses.js` (`resolvedPurchase`/`resolvedExpiry`), and `changes.js`
+  (`_resolveDateTimeField`). All of those treat `''` as an explicit clear-to-NULL
+  and only `undefined`/`null` as "preserve existing". Removed the `|| due_date
+  === ''` clause from the preserve branch so an empty submitted date clears the
+  column (null) while an absent field still preserves the stored value. The
+  transaction-internal `safeDueDate` validation (`due_date && due_date !== '' &&
+  safeDueDate === null` → `INVALID_DUE_DATE`) is unaffected — a cleared date is
+  `null`, which short-circuits the guard exactly as before.
+
+- **`src/routes/vendors.js` — `_resolveClearableDate` lacked an explicit array rejection (LOW, defensive coding).**
+  The function relied on `safeDate(rawValue)` returning `null` for an array
+  (which then surfaced as `{ error: true }`), so the end result was correct but
+  the rejection path was implicit — an array fell through three guards before
+  being caught by the `safeDate` type check. Every other resolver in the codebase
+  (`_resolveDateTimeField` in `changes.js`, `safeId`/`safeInt`/`safePositiveFloat`
+  in `utils.js`, `_validateVendorRating` in `vendors.js` itself) explicitly
+  rejects arrays with an early `Array.isArray` guard so the failure mode is
+  obvious on read. Added the same explicit `Array.isArray(rawValue)` check at
+  the top of `_resolveClearableDate` so polluted payloads fail closed with
+  `{ error: true }` on the first guard, matching the established pattern.
+
+### Test coverage added
+- `tests/projects_update.test.js` — new "projects task full-update — empty due_date
+  clears" regression suite (+1 test): asserts that submitting `due_date: ''` against
+  a stored `'2026-05-05'` CLEARS it (NULL), locking in the absent-vs-empty
+  distinction for the task update path. Verified to FAIL against the pre-fix code
+  (empty preserved the stale value) and PASS with the fix.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **624 passed / 624 total** (26 suites; was 623 — +1 new
+  regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (eighty-sixth pass)
 

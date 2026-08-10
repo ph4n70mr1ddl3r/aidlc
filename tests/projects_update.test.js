@@ -202,6 +202,36 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
   });
 });
 
+describe('Projects task full-update — empty due_date clears (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  it('clears a stored task due_date when submitted empty (regression: empty preserved stale date)', () => {
+    // Stored due_date = '2026-05-05'. Submitting due_date: '' must CLEAR it
+    // (null), matching the absent-vs-empty convention used by tickets.js /
+    // assets.js / vendors.js / licenses.js / changes.js (absent preserves,
+    // empty clears). Previously the empty value was treated as "preserve",
+    // which made it impossible to clear a task due date via the project page.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: null,
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium', due_date: ''
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    // The task full-update run has 9 args; the recalc progress run has 2 — find
+    // the task update (9-arg call) to read its due_date column (index 5).
+    const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
+    expect(taskUpdate).toBeDefined();
+    expect(taskUpdate[5]).toBeNull(); // due_date cleared
+  });
+});
+
 describe('Projects update — empty date clears, absent preserves (regression)', () => {
   const projectsRouter = require('../src/routes/projects');
 

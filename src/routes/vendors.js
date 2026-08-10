@@ -101,6 +101,13 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
  * distinction in changes.js _resolveDateTimeField.
  */
 function _resolveClearableDate(rawValue, existingValue) {
+  // Reject arrays from HTTP parameter pollution for consistency with the
+  // array guards in safeId / safeInt / safePositiveFloat and the explicit
+  // checks in _resolveDateTimeField. A polluted array must surface as a
+  // validation error rather than silently falling through to safeDate().
+  if (Array.isArray(rawValue)) {
+    return { error: true };
+  }
   // Absent field (undefined) or explicit JSON null — preserve the existing value
   // so a null sent via the JSON body parser does not silently wipe a stored date.
   if (rawValue === undefined || rawValue === null) {
