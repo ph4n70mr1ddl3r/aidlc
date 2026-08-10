@@ -48,24 +48,20 @@ const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at =
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
-const _unassignTicketsStmt = db.prepare(`UPDATE tickets SET assigned_to = NULL, updated_at = datetime('now')
-    WHERE assigned_to = ? AND status IN ('open', 'in_progress', 'waiting')`);
+const _unassignTicketsStmt = db.prepare('UPDATE tickets SET assigned_to = NULL, updated_at = datetime(\'now\') WHERE assigned_to = ? AND status IN (\'open\', \'in_progress\', \'waiting\')');
 const _affectedProjectsStmt = db.prepare(
   'SELECT DISTINCT project_id FROM project_tasks WHERE assigned_to = ? AND status != \'done\''
 );
-const _unassignTasksStmt = db.prepare(`UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime('now')
-    WHERE assigned_to = ? AND status != 'done'`);
+const _unassignTasksStmt = db.prepare('UPDATE project_tasks SET assigned_to = NULL, updated_at = datetime(\'now\') WHERE assigned_to = ? AND status != \'done\'');
 // Only unassign SCHEDULED / IN_PROGRESS changes so finished records
 // (completed/failed/cancelled) keep their assignee for historical attribution
 // — the user row is only soft-deleted (is_active=0), so the LEFT JOIN in the
 // show page still resolves the name. Mirrors the selective ticket/task unassign.
-const _unassignChangesStmt = db.prepare(`UPDATE change_log SET assigned_to = NULL, updated_at = datetime('now')
-    WHERE assigned_to = ? AND status NOT IN ('completed', 'failed', 'cancelled')`);
+const _unassignChangesStmt = db.prepare('UPDATE change_log SET assigned_to = NULL, updated_at = datetime(\'now\') WHERE assigned_to = ? AND status NOT IN (\'completed\', \'failed\', \'cancelled\')');
 // Only clear ownership of ACTIVE projects (planning/in_progress/on_hold) so
 // they can be reassigned; completed/cancelled projects keep their owner for
 // history (the deactivated user row persists, so owner_name still resolves).
-const _unassignProjectOwnerStmt = db.prepare(`UPDATE projects SET owner_id = NULL, updated_at = datetime('now')
-    WHERE owner_id = ? AND status NOT IN ('completed', 'cancelled')`);
+const _unassignProjectOwnerStmt = db.prepare('UPDATE projects SET owner_id = NULL, updated_at = datetime(\'now\') WHERE owner_id = ? AND status NOT IN (\'completed\', \'cancelled\')');
 
 // Cached prepared statements for staff create/update routes
 const _staffInsertStmt = db.prepare(`

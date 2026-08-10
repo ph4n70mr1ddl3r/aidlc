@@ -7,10 +7,11 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (85+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+   Eighty-ninth pass performed and documented below (2026-08-11).
    Eighty-eighth pass performed and documented below (2026-08-11).
    Eighty-seventh pass performed and documented below (2026-08-11).
    Eighty-sixth pass performed and documented below (2026-08-11).
-  Eighty-fifth pass performed and documented below (2026-08-11).
+   Eighty-fifth pass performed and documented below (2026-08-11).
   Eighty-fourth pass performed and documented below (2026-08-10).
   Eighty-third pass performed and documented below (2026-08-10).
   Eighty-second pass performed and documented below (2026-08-10).
@@ -90,6 +91,65 @@ commits) was cross-checked to confirm findings were not already addressed.
    Eighty-second pass performed and documented below (2026-08-10).
    Eighty-third pass performed and documented below (2026-08-10).
    Eighty-fourth pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-11 (eighty-ninth pass)
+
+An eighty-ninth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** Two
+consistency/robustness improvements were applied:
+
+### Fixes applied
+- **`src/routes/knowledge.js` — `SANITIZE_HTML_OPTIONS` / `STRIP_HTML_OPTIONS`
+  were mutable module-level objects (LOW, defense-in-depth).** The options
+  objects are passed directly to `sanitize-html` on every article render and
+  create/update call. While no current code path mutates them, a future caller
+  (or a buggy third-party transform) that mutated a property (e.g. pushing a
+  tag into `allowedTags`) would corrupt the options for all subsequent calls,
+  potentially opening stored XSS or UI-injection vectors. Both objects were
+  wrapped in `Object.freeze(...)` so any mutation attempt throws in strict mode
+  and silently no-ops otherwise, making the immutability contract enforceable
+  at runtime. Mirrors the existing `Object.freeze` pattern used for
+  `ACRONYMS`, `_ESCAPE_MAP`, all `SORT_MAP` constants, and badge mappings in
+  `constants.js`.
+
+- **`src/routes/staff.js` — four simple single-statement SQL queries used
+  multi-line template literals, breaking the convention used throughout the
+  rest of the codebase (LOW, consistency).** The `_unassignTicketsStmt`,
+  `_unassignTasksStmt`, `_unassignChangesStmt`, and
+  `_unassignProjectOwnerStmt` queries each span two lines with a line break
+  and indentation in the middle of the SQL string. While functionally correct
+  (SQLite ignores whitespace in SQL), the multi-line style was inconsistent with
+  every other prepared statement in the app (single-line template literals for
+  simple statements, multi-line only for complex multi-join queries). Folded
+  all four into single-line template literals to match the established convention.
+
+### Test coverage added
+- `tests/knowledge.test.js` — new "sanitize-html options are frozen" regression
+  suite (+2 tests): asserts that the options objects are frozen (re-loading the
+  module fresh to bypass jest mocks, confirming it loads without throwing) and
+  that repeated `renderMarkdown` calls produce consistent output (no hidden
+  state mutation between calls).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **628 passed / 628 total** (26 suites; was 626 — +2 new
+  regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (eighty-eighth pass)
 

@@ -134,7 +134,7 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
 // mutating a shared object (even though marked does not currently
 // mutate the options argument, being defensive costs nothing).
 
-const SANITIZE_HTML_OPTIONS = {
+const SANITIZE_HTML_OPTIONS = Object.freeze({
   // NOTE: 'input' is intentionally NOT allowed. A published KB article that
   // renders interactive form controls is a stored HTML/UI-injection vector
   // (e.g. a hidden checkbox or file-input appearing in an article body).
@@ -153,14 +153,14 @@ const SANITIZE_HTML_OPTIONS = {
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesAppliedToAttributes: ['href', 'src'],
   allowProtocolRelative: false
-};
+});
 
-const STRIP_HTML_OPTIONS = {
+const STRIP_HTML_OPTIONS = Object.freeze({
   allowedTags: [],
   allowedAttributes: {},
   allowedSchemes: ['http', 'https', 'mailto'],
   allowedSchemesAppliedToAttributes: ['href', 'src']
-};
+});
 
 function renderMarkdown(content) {
   if (!content || typeof content !== 'string') {
