@@ -261,7 +261,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
         (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
         safeStatus, safeCondition, sPurchase,
-        safePositiveFloat(purchase_price),
+        safePositiveFloat(purchase_price, Infinity),
         sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
       return { asset_tag, id: Number(result.lastInsertRowid) };

@@ -224,4 +224,37 @@ describe('login rate limiter', () => {
     expect(rateLimited.length).toBe(1);
     expect(rateLimited[0][0].entity).toBe('user');
   });
+
+  it('keys on the normalized IP so IPv6-mapped and plain IPv4 spellings share a budget', async () => {
+    const limiter = loginRateLimiter();
+    audit().mockClear();
+    let lastError = null;
+    const next = (err) => {
+      if (err) {
+        lastError = err;
+      }
+    };
+    const makeRes = () => ({
+      setHeader: jest.fn(),
+      redirect: jest.fn(),
+      status: jest.fn(),
+      send: jest.fn(),
+      json: jest.fn(),
+      render: jest.fn()
+    });
+    // 10 requests alternating between the two spellings of the same address
+    // must stay within the window max: ipKeyGenerator maps IPv4-mapped
+    // addresses to plain IPv4 (stripping the ::ffff: prefix), so they share
+    // one budget.
+    for (let i = 0; i < 10; i++) {
+      await limiter({ ip: i % 2 ? '::ffff:203.0.113.250' : '203.0.113.250', flash: jest.fn() }, makeRes(), next);
+    }
+    expect(lastError).toBeNull();
+    // The 11th request from the same normalized address exceeds the shared
+    // budget — without the keyGenerator it would be keyed separately and pass.
+    const res = makeRes();
+    await limiter({ ip: '::ffff:203.0.113.250', flash: jest.fn() }, res, next);
+    expect(res.redirect).toHaveBeenCalledWith('/login');
+    expect(audit().mock.calls.filter((c) => c[0].action === 'login_rate_limited').length).toBe(1);
+  });
 });

@@ -5,7 +5,7 @@ const { audit } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
-const rateLimit = require('express-rate-limit');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 
 function _regenerateSession(session) {
   return new Promise((resolve, reject) => {
@@ -50,10 +50,24 @@ function _getUpdateLastLoginStmt() {
   return _updateLastLoginStmt;
 }
 
-// Apply login rate limiter only to POST /login
+// Apply login rate limiter only to POST /login.
+// Key on the SAME normalized IP used by the login-failure lockout maps:
+// express-rate-limit's default keys on raw req.ip, so a client seen as
+// "::ffff:203.0.113.5" would otherwise be budgeted separately from the
+// "203.0.113.5" key tracked by ipLoginFailures — two defenses tracking the same
+// source under different keys. ipKeyGenerator maps IPv4-mapped addresses to
+// their plain IPv4 form (matching normalizeIp) and subnet-masks true IPv6.
+// NOTE: skipSuccessfulRequests is intentionally NOT used here — every login
+// outcome (success, wrong password, lockout, error) redirects with a 302 and
+// the option treats status < 400 as "success", so it would skip EVERY request
+// and neuter the limiter entirely. Brute-force defense comes from the per-
+// account/per-IP failure lockouts; this limiter only bounds total login traffic
+// per source. Deployments behind a shared egress IP (NAT'd office, VPN
+// concentrator) may need to raise `max` to avoid false lockouts at login rushes.
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
   handler: (req, res) => {
     audit({ req, action: 'login_rate_limited', entity: 'user', entityId: null,
       details: 'Login rate limited by IP' });
