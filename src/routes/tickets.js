@@ -92,7 +92,7 @@ const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 // preserve them on partial submissions and for non-privileged editors whose
 // edit form redacts requester PII (mirrors the show route).
 const _updateCheckStmt = db.prepare(
-  'SELECT status, assigned_to, due_date, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
+  'SELECT status, assigned_to, asset_id, due_date, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
 );
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
@@ -602,8 +602,6 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid asset');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  const updateAssignee = assigned_to ? safeId(assigned_to) : null;
-  const updateAssetId = asset_id ? safeId(asset_id) : null;
 
   try {
     // Verify ticket still exists, validate assignee/asset, check access, and
@@ -618,16 +616,28 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       if (!canAccessResource(req, ticket)) {
         throw new Error('ACCESS_DENIED');
       }
+      // Resolve the assignee/linked asset against the transaction-consistent row
+      // using the same absent-vs-empty convention as due_date and requester PII
+      // on this route: an ABSENT field (partial API submission) preserves the
+      // stored value, while an explicit empty string ("Unassigned"/"No asset" in
+      // the form) clears it (null). Previously an absent field silently wiped the
+      // stored assignment/link — only due_date/requester PII preserved on absence.
+      const resolvedAssignee = (assigned_to === undefined || assigned_to === null)
+        ? (ticket.assigned_to ?? null)
+        : (assigned_to === '' ? null : safeId(assigned_to));
+      const resolvedAssetId = (asset_id === undefined || asset_id === null)
+        ? (ticket.asset_id ?? null)
+        : (asset_id === '' ? null : safeId(asset_id));
       // Preserve the current (possibly deactivated) assignee when the submitted
       // value is unchanged, so editing an unrelated field on a ticket whose
       // assignee has since been deactivated does not force a reassignment or
       // wipe the stored value — the edit form includes the inactive assignee
       // via ensureAssigneeInList. Assigning to a DIFFERENT inactive user is
       // still rejected (fail closed).
-      if (updateAssignee && !isActiveUser(db, updateAssignee) && Number(updateAssignee) !== Number(ticket.assigned_to)) {
+      if (resolvedAssignee && !isActiveUser(db, resolvedAssignee) && Number(resolvedAssignee) !== Number(ticket.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
-      if (updateAssetId && !_assetExistsStmt.get(updateAssetId)) {
+      if (resolvedAssetId && !_assetExistsStmt.get(resolvedAssetId)) {
         throw new Error('ASSET_NOT_FOUND');
       }
 
@@ -649,7 +659,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
         : ticket.requester_phone;
 
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-        updateAssignee, updateAssetId, resolvedDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
+        resolvedAssignee, resolvedAssetId, resolvedDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
         (requester_name || '').substring(0, MAX_SHORT_STR), resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';

@@ -345,7 +345,6 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid assignee');
     return res.redirect(`/changes/${id}/edit`);
   }
-  const safeAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
     // Fetch existing record, validate assignee, and update in a single transaction
@@ -357,13 +356,23 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
 
+      // Resolve the assignee against the transaction-consistent re-fetch using the
+      // same absent-vs-empty convention as the datetime fields on this route: an
+      // ABSENT field (partial API submission) preserves the stored assignment,
+      // while an explicit empty string ("Unassigned" in the edit form) clears it
+      // (null). Previously an absent field silently wiped the stored assignee —
+      // the _resolveDateTimeField calls all preserved on absence, so a partial
+      // PUT could drop an assignment by omission.
+      const resolvedAssignee = (assigned_to === undefined || assigned_to === null)
+        ? (existingChange.assigned_to ?? null)
+        : (assigned_to === '' ? null : safeId(assigned_to));
       // Preserve the current (possibly deactivated) assignee when the submitted
       // value is unchanged, so editing an unrelated field on a change whose
       // assignee has since been deactivated does not force a reassignment or
       // wipe the stored value — the edit form includes the inactive assignee
       // via ensureAssigneeInList. Assigning to a DIFFERENT inactive user is
       // still rejected (fail closed).
-      if (safeAssignee && !isActiveUser(db, safeAssignee) && Number(safeAssignee) !== Number(existingChange.assigned_to)) {
+      if (resolvedAssignee && !isActiveUser(db, resolvedAssignee) && Number(resolvedAssignee) !== Number(existingChange.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 
@@ -406,7 +415,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 
       _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
-        (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee, id);
+        (impact || '').substring(0, MAX_LONG_STR) || null, resolvedAssignee, id);
     });
     updateChange();
 

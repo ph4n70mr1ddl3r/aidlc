@@ -453,7 +453,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid assignee');
     return res.redirect(`/assets/${id}/edit`);
   }
-  const updateAssignee = assigned_to ? safeId(assigned_to) : null;
 
   try {
     // Verify asset exists, re-read current state inside the transaction, validate
@@ -465,7 +464,17 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       if (!current) {
         throw new Error('NOT_FOUND');
       }
-      if (updateAssignee && !isActiveUser(db, updateAssignee) && Number(updateAssignee) !== Number(current.assigned_to)) {
+      // Resolve the assignee against the transaction-consistent re-fetch using
+      // the same absent-vs-empty convention as dates/prices on this route: an
+      // ABSENT field (partial API submission) preserves the stored assignment,
+      // while an explicit empty string ("Unassigned" in the edit form) clears it
+      // (null). Previously an absent field silently wiped the stored assignee —
+      // the only other optional fields (dates, price, condition) all preserved
+      // on absence, so a partial PUT could drop an assignment by omission.
+      const resolvedAssignee = (assigned_to === undefined || assigned_to === null)
+        ? (current.assigned_to ?? null)
+        : (assigned_to === '' ? null : safeId(assigned_to));
+      if (resolvedAssignee && !isActiveUser(db, resolvedAssignee) && Number(resolvedAssignee) !== Number(current.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 
@@ -518,7 +527,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
         (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, resolvedCondition,
         resolvedPurchase, resolvedPrice,
-        resolvedWarranty, updateAssignee,
+        resolvedWarranty, resolvedAssignee,
         (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
       );
       if (result.changes === 0) {

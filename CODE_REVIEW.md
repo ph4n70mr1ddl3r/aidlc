@@ -82,6 +82,77 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   First pass performed and documented below (2026-07-17).
   Eighty-second pass performed and documented below (2026-08-10).
   Eighty-third pass performed and documented below (2026-08-10).
+  Eighty-fourth pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-10 (eighty-fourth pass)
+
+An eighty-fourth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage defects
+were found.** One consistency/data-loss defect in the relational-ID update
+convention was found and fixed:
+
+### Fixes applied
+- **Relational FK fields (`assigned_to` / `owner_id` / `asset_id`) wiped the
+  stored value when ABSENT on update (LOW, partial-submission data loss).** Every
+  other optional field in the update routes follows an absent-vs-empty
+  convention: an ABSENT field on a partial submission preserves the stored value,
+  while an explicit empty string clears it (null) — implemented for dates
+  (`warranty_expiry`, `due_date`, `start_date`, etc.), money (`budget`, `spent`,
+  `cost`, `purchase_price`), and `condition_rating`. The FK fields instead used
+  the `assigned_to ? safeId(assigned_to) : null` idiom, so an ABSENT field was
+  collapsed to `null` and silently wiped the stored assignment/link. Since all
+  update routes rewrite every column, a partial API PUT that omitted
+  `assigned_to` (e.g. a REST-style subset payload, or a future client) dropped an
+  existing assignment with no user feedback — while the edit forms are safe (they
+  always submit the select value), the convention was internally inconsistent.
+
+  Resolved each FK inside the update transaction against the transaction-
+  consistent re-fetch, matching the date/money resolution on the same routes:
+  - `assets.js` update — `resolvedAssignee` from `current.assigned_to` when
+    absent; empty clears; malformed already fail-closed via `isPresentInvalidId`.
+  - `tickets.js` update — `resolvedAssignee` / `resolvedAssetId` from
+    `ticket.assigned_to` / `ticket.asset_id` when absent. Added `asset_id` to
+    `_updateCheckStmt` (it was the only FK column missing from the re-fetch).
+  - `changes.js` update — `resolvedAssignee` from `existingChange.assigned_to`.
+  - `projects.js` update — `resolvedOwnerId` from `existingProject.owner_id`.
+  - `projects.js` task full-update — `resolvedTaskAssignee` from
+    `existingTask.assigned_to`, and now also preserves an unchanged inactive
+    assignee (matches the tickets/assets/changes/projects owner guard).
+  - Create routes are unchanged: a new record with absent/empty `assigned_to`
+    still starts unassigned, as intended.
+  - The inactive-assignee guard (`isActiveUser` check) now keys off the resolved
+    value, so preserving an unchanged deactivated assignee no longer triggers
+    `ASSIGNEE_NOT_AVAILABLE` (the edit-form data-loss case the guard exists to
+    prevent).
+
+### Test coverage added
+- `tests/partial_update.test.js` — new "relational FK fields on update — ABSENT
+  preserves, EMPTY clears (regression)" suite (+10 tests):
+  - assets update: ABSENT `assigned_to` preserves stored assignee; EMPTY clears.
+  - tickets update: ABSENT `assigned_to`/`asset_id` preserve both; EMPTY clears.
+  - changes update: ABSENT preserves; EMPTY clears.
+  - projects update: ABSENT `owner_id` preserves; EMPTY clears.
+  - projects task full-update: ABSENT preserves; EMPTY clears.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **621 passed / 621 total** (26 suites; was 611 — +10 new
+  regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-10 (eighty-third pass)
 

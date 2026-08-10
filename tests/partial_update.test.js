@@ -637,3 +637,204 @@ describe('vendors update — partial submission cannot persist contract_end < co
     expect(redirectCalls[0]).toBe('/vendors/1');
   });
 });
+
+describe('relational FK fields on update — ABSENT preserves, EMPTY clears (regression)', () => {
+  // Every other optional field (dates, money, condition_rating) follows the
+  // absent-vs-empty convention: an ABSENT field on a partial submission
+  // preserves the stored value while an explicit empty string clears it. The
+  // relational FK fields (assigned_to / owner_id / asset_id) used
+  // `x ? safeId(x) : null`, so an ABSENT field silently wiped the stored
+  // assignment/link to NULL — a partial PUT could drop an assignment by
+  // omission. These tests pin the now-consistent behavior.
+
+  it('assets update preserves the stored assignee when assigned_to is ABSENT', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      status: 'in_use', condition_rating: 'good', purchase_price: 100,
+      purchase_date: '2024-01-01', warranty_expiry: null, assigned_to: 5,
+      manufacturer: null, model: null, serial_number: null, location: null, notes: null
+    });
+    const assetsRouter = require('../src/routes/assets');
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[11]).toBe(5); // assigned_to column preserved
+  });
+
+  it('assets update clears the stored assignee when assigned_to is submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      status: 'in_use', condition_rating: 'good', purchase_price: 100,
+      purchase_date: '2024-01-01', warranty_expiry: null, assigned_to: 5,
+      manufacturer: null, model: null, serial_number: null, location: null, notes: null
+    });
+    const assetsRouter = require('../src/routes/assets');
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', assigned_to: ''
+    }, { id: '1' });
+    const params = lastRunParams();
+    expect(params[11]).toBeNull(); // "Unassigned" in the form clears the assignment
+  });
+
+  it('tickets update preserves the stored assignee and asset when ABSENT', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, status: 'open', assigned_to: 5, asset_id: 9, due_date: '2026-06-01',
+      requester_name: 'Bob', requester_email: 'bob@x.com',
+      requester_department: 'IT', requester_phone: '555-123-4567'
+    });
+    const ticketsRouter = require('../src/routes/tickets');
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[5]).toBe(5); // assigned_to column preserved
+    expect(params[6]).toBe(9); // asset_id column preserved
+  });
+
+  it('tickets update clears the stored assignee and asset when submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, status: 'open', assigned_to: 5, asset_id: 9, due_date: '2026-06-01',
+      requester_name: 'Bob', requester_email: 'bob@x.com',
+      requester_department: 'IT', requester_phone: '555-123-4567'
+    });
+    const ticketsRouter = require('../src/routes/tickets');
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com', assigned_to: '', asset_id: ''
+    }, { id: '1' });
+    const params = lastRunParams();
+    expect(params[5]).toBeNull();
+    expect(params[6]).toBeNull();
+  });
+
+  it('changes update preserves the stored assignee when assigned_to is ABSENT', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, title: 'Server upgrade', description: null, change_type: 'maintenance',
+      status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null,
+      actual_start: null, actual_end: null, impact: null, assigned_to: 5
+    });
+    const changesRouter = require('../src/routes/changes');
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Server upgrade', change_type: 'maintenance', status: 'scheduled', priority: 'medium'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[10]).toBe(5); // assigned_to column preserved
+  });
+
+  it('changes update clears the stored assignee when assigned_to is submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, title: 'Server upgrade', description: null, change_type: 'maintenance',
+      status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null,
+      actual_start: null, actual_end: null, impact: null, assigned_to: 5
+    });
+    const changesRouter = require('../src/routes/changes');
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    runHandler(h, {
+      title: 'Server upgrade', change_type: 'maintenance', status: 'scheduled', priority: 'medium', assigned_to: ''
+    }, { id: '1' });
+    const params = lastRunParams();
+    expect(params[10]).toBeNull(); // "Unassigned" in the form clears the assignment
+  });
+
+  it('projects update preserves the stored owner when owner_id is ABSENT', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: null, spent: null, status: 'in_progress', priority: 'medium',
+      start_date: null, end_date: null, owner_id: 5
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      name: 'Net migration', status: 'in_progress', priority: 'medium'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    // The project UPDATE run has 10 args; the recalc progress run has 2.
+    const projectUpdate = stmt.run.mock.calls.find(c => c.length === 10);
+    expect(projectUpdate[8]).toBe(5); // owner_id column preserved
+  });
+
+  it('projects update clears the stored owner when owner_id is submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: null, spent: null, status: 'in_progress', priority: 'medium',
+      start_date: null, end_date: null, owner_id: 5
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    runHandler(h, {
+      name: 'Net migration', status: 'in_progress', priority: 'medium', owner_id: ''
+    }, { id: '1' });
+    const projectUpdate = stmt.run.mock.calls.find(c => c.length === 10);
+    expect(projectUpdate[8]).toBeNull(); // "No owner" in the form clears the owner
+  });
+
+  it('projects task full-update preserves the stored assignee when assigned_to is ABSENT', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: null,
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium'
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    // The task full-update run has 9 args; the recalc progress run has 2.
+    const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
+    expect(taskUpdate[4]).toBe(5); // assigned_to column preserved
+  });
+
+  it('projects task full-update clears the stored assignee when assigned_to is submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: null,
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium', assigned_to: ''
+    }, { projectId: '1', taskId: '2' });
+    const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
+    expect(taskUpdate[4]).toBeNull(); // "Unassigned" in the form clears the assignee
+  });
+});

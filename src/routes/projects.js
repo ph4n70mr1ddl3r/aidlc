@@ -414,7 +414,6 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Invalid owner');
       return res.redirect(`/projects/${id}/edit`);
     }
-    const safeOwnerId = owner_id ? safeId(owner_id) : null;
 
     // Verify project exists, validate owner, and update in a single transaction
     // to avoid TOCTOU races: the project could be deleted or the owner deactivated
@@ -430,6 +429,17 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       }
       const effectiveStatus = statusProvided ? status : existingProject.status;
       const effectivePriority = priority || existingProject.priority;
+
+      // Resolve the owner against the transaction-consistent re-fetch using the
+      // same absent-vs-empty convention as the dates on this route: an ABSENT
+      // field (partial API submission) preserves the stored owner, while an
+      // explicit empty string ("No owner" in the edit form) clears it (null).
+      // Previously an absent field silently wiped the stored owner — resolvedStart/
+      // resolvedEnd both preserved on absence, so a partial PUT could drop an
+      // owner by omission.
+      const resolvedOwnerId = (owner_id === undefined || owner_id === null)
+        ? (existingProject.owner_id ?? null)
+        : (owner_id === '' ? null : safeId(owner_id));
 
       // Distinguish "field not submitted" (preserve stored value) from
       // "field submitted with an invalid/empty value" (fail closed — reject
@@ -467,7 +477,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       // the stored value — the edit form includes the inactive owner via
       // ensureAssigneeInList. Assigning to a DIFFERENT inactive user is still
       // rejected (fail closed).
-      if (safeOwnerId && !isActiveUser(db, safeOwnerId) && Number(safeOwnerId) !== Number(existingProject.owner_id)) {
+      if (resolvedOwnerId && !isActiveUser(db, resolvedOwnerId) && Number(resolvedOwnerId) !== Number(existingProject.owner_id)) {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
 
@@ -496,7 +506,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       }
 
       const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
-        preservedBudget, preservedSpent, safeOwnerId, id);
+        preservedBudget, preservedSpent, resolvedOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
@@ -796,7 +806,6 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   }
 
   try {
-    const safeTaskAssignee = assigned_to ? safeId(assigned_to) : null;
     // Validate assignee inside the transaction so a concurrent deactivation
     // between the check and the UPDATE is not possible.
     const updateTask = db.transaction(() => {
@@ -804,7 +813,20 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (!existingTask) {
         throw new Error('NOT_FOUND');
       }
-      if (safeTaskAssignee && !isActiveUser(db, safeTaskAssignee)) {
+      // Resolve the assignee against the transaction-consistent re-fetch using the
+      // same absent-vs-empty convention as due_date on this route: an ABSENT field
+      // (partial API submission) preserves the stored assignee, while an explicit
+      // empty string ("Unassigned" in the project page form) clears it (null).
+      // Previously an absent field silently wiped the stored assignee —
+      // effectiveDueDate preserved on absence, so a partial PUT could drop an
+      // assignment by omission.
+      const resolvedTaskAssignee = (assigned_to === undefined || assigned_to === null)
+        ? (existingTask.assigned_to ?? null)
+        : (assigned_to === '' ? null : safeId(assigned_to));
+      // Preserve the current (possibly deactivated) assignee when unchanged, so
+      // editing an unrelated field on a task whose assignee has since been
+      // deactivated does not wipe the stored value (mirrors tickets/assets/changes).
+      if (resolvedTaskAssignee && !isActiveUser(db, resolvedTaskAssignee) && Number(resolvedTaskAssignee) !== Number(existingTask.assigned_to)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
       const safeDueDate = safeDate(due_date);
@@ -823,7 +845,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       // Preserve existing priority when absent instead of silently defaulting to
       // 'medium' — partial edits must not overwrite an existing stored priority.
       const effectivePriority = priority || existingTask.priority;
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, safeTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
