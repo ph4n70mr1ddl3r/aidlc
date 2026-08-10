@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (85+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+   Eighty-eighth pass performed and documented below (2026-08-11).
    Eighty-seventh pass performed and documented below (2026-08-11).
    Eighty-sixth pass performed and documented below (2026-08-11).
   Eighty-fifth pass performed and documented below (2026-08-11).
@@ -86,9 +87,78 @@ commits) was cross-checked to confirm findings were not already addressed.
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
-  Eighty-second pass performed and documented below (2026-08-10).
-  Eighty-third pass performed and documented below (2026-08-10).
-  Eighty-fourth pass performed and documented below (2026-08-10).
+   Eighty-second pass performed and documented below (2026-08-10).
+   Eighty-third pass performed and documented below (2026-08-10).
+   Eighty-fourth pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-11 (eighty-eighth pass)
+
+An eighty-eighth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** Two
+convention-defect gaps were found and fixed:
+
+### Fixes applied
+- **`src/routes/assets.js` — CREATE path stored `Infinity` for absent `purchase_price` (MEDIUM, data-correctness defect).**
+  The asset create route passed `safePositiveFloat(purchase_price, Infinity)`
+  directly into the INSERT statement. When `purchase_price` was absent
+  (`undefined`, `null`, or `''` — which is the normal case when the form field
+  is left blank), `safePositiveFloat` returned its fallback sentinel `Infinity`.
+  SQLite accepts `Infinity` as a valid IEEE 754 REAL value and persists it
+  verbatim. Consequence: an asset with no purchase price stored `Infinity` in
+  the `purchase_price` column, which broke the asset report (`SUM(purchase_price)`
+  returned `Infinity`), and the asset show page rendered the raw JS number
+  as `"$Infinity"` via `.toLocaleString()`. The fix introduces an explicit
+  absent-value guard that defaults `purchase_price` to `0` when not submitted,
+  matching the established convention in `projects.js` (budget/spent) and
+  `licenses.js` (cost) where absent monetary fields resolve to `0`. The
+  present-but-malformed guard (`!Number.isFinite(safePositiveFloat(...))`) is
+  unaffected — it still rejects invalid numeric strings like `"abc"` or `"1,000"`.
+
+- **`src/routes/auth.js` — login rate-limiter key drifted from lockout-map key on HPP/missing IPs (LOW, defense-inconsistency).**
+  The `loginRateLimiter` key generator called `ipKeyGenerator(req.ip)` directly.
+  `express-rate-limit`'s `ipKeyGenerator` correctly strips the `::ffff:` prefix
+  for IPv4-mapped addresses, but for HTTP-parameter-pollution arrays (e.g.
+  `req.ip = ['1.2.3.4','5.6.7.8']`) it returns the raw array, and for
+  `undefined`/`null` it returns the raw value — it does **not** fall back to
+  `'unknown'` the way the shared `normalizeIp()` helper does. Meanwhile, the
+  per-account/per-IP login-failure lockout maps (lines 83-84, used by
+  `recordLoginFailure` / `checkIpLockout`) key on `normalizeIp(req.ip)`, which
+  collapses arrays and missing values to the string `'unknown'`. The result: an
+  HPP-attacked request was budgeted under an array key in the rate limiter but
+  tracked under `'unknown'` in the lockout map, and vice-versa for a missing IP
+  (`undefined` vs `'unknown'`). The two defenses were tracking the same source
+  under different keys, weakening the coordinated brute-force defense. Fixed
+  the key generator to call `ipKeyGenerator(normalizeIp(req.ip))` so both the
+  rate limiter and the lockout maps use the identical normalized string key,
+  restoring the intended single-source-of-truth for per-IP budgeting.
+
+### Test coverage added
+- `tests/assets.test.js` — new regression suite "absent purchase_price creates
+  asset with 0, not Infinity" (+1 test): asserts that the sentinel resolution
+  logic in the assets create path resolves to `0` (not `Infinity`) when
+  `purchase_price` is absent, locking in the convention alignment with
+  projects.js / licenses.js.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **625 passed / 625 total** (26 suites; was 624 — +1 new
+  regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (eighty-seventh pass)
 

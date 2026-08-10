@@ -67,7 +67,7 @@ function _getUpdateLastLoginStmt() {
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  keyGenerator: (req) => ipKeyGenerator(normalizeIp(req.ip)),
   handler: (req, res) => {
     audit({ req, action: 'login_rate_limited', entity: 'user', entityId: null,
       details: 'Login rate limited by IP' });

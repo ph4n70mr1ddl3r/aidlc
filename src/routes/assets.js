@@ -234,6 +234,16 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets/new');
   }
 
+  // A present, non-empty price that fails to parse must be rejected rather than
+  // silently stored as NULL, which would drop a legitimate price on a typo'd
+  // submission. An empty/omitted price defaults to 0 (consistent with the
+  // projects.js budget/spent and licenses.js cost conventions — Infinity was
+  // previously used as the fallback sentinel which SQLite stored as a valid
+  // REAL and broke the asset report SUM aggregation).
+  const safePurchasePrice = purchase_price === undefined || purchase_price === null || purchase_price === ''
+    ? 0
+    : safePositiveFloat(purchase_price, Infinity);
+
   // Validate assignee is an active user
   // Fail closed on a present-but-malformed id ("abc", "3.5", an HPP array)
   // instead of silently coercing it to NULL via safeId, which would store the
@@ -261,7 +271,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
         (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
         safeStatus, safeCondition, sPurchase,
-        safePositiveFloat(purchase_price, Infinity),
+        safePurchasePrice,
         sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
       return { asset_tag, id: Number(result.lastInsertRowid) };
