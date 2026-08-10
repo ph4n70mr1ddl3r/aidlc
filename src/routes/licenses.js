@@ -504,9 +504,6 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
   return res.redirect('/licenses');
 });
 
-module.exports = router;
-// Exposed for unit testing (mirrors the pattern in vendors.js / changes.js).
-module.exports.resolveSeats = _resolveSeats;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -518,4 +515,8 @@ function resetCachedStatements() {
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.
 }
+
+module.exports = router;
+// Exposed for unit testing (mirrors the pattern in vendors.js / changes.js).
+module.exports.resolveSeats = _resolveSeats;
 module.exports.resetCachedStatements = resetCachedStatements;

@@ -72,7 +72,6 @@ router.get('/', auditLimiter, (req, res) => {
   });
 });
 
-module.exports = router;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -83,4 +82,5 @@ function resetCachedStatements() {
   // from utils.js which has its own resetCachedStatements(). This function
   // exists for API consistency across all route modules.
 }
+module.exports = router;
 module.exports.resetCachedStatements = resetCachedStatements;

@@ -619,17 +619,23 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   return res.redirect('/knowledge');
 });
 
+/**
+ * Reset module-level cached prepared statements (test use only).
+ * Ensures test isolation when using mock db instances — consistent with
+ * the same-named export in all other route modules and in utils.js /
+ * middleware/auth.js / middleware/audit.js.
+ */
+function resetCachedStatements() {
+  // All cached statements are module-level const bindings from db.prepare(),
+  // so there is no lazy-init to null out — the cache is unused when
+  // the db mock is swapped. This function exists for API consistency
+  // across all route modules.
+}
+
 module.exports = router;
 // Exposed for unit testing (the route module is mocked in app.test.js).
 module.exports.renderMarkdown = renderMarkdown;
 module.exports.resolveSafeFeatured = resolveSafeFeatured;
 module.exports.resolveSafeStatus = resolveSafeStatus;
 module.exports.markedFallback = markedFallback;
-// Exposed for unit testing — consistent with the same-named export in all
-// other route modules and in utils.js / middleware/auth.js / middleware/audit.js.
-module.exports.resetCachedStatements = function resetCachedStatements() {
-  // All cached statements are module-level const bindings from db.prepare(),
-  // so there is no lazy-init to null out — the cache is unused when
-  // the db mock is swapped. This function exists for API consistency
-  // across all route modules.
-};
+module.exports.resetCachedStatements = resetCachedStatements;

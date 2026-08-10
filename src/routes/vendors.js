@@ -755,12 +755,6 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   return res.redirect('/vendors');
 });
 
-module.exports = router;
-// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
-module.exports.validateVendorRating = _validateVendorRating;
-module.exports.resolveVendorRatingOnUpdate = _resolveVendorRatingOnUpdate;
-module.exports.resolveClearableDate = _resolveClearableDate;
-module.exports.resolveOptionalTextField = resolveOptionalField;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -772,4 +766,11 @@ function resetCachedStatements() {
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.
 }
+
+module.exports = router;
+// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
+module.exports.validateVendorRating = _validateVendorRating;
+module.exports.resolveVendorRatingOnUpdate = _resolveVendorRatingOnUpdate;
+module.exports.resolveClearableDate = _resolveClearableDate;
+module.exports.resolveOptionalTextField = resolveOptionalField;
 module.exports.resetCachedStatements = resetCachedStatements;

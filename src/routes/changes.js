@@ -485,9 +485,6 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   return res.redirect('/changes');
 });
 
-module.exports = router;
-// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
-module.exports.resolveDateTimeField = _resolveDateTimeField;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -499,4 +496,7 @@ function resetCachedStatements() {
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.
 }
+module.exports = router;
+// Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
+module.exports.resolveDateTimeField = _resolveDateTimeField;
 module.exports.resetCachedStatements = resetCachedStatements;

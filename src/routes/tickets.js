@@ -969,10 +969,6 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
   return res.redirect('/tickets');
 });
 
-module.exports = router;
-// Exposed for unit testing (the route module is mocked in app.test.js).
-module.exports.commentKeyGenerator = commentKeyGenerator;
-module.exports.ensureLinkedAssetInList = ensureLinkedAssetInList;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -985,4 +981,9 @@ function resetCachedStatements() {
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.
 }
+
+module.exports = router;
+// Exposed for unit testing (the route module is mocked in app.test.js).
+module.exports.commentKeyGenerator = commentKeyGenerator;
+module.exports.ensureLinkedAssetInList = ensureLinkedAssetInList;
 module.exports.resetCachedStatements = resetCachedStatements;

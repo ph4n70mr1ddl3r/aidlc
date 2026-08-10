@@ -245,15 +245,6 @@ router.get('/staff', reportLimiter, (req, res) => {
   }
 });
 
-module.exports = router;
-// Exposed for unit testing the HPP fail-closed period parsing.
-module.exports.resolveReportPeriod = resolveReportPeriod;
-// Exposed for unit testing against a real in-memory DB (mirrors the test-export
-// pattern in dashboard.js / vendors.js / knowledge.js). Unit tests in
-// tests/reports.test.js use this export to assert statement shapes and verify
-// the age-bucket ordering and the disposed-asset warranty exclusion on the
-// reports-side queries (warrantyExpiring / warrantyExpiringCount) against regression.
-module.exports.__stmts = stmts;
 /**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances — consistent with
@@ -265,4 +256,14 @@ function resetCachedStatements() {
   // the db mock is swapped. This function exists for API consistency
   // across all route modules.
 }
+
+module.exports = router;
+// Exposed for unit testing the HPP fail-closed period parsing.
+module.exports.resolveReportPeriod = resolveReportPeriod;
+// Exposed for unit testing against a real in-memory DB (mirrors the test-export
+// pattern in dashboard.js / vendors.js / knowledge.js). Unit tests in
+// tests/reports.test.js use this export to assert statement shapes and verify
+// the age-bucket ordering and the disposed-asset warranty exclusion on the
+// reports-side queries (warrantyExpiring / warrantyExpiringCount) against regression.
+module.exports.__stmts = stmts;
 module.exports.resetCachedStatements = resetCachedStatements;
