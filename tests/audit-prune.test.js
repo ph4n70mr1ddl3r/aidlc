@@ -50,6 +50,27 @@ describe('createAuditLogPruner', () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
+  it('does not warn when a later prune fails after the first succeeded', () => {
+    // Covers the !firstRunDone === false branch inside the catch block (regression
+    // for branch coverage: firstRunDone is true on subsequent failures, so the
+    // "initial prune failed" warning must NOT fire again).
+    const pruneAuditLog = jest.fn()
+      .mockImplementationOnce(() => 0)
+      .mockImplementationOnce(() => {
+        throw new Error('disk full');
+      });
+    const logger = makeLogger();
+    const runPrune = createAuditLogPruner(pruneAuditLog, { days: 365, logger });
+
+    runPrune();
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+
+    runPrune();
+    expect(logger.error).toHaveBeenCalledWith('Audit log pruning error:', 'disk full');
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it('skips pruning entirely when days is not a positive finite number', () => {
     for (const days of [undefined, NaN, 0, -1, '365']) {
       const pruneAuditLog = jest.fn();

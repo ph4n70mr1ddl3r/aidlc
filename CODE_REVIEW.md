@@ -1,17 +1,22 @@
 # Code Review Notes
 
-**Date:** 2026-08-06
+**Date:** 2026-08-11
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (69+ consecutive "code review" hardening
-  commits) was cross-checked to confirm findings were not already addressed.
-   Sixty-ninth pass performed and documented below (2026-08-06).
-   Seventieth pass performed and documented below (2026-08-06).
-    Seventy-first pass performed and documented below (2026-08-07).
-    Eightieth pass performed and documented below (2026-08-08).
-    Sixty-eighth pass performed and documented below (2026-08-06).
+and the Jest suite. Prior review history (85+ consecutive "code review" hardening
+commits) was cross-checked to confirm findings were not already addressed.
+  Eighty-sixth pass performed and documented below (2026-08-11).
+  Eighty-fifth pass performed and documented below (2026-08-11).
+  Eighty-fourth pass performed and documented below (2026-08-10).
+  Eighty-third pass performed and documented below (2026-08-10).
+  Eighty-second pass performed and documented below (2026-08-10).
+  Eightieth pass performed and documented below (2026-08-08).
+  Seventy-first pass performed and documented below (2026-08-07).
+  Seventieth pass performed and documented below (2026-08-06).
+  Sixty-ninth pass performed and documented below (2026-08-06).
+  Sixty-eighth pass performed and documented below (2026-08-06).
   Sixty-seventh pass performed and documented below (2026-08-06).
   Sixty-sixth pass performed and documented below (2026-08-06).
   Sixty-fifth pass performed and documented below (2026-08-06).
@@ -83,6 +88,113 @@ and the Jest suite. Prior review history (69+ consecutive "code review" hardenin
   Eighty-second pass performed and documented below (2026-08-10).
   Eighty-third pass performed and documented below (2026-08-10).
   Eighty-fourth pass performed and documented below (2026-08-10).
+
+## Review cycle 2026-08-11 (eighty-sixth pass)
+
+An eighty-sixth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+test-coverage gap was found and fixed:
+
+### Fixes applied
+- **`src/utils.js` — `createAuditLogPruner`: missing branch coverage for
+  later-failure-after-first-success path (LOW, test coverage).** The existing
+  test suite covered: (1) first call succeeds → no warn; (2) first call fails
+  → warn once, second call fails → no additional warn; (3) days invalid → skip;
+  (4) no logger → default to console. But the `if (!firstRunDone)` branch
+  inside the catch block was only exercised when `firstRunDone` is `false`
+  (first call throws). The complementary branch — `firstRunDone` is `true`
+  inside the catch (first call succeeds, second call throws) — was never
+  reached, leaving one branch uncovered in `utils.js` (99.43% branch
+  coverage). Added a regression test asserting that when the first prune
+  succeeds and a later prune fails, `logger.warn` is never called (only
+  `logger.error` fires), confirming the "initial prune failed" warning is
+  strictly first-run-only.
+
+### Test coverage added
+- `tests/audit-prune.test.js` — new test "does not warn when a later prune
+  fails after the first succeeded" (+1 test): asserts `logger.warn` is not
+  called on the second failure, locking in the firstRunDone gate behavior.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **623 passed / 623 total** (26 suites; was 622 — +1 new
+  regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-08-10 (eighty-fifth pass)
+
+An eighty-fifth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** One
+cross-route consistency gap and one defense-in-depth gap were found and fixed:
+
+### Fixes applied
+- **`src/routes/assets.js` — create route `purchase_price` silently stored `0`
+  on invalid input (LOW, data integrity).** The create route used
+  `safePositiveFloat(purchase_price, Infinity)` inside the transaction, which
+  returned `Infinity` for any non-parseable value — and `Infinity` was then
+  passed to the `REAL` SQLite column, where it was silently stored as `0`. The
+  update route already rejected invalid present prices with an `"Invalid
+  purchase price"` error (fail-closed), but the create route had no such
+  guard. Added an upfront validation check that rejects a present, non-empty,
+  non-finite `purchase_price` before the transaction, mirroring the update
+  route's existing check. Absent/empty prices still default to `NULL` (no
+  price), consistent with the create-route convention.
+- **`src/routes/auth.js` — login rate-limiter key did not normalize IPv4-mapped
+  addresses (LOW, defense-in-depth).** The `loginRateLimiter` used
+  `ipKeyGenerator(req.ip)` as its key, but `req.ip` behind a proxy can be an
+  IPv4-mapped IPv6 address (`::ffff:203.0.113.5`) while the
+  `ipLoginFailures` map keyed on `normalizeIp(req.ip)` (which strips the
+  prefix to `203.0.113.5`). A client seen as `::ffff:203.0.113.5` by the
+  rate limiter and `203.0.113.5` by the lockout map would be budgeted
+  separately — two defenses tracking the same source under different keys.
+  The `ipKeyGenerator` from `express-rate-limit` v8 already normalizes
+  IPv4-mapped addresses to plain IPv4, so passing `req.ip` directly is
+  correct; however, the guard was missing for the edge case where
+  `req.ip` is already a plain string. The rate-limiter key generator now
+  explicitly normalizes via `ipKeyGenerator(normalizeIp(req.ip))` to ensure
+  the rate-limiter and lockout-map keys always match, keeping the audit trail,
+  lockout map, and rate-limit keys consistent.
+
+### Test coverage added
+- `tests/login_security.test.js` — regression test verifying that a login
+  attempt from `::ffff:1.2.3.4` and `1.2.3.4` share the same rate-limiter
+  budget (keyed on the normalized IP), confirming the fix.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **622 passed / 622 total** (26 suites; was 621 — +1 new
+  regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-10 (eighty-fourth pass)
 
