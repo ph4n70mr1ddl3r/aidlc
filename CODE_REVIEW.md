@@ -5,8 +5,9 @@
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files (every `.js` file in
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
-and the Jest suite. Prior review history (85+ consecutive "code review" hardening
+and the Jest suite. Prior review history (92+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+   Ninety-third pass performed and documented below (2026-08-11).
    Ninety-second pass performed and documented below (2026-08-11).
    Ninety-first pass performed and documented below (2026-08-11).
    Eighty-ninth pass performed and documented below (2026-08-11).
@@ -90,6 +91,56 @@ commits) was cross-checked to confirm findings were not already addressed.
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
    First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-11 (ninety-third pass)
+
+An ninety-third independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite). **No new SQL injection, IDOR, CSRF,
+XSS, auth, or error-leakage defects were found.** Two minor consistency/DRY
+improvements were applied:
+
+### Fixes applied
+- **`src/routes/vendors.js` — `resolveOptionalTextField` was a redundant alias
+  for `resolveOptionalField` from utils (LOW, code clarity).** The vendor route
+  exported `resolveOptionalField` (imported from `../utils`) under the local
+  name `resolveOptionalTextField`, which created confusion about whether it was
+  a vendor-specific helper or the shared utility. Tests in `tests/vendors.test.js`
+  imported it from vendors; updated the import to pull `resolveOptionalField`
+  directly from `../utils` and removed the alias export from vendors.js. This
+  eliminates a unnecessary indirection and makes the test's source-of-truth
+  explicit.
+
+- **`src/routes/vendors.js` — `_validateVendorRating` had inconsistent error
+  messages between the array-HPP guard and the length-guard (LOW, consistency).**
+  When `rawValue` was an HPP array, the function returned
+  `'Rating must be a whole number between 1 and 5'`; when it was an overly long
+  string, it returned `'Rating must be between 1 and 5'` (missing "a whole
+  number"). Unified both paths to the same message so operators see consistent
+  feedback regardless of which guard fires.
+
+### Test coverage
+- No new tests required — existing 656 tests all pass and the renamed test
+  describe block in `tests/vendors.test.js` covers the same `resolveOptionalField`
+  behavior via its canonical utils import.
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **656 passed / 656 total** (26 suites; unchanged).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (ninety-second pass)
 
