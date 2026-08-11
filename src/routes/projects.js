@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
 const {
@@ -302,6 +302,11 @@ router.get('/:id', (req, res) => {
 
   if (!project) {
     req.flash('error', 'Project not found');
+    return res.redirect('/projects');
+  }
+
+  if (!canAccessResource(req, project)) {
+    req.flash('error', 'You do not have permission to view this project');
     return res.redirect('/projects');
   }
 

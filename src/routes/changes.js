@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
@@ -249,6 +249,11 @@ router.get('/:id', (req, res) => {
 
   if (!change) {
     req.flash('error', 'Change not found');
+    return res.redirect('/changes');
+  }
+
+  if (!canAccessResource(req, change)) {
+    req.flash('error', 'You do not have permission to view this change');
     return res.redirect('/changes');
   }
 

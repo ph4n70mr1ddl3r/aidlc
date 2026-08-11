@@ -134,7 +134,28 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
 // mutating a shared object (even though marked does not currently
 // mutate the options argument, being defensive costs nothing).
 
-const SANITIZE_HTML_OPTIONS = Object.freeze({
+// Helper: recursively freeze an object so nested arrays/objects cannot be
+// mutated at runtime. sanitize-html reads these options on every call, so a
+// mutation from a future library change or unexpected code path would silently
+// relax the allowlist. Object.freeze alone only freezes the top level.
+function deepFreeze(obj) {
+  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+    for (const val of Object.values(obj)) {
+      if (val && typeof val === 'object') {
+        deepFreeze(val);
+      }
+    }
+  } else if (Array.isArray(obj)) {
+    for (const item of obj) {
+      if (item && typeof item === 'object') {
+        deepFreeze(item);
+      }
+    }
+  }
+  return Object.freeze(obj);
+}
+
+const SANITIZE_HTML_OPTIONS = deepFreeze({
   // NOTE: 'input' is intentionally NOT allowed. A published KB article that
   // renders interactive form controls is a stored HTML/UI-injection vector
   // (e.g. a hidden checkbox or file-input appearing in an article body).
@@ -155,7 +176,7 @@ const SANITIZE_HTML_OPTIONS = Object.freeze({
   allowProtocolRelative: false
 });
 
-const STRIP_HTML_OPTIONS = Object.freeze({
+const STRIP_HTML_OPTIONS = deepFreeze({
   allowedTags: [],
   allowedAttributes: {},
   allowedSchemes: ['http', 'https', 'mailto'],

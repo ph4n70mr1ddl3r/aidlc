@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
@@ -309,6 +309,11 @@ router.get('/:id', (req, res) => {
 
   if (!asset) {
     req.flash('error', 'Asset not found');
+    return res.redirect('/assets');
+  }
+
+  if (!canAccessResource(req, asset)) {
+    req.flash('error', 'You do not have permission to view this asset');
     return res.redirect('/assets');
   }
 
