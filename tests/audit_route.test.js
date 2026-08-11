@@ -274,4 +274,32 @@ describe('audit route — GET /', () => {
     // Invalid filter values are skipped, so all entries are returned
     expect(locals.entries.length).toBe(5);
   });
+
+  it('rejects HPP arrays on query params and redirects to /audit', () => {
+    // Regression: the audit GET / route must reject HTTP parameter pollution
+    // arrays on filter query params (action, entity_type, sort). The "simple"
+    // query parser turns duplicate keys (?action=a&action=b) into arrays, so
+    // the array must be detected on req.query — a check that only inspects
+    // req.body (empty on GET) would be a silent no-op.
+    const handler = lastHandlerFor(router, 'get', '/');
+    const req = {
+      query: { action: ['create', 'delete'] },
+      body: {},
+      session: { user: { id: 1 } },
+      path: '/audit',
+      audit: jest.fn(),
+      flash: jest.fn()
+    };
+    const res = {
+      locals: {},
+      render: jest.fn(),
+      set: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      redirect: jest.fn()
+    };
+    handler(req, res, () => {});
+    expect(res.redirect).toHaveBeenCalledTimes(1);
+    expect(res.redirect).toHaveBeenCalledWith('/audit');
+  });
 });

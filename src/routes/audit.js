@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
@@ -27,6 +27,19 @@ const SORT_MAP = Object.freeze({
 });
 
 router.get('/', auditLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. The "simple" query parser turns duplicate keys (?action=a&action=b)
+  // into arrays; buildFilters/safeQueryValue collapse them safely, but the
+  // audit log is the single read-only surface where a filter value is echoed
+  // back into the rendered page (safeFilters) — so arrays are rejected here to
+  // keep the response deterministic. rejectHppArrays inspects both req.query
+  // and req.body, matching the fail-closed behavior of every write route.
+  const hppQueryErrors = rejectHppArrays(req, ['action', 'entity_type', 'sort', 'search']);
+  if (hppQueryErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/audit');
+  }
+
   // Record that the audit trail was accessed — a compromised privileged
   // account reading the full audit log should leave a trace of its own.
   req.audit('read', 'audit_log', null, 'Viewed audit log');

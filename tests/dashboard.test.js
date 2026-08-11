@@ -17,7 +17,10 @@ jest.mock('../src/middleware/auth', () => ({
 }));
 
 jest.mock('../src/middleware/audit', () => ({
-  auditMiddleware: (req, res, next) => next()
+  auditMiddleware: (req, res, next) => {
+    req.audit = jest.fn();
+    next();
+  }
 }));
 
 const db = require('../src/models/database');
@@ -164,5 +167,33 @@ describe('ticketsByCategory aggregation', () => {
       expect(row).toHaveProperty('category');
       expect(row).toHaveProperty('count');
     }
+  });
+});
+
+describe('dashboard route audit log', () => {
+  it('logs a read audit entry when the dashboard is accessed', () => {
+    // Regression: the dashboard GET / route must log an audit entry so that
+    // a compromised privileged account reading the dashboard leaves a trace
+    // (mirrors the audit-log-view self-trail in routes/audit.js and the
+    // per-article read trail in routes/knowledge.js).
+    const route = dashboard.stack.find(l => l.route && l.route.methods.get);
+    const handler = route.route.stack[0].handle; // the GET / handler
+    const audit = jest.fn();
+    const req = {
+      session: { user: { id: 1 } },
+      path: '/dashboard',
+      audit
+    };
+    const res = {
+      locals: {},
+      render: jest.fn(),
+      set: jest.fn(),
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn()
+    };
+    handler(req, res, () => {});
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith('read', 'dashboard', null, 'Viewed dashboard');
+    expect(res.render).toHaveBeenCalledTimes(1);
   });
 });

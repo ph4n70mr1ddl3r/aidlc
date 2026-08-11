@@ -1668,6 +1668,38 @@ describe('rejectHppArrays', () => {
     // Early-return means we stop at the first array field
     expect(result).toEqual(['Invalid request parameters']);
   });
+
+  it('should return empty array when req.body is missing (graceful no-op)', () => {
+    // Regression: routes that call rejectHppArrays before body-parser runs
+    // (e.g. in test handlers) must not throw when req.body is undefined.
+    const req = {};
+    const result = utils.rejectHppArrays(req, ['name', 'email']);
+    expect(result).toEqual([]);
+  });
+
+  it('should reject arrays on req.query (HPP on filter params)', () => {
+    // Regression: the "simple" query parser turns duplicate keys into arrays,
+    // so list routes (e.g. /audit) must fail closed on query-param arrays the
+    // same way write routes reject body arrays. Previously rejectHppArrays
+    // only inspected req.body, making the query check a silent no-op.
+    const req = { body: {}, query: { action: ['create', 'delete'], sort: 'newest' } };
+    const result = utils.rejectHppArrays(req, ['action', 'entity_type', 'sort', 'search']);
+    expect(result).toEqual(['Invalid request parameters']);
+  });
+
+  it('should still check req.query when req.body is undefined', () => {
+    // GET requests never populate req.body; the helper must not short-circuit
+    // on a missing body and skip the query check.
+    const req = { query: { action: ['create', 'delete'] } };
+    const result = utils.rejectHppArrays(req, ['action', 'sort']);
+    expect(result).toEqual(['Invalid request parameters']);
+  });
+
+  it('should return empty array when both body and query are clean', () => {
+    const req = { body: { name: 'x' }, query: { sort: 'newest', action: 'create' } };
+    const result = utils.rejectHppArrays(req, ['name', 'action', 'sort']);
+    expect(result).toEqual([]);
+  });
 });
 
 describe('resetCachedStatements', () => {

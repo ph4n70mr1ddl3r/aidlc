@@ -1098,14 +1098,30 @@ const resetPageSize = _resetPageSize;
  * array when all fields are clean. Mirrors the inline array-rejection loops
  * used across every write route in the codebase, but centralises the pattern
  * so new routes can call this helper instead of repeating the for-loop.
+ *
+ * Both req.body and req.query are inspected. The query side matters because
+ * the app uses Express's built-in "simple" querystring parser, which turns
+ * duplicate keys (?action=a&action=b) into arrays — so list routes that read
+ * filter params (e.g. /audit) need the same fail-closed rejection as the write
+ * routes. Write routes also benefit: a duplicate query key that happens to
+ * collide with a body field name is now rejected instead of silently ignored.
  * @param {import('express').Request} req
- * @param {string[]} fields - Field names to check in req.body
+ * @param {string[]} fields - Field names to check in req.body and req.query
  * @returns {string[]} Array of error messages (empty if all clean)
  */
 function rejectHppArrays(req, fields) {
-  for (const f of fields) {
-    if (Array.isArray(req.body[f])) {
-      return ['Invalid request parameters'];
+  // req.body may be undefined (e.g. GET requests that never ran urlencoded,
+  // or handlers invoked directly in tests) — skip missing sources rather than
+  // throwing, so the query side is still checked.
+  const sources = [req.body, req.query];
+  for (const source of sources) {
+    if (!source) {
+      continue;
+    }
+    for (const f of fields) {
+      if (Array.isArray(source[f])) {
+        return ['Invalid request parameters'];
+      }
     }
   }
   return [];

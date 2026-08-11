@@ -140,7 +140,7 @@ const _updateStmt = db.prepare(`
     WHERE id = ?
   `);
 const _licenseSyncStmt = db.prepare('UPDATE licenses SET vendor = ?, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
-const _licenseDependentsStmt = db.prepare('SELECT id, software_name FROM licenses WHERE LOWER(vendor) = LOWER(?)');
+const _licenseDependentsCountStmt = db.prepare('SELECT COUNT(*) as cnt FROM licenses WHERE LOWER(vendor) = LOWER(?)');
 const _deleteDetachLicensesStmt = db.prepare('UPDATE licenses SET vendor = NULL, updated_at = datetime(\'now\') WHERE LOWER(vendor) = LOWER(?)');
 const _deleteStmt = db.prepare('DELETE FROM vendors WHERE id = ?');
 const _vendorNameExistsStmt = db.prepare('SELECT 1 FROM vendors WHERE LOWER(name) = LOWER(?) AND id != ?');
@@ -728,8 +728,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Nullify vendor references on licenses to avoid orphaned references
       // Use the vendor name directly (already fetched above) instead of a
       // correlated subquery, which is both clearer and slightly faster.
-      const dependentLicenses = _licenseDependentsStmt.all(vendor.name);
-      const licenseCount = dependentLicenses.length;
+      const licenseCount = _licenseDependentsCountStmt.get(vendor.name).cnt;
       if (licenseCount > 0) {
         _deleteDetachLicensesStmt.run(vendor.name);
       }

@@ -191,6 +191,41 @@ function renderMarkdown(content) {
   }
 }
 
+/**
+ * Sanitize knowledge article input (title, content, tags) by stripping HTML
+ * via sanitize-html and truncating to the configured max lengths. Returns
+ * { safeTitle, safeContent, safeTags, error } so both the create and update
+ * routes share a single source of truth for this logic instead of duplicating
+ * the block verbatim. Mirrors the absent-vs-empty convention: title/content
+ * empty strings are preserved (they may represent an explicit user clear and
+ * are surfaced as errors because the fields are required), while empty tags —
+ * an optional field — are normalized to null.
+ * @param {string} title
+ * @param {string} content
+ * @param {string} tags
+ * @returns {{ safeTitle: string, safeContent: string, safeTags: string|null, error: string|null }}
+ */
+function sanitizeKnowledgeInput(title, content, tags) {
+  let safeTags;
+  let safeTitle;
+  let safeContent;
+  try {
+    // Sanitize first, then truncate. Truncating before sanitizing would let a
+    // value sitting exactly at the limit grow past it once sanitizeHtml escapes
+    // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
+    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
+    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
+    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
+    // Normalize empty tags to null (the column is nullable and a NULL is
+    // cleaner than a stored '' — searches and template rendering treat them
+    // identically, so this only affects what is written to the DB).
+    safeTags = safeTags ? safeTags.substring(0, MAX_LONG_STR) : null;
+  } catch (sanitizeErr) {
+    return { safeTitle: '', safeContent: '', safeTags: null, error: sanitizeErr.message };
+  }
+  return { safeTitle, safeContent, safeTags, error: null };
+}
+
 // List articles (paginated)
 router.get('/', kbReadLimiter, (req, res) => {
   const { page: requestedPage, limit } = paginate(req);
@@ -291,24 +326,13 @@ router.post('/', kbWriteLimiter, (req, res) => {
   }
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  let safeTags = null;
-  let safeTitle = '';
-  let safeContent = '';
-  try {
-    // Sanitize first, then truncate. Truncating before sanitizing would let a
-    // value sitting exactly at the limit grow past it once sanitizeHtml escapes
-    // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
-    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
-    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
-    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
-    if (safeTags) {
-      safeTags = safeTags.substring(0, MAX_LONG_STR) || null;
-    }
-  } catch (sanitizeErr) {
-    console.error('HTML sanitization error:', sanitizeErr.message);
+  const sanitized = sanitizeKnowledgeInput(title, content, tags);
+  if (sanitized.error) {
+    console.error('HTML sanitization error:', sanitized.error);
     req.flash('error', 'Error processing input. Please try again.');
     return res.redirect('/knowledge/new');
   }
+  const { safeTags, safeTitle, safeContent } = sanitized;
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect('/knowledge/new');
@@ -488,24 +512,13 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // authorisation guard above and the date-helpers inside the transaction.
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
-  let safeTags = null;
-  let safeTitle = '';
-  let safeContent = '';
-  try {
-    // Sanitize first, then truncate. Truncating before sanitizing would let a
-    // value sitting exactly at the limit grow past it once sanitizeHtml escapes
-    // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
-    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
-    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
-    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
-    if (safeTags) {
-      safeTags = safeTags.substring(0, MAX_LONG_STR) || null;
-    }
-  } catch (sanitizeErr) {
-    console.error('HTML sanitization error:', sanitizeErr.message);
+  const sanitized = sanitizeKnowledgeInput(title, content, tags);
+  if (sanitized.error) {
+    console.error('HTML sanitization error:', sanitized.error);
     req.flash('error', 'Error processing input. Please try again.');
     return res.redirect(`/knowledge/${id}/edit`);
   }
+  const { safeTags, safeTitle, safeContent } = sanitized;
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);
@@ -638,4 +651,5 @@ module.exports.renderMarkdown = renderMarkdown;
 module.exports.resolveSafeFeatured = resolveSafeFeatured;
 module.exports.resolveSafeStatus = resolveSafeStatus;
 module.exports.markedFallback = markedFallback;
+module.exports.sanitizeKnowledgeInput = sanitizeKnowledgeInput;
 module.exports.resetCachedStatements = resetCachedStatements;

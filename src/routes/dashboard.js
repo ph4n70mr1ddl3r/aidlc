@@ -245,6 +245,7 @@ function invalidateDashboardCache() {
 }
 
 router.get('/', (req, res) => {
+  req.audit('read', 'dashboard', null, 'Viewed dashboard');
   const data = getDashboardData(req.session.user);
 
   res.render('pages/dashboard', { title: 'Dashboard', ...data });

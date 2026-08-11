@@ -167,3 +167,23 @@ describe('resolveVendorRatingOnUpdate (rating preservation)', () => {
     expect(resolveVendorRatingOnUpdate('1', 1, 5)).toBe(1);
   });
 });
+
+describe('vendor delete uses COUNT query', () => {
+  // Regression: the vendor delete route previously fetched all dependent
+  // license rows via SELECT just to count them. It now uses a COUNT(*) query
+  // which is significantly more efficient on large license tables.
+  it('uses a COUNT query for dependent license detection', () => {
+    const db = require('../src/models/database');
+    const prepareCalls = db.prepare.mock.calls;
+    // Find the statement whose SQL contains COUNT and licenses
+    const countStmt = prepareCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('COUNT') && sql.includes('licenses')
+    );
+    expect(countStmt).toBeDefined();
+    // The old _licenseDependentsStmt (SELECT id, software_name) must no longer exist
+    const oldStmt = prepareCalls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('SELECT id, software_name') && sql.includes('licenses')
+    );
+    expect(oldStmt).toBeUndefined();
+  });
+});

@@ -52,7 +52,7 @@ jest.mock('../src/routes/dashboard', () => {
 });
 
 const { marked } = require('marked');
-const { renderMarkdown, resolveSafeFeatured, resolveSafeStatus } = require('../src/routes/knowledge');
+const { renderMarkdown, resolveSafeFeatured, resolveSafeStatus, sanitizeKnowledgeInput } = require('../src/routes/knowledge');
 const utils = require('../src/utils');
 
 describe('renderMarkdown', () => {
@@ -304,5 +304,62 @@ describe('sanitize-html options are frozen (defense-in-depth)', () => {
     // mutated between calls, one or both could fail or produce unexpected output.
     expect(html1).toContain('<h1>Heading</h1>');
     expect(html2).toContain('<strong>bold</strong>');
+  });
+});
+
+describe('sanitizeKnowledgeInput', () => {
+  it('strips HTML tags from title, content, and tags', () => {
+    const result = sanitizeKnowledgeInput('<script>x</script>My Title', '<b>content</b>', '<i>tags</i>');
+    expect(result.safeTitle).toBe('My Title');
+    expect(result.safeContent).toBe('content');
+    expect(result.safeTags).toBe('tags');
+    expect(result.error).toBe(null);
+  });
+
+  it('truncates title and content to their configured max lengths', () => {
+    const longTitle = 'A'.repeat(1000);
+    const longContent = 'B'.repeat(60000);
+    const result = sanitizeKnowledgeInput(longTitle, longContent, 'tags');
+    expect(result.safeTitle.length).toBeLessThanOrEqual(200);
+    expect(result.safeContent.length).toBeLessThanOrEqual(50000);
+  });
+
+  it('sets safeTags to null when tags input is empty', () => {
+    const result = sanitizeKnowledgeInput('title', 'content', '');
+    expect(result.safeTags).toBeNull();
+  });
+
+  it('sets safeTags to null after truncation when result is empty', () => {
+    // An empty string sanitized then truncated should yield null
+    const result = sanitizeKnowledgeInput('title', 'content', '');
+    expect(result.safeTags).toBeNull();
+  });
+
+  it('returns an error object when sanitize-html throws internally', () => {
+    // The function must never throw — sanitization errors are caught and
+    // returned as { error: string } so the caller can flash a user-visible
+    // error instead of crashing the request. A non-string input (e.g. an HPP
+    // array that reached the helper) makes sanitize-html throw internally, so
+    // this exercises the real catch block.
+    const result = sanitizeKnowledgeInput('title', ['array-content'], 'tags');
+    expect(result.error).toBeTruthy();
+    expect(typeof result.error).toBe('string');
+    expect(result.safeTitle).toBe('');
+    expect(result.safeContent).toBe('');
+    expect(result.safeTags).toBeNull();
+    // Normal input still succeeds afterwards — no module state was corrupted.
+    const ok = sanitizeKnowledgeInput('title', 'content', 'tags');
+    expect(ok.error).toBeNull();
+    expect(ok.safeContent).toBe('content');
+  });
+
+  it('returns empty strings for title/content when they sanitize to empty', () => {
+    // A title or content that becomes empty after sanitization is an error
+    // case (required fields), but the helper itself should still return
+    // empty strings rather than throwing.
+    const result = sanitizeKnowledgeInput('', '', '');
+    expect(result.safeTitle).toBe('');
+    expect(result.safeContent).toBe('');
+    expect(result.safeTags).toBeNull();
   });
 });

@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (85+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+   Ninety-first pass performed and documented below (2026-08-11).
    Eighty-ninth pass performed and documented below (2026-08-11).
    Eighty-eighth pass performed and documented below (2026-08-11).
    Eighty-seventh pass performed and documented below (2026-08-11).
@@ -88,11 +89,8 @@ commits) was cross-checked to confirm findings were not already addressed.
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
   First pass performed and documented below (2026-07-17).
-   Eighty-second pass performed and documented below (2026-08-10).
-   Eighty-third pass performed and documented below (2026-08-10).
-   Eighty-fourth pass performed and documented below (2026-08-10).
 
-## Review cycle 2026-08-11 (eighty-ninth pass)
+## Review cycle 2026-08-11 (ninety-first pass)
 
 An eighty-ninth independent pass (full re-read of all 11 route modules, both
 middleware modules, utils, constants, models, seed, all EJS views,
@@ -2778,4 +2776,92 @@ regression introduced mid-refactor:
 - `npm run lint` — clean (exit 0).
 - `npm test` — 603 passed / 603 total (26 suites).
 - `npm audit --production --audit-level=high` — **exit 0**.
+- `.env.example` contains only placeholders; no secrets committed.
+
+## Review cycle 2026-08-11 (ninety-first pass)
+
+A ninety-first independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, the EJS views, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage defects
+were found.** This pass completed and corrected an in-progress review batch that
+had shipped with broken tests and one silent no-op security check:
+
+### Fixes applied
+- **`src/utils.js` — `rejectHppArrays` only inspected `req.body`, so the new
+  /audit query-param HPP check was a silent no-op (MEDIUM).** The helper read
+  only `req.body[field]`, but the audit route passes query filter names
+  (`action`, `entity_type`, `sort`, `search`). Because the app uses Express's
+  built-in `simple` query parser — which turns duplicate keys
+  (`?action=a&action=b`) into arrays (verified end-to-end) — `req.query` can
+  carry HPP arrays on a GET request where `req.body` is empty. The new /audit
+  guard therefore never fired. Extended `rejectHppArrays` to inspect both
+  `req.body` and `req.query` (skipping either source when absent so GET
+  handlers without a body are still checked), and updated the JSDoc. This also
+  hardens every write route: a duplicate query key that collides with a body
+  field name is now rejected instead of silently ignored. New unit tests cover
+  the query source, the missing-body-does-not-short-circuit case, and the
+  clean-request case.
+
+- **`src/routes/audit.js` — misleading comment (LOW).** The HPP check's comment
+  claimed "every other route that accepts user-controlled query input rejects
+  arrays explicitly"; in fact other list routes collapse arrays via
+  `safeQueryValue` (fail-open) and only the write routes reject body arrays.
+  Rewrote the comment to state the real rationale (the audit log is the one
+  read-only surface that echoes filter values back into the rendered page via
+  `safeFilters`, so deterministic rejection is warranted).
+
+- **`src/routes/knowledge.js` — `sanitizeKnowledgeInput` empty-tags contract
+  mismatch (LOW).** The refactor's JSDoc promised `safeTags: string|null` and
+  the new tests asserted `null` for empty input, but the implementation left
+  empty tags as `''` (the pre-refactor code stored `''` too). Normalized empty
+  tags to `null` — the column is nullable, and search/template rendering treat
+  `''` and `NULL` identically, so this only affects what is written to the DB
+  and now matches the documented contract. JSDoc updated to describe the
+  absent-vs-empty split accurately (title/content empty strings are preserved
+  and surfaced as required-field errors; empty optional tags become `null`).
+
+### Broken tests fixed in the in-progress batch
+- **`tests/dashboard.test.js` — the new "route audit log" test invoked the
+  wrong handler.** `dashboard.stack[0].handlers[0]` is the mocked `requireAuth`
+  middleware (the `router.use(...)` layer), not the `GET /` handler, so the
+  `res.render` assertion could never hold. Rewrote the test to extract the real
+  `GET /` handler from the router stack, set `req.audit` (simulating the mocked
+  `auditMiddleware`), and assert the audit call `('read', 'dashboard', null,
+  'Viewed dashboard')` plus the render.
+- **`tests/audit_route.test.js` — the HPP regression test passed with the
+  buggy code.** It placed the array on `req.body` (the only source the old
+  helper checked), so it would pass even with the no-op. Moved the array onto
+  `req.query` with an empty body, which fails under the old code and passes
+  with the fix. Also moved `flash` from the mock `res` onto `req` where
+  connect-flash actually attaches it (the handler calls `req.flash`).
+- **`tests/knowledge.test.js` — lint errors and two non-asserting "error path"
+  tests.** Removed two unused-variable declarations (`__origSanitizeHtml`,
+  `knowledgeModule` — the first referenced a non-existent export) and replaced
+  the two weak error tests with one that genuinely exercises the catch block:
+  a non-string (array) input makes `sanitize-html` throw, so the helper's
+  `{ error }` contract is asserted against a real failure, and a follow-up
+  normal call confirms no module state was corrupted.
+
+### Test coverage added
+- `tests/utils.test.js` — `rejectHppArrays` query-source suite (+3 tests).
+- `tests/dashboard.test.js`, `tests/audit_route.test.js`,
+  `tests/knowledge.test.js` — corrected regression tests (see above).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- IDOR/TOCTOU ownership/role rechecks remain inside `db.transaction`; CSRF
+  tokens on all state-changing forms; the only `<%-` sink (`renderedContent`)
+  is server-sanitized; `target=_blank` links carry `rel="noopener noreferrer"`
+  + scheme check; login timing-oracle, `entityId == null` coercion,
+  `recalcProjectProgress` guards, dashboard PII over-fetch (explicit column
+  lists), and the `audit_log` self-trail fix all intact.
+- Every write route rejects HPP arrays on all body fields; every numeric/date
+  field is fail-closed on malformed present values. Consistent across all routes.
+- `npm audit --production --audit-level=high` — exit 0 (no production
+  vulnerabilities).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 641 passed / 641 total (26 suites).
 - `.env.example` contains only placeholders; no secrets committed.
