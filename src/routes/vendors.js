@@ -38,7 +38,7 @@ function _validateVendorRating(rawValue) {
   }
   // Reject absurdly long rating strings to prevent resource exhaustion
   if (typeof rawValue === 'string' && rawValue.length > _MAX_RATING_INPUT) {
-    return { value: null, error: 'Rating must be between 1 and 5' };
+    return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   // Normalise leading/trailing whitespace so " 3 " is treated as "3" rather
   // than rejected by the numeric pattern check below.  parseInt handles both,
@@ -771,5 +771,4 @@ module.exports = router;
 module.exports.validateVendorRating = _validateVendorRating;
 module.exports.resolveVendorRatingOnUpdate = _resolveVendorRatingOnUpdate;
 module.exports.resolveClearableDate = _resolveClearableDate;
-module.exports.resolveOptionalTextField = resolveOptionalField;
 module.exports.resetCachedStatements = resetCachedStatements;

@@ -27,7 +27,8 @@ jest.mock('../src/routes/dashboard', () => {
   return router;
 });
 
-const { validateVendorRating, resolveClearableDate, resolveOptionalTextField, resolveVendorRatingOnUpdate } = require('../src/routes/vendors');
+const { validateVendorRating, resolveClearableDate, resolveVendorRatingOnUpdate } = require('../src/routes/vendors');
+const { resolveOptionalField } = require('../src/utils');
 
 describe('validateVendorRating', () => {
   it('parses a valid integer rating in range', () => {
@@ -112,9 +113,9 @@ describe('resolveClearableDate (contract date clearing)', () => {
   });
 });
 
-describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
+describe('resolveOptionalField (absent-vs-empty clearing, used by vendors.js)', () => {
   it('preserves existing value when rawValue is absent (undefined)', () => {
-    expect(resolveOptionalTextField(undefined, 'submitted', 100, 'existing')).toBe('existing');
+    expect(resolveOptionalField(undefined, 'submitted', 100, 'existing')).toBe('existing');
   });
 
   it('preserves existing value when rawValue is null (JSON null)', () => {
@@ -122,27 +123,27 @@ describe('resolveOptionalTextField (absent-vs-empty clearing)', () => {
     // JSON body parser delivers `null` for an omitted field, so
     // {"email": null} silently wiped the stored email while the sibling date
     // helper preserved it. null now behaves like absent.
-    expect(resolveOptionalTextField(null, null, 100, 'existing')).toBe('existing');
+    expect(resolveOptionalField(null, null, 100, 'existing')).toBe('existing');
   });
 
   it('clears field to null when processedValue is empty/null', () => {
-    expect(resolveOptionalTextField('', '', 100, 'existing')).toBeNull();
-    expect(resolveOptionalTextField(' ', '', 100, 'existing')).toBeNull();
-    expect(resolveOptionalTextField('submitted', null, 100, 'existing')).toBeNull();
+    expect(resolveOptionalField('', '', 100, 'existing')).toBeNull();
+    expect(resolveOptionalField(' ', '', 100, 'existing')).toBeNull();
+    expect(resolveOptionalField('submitted', null, 100, 'existing')).toBeNull();
   });
 
   it('accepts a new value and truncates to maxLen', () => {
-    expect(resolveOptionalTextField('submitted', 'submitted', 5, 'existing')).toBe('submi');
+    expect(resolveOptionalField('submitted', 'submitted', 5, 'existing')).toBe('submi');
   });
 
   it('returns the value unchanged when maxLen is null', () => {
-    expect(resolveOptionalTextField('hardware', 'hardware', null, 'existing')).toBe('hardware');
+    expect(resolveOptionalField('hardware', 'hardware', null, 'existing')).toBe('hardware');
   });
 
   it('rejects arrays from HTTP parameter pollution (fails closed)', () => {
     // Mirrors the array guards across the codebase: a polluted payload must not
     // silently clear or apply stored data, so it returns { error: true }.
-    expect(resolveOptionalTextField(['a'], 'a', null, 'existing')).toEqual({ error: true });
+    expect(resolveOptionalField(['a'], 'a', null, 'existing')).toEqual({ error: true });
   });
 });
 
