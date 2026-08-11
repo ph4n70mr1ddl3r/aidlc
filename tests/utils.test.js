@@ -1836,6 +1836,97 @@ describe('resetPageSize', () => {
   });
 });
 
+describe('normalizeIp', () => {
+  it('passes through plain IPv4 addresses unchanged', () => {
+    expect(utils.normalizeIp('192.168.1.1')).toBe('192.168.1.1');
+    expect(utils.normalizeIp('10.0.0.1')).toBe('10.0.0.1');
+  });
+
+  it('strips the ::ffff: IPv4-mapped prefix', () => {
+    // Behind a proxy, Express may produce ::ffff:1.2.3.4. normalizeIp must
+    // collapse this to plain IPv4 so lockout maps and rate-limiter keys match.
+    expect(utils.normalizeIp('::ffff:1.2.3.4')).toBe('1.2.3.4');
+    expect(utils.normalizeIp('::ffff:192.168.1.1')).toBe('192.168.1.1');
+  });
+
+  it('falls back to "unknown" for absent / non-string values', () => {
+    expect(utils.normalizeIp(null)).toBe('unknown');
+    expect(utils.normalizeIp(undefined)).toBe('unknown');
+    expect(utils.normalizeIp('')).toBe('unknown');
+  });
+
+  it('falls back to "unknown" for arrays (HPP on X-Forwarded-For)', () => {
+    // Express with trust proxy can turn duplicate X-Forwarded-For headers into
+    // an array. normalizeIp must not return an array — that would serialize
+    // unpredictably in lockout-map keys.
+    expect(utils.normalizeIp(['1.2.3.4', '5.6.7.8'])).toBe('unknown');
+  });
+
+  it('passes through bare IPv6 addresses without stripping', () => {
+    // We only strip the known ::ffff: prefix; arbitrary IPv6 is returned as-is
+    // because the app's rate-limiter / lockout maps treat any non-string as
+    // "unknown" upstream, and a bare IPv6 string is a valid scalar key.
+    expect(utils.normalizeIp('2001:db8::1')).toBe('2001:db8::1');
+  });
+});
+
+describe('safeFilters', () => {
+  it('returns an empty object when query is empty', () => {
+    expect(utils.safeFilters({}, ['search', 'status'])).toEqual({});
+  });
+
+  it('extracts only known fields from req.query', () => {
+    const result = utils.safeFilters({ search: 'foo', status: 'open', unknown: 'x' }, ['search', 'status']);
+    expect(result).toEqual({ search: 'foo', status: 'open' });
+  });
+
+  it('collapses HPP arrays via safeQueryValue (first element)', () => {
+    // safeFilters is the fail-open path for GET filters — it takes the first
+    // element rather than rejecting. Write routes must use rejectHppArrays
+    // for fail-closed behavior; safeFilters is intentionally permissive.
+    const result = utils.safeFilters({ search: ['a', 'b'], status: 'open' }, ['search', 'status']);
+    expect(result).toEqual({ search: 'a', status: 'open' });
+  });
+
+  it('omits fields not present in the allowed list', () => {
+    const result = utils.safeFilters({ search: 'x', status: 'open' }, ['sort']);
+    expect(result).toEqual({});
+  });
+
+  it('preserves null / empty string filter values', () => {
+    const result = utils.safeFilters({ search: '', status: null }, ['search', 'status']);
+    expect(result).toEqual({ search: '', status: null });
+  });
+});
+
+describe('paginationBaseUrl', () => {
+  it('returns the current path when there are no known query params', () => {
+    const req = { path: '/tickets', query: {} };
+    expect(utils.paginationBaseUrl(req)).toBe('/tickets');
+  });
+
+  it('echoes known query params into the base URL', () => {
+    const req = { path: '/tickets', query: { search: 'laptop', status: 'open' } };
+    expect(utils.paginationBaseUrl(req)).toBe('/tickets?search=laptop&status=open');
+  });
+
+  it('strips unknown query params from the base URL', () => {
+    const req = { path: '/tickets', query: { search: 'laptop', page: '2', foo: 'bar' } };
+    expect(utils.paginationBaseUrl(req)).toBe('/tickets?search=laptop');
+  });
+
+  it('collapses HPP arrays in known params to their first element', () => {
+    // Mirrors the array-guard pattern used by safeQueryValue / buildFilters.
+    const req = { path: '/tickets', query: { search: ['a', 'b'], sort: 'newest' } };
+    expect(utils.paginationBaseUrl(req)).toBe('/tickets?search=a&sort=newest');
+  });
+
+  it('omits params whose value is undefined / null', () => {
+    const req = { path: '/tickets', query: { search: undefined, status: 'open' } };
+    expect(utils.paginationBaseUrl(req)).toBe('/tickets?status=open');
+  });
+});
+
 describe('resolveOptionalField (shared absent-vs-empty resolver)', () => {
   it('preserves existing value when rawValue is absent (undefined)', () => {
     expect(utils.resolveOptionalField(undefined, 'submitted', 100, 'existing')).toBe('existing');

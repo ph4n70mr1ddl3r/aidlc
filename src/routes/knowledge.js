@@ -138,21 +138,36 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
 // mutated at runtime. sanitize-html reads these options on every call, so a
 // mutation from a future library change or unexpected code path would silently
 // relax the allowlist. Object.freeze alone only freezes the top level.
+// A `seen` Set prevents infinite recursion on circular references (defense-in-
+// depth: sanitize-html's defaults are plain data structures, but the function
+// is generic and should not crash if fed a malformed object).
 function deepFreeze(obj) {
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-    for (const val of Object.values(obj)) {
-      if (val && typeof val === 'object') {
-        deepFreeze(val);
+  const seen = new WeakSet();
+  function freeze(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      if (seen.has(value)) {
+        return Object.freeze(value);
+      }
+      seen.add(value);
+      for (const val of Object.values(value)) {
+        if (val && typeof val === 'object') {
+          freeze(val);
+        }
+      }
+    } else if (Array.isArray(value)) {
+      if (seen.has(value)) {
+        return Object.freeze(value);
+      }
+      seen.add(value);
+      for (const item of value) {
+        if (item && typeof item === 'object') {
+          freeze(item);
+        }
       }
     }
-  } else if (Array.isArray(obj)) {
-    for (const item of obj) {
-      if (item && typeof item === 'object') {
-        deepFreeze(item);
-      }
-    }
+    return Object.freeze(value);
   }
-  return Object.freeze(obj);
+  return freeze(obj);
 }
 
 const SANITIZE_HTML_OPTIONS = deepFreeze({

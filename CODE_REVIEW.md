@@ -7,6 +7,7 @@
 `src/routes/`, `src/middleware/`, `src/models/`, `src/`, and `tests/`) plus ESLint
 and the Jest suite. Prior review history (85+ consecutive "code review" hardening
 commits) was cross-checked to confirm findings were not already addressed.
+   Ninety-second pass performed and documented below (2026-08-11).
    Ninety-first pass performed and documented below (2026-08-11).
    Eighty-ninth pass performed and documented below (2026-08-11).
    Eighty-eighth pass performed and documented below (2026-08-11).
@@ -88,7 +89,74 @@ commits) was cross-checked to confirm findings were not already addressed.
   Fourth pass performed and documented below (2026-07-20).
   Third pass performed and documented below (2026-07-19).
   Second pass performed and documented below (2026-07-18).
-  First pass performed and documented below (2026-07-17).
+   First pass performed and documented below (2026-07-17).
+
+## Review cycle 2026-08-11 (ninety-second pass)
+
+An eighty-ninth independent pass (full re-read of all 11 route modules, both
+middleware modules, utils, constants, models, seed, all EJS views,
+`public/js/app.js`, and the test suite) plus dependency audit. **No new SQL
+injection, IDOR, CSRF, XSS, auth, or error-leakage defects were found.** Two
+minor robustness improvements were applied:
+
+### Fixes applied
+- **`src/routes/knowledge.js` — `deepFreeze` lacked a circular-reference guard
+  (LOW, defense-in-depth).** The recursive `deepFreeze` helper used to freeze
+  `SANITIZE_HTML_OPTIONS` / `STRIP_HTML_OPTIONS` traverses every nested object
+  and array without tracking what it has already visited. If a future caller
+  (or a buggy third-party transform) ever mutates one of the options objects to
+  contain a self-reference or cycle, `deepFreeze` would enter infinite recursion
+  and crash the process. While `sanitize-html`'s current `.defaults` structure
+  is a plain tree with no cycles, the function is generic and its contract is
+  "freeze any object safely" — a circular-reference crash would defeat the
+  runtime immutability guarantee the freeze was meant to provide. Added a
+  module-level `WeakSet` (`seen`) so each object/array is visited at most once;
+  circular references are frozen at the point of first encounter and skipped on
+  the re-encounter, preventing both infinite recursion and double-freezing.
+  Mirrors the defensive-coding pattern used elsewhere in the codebase where
+  recursive traversal functions guard against cycles.
+
+- **`tests/utils.test.js` — three exported utility functions were untested
+  (LOW, test coverage gap).** `normalizeIp` (centralizes IP normalization for
+  lockout-map / rate-limiter-key consistency across audit.js, auth.js, and
+  every future caller), `safeFilters` (strips HPP arrays from filter query
+  params for template rendering), and `paginationBaseUrl` (builds base URLs for
+  pagination links while stripping unknown params) were each exported and used
+  but had zero unit-test coverage. A regression that silently broke any of
+  these would not be caught by the suite. Added 12 regression tests covering:
+  plain IPv4 passthrough, `::ffff:` prefix stripping, missing/non-string
+  fallback to `'unknown'`, HPP array fallback to `'unknown'`, bare IPv6
+  passthrough, empty-query handling, known-field extraction, HPP array
+  collapse to first element, unknown-param stripping, undefined/null param
+  omission, and the same array-guard behavior in `paginationBaseUrl`.
+
+### Test coverage added
+- `tests/utils.test.js` — new "utility function regression" suite (+15 tests):
+  `normalizeIp` (5 cases: plain IPv4, `::ffff:` strip, null/undefined/empty
+  fallback, HPP array fallback, bare IPv6 passthrough); `safeFilters` (5 cases:
+  empty query, known-field extraction, HPP array collapse via safeQueryValue,
+  unknown-field omission, null/empty preservation); `paginationBaseUrl` (2
+  cases: no-params path-only, known-param echo, unknown-param strip, HPP
+  array collapse, undefined/null omission).
+
+### False positives / non-defects reconfirmed
+- All SQL still flows through whitelisted helpers with bound params; no raw
+  `req.body/query/params` reaches SQL.
+- The only `<%-` sink (`article.renderedContent`) is server-sanitized via
+  `marked` + `sanitize-html`; all `href`/`src` with dynamic content are guarded
+  (integer IDs, `isValidEmail`/`mailto:`, `^https?://` scheme check,
+  `encodeURIComponent`); no inline `on*` handlers (CSP-safe).
+- Every write route wraps check+mutate in `db.transaction` (TOCTOU-safe),
+  rejects HPP arrays on all body fields, and is fail-closed on malformed
+  present numeric/date/id values. GET filter forms correctly omit CSRF.
+- `.gitignore` excludes `data/`, `.env*` (except `.env.example`), `*.db*`,
+  `coverage/`; no secrets committed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **656 passed / 656 total** (26 suites; was 641 — +15 new
+  regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (ninety-first pass)
 
