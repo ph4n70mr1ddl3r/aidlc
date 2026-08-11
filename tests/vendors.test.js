@@ -44,8 +44,8 @@ describe('validateVendorRating', () => {
   });
 
   it('rejects out-of-range ratings with a clear error', () => {
-    expect(validateVendorRating('0')).toEqual({ value: null, error: 'Rating must be between 1 and 5' });
-    expect(validateVendorRating('6')).toEqual({ value: null, error: 'Rating must be between 1 and 5' });
+    expect(validateVendorRating('0')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
+    expect(validateVendorRating('6')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 
   it('rejects non-numeric input', () => {
@@ -57,7 +57,7 @@ describe('validateVendorRating', () => {
     // skipped the string regex and was silently truncated to 3 by parseInt.
     expect(validateVendorRating(3.5)).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
     // An integer out of range still surfaces the range error.
-    expect(validateVendorRating(-1)).toEqual({ value: null, error: 'Rating must be between 1 and 5' });
+    expect(validateVendorRating(-1)).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
   });
 
   it('trims whitespace before parsing', () => {

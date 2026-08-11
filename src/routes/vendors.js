@@ -61,7 +61,7 @@ function _validateVendorRating(rawValue) {
   }
   const n = parseInt(value, 10);
   if (!Number.isFinite(n) || n < 1 || n > 5) {
-    return { value: null, error: 'Rating must be between 1 and 5' };
+    return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   return { value: n, error: null };
 }

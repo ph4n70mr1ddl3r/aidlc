@@ -4,12 +4,32 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (92+ consecutive hardening commits) was
+Jest suite. Prior review history (93+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle 2026-08-11 (93rd pass)
+## Review cycle 2026-08-11 (95th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** One minor consistency fix applied:
+
+### Fixes applied
+- **`src/routes/vendors.js` — `_validateVendorRating` range-check path used a
+  different error message than the array-HPP / length / non-integer paths
+  (LOW, consistency).** The previous pass (93) unified the array-HPP and
+  length-guard messages but missed the out-of-range path on line 64. Unified
+  all four error paths to `'Rating must be a whole number between 1 and 5'` and
+  updated the three corresponding assertions in `tests/vendors.test.js`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **656 passed / 656 total** (26 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-08-11 (94th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware
 modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
