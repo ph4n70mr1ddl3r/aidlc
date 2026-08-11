@@ -87,4 +87,14 @@ describe('createAuditLogPruner', () => {
     const runPrune = createAuditLogPruner(pruneAuditLog, { days: 30 });
     expect(() => runPrune()).not.toThrow();
   });
+
+  it('defaults options object when called with no second argument', () => {
+    // Regression for branch coverage: the `= {}` default on the options
+    // parameter must be exercised so the factory works when callers omit
+    // the options entirely (e.g. `createAuditLogPruner(pruneFn)`).
+    const pruneAuditLog = jest.fn(() => 0);
+    const runPrune = createAuditLogPruner(pruneAuditLog);
+    expect(() => runPrune()).not.toThrow();
+    expect(pruneAuditLog).not.toHaveBeenCalled();
+  });
 });
