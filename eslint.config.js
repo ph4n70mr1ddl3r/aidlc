@@ -23,6 +23,7 @@ module.exports = [
       'no-var': 'error',
       'prefer-const': 'error',
       'no-unused-expressions': ['error', { allowShortCircuit: true, allowTernary: true }],
+      'no-fallthrough': 'error',
       'no-undef': 'error',
       'no-redeclare': 'error',
       'no-shadow': 'error',

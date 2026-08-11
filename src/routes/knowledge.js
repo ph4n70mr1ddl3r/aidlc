@@ -541,11 +541,11 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  // resolveSafeFeatured / safeStatus are now computed inside the transaction
+  // resolveSafeFeatured / resolveSafeStatus are computed inside the transaction
   // from the rechecked row to avoid a TOCTOU where a concurrent admin action
   // (e.g. promoting is_featured or changing status) is silently overwritten.
   // The outer existing.is_featured / existing.status are only used for the
-  // authorisation guard above and the date-helpers inside the transaction.
+  // authorisation guard above and the resolution helpers inside the transaction.
 
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const sanitized = sanitizeKnowledgeInput(title, content, tags);
