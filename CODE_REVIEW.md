@@ -4,10 +4,34 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (98+ consecutive hardening commits) was
+Jest suite. Prior review history (100+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
+
+## Review cycle 2026-08-12 (100th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two JSDoc formatting issues corrected:
+
+### Fixes applied
+- **`src/utils.js` — `resolveOptionalField` JSDoc indentation inconsistent (LOW, documentation).**
+  Lines 653–660 used 4-space indentation while the surrounding JSDoc block used 2-space
+  indentation. Unified all lines in the `@param` annotations to match the surrounding
+  block's 2-space convention. Also removed a duplicate `@param {*} existingValue` line
+  that was accidentally introduced.
+- **`src/routes/vendors.js` — `_resolveClearableDate` JSDoc wording misleading (LOW, documentation).**
+  The phrase "the same malformed-date fail-open the assets/projects update fixes addressed"
+  was grammatically unclear and mixed "fail-closed" with "fail-open" terminology.
+  Reworded to: "the same malformed-date handling that was previously fail-open (silently
+  storing NULL) and has since been fixed in the assets/projects update paths."
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **659 passed / 659 total** (26 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-12 (99th pass)
 

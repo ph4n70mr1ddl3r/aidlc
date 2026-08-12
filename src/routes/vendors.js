@@ -100,10 +100,11 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
  * every other optional field on the update form. Without this an empty submitted
  * date silently fell back to existing, making it impossible to clear a contract
  * date via the edit form.
-  * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
-  * NOT silently wipe the stored date to NULL — the same malformed-date fail-open
-  * the assets/projects update fixes addressed. Mirrors the absent-vs-empty
-  * distinction in changes.js _resolveDateTimeField.
+ * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
+ * NOT silently wipe the stored date to NULL — the same malformed-date handling
+ * that was previously fail-open (silently storing NULL) and has since been fixed
+ * in the assets/projects update paths. Mirrors the absent-vs-empty
+ * distinction in changes.js _resolveDateTimeField.
   * @param {*} rawValue
   * @param {string|null} existingValue
   * @returns {{ error: boolean, value: string|null }}
