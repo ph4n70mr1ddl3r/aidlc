@@ -51,19 +51,12 @@ function _getUpdateLastLoginStmt() {
 }
 
 // Apply login rate limiter only to POST /login.
-// Key on the SAME normalized IP used by the login-failure lockout maps:
-// express-rate-limit's default keys on raw req.ip, so a client seen as
-// "::ffff:203.0.113.5" would otherwise be budgeted separately from the
-// "203.0.113.5" key tracked by ipLoginFailures — two defenses tracking the same
-// source under different keys. ipKeyGenerator maps IPv4-mapped addresses to
-// their plain IPv4 form (matching normalizeIp) and subnet-masks true IPv6.
-// NOTE: skipSuccessfulRequests is intentionally NOT used here — every login
-// outcome (success, wrong password, lockout, error) redirects with a 302 and
-// the option treats status < 400 as "success", so it would skip EVERY request
-// and neuter the limiter entirely. Brute-force defense comes from the per-
-// account/per-IP failure lockouts; this limiter only bounds total login traffic
-// per source. Deployments behind a shared egress IP (NAT'd office, VPN
-// concentrator) may need to raise `max` to avoid false lockouts at login rushes.
+// Key on the SAME normalized IP used by the login-failure lockout maps so
+// IPv4-mapped addresses (::ffff:x.x.x.x) are budgeted together.
+// NOTE: skipSuccessfulRequests is intentionally NOT used — all login outcomes
+// redirect with 302 (status < 400), so the option would skip every request.
+// Brute-force defense comes from per-account/per-IP failure lockouts; this
+// limiter only bounds total login traffic per source.
 const loginRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -86,12 +79,8 @@ const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCKOUT_MINUTES = 15;
 const MAX_LOGIN_FAILURES_MAP_SIZE = 10_000;
 // Pre-compute a dummy hash synchronously at module load for the username-
-// enumeration timing defense. Using the async variant avoids blocking the
-// event loop during login, but the sync call here happens only once at
-// startup so it does not affect request latency. A pre-computed hash
-// eliminates the hardcoded fallback whose password ("dummy") was publicly
-// known, and avoids the complexity of a cached promise with rejection
-// recovery that previously fell back to a known-plaintext hash.
+// enumeration timing defense. The sync call happens only once at startup so
+// it does not affect request latency.
 const DUMMY_HASH = bcrypt.hashSync('dummy', BCRYPT_SALT_ROUNDS);
 
 function checkLockout(map, key) {
@@ -143,8 +132,6 @@ function purgeStaleEntries(map) {
   // Still over capacity — evict oldest non-locked entries.
   // If the absolute oldest entry is locked (active lockout), skip it
   // and evict the next unlocked entry so the map doesn't grow unbounded.
-  // We use a simple linear scan since the eviction only triggers when the
-  // map is at capacity (10k entries) and stops as soon as one entry is freed.
   let evicted = false;
   for (const [key, val] of map) {
     if (val && val.lockedUntil && Date.now() < val.lockedUntil) {
@@ -155,8 +142,7 @@ function purgeStaleEntries(map) {
     break;
   }
   // When every entry is locked, force-evict the oldest entry regardless of lock
-  // state so the map can make room. Without this, a sustained attack that locks
-  // all entries would cause the map to grow past MAX_LOGIN_FAILURES_MAP_SIZE.
+  // state so the map can make room.
   if (!evicted) {
     const oldest = map.keys().next().value;
     if (oldest !== undefined) {

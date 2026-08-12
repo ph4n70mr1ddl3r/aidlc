@@ -63,11 +63,9 @@ function paginationBaseUrl(req) {
   for (const key of known) {
     const v = req.query[key];
     if (v !== undefined) {
-      // Guard against HPP arrays (e.g. ?sort[]=a&sort[]=b) the same way the
-      // list routes sanitize every other query parameter. safeSort/
-      // buildFilters whitelist their inputs downstream, but paginationBaseUrl
-      // emits the raw value into the URL, so arrays must be stripped to avoid
-      // leaking comma-joined junk into rendered links.
+      // Guards against HPP arrays (e.g. ?sort[]=a&sort[]=b) the same way the
+      // list routes sanitize every other query parameter. Arrays must be
+      // stripped to avoid leaking comma-joined junk into rendered links.
       q[key] = safeQueryValue(v);
     }
   }
@@ -76,7 +74,8 @@ function paginationBaseUrl(req) {
 }
 
 /**
- * Whitelisted sort options to prevent SQL injection
+ * Whitelisted sort options to prevent SQL injection.
+ * Fails closed if defaultKey is not a valid key in the map.
  */
 function safeSort(value, allowedMap, defaultKey) {
   const keys = Object.keys(allowedMap);
@@ -86,12 +85,8 @@ function safeSort(value, allowedMap, defaultKey) {
   if (Object.hasOwn(allowedMap, value)) {
     return allowedMap[value];
   }
-  // Fail closed if the supplied defaultKey is not a valid key in the map. The
-  // previous implementation silently fell back to `keys[0]` (an arbitrary
-  // first entry), which would mask a caller bug — e.g. a typo'd defaultKey —
-  // and produce a sort order that contradicts the caller's intent. Callers
-  // (tickets/reports/audit) always pass a constant valid key, so this only
-  // hardens against future misuse; it never changes current behavior.
+  // Fail closed if defaultKey is not a valid key in the map — a typo'd
+  // defaultKey would otherwise silently fall back to an arbitrary first entry.
   if (!Object.hasOwn(allowedMap, defaultKey)) {
     throw new Error(`safeSort: defaultKey "${defaultKey}" is not a valid sort key`);
   }
@@ -100,14 +95,7 @@ function safeSort(value, allowedMap, defaultKey) {
 
 /**
  * Quote a column name that may include a table alias (e.g. "t"."status").
- *
- * Each segment is validated against SAFE_COLUMN_RE (the same allowlist pattern
- * addSearch uses) BEFORE quoting, so the function is safe-by-construction:
- * it can never emit a segment containing a quote, dash, or other character
- * that would break out of the double-quoted identifier. All current callers
- * pre-validate their inputs, but quoteColumn is the single choke-point that
- * builds identifier SQL and is publicly exported, so it must defend itself
- * against future misuse rather than relying on callers to stay disciplined.
+ * Validated against SAFE_COLUMN_RE before quoting so it is safe-by-construction.
  * @param {string} col
  * @returns {string}
  */
@@ -231,13 +219,8 @@ function addSearch(where, params, search, columns) {
 }
 
 /**
- * Safely parse a route parameter as a positive integer
- * Returns null if invalid.
- *
- * Rejects arrays to defend against HTTP parameter pollution
- * (e.g. ?assigned_to[]=1&assigned_to[]=2) — parseInt() coerces an array to a
- * string and silently returns the first element, which is surprising and
- * inconsistent with safeInt / safePositiveFloat. Treat any array as invalid.
+ * Safely parse a route parameter as a positive integer. Returns null if invalid.
+ * Rejects arrays (HPP defense) since parseInt coerces arrays to strings.
  */
 function safeId(value) {
   if (Array.isArray(value)) {
@@ -254,12 +237,10 @@ function safeId(value) {
 
 /**
  * Detect a present-but-invalid relational id (assigned_to / owner_id / asset_id).
- * Returns true when the submitted value is present yet cannot parse to a valid
- * positive integer — e.g. "abc", "3.5", "0", 12.5, or an array/object. Absent
- * (undefined/null) and empty-string values return false (treated as "clear /
- * unassign"). The write routes use this to fail closed on malformed present ids
- * instead of silently coercing them to NULL through safeId, which would wipe an
- * existing assignment with no user-visible error.
+ * Returns true when the submitted value cannot parse to a valid positive integer.
+ * Absent (undefined/null) and empty-string values return false (treated as "clear").
+ * Used by write routes to fail closed on malformed present ids instead of
+ * silently coercing them to NULL through safeId.
  * @param {*} value
  * @returns {boolean}
  */
@@ -338,10 +319,7 @@ function safeInt(value, fallback = 0) {
   }
   // Reject non-string, non-number inputs (objects, booleans, symbols) that
   // fall through to parseInt — parseInt silently coerces them to NaN rather
-  // than the explicit fallback, breaking the fail-closed contract of the
-  // function. Guard here so callers that accidentally pass a non-primitive
-  // (e.g. a form field that parsed as an object from a malformed JSON body)
-  // get the fallback instead of an undefined/NaN result.
+  // than the explicit fallback, breaking the fail-closed contract.
   if (typeof value !== 'string' && typeof value !== 'number') {
     return fallback;
   }
@@ -648,18 +626,14 @@ function recalcProjectProgress(db, projectId) {
  * value CLEARS the field (null), consistent with the create route.
  * When present and non-empty, the value is truncated to maxLen (if provided).
  * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
- * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution
- * so a polluted payload fails closed instead of silently corrupting data.
-   * @param {*} rawValue - the raw req.body[field] value; may be undefined
-   *   (absent field), a string, an array (HPP), or any other type. Array
-   *   payloads are rejected so a polluted payload fails closed instead of
-   *   silently corrupting data.
-   * @param {*} processedValue - the already-processed value or null; non-string values
-   *   are coerced to strings via String(...) before truncation (defensive against callers
-   *   that pass numeric or boolean form fields through resolveOptionalField).
-   * @param {number|null} maxLen - max string length to truncate to, or null
-   * @param {*} existingValue - the current value from the DB
-   * @returns {*|{error: boolean}|null}
+ * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution.
+ * @param {*} rawValue - the raw req.body[field] value; may be undefined
+ *   (absent field), a string, an array (HPP), or any other type.
+ * @param {*} processedValue - the already-processed value or null; non-string
+ *   values are coerced to strings via String(...) before truncation.
+ * @param {number|null} maxLen - max string length to truncate to, or null
+ * @param {*} existingValue - the current value from the DB
+ * @returns {*|{error: boolean}|null}
  */
 function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
   if (rawValue === undefined || rawValue === null) {
@@ -776,13 +750,9 @@ function pruneAuditLog(db, retentionDays) {
 }
 
 /**
- * Create a function that prunes audit log entries on a schedule. Tracks whether
- * the first run has completed so the "initial prune failed" warning is emitted
- * only when the first run actually throws — previously the warning fired on
- * every startup whenever PRUNE_AUDIT_DAYS was set, even when the startup prune
- * succeeded (the interval handle was not yet assigned when the startup run
- * executed, so `!intervalHandle` was always true on the first call). Subsequent
- * interval runs that fail log only an error; the warning is first-run-only.
+ * Create a function that prunes audit log entries on a schedule. Tracks
+ * first-run state so the "initial prune failed" warning is emitted only when
+ * the first run actually throws, not on every startup.
  * @param {Function} pruneFn - `(retentionDays) => number of rows deleted`
  * @param {Object} [opts]
  * @param {number} [opts.days] - retention period in days (non-finite or <=0 disables pruning)
@@ -922,9 +892,7 @@ function _touchCache(cache, key, maxSize, prepareFn) {
     if (cache.size >= maxSize) {
       const keyToEvict = cache.keys().next().value;
       // keyToEvict is always defined here because cache.size >= maxSize > 0
-      // guarantees the Map is non-empty. This mirrors the unreachable
-      // undefined-guard pattern removed from safeInt and localDate in prior
-      // review passes — the branch could never fire with valid maxSize values.
+      // guarantees the Map is non-empty.
       cache.delete(keyToEvict);
     }
     cache.set(key, stmt);
@@ -999,13 +967,8 @@ function parseBooleanFlag(value, allowSet = true) {
 
 /**
  * Determine whether the client prefers a JSON response over HTML.
- * Uses Express content negotiation directly: req.accepts returns the preferred
- * type ('json' or 'html') when both are acceptable, or the single matching type
- * when only one is acceptable. This is the correct idiom — a client sending the
- * wildcard Accept header (fetch/XHR/browsers) negotiates to 'json' when json is
- * offered, whereas the fragile check `req.accepts('html') === false && req.accepts('json')`
- * wrongly returned false under a wildcard Accept header and served HTML error
- * pages to AJAX callers.
+ * Uses req.accepts(['json', 'html']) — the correct idiom for content negotiation.
+ * A wildcard Accept header negotiates to 'json' when json is offered.
  * @param {import('express').Request} req
  * @returns {boolean}
  */
@@ -1071,10 +1034,7 @@ function resetCachedStatements() {
 
 /**
  * Derive PAGE_SIZE from environment (testable helper).
- * Returns the effective page size (shared between module init and resetPageSize).
- * Logs a warning if PAGE_SIZE is set but invalid (non-finite or non-positive),
- * so operators notice misconfiguration rather than silently falling back to
- * the default. Values that exceed MAX_PAGE_SIZE are clamped without warning.
+ * Logs a warning if PAGE_SIZE is set but invalid; values exceeding MAX_PAGE_SIZE are clamped.
  */
 function _derivePageSize() {
   const raw = process.env.PAGE_SIZE;
@@ -1105,16 +1065,7 @@ const resetPageSize = _resetPageSize;
 /**
  * Reject HTTP parameter pollution (HPP) array payloads on a list of fields.
  * Returns an array of error messages for fields that were arrays, or an empty
- * array when all fields are clean. Mirrors the inline array-rejection loops
- * used across every write route in the codebase, but centralises the pattern
- * so new routes can call this helper instead of repeating the for-loop.
- *
- * Both req.body and req.query are inspected. The query side matters because
- * the app uses Express's built-in "simple" querystring parser, which turns
- * duplicate keys (?action=a&action=b) into arrays — so list routes that read
- * filter params (e.g. /audit) need the same fail-closed rejection as the write
- * routes. Write routes also benefit: a duplicate query key that happens to
- * collide with a body field name is now rejected instead of silently ignored.
+ * array when all fields are clean. Both req.body and req.query are inspected.
  * @param {import('express').Request} req
  * @param {string[]} fields - Field names to check in req.body and req.query
  * @returns {string[]} Array of error messages (empty if all clean)

@@ -19,15 +19,9 @@ router.use(requireAuth, auditMiddleware);
 
 /**
  * Resolve total_seats / used_seats from a form submission.
- * On UPDATE, pass the existing row so an ABSENT field (partial submission)
- * preserves the stored value instead of resetting seats to 1/0 — mirrors the
- * spent/budget preservation in projects.js and the optional-field handling in
- * vendors.js / changes.js. On CREATE, pass null so absent fields default to
- * 1 total / 0 used.
- *
- * safeInt rejects arrays from HTTP parameter pollution (parseInt would coerce
- * ["3","9"] to 3), so a polluted payload falls back to the existing/default
- * count rather than silently storing a coerced value.
+ * On UPDATE, pass the existing row so ABSENT fields preserve stored values;
+ * on CREATE, pass null so absent fields default to 1 total / 0 used.
+ * Rejects arrays (HPP defense) and out-of-range counts.
  * @returns {{ seats: number, used: number, error: string|null }}
  */
 function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
@@ -36,13 +30,11 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   // Seat counts are unsigned SQLite INTEGER columns; use safePositiveInt so
   // negative (HPP) values and out-of-range counts are rejected rather than
   // silently coerced/truncated.
-  //
   // IMPORTANT: safePositiveInt returns the fallback for *any* non-parseable
-  // input, so a present-but-garbage value ("abc", "12.5", an HPP array that
-  // safeQueryValue collapses to a string, etc.) would silently collapse to the
-  // default/existing count — fail-open. Mirror the fail-closed convention used
-  // for cost/budget/spent: an ABSENT/empty field preserves the stored/default
-  // value, but a PRESENT non-numeric value is rejected rather than coerced.
+  // input, so a present-but-garbage value would silently collapse to the
+  // default/existing count — fail-open. Mirror the fail-closed convention:
+  // an ABSENT/empty field preserves the stored/default value, but a PRESENT
+  // non-numeric value is rejected rather than coerced.
   const totalPresent = totalSeatsRaw !== undefined && totalSeatsRaw !== null && totalSeatsRaw !== '';
   const usedPresent = usedSeatsRaw !== undefined && usedSeatsRaw !== null && usedSeatsRaw !== '';
   const seats = totalPresent ? safePositiveInt(totalSeatsRaw, Infinity) : fallbackTotal;

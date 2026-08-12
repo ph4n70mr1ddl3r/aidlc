@@ -113,16 +113,11 @@ const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
 const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
 const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 // Methods a POST may be overridden to via `_method`. Restricted to the write
-// verbs the app actually uses (every EJS form encodes ?_method=PUT or =DELETE;
-// PATCH is allowed for parity/symmetry but no form currently uses it). An
-// allowlist — rather than passing the raw `_method` string straight through —
-// restores the disallowed-methods guarantee above: a POST carrying
-// `_method=TRACE` is seen as POST by the early TRACE/TRACK guard (which runs
-// before methodOverride) and was then rewritten to TRACE here, bypassing the
-// 405 (it only 404'd because no route matches TRACE). It also prevents a POST
-// being downgraded to GET, which would otherwise skip CSRF validation (GET is
-// in skipCsrfProtection). TRACE/TRACK/CONNECT/HEAD/arbitrary strings are all
-// rejected → the override is a no-op and the request stays a plain POST.
+// verbs the app actually uses (PUT/DELETE/PATCH). An allowlist — rather than
+// passing the raw `_method` string straight through — restores the
+// disallowed-methods guarantee: exotic `_method` values (TRACE/CONNECT/etc.)
+// are rejected, preventing a POST from being downgraded to GET (which would
+// skip CSRF validation).
 const _OVERRIDE_METHODS = new Set(['PUT', 'DELETE', 'PATCH']);
 app.use((req, res, next) => {
   if (_DISALLOWED_METHODS.has(req.method)) {
@@ -247,12 +242,8 @@ if (!sessionSecret) {
 //   connect-<name>            (unscoped, e.g. connect-sqlite3)
 //   @<scope>/connect-<name>   (scoped, e.g. @my-org/connect-sqlite3)
 // This prevents arbitrary code execution via a SESSION_STORE pointing at any
-// module. NOTE: a naive /[\\/]/ separator check must NOT be combined with the
-// scoped alternative — every scoped package name legitimately contains one '/',
-// so such a check would make the documented @scope/connect-* form impossible
-// to load (dead branch). The single anchored regex below is sufficient: it
-// permits exactly one '/' (the scope delimiter) and rejects path traversal
-// (../, absolute paths), backslashes, and any extra separators.
+// module. The anchored regex permits exactly one '/' (the scope delimiter) and
+// rejects path traversal, backslashes, and extra separators.
 const SESSION_STORE_RE = /^(connect-[\w-]+|@[\w-]+\/connect-[\w-]+)$/;
 let sessionStore;
 if (process.env.SESSION_STORE) {
@@ -320,8 +311,8 @@ const csrfConfig = doubleCsrf({
   },
   getCsrfTokenFromRequest: (req) => req.body?._csrf || req.headers['x-csrf-token'],
   size: 64,
-  // Set the CSRF cookie on every request (including GET) so that API endpoints
-  // and health checks also establish the cookie. Without this, any client that
+  // Set the CSRF cookie on every request (including GET) so API endpoints and
+  // health checks also establish the cookie. Without this, any client that
   // fetches a token-only endpoint (e.g. /health) would not receive the cookie,
   // making subsequent CSRF-protected writes fail. The token is still only
   // *validated* on write methods (PUT/POST/DELETE/PATCH) — GET/HEAD/OPTIONS
@@ -342,12 +333,11 @@ const writeLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false
 });
-// Privileged export/aggregation endpoints (/audit, /reports) already enforce
-// requireAdminOrManager and carry their own per-route limiters, but this adds a
-// uniform write-rate backstop against abuse of state-changing calls on those
-// mounts as well (previously only the listed mounts were covered — a gap noted
-// in prior review passes). Reads (GET) are intentionally left unthrottled here
-// since the per-route limiters already cover the expensive report/audit queries.
+// Privileged export/aggregation endpoints already enforce requireAdminOrManager
+// and carry their own per-route limiters, but this adds a uniform write-rate
+// backstop against abuse of state-changing calls on those mounts as well.
+// Reads (GET) are intentionally left unthrottled here since the per-route
+// limiters already cover the expensive report/audit queries.
 app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff', '/projects', '/vendors', '/audit', '/reports'], (req, res, next) => {
   if (_WRITE_METHODS.has(req.method)) {
     return writeLimiter(req, res, next);
@@ -361,8 +351,7 @@ app.use(['/tickets', '/assets', '/knowledge', '/changes', '/licenses', '/staff',
 
 // Hoist CONSTANTS object outside the per-request middleware to avoid creating
 // a new object reference on every request. The values are frozen arrays/numbers
-// so sharing across requests is safe. Mirrors the constant-hoisting pattern
-// used elsewhere in the codebase (e.g. SORT_MAP in route modules).
+// so sharing across requests is safe.
 const TEMPLATE_CONSTANTS = Object.freeze({
   TICKET_CATEGORIES: constantsModule.TICKET_CATEGORIES,
   TICKET_STATUSES: constantsModule.TICKET_STATUSES,
@@ -514,11 +503,7 @@ app.get('/', (req, res) => {
 app.use((req, res) => {
   // Honor content negotiation so AJAX clients (Accept: application/json / */*)
   // receive JSON rather than an HTML 404 page, mirroring the error handler.
-  // This URL is served in two representations (HTML and JSON) selected by the
-  // Accept header, so advertise the variation for intermediaries (RFC 9110
-  // §12.5.3). Cache-Control: no-store already prevents caching, but Vary: Accept
-  // is the correct protocol behavior for a content-negotiated response and
-  // protects against any future proxy/CDN that keys on Vary.
+  // Advertise Vary: Accept for correct protocol behavior with intermediaries.
   res.set('Vary', 'Accept');
   if (prefersJson(req)) {
     return res.status(404).json({ error: 'Not found' });
@@ -541,9 +526,7 @@ app.use((err, req, res, _next) => {
   const wantsJson = prefersJson(req);
 
   // The error response is also content-negotiated (HTML vs JSON based on
-  // Accept), so advertise the variation (RFC 9110 §12.5.3) the same way the
-  // 404 handler does — correct protocol behavior for intermediaries even
-  // though Cache-Control: no-store is set on every response.
+  // Accept), so advertise the variation the same way the 404 handler does.
   res.set('Vary', 'Accept');
 
   if (err.code === 'EBADCSRFTOKEN') {
@@ -556,8 +539,7 @@ app.use((err, req, res, _next) => {
     const ref = req.get('Referrer');
     // Only redirect to same-origin referrer pathname to prevent open redirect.
     // Strip query string to prevent CSRF token from leaking via Referer header.
-    // Use hostname (not host) to avoid port-mismatch bugs: URL.host omits default
-    // ports (80/443) while the Host header from some clients includes them.
+    // Use hostname (not host) to avoid port-mismatch bugs.
     try {
       if (ref) {
         const refUrl = new URL(ref);
@@ -659,8 +641,7 @@ function shutdown(signal, exitCode = 0) {
   }
   // Drop idle keep-alive connections so server.close() doesn't hang waiting
   // for them to time out. closeIdleConnections() lets in-flight requests
-  // finish gracefully (bounded by the force-exit timer below); the broader
-  // closeAllConnections() would also kill active requests mid-flight.
+  // finish gracefully; closeAllConnections() would also kill active requests.
   try {
     if (typeof server.closeIdleConnections === 'function') {
       server.closeIdleConnections();
@@ -689,11 +670,8 @@ function shutdown(signal, exitCode = 0) {
   });
 }
 // Register process-level handlers only when the app is the entry point.
-// When app.js is require()d (e.g. by the test suite), a stray unhandled
-// rejection would otherwise invoke shutdown() — which calls server.close(),
-// db.close(), and process.exit(1) — killing the entire jest run with an
-// opaque failure instead of jest's own per-test reporting. Mirrors the
-// require.main === module guard applied to server.listen() above.
+// When require()d (e.g. by tests), a stray unhandled rejection would invoke
+// shutdown() — killing the jest run with an opaque failure.
 if (require.main === module) {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
@@ -707,7 +685,6 @@ if (require.main === module) {
   });
 }
 
-// Exposed for unit testing the SESSION_STORE allowlist (tests/app.test.js) —
-// mirrors the pattern of route modules exporting internals for regression tests.
+// Exposed for unit testing the SESSION_STORE allowlist (tests/app.test.js).
 module.exports = app;
 module.exports.SESSION_STORE_RE = SESSION_STORE_RE;

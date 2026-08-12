@@ -17,11 +17,9 @@ const ticketWriteLimiter = rateLimit({
 });
 
 // Key comment rate-limiting by user id (per-account) so a single user can't
-// be silenced by another's IP. All ticket routes require authentication so
-// the session branch is always taken — the IP fallback exists for defense
-// in depth if auth-middleware ordering ever changes.
+// be silenced by another's IP. The IP fallback exists for defense in depth.
 // Uses rateLimit.ipKeyGenerator for the IP fallback so express-rate-limit v8
-// can apply proper IPv6 subnet prefixing and pass its keyGenerator validation.
+// can apply proper IPv6 subnet prefixing.
 function commentKeyGenerator(req) {
   if (req.session && req.session.user && req.session.user.id) {
     return `user:${req.session.user.id}`;
@@ -144,10 +142,9 @@ const SORT_MAP = Object.freeze({
 
 /**
  * Guarantee the ticket's linked asset appears in the Related-Asset dropdown
- * even when it falls outside the _ASSET_DROPDOWN_LIMIT cap. Without this, a
- * linked asset beyond the cap is absent from the <select>, so it does not
- * render as "selected" and re-saving the form silently unlinks it (data loss).
- * Returns a new array (does not mutate the input). Pure/exported for testing.
+ * even when it falls outside the _ASSET_DROPDOWN_LIMIT cap, preventing silent
+ * data loss on re-save. Returns a new array (does not mutate the input).
+ * Pure/exported for testing.
  * @param {Array} assets - the capped list from _assetListStmt
  * @param {Object|null} linkedAsset - the linked asset row from _assetByIdStmt
  * @returns {Array}

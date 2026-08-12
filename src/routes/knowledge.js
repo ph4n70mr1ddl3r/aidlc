@@ -138,9 +138,7 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
 // mutated at runtime. sanitize-html reads these options on every call, so a
 // mutation from a future library change or unexpected code path would silently
 // relax the allowlist. Object.freeze alone only freezes the top level.
-// A `seen` Set prevents infinite recursion on circular references (defense-in-
-// depth: sanitize-html's defaults are plain data structures, but the function
-// is generic and should not crash if fed a malformed object).
+// A `seen` Set prevents infinite recursion on circular references.
 function deepFreeze(obj) {
   const seen = new WeakSet();
   function freeze(value) {
@@ -228,14 +226,10 @@ function renderMarkdown(content) {
 }
 
 /**
- * Sanitize knowledge article input (title, content, tags) by stripping HTML
- * via sanitize-html and truncating to the configured max lengths. Returns
- * { safeTitle, safeContent, safeTags, error } so both the create and update
- * routes share a single source of truth for this logic instead of duplicating
- * the block verbatim. Mirrors the absent-vs-empty convention: title/content
- * empty strings are preserved (they may represent an explicit user clear and
- * are surfaced as errors because the fields are required), while empty tags —
- * an optional field — are normalized to null.
+ * Sanitize knowledge article input by stripping HTML and truncating to max lengths.
+ * Returns { safeTitle, safeContent, safeTags, error }. Title/content empty strings
+ * are preserved (surfaced as errors since the fields are required); empty tags
+ * (optional) are normalized to null.
  * @param {string} title
  * @param {string} content
  * @param {string} tags

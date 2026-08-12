@@ -19,20 +19,16 @@ const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 /**
- * Parse and validate a vendor rating from a form field value.
- * Returns { value, error } where:
- *   - value is the parsed integer (1-5) or null for empty/optional fields
- *   - error is a string message or null if valid
+ * Parse and validate a vendor rating (1-5) from a form field value.
+ * Returns { value, error } where value is the parsed integer or null for empty fields.
+ * Rejects arrays (HPP), non-integers, and out-of-range values.
  */
 const _MAX_RATING_INPUT = 10; // Reject absurdly long rating strings early
 
 function _validateVendorRating(rawValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
   // which parseInt() would silently coerce to its first element ("3,5" -> 3).
-  // Mirrors the array guards in safeId / safeInt / safePositiveFloat. Rating is
-  // optional, but an HTTP parameter pollution array (`rating[]=3&rating[]=5`)
-  // must fail closed as a validation error rather than silently using the
-  // first element. The raw request value is passed here so the array is seen.
+  // The raw request value is passed here so the array is visible.
   if (Array.isArray(rawValue)) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
@@ -50,11 +46,11 @@ function _validateVendorRating(rawValue) {
   if (value === undefined || value === '' || value === null) {
     return { value: null, error: null };
   }
-  // Reject non-integer values. The string check guards form
-  // submissions ("3.5"); the number check guards JSON API clients that send a
-  // numeric literal ({"rating": 3.5}) which would otherwise slip past the
-  // regex and be silently truncated to 3 by parseInt below. Arrays are
-  // rejected by the guard above (line 36), so they do not reach this point.
+  // Reject non-integer values. The string check guards form submissions ("3.5");
+  // the number check guards JSON API clients that send a numeric literal
+  // ({"rating": 3.5}) which would otherwise slip past the regex and be silently
+  // truncated to 3 by parseInt below. Arrays are rejected by the guard above,
+  // so they do not reach this point.
   if ((typeof value === 'number' && !Number.isInteger(value)) ||
       (typeof value === 'string' && !/^-?\d+$/.test(value))) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
@@ -68,16 +64,11 @@ function _validateVendorRating(rawValue) {
 
 /**
  * Resolve a vendor RATING on update. Rating is a discrete 1-5 value (or null),
- * not free text: an ABSENT field (partial API submission) preserves the existing
- * rating, and an EMPTY submitted value (the form's number input sends '' when
- * blank) ALSO preserves it — so editing any other vendor field never wipes a
- * previously set rating. Only a present, non-empty, validated value replaces it.
-  * @param {*} rawValue - The submitted value (e.g. req.body.rating); may be
-  *   undefined (absent field), a string, an array (HPP), or any other type.
-  *   In practice the update route passes the safeQueryValue-collapsed value
-  *   because HPP arrays are rejected upstream by rejectHppArrays, but the
-  *   function defensively accepts any shape since callers that bypass that
-  *   guard (e.g. direct API calls in tests) still need protection.
+ * not free text: ABSENT fields preserve the existing rating, and empty
+ * submitted values also preserve it — so editing any other field never wipes
+ * a previously set rating. Only a present, non-empty, validated value replaces it.
+ * @param {*} rawValue - The submitted value (e.g. req.body.rating); may be
+ *   undefined (absent field), a string, an array (HPP), or any other type.
  * @param {number|null} validatedRating - The parsed rating from _validateVendorRating,
  *   or null when the field was empty/invalid-but-optional
  * @param {number|null} existingRating - The current rating from the DB
@@ -94,21 +85,14 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
 }
 
 /**
- * Resolve an optional DATE field on update: preserve the existing value only
- * when the field is ABSENT from the request (partial submission). An empty
- * submitted value CLEARS the field (null), consistent with the create route and
- * every other optional field on the update form. Without this an empty submitted
- * date silently fell back to existing, making it impossible to clear a contract
- * date via the edit form.
- * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
- * NOT silently wipe the stored date to NULL — the same malformed-date handling
- * that was previously fail-open (silently storing NULL) and has since been fixed
- * in the assets/projects update paths. Mirrors the absent-vs-empty
- * distinction in changes.js _resolveDateTimeField.
-  * @param {*} rawValue
-  * @param {string|null} existingValue
-  * @returns {{ error: boolean, value: string|null }}
-  */
+ * Resolve an optional DATE field on update: preserve existing only when ABSENT
+ * from the request (partial submission). An empty submitted value CLEARS it (null).
+ * A present but unparseable value is an error (fail closed) so the stored date
+ * is not silently wiped. Mirrors the absent-vs-empty distinction in changes.js.
+ * @param {*} rawValue
+ * @param {string|null} existingValue
+ * @returns {{ error: boolean, value: string|null }}
+ */
 function _resolveClearableDate(rawValue, existingValue) {
   // Reject arrays from HTTP parameter pollution for consistency with the
   // array guards in safeId / safeInt / safePositiveFloat and the explicit
