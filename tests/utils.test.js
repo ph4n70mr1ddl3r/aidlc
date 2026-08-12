@@ -1953,4 +1953,15 @@ describe('resolveOptionalField (shared absent-vs-empty resolver)', () => {
   it('rejects arrays from HTTP parameter pollution (fails closed)', () => {
     expect(utils.resolveOptionalField(['a'], 'a', null, 'existing')).toEqual({ error: true });
   });
+
+  it('coerces non-string processedValues to string instead of throwing', () => {
+    // Numeric value: should be coerced to string "123", then truncated to 2 chars
+    expect(utils.resolveOptionalField('x', 123, 2, 'existing')).toBe('12');
+    // Boolean true: coerced to string "true"
+    expect(utils.resolveOptionalField('x', true, 100, 'existing')).toBe('true');
+    // Boolean false: falls through to the empty check (false == '' is false but
+    // the explicit !== '' guard catches it; actually false !== '' so it goes to
+    // the string branch: String(false) = "false")
+    expect(utils.resolveOptionalField('x', false, 100, 'existing')).toBe('false');
+  });
 });

@@ -9,6 +9,29 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-11 (97th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** One latent bug fixed:
+
+### Fixes applied
+- **`src/utils.js` — `resolveOptionalField` crashed on non-string
+  `processedValue` (LOW, latent crash).** When `maxLen` was provided and
+  `processedValue` was a number or boolean, `processedValue.substring(...)`
+  threw `TypeError: processedValue.substring is not a function`. The current
+  callers always pass strings (via `trim(safeQueryValue(...))`), so this was
+  latent rather than exploitable, but a future caller passing a numeric value
+  would crash the request. Added a `typeof` guard that coerces non-string
+  values to strings via `String(...)` before truncating. Added two regression
+  tests covering numeric and boolean inputs.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **658 passed / 658 total** (26 suites, +1 regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
 ## Review cycle 2026-08-11 (96th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

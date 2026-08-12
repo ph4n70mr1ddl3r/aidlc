@@ -664,7 +664,12 @@ function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
     return { error: true };
   }
   if (processedValue !== null && processedValue !== '') {
-    return maxLen ? processedValue.substring(0, maxLen) : processedValue;
+    // Guard against non-string processedValues (e.g. a numeric form field that
+    // bypassed trim/safeQueryValue). Calling .substring on a non-string would
+    // throw at runtime. Coerce to string so truncation is safe — callers that
+    // need strict typing should validate upstream before reaching this helper.
+    const str = typeof processedValue === 'string' ? processedValue : String(processedValue);
+    return maxLen ? str.substring(0, maxLen) : str;
   }
   return null;
 }
