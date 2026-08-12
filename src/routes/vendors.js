@@ -72,7 +72,10 @@ function _validateVendorRating(rawValue) {
  * rating, and an EMPTY submitted value (the form's number input sends '' when
  * blank) ALSO preserves it — so editing any other vendor field never wipes a
  * previously set rating. Only a present, non-empty, validated value replaces it.
- * @param {*} rawValue - The raw submitted value (from safeQueryValue)
+  * @param {*} rawValue - The raw submitted value (e.g. req.body.rating); may be
+  *   undefined (absent field), a string, an array (HPP), or any other type.
+  *   NOT collapsed by safeQueryValue — the caller passes the raw body value so
+  *   array payloads from HTTP parameter pollution are visible to this helper.
  * @param {number|null} validatedRating - The parsed rating from _validateVendorRating,
  *   or null when the field was empty/invalid-but-optional
  * @param {number|null} existingRating - The current rating from the DB
@@ -95,11 +98,14 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
  * every other optional field on the update form. Without this an empty submitted
  * date silently fell back to existing, making it impossible to clear a contract
  * date via the edit form.
- * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
- * NOT silently wipe the stored date to NULL — the same malformed-date fail-open
- * the assets/projects update fixes addressed. Mirrors the absent-vs-empty
- * distinction in changes.js _resolveDateTimeField.
- */
+  * A present, non-empty, but UNPARSEABLE value is an error (fail closed): it must
+  * NOT silently wipe the stored date to NULL — the same malformed-date fail-open
+  * the assets/projects update fixes addressed. Mirrors the absent-vs-empty
+  * distinction in changes.js _resolveDateTimeField.
+  * @param {*} rawValue
+  * @param {string|null} existingValue
+  * @returns {{ error: boolean, value: string|null }}
+  */
 function _resolveClearableDate(rawValue, existingValue) {
   // Reject arrays from HTTP parameter pollution for consistency with the
   // array guards in safeId / safeInt / safePositiveFloat and the explicit

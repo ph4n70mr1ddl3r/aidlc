@@ -650,8 +650,10 @@ function recalcProjectProgress(db, projectId) {
  * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
  * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution
  * so a polluted payload fails closed instead of silently corrupting data.
- * @param {*} rawValue - the raw req.body[field] value (NOT collapsed by safeQueryValue)
- * @param {string|null} processedValue - the already-processed value or null
+  * @param {*} rawValue - the raw req.body[field] value (NOT collapsed by safeQueryValue)
+  * @param {*} processedValue - the already-processed value or null; non-string values
+  *   are coerced to strings via String(...) before truncation (defensive against callers
+  *   that pass numeric or boolean form fields through resolveOptionalField).
  * @param {number|null} maxLen - max string length to truncate to, or null
  * @param {*} existingValue - the current value from the DB
  * @returns {*|{error: boolean}|null}

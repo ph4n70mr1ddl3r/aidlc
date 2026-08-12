@@ -1,13 +1,40 @@
 # Code Review Notes
 
-**Date:** 2026-08-11
+**Date:** 2026-08-12
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (93+ consecutive hardening commits) was
+Jest suite. Prior review history (97+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
+
+## Review cycle 2026-08-12 (98th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two JSDoc inconsistencies were corrected:
+
+### Fixes applied
+- **`src/utils.js` — `resolveOptionalField` JSDoc was stale (LOW, documentation).**
+  The `processedValue` parameter type was annotated as `{string|null}` even though
+  pass 97 added a runtime guard that coerces non-string values via `String(...)`
+  before truncation. Updated the annotation to `{*}` and added a note explaining
+  the coercion behavior so callers understand the defensive contract.
+- **`src/routes/vendors.js` — `_resolveVendorRatingOnUpdate` and
+  `_resolveClearableDate` JSDoc improvements (LOW, documentation).**
+  The `rawValue` param for `_resolveVendorRatingOnUpdate` incorrectly stated
+  "(from safeQueryValue)" when the caller actually passes the raw body value
+  (`req.body.rating`) so that array payloads from HTTP parameter pollution are
+  visible to the function. Clarified the description. Added `@param` / `@returns`
+  annotations to `_resolveClearableDate` so the `{ error: true }` / `{ error: false, value }`
+  return shape is documented.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **658 passed / 658 total** (26 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-11 (97th pass)
 
