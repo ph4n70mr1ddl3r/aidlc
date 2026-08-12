@@ -412,7 +412,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // Visibility: non-published articles are only visible to the author and admin/manager.
   // Without this check any authenticated user can read drafts/archived articles by URL.
   if (article.status !== 'published') {
-    const isOwner = article.author_id === req.session.user.id;
+    const isOwner = Number(article.author_id) === Number(req.session.user.id);
     if (!isOwner && !isPrivileged(req.session.user)) {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized view of non-published article');
       req.flash('error', 'Article not found');
@@ -431,7 +431,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed.includes(id) && article.author_id !== req.session.user.id) {
+  if (!viewed.includes(id) && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       _viewCountStmt.run(id);
     } catch (err) {
@@ -463,7 +463,7 @@ router.get('/:id/edit', kbReadLimiter, (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  const isOwner = article.author_id === req.session.user.id;
+  const isOwner = Number(article.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You can only edit your own articles');
@@ -571,7 +571,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       }
       // Recheck authorization inside the transaction so a concurrent role
       // change between the outer check and the UPDATE cannot bypass it.
-      const txnIsOwner = recheck.author_id === req.session.user.id;
+      const txnIsOwner = Number(recheck.author_id) === Number(req.session.user.id);
       if (!txnIsOwner && !isPrivileged(req.session.user)) {
         throw new Error('ACCESS_DENIED');
       }
@@ -617,7 +617,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
-  const isOwner = existing.author_id === req.session.user.id;
+  const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article');
     req.flash('error', 'You can only delete your own articles');
@@ -636,7 +636,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       }
       // Recheck authorization inside the transaction so a concurrent role
       // change between the outer check and the DELETE cannot bypass it.
-      const txnIsOwner = recheck.author_id === req.session.user.id;
+      const txnIsOwner = Number(recheck.author_id) === Number(req.session.user.id);
       if (!txnIsOwner && !isPrivileged(req.session.user)) {
         throw new Error('ACCESS_DENIED');
       }

@@ -29,22 +29,11 @@ const { stopLoginFailureCleanup } = require('./routes/auth');
 // Validate critical env vars in production
 // ---------------------------------------------------------------------------
 if (process.env.NODE_ENV === 'production') {
-  const weak = [
-    'change-me-to-a-random-string-in-production',
-    'it-dept-manager-secret-change-in-production',
-    'fallback-secret',
-    'session-secret',
-    'dev-session-secret-change-for-production',
-    'dev-session-secret-not-for-production',
-    'dev-csrf-secret-change-for-production',
-    'CHANGE_ME_TO_A_RANDOM_STRING_AT_LEAST_32_CHARS',
-    'CHANGE_ME_TO_A_RANDOM_STRING_AT_LEAST_32_CHARS_TOO'
-  ];
-  if (!process.env.SESSION_SECRET || weak.includes(process.env.SESSION_SECRET) || process.env.SESSION_SECRET.length < 32) {
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
     console.error('ERROR: SESSION_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }
-  if (!process.env.CSRF_SECRET || weak.includes(process.env.CSRF_SECRET) || process.env.CSRF_SECRET.length < 32) {
+  if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET.length < 32) {
     console.error('ERROR: CSRF_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }
@@ -73,10 +62,12 @@ const runAuditPrune = utilsModule.createAuditLogPruner(
   (days) => utilsModule.pruneAuditLog(db, days),
   { days: pruneDays }
 );
-runAuditPrune();
-if (Number.isFinite(pruneDays) && pruneDays > 0 && Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
-  _pruneInterval = setInterval(runAuditPrune, pruneIntervalMs);
-  _pruneInterval.unref();
+if (Number.isFinite(pruneDays) && pruneDays > 0) {
+  runAuditPrune();
+  if (Number.isFinite(pruneIntervalMs) && pruneIntervalMs > 0) {
+    _pruneInterval = setInterval(runAuditPrune, pruneIntervalMs);
+    _pruneInterval.unref();
+  }
 }
 
 const app = express();
@@ -309,7 +300,7 @@ const csrfConfig = doubleCsrf({
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true
   },
-  getCsrfTokenFromRequest: (req) => req.body?._csrf || req.headers['x-csrf-token'],
+  getCsrfTokenFromRequest: (req) => req.body?._csrf ?? req.headers['x-csrf-token'],
   size: 64,
   // Set the CSRF cookie on every request (including GET) so API endpoints and
   // health checks also establish the cookie. Without this, any client that

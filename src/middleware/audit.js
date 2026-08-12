@@ -60,7 +60,7 @@ function audit({ req, action, entity, entityId, details }) {
       : raw.length > MAX_AUDIT_DETAILS ? raw.substring(0, MAX_AUDIT_DETAILS)
         : raw;
     const entityNum = Number(entityId);
-    const safeEntityId = entityId == null || !Number.isFinite(entityNum)
+    const safeEntityId = entityId == null || entityId === '' || !Number.isFinite(entityNum)
       ? null
       : entityNum;
     _getAuditStmt().run(uid, action, entity, safeEntityId, safeDetails, ip);

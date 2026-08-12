@@ -512,7 +512,27 @@ function formatDate(value) {
     return d ? d.toLocaleDateString() : '-';
   }
   const d = new Date(value);
-  return isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
+  if (isNaN(d.getTime())) {
+    return '-';
+  }
+  // Parse as local-date components so the display matches the calendar day
+  // the user entered, not the UTC midnight that `new Date("YYYY-MM-DD")`
+  // represents (which shows the previous day in negative-UTC timezones).
+  const m = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(:\d{2})?)?$/.exec(value);
+  if (m) {
+    const [y, mo, da, timePart] = [
+      parseInt(value.slice(0, 4), 10),
+      parseInt(value.slice(5, 7), 10),
+      parseInt(value.slice(8, 10), 10),
+      value.slice(10)
+    ];
+    const h = timePart ? parseInt(timePart.slice(1, 3), 10) : 0;
+    const mi = timePart ? parseInt(timePart.slice(4, 6), 10) : 0;
+    const s = timePart && timePart.length > 6 ? parseInt(timePart.slice(7, 9), 10) : 0;
+    const local = new Date(y, mo - 1, da, h, mi, s);
+    return local.toLocaleDateString();
+  }
+  return d.toLocaleDateString();
 }
 
 /**
@@ -524,10 +544,22 @@ function formatDateTime(value) {
     return '-';
   }
   // Normalize space-separated datetime (SQLite format) to ISO 8601 with 'T'
-  // for reliable Date parsing across all JS engines
-  const normalized = typeof value === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value)
+  // for reliable Date parsing across all JS engines. Then construct a local
+  // Date from the parsed components so display matches the calendar day/time
+  // the user entered, avoiding the UTC-offset bug in negative-UTC timezones.
+  const normalized = typeof value === 'string' && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(value)
     ? value.replace(' ', 'T')
     : value;
+  const dateMatch = /^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})/.exec(normalized);
+  if (dateMatch) {
+    const y = parseInt(normalized.slice(0, 4), 10);
+    const mo = parseInt(normalized.slice(5, 7), 10);
+    const da = parseInt(normalized.slice(8, 10), 10);
+    const h = parseInt(dateMatch[1], 10);
+    const mi = parseInt(dateMatch[2], 10);
+    const local = new Date(y, mo - 1, da, h, mi);
+    return local.toLocaleString();
+  }
   const d = new Date(normalized);
   return isNaN(d.getTime()) ? '-' : d.toLocaleString();
 }
@@ -715,8 +747,11 @@ function ensureAssigneeInList(staff, currentAssigneeId, db) {
   if (currentAssigneeId == null) {
     return staff;
   }
-  const cid = Number(currentAssigneeId);
-  if (staff.some(s => Number(s.id) === cid)) {
+  const cid = safeId(currentAssigneeId);
+  if (cid == null) {
+    return staff;
+  }
+  if (staff.some(s => s.id === cid)) {
     return staff;
   }
   const assignee = _getAssigneeByIdStmt(db).get(cid);
@@ -828,7 +863,7 @@ function titleCase(value) {
 function asyncHandler(fn) {
   return (req, res, next) => {
     try {
-      Promise.resolve(fn(req, res, next)).catch(next);
+      return Promise.resolve(fn(req, res, next)).catch(next);
     } catch (err) {
       next(err);
     }

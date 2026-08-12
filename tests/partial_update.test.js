@@ -503,9 +503,8 @@ describe('inactive assignee preservation on update (regression: wiped to unassig
     db.prepare().get.mockReset();
     const asset = { id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in_use', condition_rating: 'good', purchase_price: 100, purchase_date: '2024-01-01', warranty_expiry: null, assigned_to: 5, manufacturer: null, model: null, serial_number: null, location: null, notes: null };
     db.prepare().get
-      .mockReturnValueOnce(asset)
-      .mockReturnValueOnce(asset)
-      .mockReturnValueOnce(null) // isActiveUser(6) -> deactivated
+      .mockReturnValueOnce(asset)   // transaction-consistent re-fetch
+      .mockReturnValueOnce(null)    // isActiveUser(6) -> deactivated
       .mockReturnValue({ id: 1 });
     const assetsRouter = require('../src/routes/assets');
     const h = lastHandlerFor(assetsRouter, 'put', '/:id');

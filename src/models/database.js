@@ -1,13 +1,12 @@
 const Database = require('better-sqlite3');
 const path = require('path');
-const fs = require('fs');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'itmanager.db');
 
 // Ensure data directory exists
 const dir = path.dirname(DB_PATH);
 try {
-  fs.mkdirSync(dir, { recursive: true });
+  require('fs').mkdirSync(dir, { recursive: true });
 } catch (err) {
   console.error(`ERROR: Cannot create database directory "${dir}": ${err.message}`);
   process.exit(1);
@@ -105,7 +104,7 @@ function initSchema() {
       notes TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (assigned_to) REFERENCES users(id)
+      FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -154,8 +153,8 @@ function initSchema() {
       satisfaction_rating INTEGER CHECK(satisfaction_rating BETWEEN 1 AND 5),
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (assigned_to) REFERENCES users(id),
-      FOREIGN KEY (asset_id) REFERENCES assets(id)
+      FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+      FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -169,7 +168,7 @@ function initSchema() {
       is_internal INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -191,7 +190,7 @@ function initSchema() {
       owner_id INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (owner_id) REFERENCES users(id)
+      FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -210,7 +209,7 @@ function initSchema() {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-      FOREIGN KEY (assigned_to) REFERENCES users(id)
+      FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -224,7 +223,7 @@ function initSchema() {
       joined_at TEXT DEFAULT (datetime('now')),
       UNIQUE(project_id, user_id),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -267,7 +266,7 @@ function initSchema() {
       is_featured INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (author_id) REFERENCES users(id)
+      FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -292,7 +291,7 @@ function initSchema() {
       assigned_to INTEGER,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (assigned_to) REFERENCES users(id)
+      FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
     );
 
     -- ========================
@@ -383,6 +382,27 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
   `);
 }
-initSchema();
+try {
+  initSchema();
+} catch (err) {
+  console.error(`FATAL: Schema initialization failed: ${err.message}`);
+  process.exit(1);
+}
+
+/**
+ * Close the database connection and clean up resources.
+ * Exported so callers (e.g. tests, seed script) can perform graceful shutdown.
+ */
+function close() {
+  _nativeClose.call(db);
+}
+// Save a reference to the native close before we attach our wrapper to exports,
+// so the wrapper can invoke it without recursing (module.exports = db means the
+// exports object IS the Database instance; assigning .close on it would shadow
+// the native method and cause infinite recursion).
+const _nativeClose = db.close.bind(db);
 
 module.exports = db;
+module.exports.db = db;
+module.exports.initSchema = initSchema;
+module.exports.close = close;

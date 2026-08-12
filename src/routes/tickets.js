@@ -400,14 +400,17 @@ router.get('/:id', (req, res) => {
   // Redact end-user (requester) PII for non-privileged viewers. Requester
   // email/phone/department belong to non-staff end users and must not be
   // exposed to every authenticated staff member who opens a ticket URL.
-  // Privileged users (admin/manager) still see full requester details.
+  // Shallow-copy before deleting properties so the query result object is not
+  // mutated in place (better-sqlite3 returns fresh objects today, but this
+  // guards against future caching changes that could leak PII across requests).
+  const safeTicket = { ...ticket };
   if (!isPrivileged(req.session.user)) {
-    delete ticket.requester_email;
-    delete ticket.requester_phone;
-    delete ticket.requester_department;
+    delete safeTicket.requester_email;
+    delete safeTicket.requester_phone;
+    delete safeTicket.requester_department;
   }
 
-  res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket, comments });
+  res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket: safeTicket, comments });
 });
 
 // Edit ticket form

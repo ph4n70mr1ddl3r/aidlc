@@ -366,12 +366,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect(`/assets/${id}/edit`);
   }
 
-  const existingAsset = _editStmt.get(id);
-  if (!existingAsset) {
-    req.flash('error', 'Asset not found');
-    return res.redirect('/assets');
-  }
-
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));
   const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));

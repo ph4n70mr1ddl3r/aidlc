@@ -19,7 +19,11 @@ function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
     } catch {
       // Non-critical — cookie clear failure does not prevent redirect
     }
-    res.redirect(redirectUrl);
+    // Guard against headers being sent during the async destroy callback
+    // (e.g. by streaming middleware or a concurrent handler).
+    if (!res.headersSent) {
+      res.redirect(redirectUrl);
+    }
   });
 }
 
@@ -58,7 +62,7 @@ function _verifySessionUser(req, res) {
 
   try {
     const uid = req.session.user.id;
-    if (!uid) {
+    if (uid == null) {
       _destroyAndRedirect(req, res, '/login', 'Session verification failed. Please log in again.');
       return false;
     }
@@ -73,6 +77,14 @@ function _verifySessionUser(req, res) {
     }
     if (row.role !== req.session.user.role) {
       req.session.user = { ...req.session.user, role: row.role, password_changed_at: row.password_changed_at || null };
+      // Persist the role change immediately so subsequent middleware in the
+      // same request cycle (e.g. requireRole) sees the updated role without
+      // waiting for the next response cycle's resave.
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err.message);
+        }
+      });
     }
   } catch (err) {
     console.error('Auth DB check error:', err.message);

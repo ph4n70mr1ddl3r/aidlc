@@ -222,8 +222,8 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 });
 
-// Show license
-router.get('/:id', (req, res) => {
+// Show license (admin/manager only — license cost and seat data is business-sensitive)
+router.get('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid license ID');
