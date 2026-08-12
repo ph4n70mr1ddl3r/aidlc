@@ -396,10 +396,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   const name = trim(safeQueryValue(req.body.name));
-  const rawContactPerson = safeQueryValue(req.body.contact_person);
-  const contact_person = trim(rawContactPerson);
-  const rawEmail = safeQueryValue(req.body.email);
-  const email = trim(rawEmail).toLowerCase();
+  const contact_person = trim(safeQueryValue(req.body.contact_person));
+  const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
@@ -416,16 +414,12 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  const rawAddress = safeQueryValue(req.body.address);
-  const address = trim(rawAddress);
-  const rawWebsite = safeQueryValue(req.body.website);
-  const website = trim(rawWebsite);
-  const rawCategory = safeQueryValue(req.body.category);
-  const category = trim(rawCategory);
+  const address = trim(safeQueryValue(req.body.address));
+  const website = trim(safeQueryValue(req.body.website));
+  const category = trim(safeQueryValue(req.body.category));
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
-  const rawNotes = safeQueryValue(req.body.notes);
-  const notes = trim(rawNotes);
+  const notes = trim(safeQueryValue(req.body.notes));
   const rawRating = safeQueryValue(req.body.rating);
 
   if (!name) {
