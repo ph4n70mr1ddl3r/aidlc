@@ -156,8 +156,12 @@ document.addEventListener('click', function (e) {
     return;
   }
   if (display.dataset.shown === '1') {
-    const storedKey = _licenseKeys[licenseId] || '';
-    display.textContent = storedKey ? '****' + storedKey.slice(-4) : '****';
+    // Always mask to '****' when hiding, matching the visibilitychange and
+    // pagehide handlers. Previously the toggle-back path showed the last 4
+    // chars ('****' + storedKey.slice(-4)), which leaked the full key for
+    // short keys (<= 4 characters) and was inconsistent with the other mask
+    // paths that hide the key completely.
+    display.textContent = '****';
     display.dataset.shown = '';
     const icon = btn.querySelector('i');
     if (icon) {

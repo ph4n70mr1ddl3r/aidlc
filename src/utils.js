@@ -650,7 +650,10 @@ function recalcProjectProgress(db, projectId) {
  * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
  * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution
  * so a polluted payload fails closed instead of silently corrupting data.
-  * @param {*} rawValue - the raw req.body[field] value (NOT collapsed by safeQueryValue)
+  * @param {*} rawValue - the raw req.body[field] value; may be undefined
+  *   (absent field), a string, an array (HPP), or any other type. Array
+  *   payloads are rejected so a polluted payload fails closed instead of
+  *   silently corrupting data.
   * @param {*} processedValue - the already-processed value or null; non-string values
   *   are coerced to strings via String(...) before truncation (defensive against callers
   *   that pass numeric or boolean form fields through resolveOptionalField).

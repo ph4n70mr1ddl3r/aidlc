@@ -167,6 +167,14 @@ describe('resolveVendorRatingOnUpdate (rating preservation)', () => {
     expect(resolveVendorRatingOnUpdate('4', 4, 2)).toBe(4);
     expect(resolveVendorRatingOnUpdate('1', 1, 5)).toBe(1);
   });
+
+  it('preserves existing rating when rawValue is an HPP array (defensive)', () => {
+    // In practice arrays are rejected upstream by rejectHppArrays before this
+    // helper is called, but the function must not crash if an array slips
+    // through (e.g. from a direct test invocation or a future code path).
+    expect(resolveVendorRatingOnUpdate(['3'], null, 4)).toBe(4);
+    expect(resolveVendorRatingOnUpdate(['3'], 3, 2)).toBe(3);
+  });
 });
 
 describe('vendor delete uses COUNT query', () => {

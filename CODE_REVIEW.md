@@ -4,10 +4,39 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (97+ consecutive hardening commits) was
+Jest suite. Prior review history (98+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
+
+## Review cycle 2026-08-12 (99th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Three minor issues corrected:
+
+### Fixes applied
+- **`public/js/app.js` — license-key toggle-back masked inconsistently (LOW, consistency).**
+  The toggle-back path (`display.dataset.shown === '1'`) showed
+  `'****' + storedKey.slice(-4)`, leaking the full key for short keys (≤ 4
+  characters) and diverging from the `visibilitychange` / `pagehide` handlers
+  which mask to `'****'` only. Unified to `'****'` across all three paths so
+  no partial-key preview is ever rendered server-side or client-side.
+- **`src/utils.js` — `resolveOptionalField` JSDoc indentation (LOW, documentation).**
+  Line 653 had 3 leading spaces instead of 2 in the `@param` annotation block.
+  Also expanded the `(NOT collapsed by safeQueryValue)` note into a proper
+  multi-line description explaining the HPP-array rejection contract.
+- **`src/routes/vendors.js` — `_resolveVendorRatingOnUpdate` JSDoc was misleading
+  (LOW, documentation).** The param description claimed the caller passes the
+  raw body value so arrays are visible, but the update route actually passes
+  `safeQueryValue(req.body.rating)`. Clarified that the function defensively
+  handles any shape while callers typically pre-collapse via `safeQueryValue`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **659 passed / 659 total** (26 suites, +1 regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ## Review cycle 2026-08-12 (98th pass)
 
