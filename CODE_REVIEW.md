@@ -9,6 +9,43 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-12 (102nd pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Three defensive-coding gaps closed and one consistency
+issue corrected:
+
+### Fixes applied
+- **`src/routes/tickets.js` — edit route mutated DB result object in-place for PII
+  redaction (LOW, defense-in-depth).** The show route had already shallow-copied
+  the row before deleting `requester_email`/`requester_phone`/`requester_department`
+  for non-privileged viewers, but the edit route did not. If better-sqlite3 ever
+  returns cached/memoized result objects, the edit route's `delete` would mutate
+  the shared row and leak PII on subsequent requests. Added a shallow copy
+  (`const safeTicket = { ...ticket }`) matching the show-route pattern, and
+  switched the render call to pass `safeTicket`.
+- **`src/routes/assets.js` — show route mutated DB result object in-place for
+  PII redaction (LOW, defense-in-depth).** Same class of issue as above:
+  `asset.assigned_email = null` mutated the query result directly. Replaced with
+  a shallow copy (`const safeAsset = { ...asset }`) so the original row stays
+  pristine.
+- **`src/routes/licenses.js` — dead `isPrivileged` branch on show route
+  (LOW, code clarity).** The show route is gated by `requireAdminOrManager`, so
+  `isPrivileged(req.session.user)` is always true and the nulling branch was
+  unreachable. Removed the dead code and the now-unused `isPrivileged` import.
+- **`src/routes/knowledge.js` — inconsistent `Number()` coercion on authorship
+  check (LOW, consistency).** The update route's `isOwner` comparison used bare
+  `===` while the show/edit/delete routes in the same file used
+  `Number(...author_id) === Number(...user.id)`. Unified to `Number()` on both
+  sides for consistency.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **662 passed / 662 total** (26 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
 ## Review cycle 2026-08-12 (101st pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, parseBooleanFlag, rejectHppArrays, resolveOptionalField } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -236,9 +236,6 @@ router.get('/:id', requireAdminOrManager, (req, res) => {
     return res.redirect('/licenses');
   }
   req.audit('read', 'license', id, `Viewed license: ${license.software_name}`);
-  if (!isPrivileged(req.session.user)) {
-    license.license_key = null;
-  }
   res.render('pages/licenses/show', { title: license.software_name, license });
 });
 

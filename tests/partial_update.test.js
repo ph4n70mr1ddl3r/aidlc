@@ -837,3 +837,65 @@ describe('relational FK fields on update — ABSENT preserves, EMPTY clears (reg
     expect(taskUpdate[4]).toBeNull(); // "Unassigned" in the form clears the assignee
   });
 });
+
+describe('PII redaction must not mutate the DB query result object in-place', () => {
+  // Regression: the tickets edit route and assets show route previously deleted
+  // properties directly from the better-sqlite3 result row. If the driver ever
+  // returns cached/memoized objects, this would leak PII across requests. Both
+  // routes now shallow-copy before redacting so the original row stays pristine.
+
+  it('ticket edit route shallow-copies before redacting requester PII (does not mutate the row)', () => {
+    const ticketsRouter = require('../src/routes/tickets');
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    const originalRow = {
+      id: 1, status: 'open', assigned_to: 1, due_date: '2026-06-01',
+      requester_name: 'Bob', requester_email: 'bob@x.com',
+      requester_department: 'IT', requester_phone: '555-123-4567'
+    };
+    stmt.get.mockReturnValue(originalRow);
+    const h = lastHandlerFor(ticketsRouter, 'get', '/:id/edit');
+    runHandler(h, {}, { id: '1' }, { id: 2, role: 'staff' });
+    // The original row must remain unmutated — PII fields still present.
+    expect(originalRow.requester_email).toBe('bob@x.com');
+    expect(originalRow.requester_phone).toBe('555-123-4567');
+    expect(originalRow.requester_department).toBe('IT');
+  });
+
+  it('asset show route shallow-copies before redacting assigned_email (does not mutate the row)', () => {
+    const assetsRouter = require('../src/routes/assets');
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    const originalRow = {
+      id: 1, asset_tag: 'AST-001', name: 'Laptop', category: 'laptop',
+      manufacturer: 'Apple', model: 'M3', serial_number: 'SN-001',
+      status: 'in_use', condition_rating: 'good', purchase_date: '2024-01-01',
+      purchase_price: 999, warranty_expiry: '2027-01-01', assigned_to: 1,
+      location: 'HQ', notes: null, created_at: null, updated_at: null,
+      assigned_name: 'Ada', assigned_email: 'ada@company.com'
+    };
+    stmt.get.mockReturnValue(originalRow);
+    stmt.all.mockReturnValue([]);
+    const h = lastHandlerFor(assetsRouter, 'get', '/:id');
+    runHandler(h, {}, { id: '1' }, { id: 2, role: 'staff' });
+    // The original row must remain unmutated — assigned_email still present.
+    expect(originalRow.assigned_email).toBe('ada@company.com');
+  });
+});
+
+describe('licenses show route — no dead isPrivileged guard needed (requireAdminOrManager covers it)', () => {
+  it('renders the license key for admin viewers without an extra dead-code branch', () => {
+    const licensesRouter = require('../src/routes/licenses');
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY',
+      license_type: 'subscription', total_seats: 10, used_seats: 5,
+      purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null
+    });
+    const h = lastHandlerFor(licensesRouter, 'get', '/:id');
+    const { renderArgs } = runHandler(h, {}, { id: '1' }, { id: 1, role: 'admin' });
+    expect(renderArgs).not.toBeNull();
+    expect(renderArgs.license.license_key).toBe('SECRET-KEY');
+  });
+});

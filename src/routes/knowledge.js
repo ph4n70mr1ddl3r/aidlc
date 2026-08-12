@@ -494,7 +494,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
-  const isOwner = existing.author_id === req.session.user.id;
+  const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You can only edit your own articles');

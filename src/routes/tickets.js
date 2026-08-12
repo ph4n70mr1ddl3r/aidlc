@@ -432,14 +432,18 @@ router.get('/:id/edit', (req, res) => {
     return res.redirect(`/tickets/${id}`);
   }
 
-  // Redact end-user (requester) PII for non-privileged viewers, matching the
-  // show route. Non-privileged staff who can edit an assigned ticket must not
-  // be able to read requester email/phone/department from the edit form (the
-  // update route preserves the stored values when these fields are absent).
+  // Redact end-user (requester) PII for non-privileged viewers on the edit
+  // form, matching the show route. Non-privileged staff who can edit an
+  // assigned ticket must not be able to read requester email/phone/department
+  // from the edit form (the update route preserves the stored values when
+  // these fields are absent). Shallow-copy before deleting properties so the
+  // DB query result object is not mutated in place — a mutated row could leak
+  // PII across requests if better-sqlite3 ever caches result objects.
+  const safeTicket = { ...ticket };
   if (!isPrivileged(req.session.user)) {
-    delete ticket.requester_email;
-    delete ticket.requester_phone;
-    delete ticket.requester_department;
+    delete safeTicket.requester_email;
+    delete safeTicket.requester_phone;
+    delete safeTicket.requester_department;
   }
 
   const staff = getActiveStaff(db);
@@ -458,7 +462,7 @@ router.get('/:id/edit', (req, res) => {
   // assignee when the submitted value is unchanged, so the dropdown value is
   // saveable.
   const assigneeOptions = ensureAssigneeInList(staff, ticket.assigned_to, db);
-  res.render('pages/tickets/form', { title: 'Edit Ticket', ticket, staff: assigneeOptions, assets, isEdit: true });
+  res.render('pages/tickets/form', { title: 'Edit Ticket', ticket: safeTicket, staff: assigneeOptions, assets, isEdit: true });
 });
 
 // Update ticket

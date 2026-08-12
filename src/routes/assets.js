@@ -321,11 +321,17 @@ router.get('/:id', (req, res) => {
 
   const relatedTickets = _relatedTicketsStmt.all(id);
 
-  if (asset.assigned_email && !isPrivileged(req.session.user)) {
-    asset.assigned_email = null;
+  // Redact assigned_email for non-privileged viewers — staff should not be able
+  // to harvest other users' emails from asset detail pages. Shallow-copy before
+  // deleting the property so the DB query result object is not mutated in place
+  // (a mutated row could leak PII across requests if better-sqlite3 ever caches
+  // result objects). Mirrors the safeTicket shallow-copy pattern in tickets.js.
+  const safeAsset = { ...asset };
+  if (!isPrivileged(req.session.user)) {
+    safeAsset.assigned_email = null;
   }
 
-  res.render('pages/assets/show', { title: asset.name, asset, relatedTickets });
+  res.render('pages/assets/show', { title: asset.name, asset: safeAsset, relatedTickets });
 });
 
 // Edit asset form
