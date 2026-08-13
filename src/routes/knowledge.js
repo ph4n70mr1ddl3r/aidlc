@@ -221,10 +221,10 @@ function renderMarkdown(content) {
   } catch (err) {
     console.error('Markdown render error:', err.message);
     try {
-      return `<div class="alert alert-info">Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(content || '')}</pre>`;
+      return `<div>Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(content || '')}</pre>`;
     } catch (innerErr) {
       console.error('Secondary escape error:', innerErr.message);
-      return '<div class="alert alert-info">Article content could not be rendered.</div>';
+      return '<div>Article content could not be rendered.</div>';
     }
   }
 }

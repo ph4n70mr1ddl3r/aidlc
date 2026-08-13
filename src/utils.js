@@ -665,7 +665,7 @@ function recalcProjectProgress(db, projectId) {
  *   values are coerced to strings via String(...) before truncation.
  * @param {number|null} maxLen - max string length to truncate to, or null
  * @param {*} existingValue - the current value from the DB
- * @returns {*|{error: boolean}|null}
+ * @returns {*|{error: true}|null}
  */
 function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
   if (rawValue === undefined || rawValue === null) {

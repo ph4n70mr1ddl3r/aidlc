@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-08-12
+**Date:** 2026-08-13
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
@@ -8,6 +8,36 @@ Jest suite. Prior review history (100+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
+
+## Review cycle 2026-08-13 (104th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Three minor consistency/cleanup fixes applied:
+
+### Fixes applied
+- **`src/utils.js` — `resolveOptionalField` JSDoc return type was misleading
+  (LOW, documentation).** The `@returns` annotation claimed `{error: boolean}`
+  but the function never returns `{error: false}` — it only returns
+  `{error: true}` for HPP arrays. Updated to `{error: true}` to match the
+  actual runtime contract so callers and readers understand the shape correctly.
+- **`src/routes/audit.js` — dead `'search'` in HPP rejection list (LOW, code
+  clarity).** The route rejects HPP arrays on `['action', 'entity_type', 'sort',
+  'search']` but never reads `req.query.search` anywhere in the handler or in
+  `safeFilters`. Removed `'search'` from the list so the HPP guard reflects the
+  actual filtered params and avoids confusing future readers into thinking a
+  search filter exists on this route.
+- **`src/routes/knowledge.js` — `renderMarkdown` fallback used Bootstrap
+  classes that don't exist in the app (LOW, consistency).** The fail-closed
+  markdown-render error fallback emitted `<div class="alert alert-info">…</div>`
+  which references Bootstrap classes (`alert`, `alert-info`) not present in
+  this project's CSS. Replaced with plain `<div>` wrappers so the fallback
+  renders without relying on missing utility classes.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites).
 
 ## Review cycle 2026-08-13 (103rd pass)
 

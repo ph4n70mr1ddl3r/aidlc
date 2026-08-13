@@ -34,7 +34,7 @@ router.get('/', auditLimiter, (req, res) => {
   // back into the rendered page (safeFilters) — so arrays are rejected here to
   // keep the response deterministic. rejectHppArrays inspects both req.query
   // and req.body, matching the fail-closed behavior of every write route.
-  const hppQueryErrors = rejectHppArrays(req, ['action', 'entity_type', 'sort', 'search']);
+  const hppQueryErrors = rejectHppArrays(req, ['action', 'entity_type', 'sort']);
   if (hppQueryErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/audit');
