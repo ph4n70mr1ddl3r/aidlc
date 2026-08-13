@@ -434,6 +434,15 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       const resolvedExpiry = (expiry_date === undefined || expiry_date === null)
         ? existing.expiry_date
         : sExpiry;
+      // Validate the date range against the RESOLVED values, not just the
+      // submitted ones. A partial edit that moves purchase_date forward while
+      // leaving expiry_date blank would otherwise pass the submitted-only check
+      // above (submitted sExpiry is null) yet persist an expiry that precedes
+      // the preserved purchase date. Mirrors the resolved-value range checks in
+      // assets.js and projects.js.
+      if (resolvedPurchase && resolvedExpiry && resolvedExpiry < resolvedPurchase) {
+        throw Object.assign(new Error('DATE_RANGE_INVALID'), { flash: 'Expiry date must be on or after purchase date' });
+      }
       _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), resolvedVendor, resolvedKey, resolvedLicenseType,
         resolved.seats, resolved.used,
         resolvedPurchase, resolvedExpiry, resolvedCost, resolvedNotes, id);
@@ -450,6 +459,10 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       return res.redirect('/licenses');
     }
     if (err.message === 'SEAT_VALIDATION' && err.flash) {
+      req.flash('error', err.flash);
+      return res.redirect(`/licenses/${id}/edit`);
+    }
+    if (err.message === 'DATE_RANGE_INVALID' && err.flash) {
       req.flash('error', err.flash);
       return res.redirect(`/licenses/${id}/edit`);
     }

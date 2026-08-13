@@ -30,8 +30,12 @@ const sanitizeHtml = (() => {
         })());
   } catch (err) {
     console.error(`ERROR: sanitize-html package failed to load: ${err.message}. Run \`npm install\` to ensure sanitize-html 2.17.5 is installed.`);
-    console.error('Falling back to no-op HTML sanitization for knowledge articles.');
-    const noop = (html) => html;
+    // Fail closed: escape all HTML instead of passing it through unsanitized
+    // (a no-op fallback would turn renderMarkdown into a stored-XSS surface).
+    // Mirrors the marked fallback above, which degrades to plain text.
+    console.error('Falling back to escaped (plain-text) HTML sanitization for knowledge articles.');
+    const escape = (html) => escapeHtml(String(html ?? ''));
+    const noop = escape;
     noop.defaults = { allowedTags: [], allowedAttributes: {} };
     noop.simpleTransform = () => (tagName, attribs) => attribs;
     return noop;

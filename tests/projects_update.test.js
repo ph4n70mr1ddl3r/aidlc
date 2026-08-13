@@ -284,3 +284,71 @@ describe('Projects update — empty date clears, absent preserves (regression)',
     expect(params[4]).toBe('2026-01-15'); // preserved — field was absent, not cleared
   });
 });
+
+describe('Projects update — absent description preserves, empty clears (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  // The project UPDATE run has 10 args; the recalc progress run has 2 — find
+  // the project update (10-arg call) to read its description column (index 1).
+  // [name(0), description(1), status(2), priority(3), start_date(4), end_date(5),
+  //  budget(6), spent(7), owner_id(8), id(9)]
+  function projectUpdateParams() {
+    const db = jest.requireMock('../src/models/database');
+    return db.prepare().run.mock.calls.find(c => c.length === 10);
+  }
+
+  it('preserves a stored description when the field is ABSENT (partial API submission)', () => {
+    // Regression: previously the update used (description || '').substring(...)
+    // || null, so an absent description wiped the stored value to NULL on a
+    // partial submission — inconsistent with the route's own absent-vs-empty
+    // convention for dates/budget/spent/owner (absent preserves, empty clears).
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: null, end_date: null, owner_id: null, description: 'Stored description'
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium'
+    }, { id: '1' });
+    const params = projectUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBe('Stored description'); // preserved — not wiped to NULL
+  });
+
+  it('clears a stored description when the field is submitted empty', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: null, end_date: null, owner_id: null, description: 'Stored description'
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium', description: ''
+    }, { id: '1' });
+    const params = projectUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBeNull(); // empty submitted value clears the field
+  });
+
+  it('updates the description when a new value is submitted', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      budget: 0, spent: 0, status: 'in_progress', priority: 'medium',
+      start_date: null, end_date: null, owner_id: null, description: 'Stored description'
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:id');
+    runHandler(h, {
+      name: 'Test Project', status: 'in_progress', priority: 'medium', description: 'New description'
+    }, { id: '1' });
+    const params = projectUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBe('New description');
+  });
+});

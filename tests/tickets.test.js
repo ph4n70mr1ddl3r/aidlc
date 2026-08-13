@@ -1,4 +1,5 @@
 const { describe, it, expect } = require('@jest/globals');
+const { lastHandlerFor } = require('./helpers');
 
 // Mock dependencies so the tickets route module loads in isolation.
 jest.mock('../src/models/database', () => {
@@ -76,5 +77,43 @@ describe('ensureLinkedAssetInList', () => {
     const assets = [{ id: 1, asset_tag: 'AST-001', name: 'A' }];
     expect(ensureLinkedAssetInList(assets, null)).toBe(assets);
     expect(ensureLinkedAssetInList(assets, undefined)).toBe(assets);
+  });
+});
+
+describe('Ticket show — comments rendered chronologically (regression)', () => {
+  const ticketsRouter = require('../src/routes/tickets');
+
+  it('displays comments oldest-first even though the query reads newest-first', () => {
+    // Regression: the comment query used ORDER BY created_at ASC LIMIT 500, so a
+    // ticket with >500 comments silently dropped the NEWEST comments (including
+    // one just posted). It now reads DESC LIMIT 500 (newest retained) and the
+    // show route reverses the list so display stays chronological.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, ticket_number: 'TKT-001', title: 'Broken printer', description: null,
+      category: 'hardware', priority: 'high', status: 'open', requester_name: 'Jane',
+      requester_email: null, requester_department: null, requester_phone: null,
+      assigned_to: null, asset_id: null, due_date: null, resolved_at: null,
+      resolution_notes: null, satisfaction_rating: null, created_at: '2026-01-01', updated_at: null,
+      assigned_name: null, asset_name: null, asset_tag: null
+    });
+    // Mock returns newest-first (DESC), as the cached query now does.
+    stmt.all.mockReturnValue([
+      { id: 2, ticket_id: 1, user_id: 1, comment: 'newest', is_internal: 0, created_at: '2026-02-02', author_name: 'A', author_role: 'admin' },
+      { id: 1, ticket_id: 1, user_id: 1, comment: 'oldest', is_internal: 0, created_at: '2026-01-01', author_name: 'A', author_role: 'admin' }
+    ]);
+    let renderLocals = null;
+    const h = lastHandlerFor(ticketsRouter, 'get', '/:id');
+    const req = { params: { id: '1' }, session: { user: { id: 1, role: 'admin' } }, flash: () => {}, audit: jest.fn() };
+    const res = {
+      redirect: () => {},
+      render: (view, locals) => {
+        renderLocals = locals;
+      }
+    };
+    h(req, res, () => {});
+    expect(renderLocals).not.toBeNull();
+    expect(renderLocals.comments.map(c => c.id)).toEqual([1, 2]); // chronological
   });
 });

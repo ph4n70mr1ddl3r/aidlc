@@ -9,6 +9,43 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-13 (103rd pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, and the test suite). **No new
+SQL injection, IDOR, CSRF, auth, or error-leakage defects were found.** Five
+defensive-coding gaps closed:
+
+### Fixes applied
+- **`src/routes/licenses.js` — update route missing resolved-value date-ordering
+  check (MED, data integrity).** The submitted-only `expiry >= purchase` check
+  ran before the transaction, but the update resolves dates against the stored
+  row (absent field preserves). A partial edit moving `purchase_date` forward
+  while leaving `expiry_date` empty passed the submitted-only check yet persisted
+  an expiry preceding the preserved purchase date. Added a resolved-value check
+  inside the transaction (mirrors assets.js / projects.js).
+- **`src/routes/tickets.js` — comment query kept the oldest 500 comments (MED).**
+  `_showCommentsStmt` used `ORDER BY tc.created_at ASC LIMIT 500`, so a ticket
+  with >500 comments silently dropped the newest comments, including one just
+  posted. Changed to `ORDER BY ... DESC LIMIT 500` and reversed the list in the
+  show route so display stays chronological while retaining the most recent
+  activity.
+- **`src/routes/projects.js` / `src/routes/changes.js` — absent `description`
+  (and `impact`) wiped stored values to NULL on partial updates (MED).** The
+  update statements used `(description || '').substring(...) || null`, so an
+  absent field cleared the stored value — inconsistent with these routes' own
+  absent-vs-empty convention for dates/budget/spent/owner/assignee. Switched to
+  `resolveOptionalField` so absent preserves and explicit empty clears.
+- **`src/routes/knowledge.js` — sanitize-html fallback was fail-open (LOW,
+  defense-in-depth).** The load-failure fallback was a no-op (`html => html`),
+  which would turn `renderMarkdown` into a stored-XSS surface if sanitize-html
+  were ever missing/broken. The fallback now escapes all output (fail-closed),
+  mirroring the marked fallback's plain-text degradation.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites, +9 regression tests).
+
 ## Review cycle 2026-08-12 (102nd pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -54,7 +54,7 @@ const _showMembersStmt = db.prepare(`
     WHERE pm.project_id = ?
     LIMIT 100
   `);
-const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id FROM projects WHERE id = ?');
+const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id, description FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -358,6 +358,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   }
 
   const name = trim(safeQueryValue(req.body.name));
+  const rawDescription = req.body.description;
   const description = trim(safeQueryValue(req.body.description));
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
@@ -510,7 +511,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('DATE_RANGE_INVALID');
       }
 
-      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
+      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), resolveOptionalField(rawDescription, description || null, MAX_DESC, existingProject.description), effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
         preservedBudget, preservedSpent, resolvedOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');

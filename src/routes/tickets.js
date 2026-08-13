@@ -73,7 +73,7 @@ const _showCommentsStmt = db.prepare(`
     FROM ticket_comments tc
     LEFT JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
-    ORDER BY tc.created_at ASC
+    ORDER BY tc.created_at DESC
     LIMIT 500
   `);
 const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
@@ -396,6 +396,11 @@ router.get('/:id', (req, res) => {
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.
   const comments = isPrivileged(req.session.user) ? rawComments : rawComments.filter(c => !c.is_internal);
+  // The query above reads newest-first (DESC LIMIT 500) so a ticket with more
+  // than 500 comments keeps its most recent activity instead of silently
+  // dropping newly-posted comments from view. Reverse to chronological order
+  // for display, matching the pre-fix ASC rendering.
+  comments.reverse();
 
   // Redact end-user (requester) PII for non-privileged viewers. Requester
   // email/phone/department belong to non-staff end users and must not be

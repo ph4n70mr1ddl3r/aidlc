@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -301,6 +301,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   const title = trim(safeQueryValue(req.body.title));
+  const rawDescription = req.body.description;
   const description = trim(safeQueryValue(req.body.description));
   const change_type = trim(safeQueryValue(req.body.change_type));
   const status = trim(safeQueryValue(req.body.status));
@@ -309,6 +310,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
   const actual_start = safeQueryValue(req.body.actual_start);
   const actual_end = safeQueryValue(req.body.actual_end);
+  const rawImpact = req.body.impact;
   const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
 
@@ -418,9 +420,9 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('ACTUAL_END_BEFORE_START');
       }
 
-      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolveOptionalField(rawDescription, description || null, MAX_DESC, existingChange.description), change_type, status, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
-        (impact || '').substring(0, MAX_LONG_STR) || null, resolvedAssignee, id);
+        resolveOptionalField(rawImpact, impact || null, MAX_LONG_STR, existingChange.impact), resolvedAssignee, id);
     });
     updateChange();
 

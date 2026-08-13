@@ -1,10 +1,11 @@
 const { describe, it, expect } = require('@jest/globals');
+const { lastHandlerFor } = require('./helpers');
 
 // Mock dependencies so the licenses route module loads in isolation (same pattern
 // as vendors.test.js / changes.test.js).
 jest.mock('../src/models/database', () => {
   const stmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 0 })) };
-  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn() };
+  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn) };
 });
 
 jest.mock('../src/middleware/auth', () => ({
@@ -102,5 +103,36 @@ describe('resolveSeats', () => {
       const r = resolveSeats(['3', '9'], ['1'], null);
       expect(r.error).toBe('Invalid total seats');
     });
+  });
+});
+
+describe('License update — date range validated against resolved values (regression)', () => {
+  const licensesRouter = require('../src/routes/licenses');
+
+  it('rejects a partial update that would persist expiry_date before purchase_date', () => {
+    // Stored: purchase=2026-01-01, expiry=2026-06-01. The edit moves purchase_date
+    // forward to 2026-12-01 and leaves expiry_date empty. The submitted-only
+    // range check (submitted sExpiry is null) passes, but the RESOLVED expiry is
+    // still the stored 2026-06-01 → expiry < purchase must be rejected (mirrors
+    // the assets.js / projects.js resolved-value fix), not silently persisted.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue({
+      id: 1, software_name: 'Adobe Photoshop', vendor: null, license_key: null, license_type: null,
+      total_seats: 25, used_seats: 7, purchase_date: '2026-01-01', expiry_date: '2026-06-01',
+      cost: 100, notes: null, created_at: null, updated_at: null
+    });
+    stmt.run.mockClear();
+    const h = lastHandlerFor(licensesRouter, 'put', '/:id');
+    const redirectCalls = [];
+    const flashCalls = [];
+    const req = { body: { software_name: 'Adobe Photoshop', purchase_date: '2026-12-01' }, params: { id: '1' }, flash: (t, m) => flashCalls.push([t, m]), audit: jest.fn() };
+    const res = { redirect: (to) => redirectCalls.push(to), render: () => {}, status: () => res, json: () => {} };
+    h(req, res, () => {});
+    expect(redirectCalls).toEqual(['/licenses/1/edit']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('Expiry date must be on or after purchase date');
+    expect(stmt.run).not.toHaveBeenCalled();
   });
 });

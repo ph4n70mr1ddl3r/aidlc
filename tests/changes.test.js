@@ -1,10 +1,11 @@
 const { describe, it, expect } = require('@jest/globals');
+const { lastHandlerFor } = require('./helpers');
 
 // Mock dependencies so the changes route module loads in isolation (same pattern
 // as vendors.test.js / knowledge.test.js).
 jest.mock('../src/models/database', () => {
   const stmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 0 })) };
-  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn() };
+  return { prepare: jest.fn(() => stmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn) };
 });
 
 jest.mock('../src/middleware/auth', () => ({
@@ -85,5 +86,75 @@ describe('resolveDateTimeField', () => {
     it('rejects arrays (parameter pollution) as invalid input', () => {
       expect(resolveDateTimeField(['2024-02-20T09:30'], existing)).toEqual({ error: true });
     });
+  });
+});
+
+describe('Change update — absent description/impact preserves, empty clears (regression)', () => {
+  const changesRouter = require('../src/routes/changes');
+
+  // The change UPDATE run has 12 args; find it by length (no other update in
+  // this handler is 12-arg).
+  // [title(0), description(1), change_type(2), status(3), priority(4),
+  //  scheduled_start(5), scheduled_end(6), actual_start(7), actual_end(8),
+  //  impact(9), assigned_to(10), id(11)]
+  function changeUpdateParams() {
+    const db = jest.requireMock('../src/models/database');
+    return db.prepare().run.mock.calls.find(c => c.length === 12);
+  }
+
+  const existingRow = {
+    id: 1, title: 'Old title', description: 'Stored description', change_type: 'maintenance',
+    status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null,
+    actual_start: null, actual_end: null, impact: 'Stored impact', assigned_to: null,
+    created_at: null, updated_at: null
+  };
+
+  it('preserves stored description and impact when the fields are ABSENT (partial API submission)', () => {
+    // Regression: previously the update used (description || '').substring(...)
+    // || null and (impact || '').substring(...) || null, so absent fields wiped
+    // the stored values to NULL on a partial submission — inconsistent with the
+    // route's own absent-vs-empty convention for datetimes/assignee.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue(existingRow);
+    stmt.run.mockClear();
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const req = { body: { title: 'New title', change_type: 'maintenance', status: 'scheduled' }, params: { id: '1' }, flash: () => {}, audit: jest.fn() };
+    const res = { redirect: () => {}, render: () => {}, status: () => res, json: () => {} };
+    h(req, res, () => {});
+    const params = changeUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBe('Stored description'); // preserved — not wiped to NULL
+    expect(params[9]).toBe('Stored impact');
+  });
+
+  it('clears stored description and impact when the fields are submitted empty', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue(existingRow);
+    stmt.run.mockClear();
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const req = { body: { title: 'New title', change_type: 'maintenance', status: 'scheduled', description: '', impact: '' }, params: { id: '1' }, flash: () => {}, audit: jest.fn() };
+    const res = { redirect: () => {}, render: () => {}, status: () => res, json: () => {} };
+    h(req, res, () => {});
+    const params = changeUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBeNull(); // empty submitted value clears the field
+    expect(params[9]).toBeNull();
+  });
+
+  it('updates description and impact when new values are submitted', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.get.mockReturnValue(existingRow);
+    stmt.run.mockClear();
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const req = { body: { title: 'New title', change_type: 'maintenance', status: 'scheduled', description: 'New description', impact: 'New impact' }, params: { id: '1' }, flash: () => {}, audit: jest.fn() };
+    const res = { redirect: () => {}, render: () => {}, status: () => res, json: () => {} };
+    h(req, res, () => {});
+    const params = changeUpdateParams();
+    expect(params).toBeDefined();
+    expect(params[1]).toBe('New description');
+    expect(params[9]).toBe('New impact');
   });
 });
