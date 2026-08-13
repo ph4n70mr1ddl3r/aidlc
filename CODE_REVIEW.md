@@ -9,6 +9,26 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-13 (108th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** One minor UI consistency fix applied:
+
+### Fixes applied
+- **`src/routes/vendors.js` — INVALID_ error messages used lowercase field names
+  (LOW, consistency).** The dynamic error-path for `INVALID_CONTACT_PERSON`,
+  `INVALID_EMAIL`, etc. ran `.toLowerCase()` on the field name, producing
+  messages like `Invalid contact person` instead of the title-case form used
+  everywhere else (`Invalid Contact Person`). Updated to title-case each word
+  so error messages match the explicit-string convention across all other
+  route modules.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites).
+
 ## Review cycle 2026-08-13 (107th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

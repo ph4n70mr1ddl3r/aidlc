@@ -596,8 +596,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message.startsWith('INVALID_')) {
-      const fieldName = err.message.replace('INVALID_', '').replace(/_/g, ' ').toLowerCase();
-      req.flash('error', `Invalid ${fieldName}`);
+      const fieldName = err.message.replace('INVALID_', '').replace(/_/g, ' ');
+      req.flash('error', `Invalid ${fieldName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}`);
       return res.redirect(`/vendors/${id}/edit`);
     }
     console.error('Vendor update error:', err.message);
