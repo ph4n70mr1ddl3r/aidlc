@@ -95,5 +95,6 @@ function resetCachedStatements() {
   // from utils.js which has its own resetCachedStatements(). This function
   // exists for API consistency across all route modules.
 }
+
 module.exports = router;
 module.exports.resetCachedStatements = resetCachedStatements;
