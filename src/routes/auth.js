@@ -300,7 +300,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Reject overly long usernames and passwords after the constant-time bcrypt
   // compare to avoid reintroducing a timing oracle. An oversized username or
   // password cannot match, so rejecting here is fail-closed.
-  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES || username.length > MAX_USERNAME) {
+  if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES || safeUsername.length > MAX_USERNAME) {
     req.flash('error', 'Invalid username or password');
     return res.redirect('/login');
   }
