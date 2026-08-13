@@ -395,12 +395,13 @@ router.get('/:id', (req, res) => {
   const rawComments = _showCommentsStmt.all(id);
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.
-  const comments = isPrivileged(req.session.user) ? rawComments : rawComments.filter(c => !c.is_internal);
-  // The query above reads newest-first (DESC LIMIT 500) so a ticket with more
-  // than 500 comments keeps its most recent activity instead of silently
-  // dropping newly-posted comments from view. Reverse to chronological order
-  // for display, matching the pre-fix ASC rendering.
-  comments.reverse();
+  // Always create a new array before reversing to avoid mutating the DB
+  // query result in place (a mutated row could leak PII across requests if
+  // better-sqlite3 ever caches result objects). Mirrors the shallow-copy
+  // pattern used for safeTicket above.
+  const comments = isPrivileged(req.session.user)
+    ? [...rawComments].reverse()
+    : rawComments.filter(c => !c.is_internal).reverse();
 
   // Redact end-user (requester) PII for non-privileged viewers. Requester
   // email/phone/department belong to non-staff end users and must not be

@@ -9,6 +9,36 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-13 (105th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two defense-in-depth fixes applied for DB result-object
+mutation:
+
+### Fixes applied
+- **`src/routes/tickets.js` — `comments.reverse()` mutated DB query result in-place
+  (LOW, defense-in-depth).** The show route had shallow-copied the ticket row before
+  deleting PII properties, but the comments array was only shallow-copied for
+  non-privileged viewers. For privileged viewers `comments === rawComments`, so
+  `comments.reverse()` mutated the `better-sqlite3` result object directly. If the
+  driver ever returns cached/memoized row objects, this would leak PII across
+  requests. Changed to always allocate a new array (`[...rawComments].reverse()`
+  for privileged, `.filter(...).reverse()` for non-privileged) so the original DB
+  result is never mutated.
+- **`src/routes/staff.js` — `renderedStaff` returned original DB rows for the
+  self-view case and the privileged case (LOW, defense-in-depth).** The index
+  route shallow-copied rows only when zeroing PII for other users; the viewer's
+  own row and all privileged-viewer rows were passed through as-is. A future
+  mutation of those objects (e.g. by a template helper or middleware) could leak
+  PII if the driver caches results. Unified to always shallow-copy every row,
+  preserving the existing PII-zeroing logic for non-privileged non-self rows.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites).
+
 ## Review cycle 2026-08-13 (104th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

@@ -145,14 +145,12 @@ router.get('/', (req, res) => {
   // in-place — a mutated row object could leak through a cache or middleware.
   const viewer = req.session.user;
   const viewerPrivileged = isPrivileged(viewer);
-  const renderedStaff = viewerPrivileged
-    ? staff
-    : staff.map(s => {
-      if (Number(s.id) === Number(viewer.id)) {
-        return s;
-      }
-      return { ...s, email: null, phone: null, department: null };
-    });
+  const renderedStaff = staff.map(s => {
+    if (viewerPrivileged || Number(s.id) === Number(viewer.id)) {
+      return { ...s };
+    }
+    return { ...s, email: null, phone: null, department: null };
+  });
 
   res.render('pages/staff/index', {
     title: 'Staff', staff: renderedStaff, departments,
