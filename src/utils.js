@@ -657,8 +657,9 @@ function recalcProjectProgress(db, projectId) {
  * the field is ABSENT from the request (partial submission). An empty submitted
  * value CLEARS the field (null), consistent with the create route.
  * When present and non-empty, the value is truncated to maxLen (if provided).
- * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
- * vendors.js and licenses.js. Rejects arrays from HTTP parameter pollution.
+  * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
+  * vendors.js, licenses.js, projects.js, and changes.js. Rejects arrays from
+  * HTTP parameter pollution.
  * @param {*} rawValue - the raw req.body[field] value; may be undefined
  *   (absent field), a string, an array (HPP), or any other type.
  * @param {*} processedValue - the already-processed value or null; non-string
@@ -1143,7 +1144,8 @@ module.exports = {
   // Exported for unit testing only — mirrors the pattern used by route modules
   // that expose internal helpers (e.g. _resolveDateTimeField in changes.js).
   _touchCache,
-  // Shared across vendors.js and licenses.js for absent-vs-empty partial-update
-  // resolution; also tested directly in utils.test.js for regression coverage.
+  // Shared across vendors.js, licenses.js, projects.js, and changes.js for
+  // absent-vs-empty partial-update resolution; also tested directly in
+  // utils.test.js for regression coverage.
   resolveOptionalField
 };

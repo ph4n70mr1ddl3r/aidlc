@@ -88,7 +88,8 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
  * Resolve an optional DATE field on update: preserve existing only when ABSENT
  * from the request (partial submission). An empty submitted value CLEARS it (null).
  * A present but unparseable value is an error (fail closed) so the stored date
- * is not silently wiped. Mirrors the absent-vs-empty distinction in changes.js.
+  * is not silently wiped. Mirrors the absent-vs-empty distinction in changes.js,
+  * projects.js, and licenses.js.
  * @param {*} rawValue
  * @param {string|null} existingValue
  * @returns {{ error: boolean, value: string|null }}
@@ -555,7 +556,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // submitted ones. On a partial submission that changes only
       // contract_start, the unchanged stored contract_end is compared too, so a
       // start moved beyond the stored end is rejected instead of persisted.
-      // Mirrors the resolved-value range checks in changes.js.
+      // Mirrors the resolved-value range checks in changes.js, projects.js,
+      // and licenses.js.
       if (resolvedStartDate.value && resolvedEndDate.value && resolvedEndDate.value < resolvedStartDate.value) {
         throw new Error('CONTRACT_END_BEFORE_START');
       }

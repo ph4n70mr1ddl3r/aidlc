@@ -439,7 +439,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // leaving expiry_date blank would otherwise pass the submitted-only check
       // above (submitted sExpiry is null) yet persist an expiry that precedes
       // the preserved purchase date. Mirrors the resolved-value range checks in
-      // assets.js and projects.js.
+      // assets.js, vendors.js, changes.js, and projects.js.
       if (resolvedPurchase && resolvedExpiry && resolvedExpiry < resolvedPurchase) {
         throw Object.assign(new Error('DATE_RANGE_INVALID'), { flash: 'Expiry date must be on or after purchase date' });
       }

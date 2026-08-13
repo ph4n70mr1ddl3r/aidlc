@@ -525,7 +525,8 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       // submitted ones. A partial edit that moves purchase_date forward while
       // leaving warranty_expiry blank would otherwise pass the submitted-only
       // check above yet persist a warranty that expires before purchase. Mirrors
-      // the resolved-value range checks in vendors.js / changes.js / projects.js.
+      // the resolved-value range checks in vendors.js / changes.js / projects.js /
+      // licenses.js.
       if (resolvedPurchase && resolvedWarranty && resolvedWarranty < resolvedPurchase) {
         throw new Error('WARRANTY_BEFORE_PURCHASE');
       }

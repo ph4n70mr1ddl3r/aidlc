@@ -506,7 +506,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       // leaving end_date empty would otherwise pass the submitted-only check
       // above (submitted sEnd is null) yet persist end < start against the
       // preserved stored end date. Mirrors the resolved-value range checks in
-      // vendors.js and changes.js.
+      // vendors.js, changes.js, and licenses.js.
       if (resolvedStart && resolvedEnd && resolvedEnd < resolvedStart) {
         throw new Error('DATE_RANGE_INVALID');
       }
