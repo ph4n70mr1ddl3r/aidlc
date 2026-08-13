@@ -1092,6 +1092,7 @@ function _derivePageSize() {
 function _resetPageSize() {
   PAGE_SIZE = _derivePageSize();
 }
+
 // Initialize PAGE_SIZE at module load
 PAGE_SIZE = _derivePageSize();
 // Public alias so tests can call it directly.

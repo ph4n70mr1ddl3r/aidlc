@@ -214,6 +214,11 @@ document.addEventListener('visibilitychange', function () {
   displays.forEach(function (display) {
     if (display.dataset.shown === '1') {
       display.textContent = '****';
+      // Clear the flag so the next click follows the fetch path rather than
+      // the toggle-back path, which would show '****' again instead of
+      // re-fetching and displaying the actual key. Mirrors the pagehide
+      // handler below which resets both textContent and dataset.shown.
+      display.dataset.shown = '';
     }
   });
 });

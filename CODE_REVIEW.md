@@ -9,6 +9,33 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-13 (109th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two minor consistency/behavior fixes applied:
+
+### Fixes applied
+- **`public/js/app.js` — `visibilitychange` handler did not reset
+  `dataset.shown` on license-key display (LOW, UX bug).** The
+  `visibilitychange` listener masked the displayed key to `'****'` when the
+  tab became hidden, but left `dataset.shown` as `'1'`. On the next click the
+  toggle-back path was taken instead of the fetch path, showing `'****'` again
+  and preventing the user from re-revealing the key without a page reload.
+  Added `display.dataset.shown = ''` so the next click correctly follows the
+  fetch path, matching the behaviour of the `pagehide` handler.
+- **`src/utils.js` — missing blank line before module-load `PAGE_SIZE`
+  initialisation (LOW, consistency).** The `_resetPageSize` function closed on
+  line 1094 and the module-load assignment began immediately on line 1095,
+  breaking the convention used by all other modules which insert a blank line
+  between the function and the initialisation call. Added the missing blank
+  line for visual consistency.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites).
+
 ## Review cycle 2026-08-13 (108th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware
