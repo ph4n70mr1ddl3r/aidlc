@@ -176,9 +176,9 @@ const SANITIZE_HTML_OPTIONS = deepFreeze({
   // NOTE: 'input' is intentionally NOT allowed. A published KB article that
   // renders interactive form controls is a stored HTML/UI-injection vector
   // (e.g. a hidden checkbox or file-input appearing in an article body).
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'details', 'summary', 'del']),
+  allowedTags: (sanitizeHtml.defaults?.allowedTags || []).concat(['img', 'details', 'summary', 'del']),
   allowedAttributes: {
-    ...sanitizeHtml.defaults.allowedAttributes,
+    ...((sanitizeHtml.defaults?.allowedAttributes) || {}),
     img: ['src', 'alt', 'title'],
     a: ['href', 'name', 'rel', 'title'],
     code: ['class']

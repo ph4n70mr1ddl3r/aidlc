@@ -9,6 +9,34 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-13 (107th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two minor defensive-coding improvements applied:
+
+### Fixes applied
+- **`src/app.js` — remove unnecessary `prefersJson` destructuring (LOW, code
+  clarity).** The `utilsModule` import was destructured solely for a single
+  one-liner call (`prefersJson(req)`) in the error handler, while the rest of
+  the file already uses `utilsModule.something` directly. Removed the
+  destructuring and inlined the call as `utilsModule.prefersJson(req)` so the
+  single-reference import is no longer a standalone binding.
+- **`src/routes/knowledge.js` — defensive optional chaining on
+  `sanitizeHtml.defaults` (LOW, defense-in-depth).** The `SANITIZE_HTML_OPTIONS`
+  object spreads `sanitizeHtml.defaults.allowedTags` and
+  `sanitizeHtml.defaults.allowedAttributes` at module-load time. While the
+  pinned `sanitize-html@2.17.5` always exposes `.defaults`, a future version
+  mismatch or unexpected load path could leave it undefined and throw before
+  any request is served. Added `?.` / `|| []` / `|| {}` fallbacks so the
+  fallback noop path (activated when the package fails to load) and the normal
+  path both remain safe.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **671 passed / 671 total** (27 suites).
+
 ## Review cycle 2026-08-13 (106th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware

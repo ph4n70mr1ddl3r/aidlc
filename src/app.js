@@ -20,7 +20,6 @@ const crypto = require('crypto');
 process.env.NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
 
 const utilsModule = require('./utils');
-const { prefersJson } = utilsModule;
 const constantsModule = require('./constants');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
@@ -496,7 +495,7 @@ app.use((req, res) => {
   // receive JSON rather than an HTML 404 page, mirroring the error handler.
   // Advertise Vary: Accept for correct protocol behavior with intermediaries.
   res.set('Vary', 'Accept');
-  if (prefersJson(req)) {
+  if (utilsModule.prefersJson(req)) {
     return res.status(404).json({ error: 'Not found' });
   }
   res.status(404).render('pages/404', { title: 'Not Found' });
@@ -514,7 +513,7 @@ app.use((err, req, res, _next) => {
   // Handle JSON requests (e.g. AJAX endpoints) gracefully.
   // prefersJson() uses content negotiation so AJAX callers (Accept: */* or
   // application/json) correctly receive JSON instead of an HTML error page.
-  const wantsJson = prefersJson(req);
+  const wantsJson = utilsModule.prefersJson(req);
 
   // The error response is also content-negotiated (HTML vs JSON based on
   // Accept), so advertise the variation the same way the 404 handler does.
