@@ -306,6 +306,7 @@ router.get('/:id', (req, res) => {
   }
 
   if (!canAccessResource(req, project)) {
+    req.audit('access_denied', 'project', id, `Unauthorized view attempt on project ${project.name}`);
     req.flash('error', 'You do not have permission to view this project');
     return res.redirect('/projects');
   }

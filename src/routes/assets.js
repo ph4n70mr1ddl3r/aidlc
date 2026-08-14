@@ -313,6 +313,7 @@ router.get('/:id', (req, res) => {
   }
 
   if (!canAccessResource(req, asset)) {
+    req.audit('access_denied', 'asset', id, `Unauthorized view attempt on asset ${asset.asset_tag}`);
     req.flash('error', 'You do not have permission to view this asset');
     return res.redirect('/assets');
   }
