@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { safeInt, safeQueryValue } = require('../utils');
+const { safeInt, safeQueryValue, normalizeIp } = require('../utils');
 
 /**
  * Parse the `period` report query parameter, clamps to [1, 365], and fails
@@ -30,6 +30,17 @@ function resolveReportPeriod(raw, fallback = 30) {
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
+// Key rate-limiting by authenticated user id (per-account) so one admin's
+// requests cannot silence the whole team behind a NAT'd IP. The normalized-IP
+// fallback exists for defense in depth. Mirrors the commentKeyGenerator pattern
+// in tickets.js.
+function authKeyGenerator(req) {
+  if (req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
+}
+
 // Rate limit report data endpoints — aggregation queries are expensive and could
 // be abused for DoS even behind admin/manager auth. Applied below to the
 // sub-routes that run expensive queries (not the index landing page) so that
@@ -37,6 +48,7 @@ router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 const reportLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 30,
+  keyGenerator: authKeyGenerator,
   handler: (req, res) => {
     req.flash('error', 'Too many report requests. Please try again later.');
     return res.redirect('/reports');
@@ -91,10 +103,12 @@ const stmts = {
     GROUP BY t.assigned_to
     ORDER BY resolved DESC LIMIT 10
   `),
-  // Asset Report
+  // Asset Report. Both queries exclude disposed assets for consistency with the
+  // warranty queries below (a disposed asset's value/seat no longer represents
+  // active inventory).
   assetsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count, SUM(purchase_price) as total_value
-    FROM assets GROUP BY category ORDER BY count DESC
+    FROM assets WHERE status != 'disposed' GROUP BY category ORDER BY count DESC
   `),
   assetsByStatus: db.prepare(`
     SELECT status, COUNT(*) as count FROM assets GROUP BY status ORDER BY count DESC
@@ -102,7 +116,7 @@ const stmts = {
   assetsByCondition: db.prepare(`
     SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC
   `),
-  assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets'),
+  assetsTotalValue: db.prepare("SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets WHERE status != 'disposed'"),
   // Also include already-expired warranties — they are more urgent than expiring-soon.
   // Exclude disposed assets: a disposed asset's warranty is no longer actionable,
   // so surfacing it in the "expiring soon" alert/list is noise. Mirrors the

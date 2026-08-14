@@ -228,6 +228,34 @@ describe('tickets update — partial submission preserves stored due_date and re
     expect(params[11]).toBe('IT');
     expect(params[12]).toBe('555-123-4567');
   });
+
+  it('preserves requester department/phone for a privileged partial update that omits them (regression: wiped)', () => {
+    // A privileged (admin/manager) editor sending a partial PUT that omits
+    // requester_department/requester_phone must preserve the stored values —
+    // previously the absent fields resolved to null and silently wiped the PII.
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com'
+    }, { id: '1' }, { id: 1, role: 'admin' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[11]).toBe('IT');
+    expect(params[12]).toBe('555-123-4567');
+  });
+
+  it('still clears requester PII for a privileged editor who explicitly empties the fields', () => {
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_name: 'Bob', requester_email: 'bob@x.com',
+      requester_department: '', requester_phone: ''
+    }, { id: '1' }, { id: 1, role: 'admin' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[11]).toBeNull();
+    expect(params[12]).toBeNull();
+  });
 });
 
 describe('ticket edit form — requester PII redacted for non-privileged users', () => {
@@ -835,6 +863,43 @@ describe('relational FK fields on update — ABSENT preserves, EMPTY clears (reg
     }, { projectId: '1', taskId: '2' });
     const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
     expect(taskUpdate[4]).toBeNull(); // "Unassigned" in the form clears the assignee
+  });
+
+  it('projects task full-update preserves the stored description when ABSENT (regression: wiped)', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: 'Existing notes',
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium'
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
+    expect(taskUpdate[1]).toBe('Existing notes'); // description column preserved
+  });
+
+  it('projects task full-update clears the description when submitted EMPTY', () => {
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: 'Existing notes',
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: '2026-05-05', completed_at: null, created_at: null, updated_at: null
+    });
+    const projectsRouter = require('../src/routes/projects');
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium', description: ''
+    }, { projectId: '1', taskId: '2' });
+    const taskUpdate = stmt.run.mock.calls.find(c => c.length === 9);
+    expect(taskUpdate[1]).toBeNull();
   });
 });
 

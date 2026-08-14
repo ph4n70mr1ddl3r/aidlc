@@ -116,19 +116,24 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
   const manager = { role: 'manager' };
   const staff = { role: 'staff' };
 
-  // Regression: the "Featured article" checkbox used a hidden-field companion
-  // (<input type="hidden" name="is_featured" value="0">) plus the checkbox
-  // (value="1"). With express.urlencoded({ extended: false }) a checked box
-  // submitted is_featured=0&is_featured=1, which parsed to ['0','1']. The
-  // route ran that through safeQueryValue (first array element wins) -> '0',
-  // so resolveSafeFeatured always returned 0 and the checkbox was unusable.
-  // The form's hidden field was removed; resolveSafeFeatured must now correctly
-  // resolve the plain checkbox value ('1' when checked, absent when not).
+  // Regression: the "Featured article" checkbox is paired with a hidden
+  // value="0" companion. With express.urlencoded({ extended: false }) an
+  // unchecked box sends is_featured=0 while a checked box sends
+  // is_featured=0&is_featured=1, which parses to ['0','1']. resolveSafeFeatured
+  // resolves the LAST array element so the checkbox state wins ('1' when
+  // checked, '0' when unchecked); a first-element rule would make the checkbox
+  // permanently stuck on '0'.
   it('enables featuring for a privileged user who checks the box (regression)', () => {
-    // Simulate the route pipeline: safeQueryValue(req.body.is_featured) -> resolveSafeFeatured
-    const checked = utils.safeQueryValue('1');
-    expect(resolveSafeFeatured(admin, checked)).toBe(1);
-    expect(resolveSafeFeatured(manager, checked)).toBe(1);
+    // Simulate the route pipeline: a checked box submits an array ['0','1'].
+    expect(resolveSafeFeatured(admin, ['0', '1'])).toBe(1);
+    expect(resolveSafeFeatured(manager, '1')).toBe(1);
+  });
+
+  it('un-checks an already-featured article via the hidden value="0" field', () => {
+    // Unchecked box sends is_featured=0 (or ['0']); must clear a stored 1,
+    // not preserve it — otherwise featuring becomes one-way via the form.
+    expect(resolveSafeFeatured(admin, '0', 1)).toBe(0);
+    expect(resolveSafeFeatured(manager, ['0'], 1)).toBe(0);
   });
 
   it('treats an unchecked (absent) box as not featured', () => {

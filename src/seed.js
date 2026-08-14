@@ -145,21 +145,25 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
 
     const insertTicket = db.prepare(`
       INSERT INTO tickets (ticket_number, title, description, category, priority, status,
-        requester_name, requester_email, requester_department, assigned_to, asset_id, due_date, resolution_notes, resolved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        requester_name, requester_email, requester_department, assigned_to, asset_id, due_date, resolution_notes, resolved_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const now = new Date();
     const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
+    const isoDaysAgo = (days) => new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
     const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?) ON CONFLICT(counter_date) DO UPDATE SET next_seq = ?');
     for (const [i, t] of tickets.entries()) {
       const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;
-      const resolvedAt = t.status === 'resolved' || t.status === 'closed'
-        ? new Date(Date.now() - 86400000).toISOString().replace('T', ' ').slice(0, 19)
-        : null;
+      const isResolved = t.status === 'resolved' || t.status === 'closed';
+      // Seed explicit created_at older than resolved_at so resolution-time / SLA
+      // metrics stay positive. Without this, resolved_at defaulted to 1 day ago
+      // while created_at defaulted to datetime('now'), yielding negative duration.
+      const createdAt = isResolved ? isoDaysAgo(3) : isoDaysAgo(2);
+      const resolvedAt = isResolved ? isoDaysAgo(1) : null;
       insertTicket.run(num, t.title, t.description, t.category, t.priority, t.status,
         t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
-        t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt);
+        t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt, createdAt);
     }
     insertCounter.run(today, tickets.length, tickets.length);
 

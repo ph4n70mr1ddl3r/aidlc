@@ -103,6 +103,26 @@ describe('warranty expiry alerts exclude disposed assets', () => {
   });
 });
 
+describe('asset inventory value excludes disposed assets', () => {
+  beforeEach(clearAssets);
+  it('assetsTotalValue and assetsByCategory skip disposed assets (regression)', () => {
+    const insert = db.prepare('INSERT INTO assets (asset_tag, name, category, status, purchase_price) VALUES (?, ?, ?, ?, ?)');
+    insert.run('AST-V001', 'active-laptop', 'laptop', 'in_use', 1000);
+    insert.run('AST-V002', 'active-server', 'server', 'in_storage', 5000);
+    // Disposed asset must not count toward inventory value or per-category value.
+    insert.run('AST-V003', 'disposed-laptop', 'laptop', 'disposed', 9000);
+
+    expect(reports.__stmts.assetsTotalValue.get().total).toBe(6000);
+
+    const byCategory = reports.__stmts.assetsByCategory.all();
+    const laptop = byCategory.find(r => r.category === 'laptop');
+    const server = byCategory.find(r => r.category === 'server');
+    expect(laptop.count).toBe(1);
+    expect(laptop.total_value).toBe(1000);
+    expect(server.total_value).toBe(5000);
+  });
+});
+
 describe('resetCachedStatements', () => {
   it('resetCachedStatements is a function that does not throw', () => {
     expect(typeof reports.resetCachedStatements).toBe('function');

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, invalidateActiveStaffCache } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -284,6 +284,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
 
     req.audit('create', 'user', Number(result.lastInsertRowid), `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
+    invalidateActiveStaffCache();
     invalidateDashboardCache();
     return res.redirect('/staff');
   } catch (err) {
@@ -511,6 +512,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     }
 
     req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
+    invalidateActiveStaffCache();
     invalidateDashboardCache();
 
     // Keep session in sync if user is editing their own record — fetch fresh
@@ -604,6 +606,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     // locked-out user. IP lockouts are only cleared at login success.
 
     req.audit('reactivate', 'user', id, 'Reactivated user account');
+    invalidateActiveStaffCache();
     invalidateDashboardCache();
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
@@ -809,6 +812,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
 
       req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
       req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');
+      invalidateActiveStaffCache();
       invalidateDashboardCache();
     }
   } catch (err) {

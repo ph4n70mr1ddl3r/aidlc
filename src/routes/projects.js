@@ -746,17 +746,19 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       });
       const result = updateTask();
 
-      // Recalculate project progress outside the transaction to avoid holding the
-      // SQLite write lock across multiple queries.
-      try {
-        recalcProjectProgress(db, projectId);
-      } catch (err) {
-        console.error(`Progress recalculation error for project #${projectId}:`, err.message);
-      }
-
       if (result.unchanged) {
         req.flash('info', 'Status unchanged');
       } else {
+        // Recalculate project progress outside the transaction to avoid holding the
+        // SQLite write lock across multiple queries. Runs only when the status
+        // actually changed — a no-op submission must not bump the project's
+        // updated_at (which would reorder it under "newest" sorting) or rewrite
+        // progress when nothing changed.
+        try {
+          recalcProjectProgress(db, projectId);
+        } catch (err) {
+          console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+        }
         // Audit the quick-status change — previously this path silently skipped
         // audit logging, so a task toggled to 'done' via the project page left
         // no trail even though the full edit route logged 'update' for the same
@@ -779,6 +781,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
 
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
+  const rawDescription = safeQueryValue(req.body.description);
 
   if (!title) {
     req.flash('error', 'Task title is required');
@@ -855,7 +858,15 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       // Preserve existing priority when absent instead of silently defaulting to
       // 'medium' — partial edits must not overwrite an existing stored priority.
       const effectivePriority = priority || existingTask.priority;
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      // Absent-vs-empty convention for the task description: an explicit empty
+      // string in the form wipes it, while an ABSENT field on a partial API
+      // submission preserves the stored value. Previously a PUT that omitted
+      // description silently nulled it — the inconsistent outlier on a route
+      // where assignee, due_date, and priority all preserve on absence.
+      const effectiveDescription = (rawDescription === undefined || rawDescription === null)
+        ? existingTask.description
+        : (description || '').substring(0, MAX_DESC) || null;
+      const params = [title.substring(0, MAX_MEDIUM_STR), effectiveDescription, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');

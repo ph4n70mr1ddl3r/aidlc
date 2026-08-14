@@ -731,6 +731,17 @@ function _getAssigneeByIdStmt(db) {
 }
 
 /**
+ * Invalidate the getActiveStaff TTL cache (route use).
+ * Called by staff write routes after create/update/reactivate/deactivate so a
+ * freshly created user appears in dropdowns immediately and a deactivated user
+ * stops appearing (claims of staleness were previously left to the 30s TTL).
+ */
+function invalidateActiveStaffCache() {
+  _activeStaffCache = null;
+  _activeStaffCacheTime = 0;
+}
+
+/**
  * Ensure the resource's current assignee/owner appears in the active-staff
  * dropdown even when they have since been deactivated (is_active = 0).
  * getActiveStaff() only returns active users, so without this an edit form
@@ -1134,7 +1145,7 @@ module.exports = {
   daysUntil, usagePercent, isExpiringSoon, titleCase,
   getActiveStaff, isActiveUser, recalcProjectProgress, pruneAuditLog,
   createAuditLogPruner,
-  ensureAssigneeInList,
+  ensureAssigneeInList, invalidateActiveStaffCache,
   asyncHandler, countQuery, selectQuery,
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,

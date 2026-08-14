@@ -253,6 +253,7 @@ router.get('/:id', (req, res) => {
   }
 
   if (!canAccessResource(req, change)) {
+    req.audit('access_denied', 'change', id, `Unauthorized view attempt on change "${change.title}"`);
     req.flash('error', 'You do not have permission to view this change');
     return res.redirect('/changes');
   }

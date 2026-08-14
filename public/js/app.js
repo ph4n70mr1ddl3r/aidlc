@@ -82,7 +82,16 @@ document.addEventListener('submit', function (e) {
   // value survives regardless of when the browser builds the entry list. Removing
   // any previously-injected hidden input first keeps re-submits (e.g. after a
   // failed attempt that was re-enabled) from sending a stale/duplicate value.
-  const submitter = e.submitter || (e.target && document.activeElement && e.target.contains(document.activeElement) ? document.activeElement : null);
+  //
+  // Only mirror REAL submit controls (button / input[type="submit"|"image"]). A
+  // prior fallback to document.activeElement picked up any focused control —
+  // including <select data-auto-submit> fields that call form.requestSubmit()
+  // with no argument (e.submitter === null) — and mirrored the select's
+  // name/value into a hidden input on top of the control's own submission,
+  // duplicating the field in the request. The server-side HPP guards then reject
+  // the duplicate (project task quick-status and report period auto-submit forms
+  // both break as a result).
+  const submitter = e.submitter && e.submitter.matches && e.submitter.matches('button, input[type="submit"], input[type="image"]') ? e.submitter : null;
   if (submitter && submitter.name) {
     const prev = form.querySelector('input[type="hidden"][data-submitter-preserve]');
     if (prev) {

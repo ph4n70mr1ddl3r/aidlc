@@ -386,6 +386,7 @@ router.get('/:id', (req, res) => {
   }
 
   if (!canAccessResource(req, ticket)) {
+    req.audit('access_denied', 'ticket', id, `Unauthorized view attempt on ticket ${ticket.ticket_number}`);
     req.flash('error', 'You do not have permission to view this ticket');
     return res.redirect('/tickets');
   }
@@ -434,6 +435,7 @@ router.get('/:id/edit', (req, res) => {
   }
 
   if (!canAccessResource(req, ticket)) {
+    req.audit('access_denied', 'ticket', id, 'Unauthorized edit attempt on ticket');
     req.flash('error', 'You can only edit tickets assigned to you');
     return res.redirect(`/tickets/${id}`);
   }
@@ -505,6 +507,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // the data. requester_name stays editable for everyone.
   const canEditRequesterPII = isPrivileged(req.session.user);
   const rawRequesterPhone = safeQueryValue(req.body.requester_phone);
+  const rawRequesterDepartment = safeQueryValue(req.body.requester_department);
   let requester_phone = null;
   if (canEditRequesterPII) {
     // Reject overly long phone input before expensive sanitization
@@ -661,11 +664,20 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       const resolvedRequesterEmail = canEditRequesterPII
         ? (requester_email || '').substring(0, MAX_EMAIL)
         : ticket.requester_email;
+      // Absent-vs-empty convention for requester PII: an explicit empty string
+      // in the form ("Clear") wipes the stored value, while an ABSENT field on
+      // a partial API submission preserves it. Previously an absent department/
+      // phone silently wiped the stored value — only requester_email was safe
+      // because validation requires it for privileged editors.
       const resolvedRequesterDept = canEditRequesterPII
-        ? (requester_department || '').substring(0, MAX_SHORT_STR) || null
+        ? ((rawRequesterDepartment === undefined || rawRequesterDepartment === null)
+          ? ticket.requester_department
+          : (requester_department || '').substring(0, MAX_SHORT_STR) || null)
         : ticket.requester_department;
       const resolvedRequesterPhone = canEditRequesterPII
-        ? (requester_phone ? requester_phone.substring(0, MAX_PHONE) : null)
+        ? ((rawRequesterPhone === undefined || rawRequesterPhone === null)
+          ? ticket.requester_phone
+          : (requester_phone ? requester_phone.substring(0, MAX_PHONE) : null))
         : ticket.requester_phone;
 
       const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
@@ -694,6 +706,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       return res.redirect('/tickets');
     }
     if (err.message === 'ACCESS_DENIED') {
+      req.audit('access_denied', 'ticket', id, 'Unauthorized update attempt on ticket');
       req.flash('error', 'You can only update tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
     }
@@ -793,6 +806,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       return res.redirect('/login');
     }
     if (err.message === 'ACCESS_DENIED') {
+      req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');
       req.flash('error', 'You do not have permission to comment on this ticket');
       return res.redirect(`/tickets/${id}`);
     }
@@ -866,6 +880,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
       return res.redirect('/tickets');
     }
     if (err.message === 'ACCESS_DENIED') {
+      req.audit('access_denied', 'ticket', id, 'Unauthorized quick-status update attempt on ticket');
       req.flash('error', 'You can only update status of tickets assigned to you');
       return res.redirect(`/tickets/${id}`);
     }

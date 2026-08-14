@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, normalizeIp } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -43,11 +43,23 @@ const sanitizeHtml = (() => {
 })();
 const rateLimit = require('express-rate-limit');
 
+// Key rate-limiting by authenticated user id (per-account) so one user's
+// requests cannot silence everyone behind the same NAT'd office IP. The
+// normalized-IP fallback exists for defense in depth. Mirrors the
+// commentKeyGenerator pattern in tickets.js.
+function authKeyGenerator(req) {
+  if (req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
+}
+
 // Rate limit knowledge article creation/update — markdown parsing + sanitization
 // is CPU-intensive and could be abused for server-side DoS even by authenticated users.
 const kbWriteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 30,
+  keyGenerator: authKeyGenerator,
   message: 'Too many article submissions. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -61,6 +73,7 @@ const kbWriteLimiter = rateLimit({
 const kbReadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
+  keyGenerator: authKeyGenerator,
   message: 'Too many article requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -117,21 +130,23 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   if (!isPrivileged(user)) {
     return existingFeatured;
   }
-  // When the is_featured field is absent from the request (unchecked checkbox,
-  // which browsers omit entirely), preserve the existing value to prevent
-  // an edit from silently un-featuring the article. Checkboxes with a hidden
-  // `value="0"` field send `0` when unchecked, which is handled below.
+  // When the is_featured field is absent from the request (partial API update
+  // that omits the field), preserve the existing value.
   if (is_featured === undefined || is_featured === '') {
     return existingFeatured;
   }
-  // Only the canonical "checked" values set the flag. A browser only sends a
-  // value when the checkbox is checked; unchecked sends nothing (handled above)
-  // or a hidden "0". parseBooleanFlag rejects any other string (e.g. 'false',
-  // 'off', 'no') so an API/HTML form with a custom value cannot silently mark
-  // an article featured. The privilege gate is already enforced by the early
-  // return above, so `true` is passed here directly — calling isPrivileged
-  // again would be redundant.
-  return parseBooleanFlag(is_featured, true);
+  // The edit form pairs the checkbox (value="1") with a hidden value="0"
+  // companion, so a submission arrives as either '0' (unchecked, single value)
+  // or ['0','1'] (checked, parsed by querystring as an array). In both cases
+  // the last element encodes the checkbox state, so arrays are resolved by
+  // taking the final element rather than safeQueryValue's first-element rule.
+  // Only the canonical "checked" values set the flag; parseBooleanFlag rejects
+  // any other string (e.g. 'false', 'off', 'no') so an API/HTML form with a
+  // custom value cannot silently mark an article featured. The privilege gate
+  // is already enforced by the early return above, so `true` is passed here
+  // directly — calling isPrivileged again would be redundant.
+  const lastValue = Array.isArray(is_featured) ? is_featured[is_featured.length - 1] : is_featured;
+  return parseBooleanFlag(lastValue, true);
 }
 
 // Markdown options are inlined per-call in renderMarkdown to avoid
@@ -318,8 +333,11 @@ router.get('/new', (req, res) => {
 
 // Create article
 router.post('/', kbWriteLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads.
-  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
+  // Fail closed on HTTP parameter pollution: reject array payloads. is_featured
+  // is intentionally excluded — a checked checkbox paired with its hidden
+  // value="0" companion submits is_featured=0&is_featured=1, which the parser
+  // turns into an array; resolveSafeFeatured resolves the last element.
+  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status']);
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/knowledge/new');
@@ -330,7 +348,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
   const category = trim(safeQueryValue(req.body.category));
   const tags = trim(safeQueryValue(req.body.tags));
   const status = trim(safeQueryValue(req.body.status));
-  const is_featured = safeQueryValue(req.body.is_featured);
+  const is_featured = req.body.is_featured;
 
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
@@ -485,8 +503,11 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  // Fail closed on HTTP parameter pollution: reject array payloads.
-  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status', 'is_featured']);
+  // Fail closed on HTTP parameter pollution: reject array payloads. is_featured
+  // is intentionally excluded — see the POST handler for why (hidden value="0"
+  // + checkbox submit an array when checked; resolveSafeFeatured takes the
+  // last element).
+  const hppErrors = rejectHppArrays(req, ['title', 'content', 'category', 'tags', 'status']);
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/knowledge/${id}/edit`);
@@ -510,7 +531,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const category = trim(safeQueryValue(req.body.category));
   const tags = trim(safeQueryValue(req.body.tags));
   const status = trim(safeQueryValue(req.body.status));
-  const is_featured = safeQueryValue(req.body.is_featured);
+  const is_featured = req.body.is_featured;
 
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
