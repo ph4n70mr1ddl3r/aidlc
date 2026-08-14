@@ -526,7 +526,7 @@ app.use((err, req, res, _next) => {
     if (typeof req.flash === 'function') {
       req.flash('error', 'Invalid security token. Please try again.');
     }
-    const ref = req.get('Referrer');
+    const ref = req.get('Referer');
     // Only redirect to same-origin referrer pathname to prevent open redirect.
     // Strip query string to prevent CSRF token from leaking via Referer header.
     // Use hostname (not host) to avoid port-mismatch bugs.

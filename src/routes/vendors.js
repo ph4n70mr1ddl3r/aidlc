@@ -597,6 +597,16 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       req.flash('error', 'Contract end must be on or after contract start');
       return res.redirect(`/vendors/${id}/edit`);
     }
+    // Handle contract date errors with the same message format as the create route
+    // (sentence case, including "date") for consistency.
+    if (err.message === 'INVALID_CONTRACT_START') {
+      req.flash('error', 'Invalid contract start date');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
+    if (err.message === 'INVALID_CONTRACT_END') {
+      req.flash('error', 'Invalid contract end date');
+      return res.redirect(`/vendors/${id}/edit`);
+    }
     if (err.message.startsWith('INVALID_')) {
       const fieldName = err.message.replace('INVALID_', '').replace(/_/g, ' ');
       req.flash('error', `Invalid ${fieldName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}`);
