@@ -9,7 +9,27 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle 2026-08-13 (109th pass)
+## Review cycle 2026-08-13 (112th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
+test suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two audit-trail gaps closed:
+
+### Fixes applied
+- **`src/routes/assets.js` — show route missing `access_denied` audit (LOW, audit gap).**
+  Unauthorized view attempts on assets were redirected without leaving an audit
+  trail. Added `req.audit('access_denied', 'asset', id, ...)` mirroring the
+  pattern already used by tickets, changes, and knowledge routes.
+- **`src/routes/projects.js` — show route missing `access_denied` audit (LOW, audit gap).**
+  Same gap as above for projects. Added `req.audit('access_denied', 'project', id, ...)`
+  so unauthorized project-view attempts are logged for security review.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **677 passed / 677 total** (27 suites).
+
+## Review cycle 2026-08-13 (111th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware
 modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the
