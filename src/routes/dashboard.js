@@ -1,13 +1,36 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
+const { normalizeIp } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
-// Rate limit dashboard requests to prevent abuse of aggregation queries
+// Key rate-limiting by authenticated user id (per-account) so one user's
+// reloads cannot silence everyone behind the same NAT'd office IP — the
+// dashboard is the landing page for ALL users, so IP-keying a tight 10/min
+// limit would throttle whole offices sharing an egress address. Mirrors the
+// authKeyGenerator pattern in knowledge.js / reports.js / audit.js / tickets.js.
+function authKeyGenerator(req) {
+  if (req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
+}
+
+// Rate limit dashboard requests to prevent abuse of aggregation queries.
+// Uses a plain 429 response (with a queued flash for the next page view)
+// rather than the flash+redirect handler reports.js uses — every dashboard
+// route passes through this limiter, so redirecting back to /dashboard would
+// produce a redirect loop once the limit is tripped.
 const dashboardLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10,
-  message: 'Too many dashboard requests. Please wait.',
+  keyGenerator: authKeyGenerator,
+  handler: (req, res) => {
+    if (typeof req.flash === 'function') {
+      req.flash('error', 'Too many dashboard requests. Please wait a moment and try again.');
+    }
+    res.status(429).send('Too many dashboard requests. Please wait a moment and try again.');
+  },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -39,14 +62,6 @@ const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
 // astronomically large values (days/weeks of stale data) cannot occur.
 const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? Math.max(1_000, Math.min(3_600_000, _parsedDTTL)) : 30_000;
 let dashboardCache = { timestamp: 0, data: null };
-// Flag to prevent cache stampede — when a refresh is already in progress,
-// in-flight requests serve the previous cache (or EMPTY_DEFAULTS) instead of
-// all hitting the DB at once when the TTL expires. Safer than a bare TTL when
-// multiple requests can arrive concurrently (e.g. browser tab reloads, health
-// probes that hit the dashboard). The comment above notes better-sqlite3 is
-// single-threaded, but a stampede can still fire from different processes or
-// when the cache is explicitly invalidated multiple times in quick succession.
-let _dashboardRefreshing = false;
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)
 // so the template doesn't crash on property access like ticketStats.open.
@@ -166,41 +181,32 @@ function getDashboardData(user) {
   const now = Date.now();
   let shared;
 
-  if (dashboardCache.data && (now - dashboardCache.timestamp) < DASHBOARD_TTL_MS && !_dashboardRefreshing) {
+  if (dashboardCache.data && (now - dashboardCache.timestamp) < DASHBOARD_TTL_MS) {
     shared = dashboardCache.data;
   } else {
-    // If a refresh is already in progress, serve the previous cache (or defaults)
-    // to avoid a stampede where N concurrent requests all hit the DB simultaneously.
-    if (_dashboardRefreshing) {
-      shared = dashboardCache.data || EMPTY_DEFAULTS;
-    } else {
-      _dashboardRefreshing = true;
-      try {
-        shared = {
-          ticketStats: stmts.ticketStats.get(),
-          assetStats: stmts.assetStats.get(),
-          projectStats: stmts.projectStats.get(),
-          staffCount: stmts.staffCount.get(),
-          recentTickets: stmts.recentTickets.all(),
-          expiringWarranties: stmts.expiringWarranties.all(),
-          upcomingChanges: stmts.upcomingChanges.all(),
-          ticketsByCategory: stmts.ticketsByCategory.all(),
-          staffWorkload: stmts.staffWorkload.all(),
-          licenseAlerts: stmts.licenseAlerts.all()
-        };
+    try {
+      shared = {
+        ticketStats: stmts.ticketStats.get(),
+        assetStats: stmts.assetStats.get(),
+        projectStats: stmts.projectStats.get(),
+        staffCount: stmts.staffCount.get(),
+        recentTickets: stmts.recentTickets.all(),
+        expiringWarranties: stmts.expiringWarranties.all(),
+        upcomingChanges: stmts.upcomingChanges.all(),
+        ticketsByCategory: stmts.ticketsByCategory.all(),
+        staffWorkload: stmts.staffWorkload.all(),
+        licenseAlerts: stmts.licenseAlerts.all()
+      };
 
-        dashboardCache = { timestamp: now, data: shared };
-      } catch (err) {
-        console.error('Dashboard cache refresh error:', err.message);
-        // On DB error, re-use previous cache if available (stale data is better
-        // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
-        // there is no prior cache at all (first-request failure).
-        // Do NOT update the timestamp so the next request retries immediately
-        // instead of waiting for the full TTL before refreshing.
-        shared = dashboardCache.data || EMPTY_DEFAULTS;
-      } finally {
-        _dashboardRefreshing = false;
-      }
+      dashboardCache = { timestamp: now, data: shared };
+    } catch (err) {
+      console.error('Dashboard cache refresh error:', err.message);
+      // On DB error, re-use previous cache if available (stale data is better
+      // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
+      // there is no prior cache at all (first-request failure).
+      // Do NOT update the timestamp so the next request retries immediately
+      // instead of waiting for the full TTL before refreshing.
+      shared = dashboardCache.data || EMPTY_DEFAULTS;
     }
   }
 
@@ -237,11 +243,6 @@ function getDashboardData(user) {
  */
 function invalidateDashboardCache() {
   dashboardCache = { timestamp: 0, data: null };
-  // Reset the refreshing flag so a concurrent or subsequent invalidation
-  // does not leave the cache in a half-refreshed state where the next
-  // request serves EMPTY_DEFAULTS indefinitely instead of triggering a
-  // fresh aggregation query.
-  _dashboardRefreshing = false;
 }
 
 router.get('/', (req, res) => {
@@ -259,7 +260,6 @@ router.get('/', (req, res) => {
  */
 function resetCachedStatements() {
   dashboardCache = { timestamp: 0, data: null };
-  _dashboardRefreshing = false;
 }
 
 module.exports = router;

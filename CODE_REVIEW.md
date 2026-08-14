@@ -9,7 +9,52 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle 2026-08-13 (112th pass)
+## Review cycle 2026-08-14 (114th pass)
+
+An independent pass (full re-read of all 11 route modules, both middleware
+modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+and the test suite) focused on completeness, consistency, and unambiguity.
+**No new SQL injection, CSRF, or XSS defects.** Several fail-open validation
+gaps, an access-policy inconsistency, an ineffective file-permission control,
+and a set of cross-file contract mismatches were fixed:
+
+### Fixes applied
+
+**Completeness / security**
+- **`src/models/database.js` — `mode: 0o640` constructor option is silently ignored by better-sqlite3 (MEDIUM).** The DB file (password hashes, requester PII, license keys, audit trail) was created world-readable under the default umask despite the comment claiming 0o640. Now enforced with an explicit `chmodSync(0o640)` on the DB plus WAL/SHM sidecars (re-applied after the WAL pragma creates them), best-effort with a warning on failure.
+- **`src/routes/licenses.js` + `views/partials/nav.ejs` — list route exposed exactly the business-sensitive data the show route gates on (MEDIUM).** `/licenses` rendered cost/seats for every license to any authenticated staff user while `/licenses/:id` is `requireAdminOrManager` ("license cost and seat data is business-sensitive"). List route now gated the same way, nav link moved inside the privileged block, and the unrendered `l.notes` column dropped from the SELECT.
+- **`src/utils.js` `resolveOptionalField` — present non-string JSON values silently cleared stored data (MEDIUM).** `{"email": 123}` (or any number/boolean/object) passed through `trim()` → `''` → the clear branch, wiping the stored field with a success flash. The helper now returns the `{ error: true }` sentinel for present non-string raw values; sentinel checks added in `changes.js` (description/impact) and `projects.js` (description), which previously ignored it. `staff.js` and `vendors.js` create/update routes gained matching explicit non-string guards for `department` and the vendor optional text fields.
+- **Truthiness-based malformed-date guards (`assets/tickets/projects/licenses/vendors`) — falsy non-string JSON dates bypassed validation (LOW-MEDIUM).** `if (x && x !== '' && …)` let `{"purchase_date": 0}` skip the guard and then wipe the stored date via the absent-vs-empty resolution. All 16 guards converted to explicit `x !== undefined && x !== null && x !== ''` checks, matching `_resolveClearableDate` semantics.
+- **`src/routes/assets.js` — present-but-invalid `status` silently swallowed on update (MEDIUM).** The only enum on the route without fail-closed validation; a typo'd status kept the stored value and flashed success. Now rejected like `category`/`condition_rating` and the create route, projects.js, and tickets.js.
+- **`src/routes/dashboard.js` + `src/routes/licenses.js` — IP-keyed rate limiters locked out NAT'd offices (MEDIUM/LOW).** The dashboard limiter (10/min, landing page for ALL users) and both license limiters were the only ones not keyed by authenticated user id. Both now use the shared `authKeyGenerator` pattern (user id with normalized-IP fallback); the dashboard handler answers 429 directly (a flash+redirect would loop — every dashboard route passes through the limiter).
+
+**Consistency**
+- **`src/routes/projects.js` — member-add `user_id` failed open via `safeId` parseInt coercion (LOW-MEDIUM).** `'5abc'` → member #5. Now guarded by `isPresentInvalidId` like every other relational id in the codebase.
+- **`src/routes/projects.js` — quick-status path reported invalid input as "Status unchanged" (LOW).** Now rejects a bogus status up front, mirroring tickets.js quick-status and the full-update branch.
+- **`src/routes/projects.js` — `_showMembersStmt` had `LIMIT 100` with no `ORDER BY` (LOW).** Non-deterministic subset; added `ORDER BY pm.id ASC`. Also: member-add audit now records the real `project_member` id (`lastInsertRowid`) like member-delete; `_taskQuickStatusStmt` aligned to the COALESCE `completed_at` encoding used by the full update; `_projectBudgetSpentStmt` renamed `_projectUpdateBaseStmt` (it selects 8 columns, not 2).
+- **`src/routes/staff.js` — race-path error message dropped "or manager" (LOW).** In-transaction `ACCESS_DENIED_ADMIN` recheck now flashes the same message as the outer check.
+- **`src/routes/auth.js` — profile update did not invalidate the active-staff cache (LOW).** Self-service renames left stale names in every dropdown for up to 30s; now mirrors `PUT /staff/:id` by invalidating both caches.
+- **`src/middleware/auth.js` — role sync left `res.locals.user` stale for the current request (LOW).** After re-assigning `req.session.user`, `res.locals.user` still referenced the pre-sync object, rendering one request of stale role-gated UI. Now refreshed.
+
+**Unambiguity**
+- **`src/routes/tickets.js` + `views/pages/tickets/form.ejs` — edit form contradicted the route's documented PII contract (MEDIUM).** The route assumes "non-privileged editors' submissions lack the PII fields", but the form rendered them (with `required` on the email input, forcing staff to fabricate a value that was then silently discarded). The form now omits email/department/phone for non-privileged editors, making the preserve-on-absent logic operative; comment updated.
+- **`src/routes/reports.js` + `views/pages/reports/assets.ejs` — "Both queries exclude disposed" comment was false and the page totals disagreed (LOW-MEDIUM).** Only `assetsByCategory` excluded disposed, so the "Total Assets" card disagreed with the status/condition/age breakdowns on the same page. Comment now states the actual split (value queries exclude disposed; fleet-composition breakdowns cover all assets) and the stat card is labeled "Active Assets".
+- **`views/pages/knowledge/index.ejs` — "New Article" hidden from staff although the routes implement staff draft authoring (MEDIUM-LOW).** `GET /new`, `POST /`, and `resolveSafeStatus`'s force-draft-on-create branch all support non-privileged authors; the entry-point gate made that dead UI. Gate removed.
+- **`src/seed.js` — CLI production guard made `runSeed`'s documented `SEED_DANGER=1` override unreachable via `npm run seed` (LOW).** The CLI early-exit now honors the override; both guards enforce the same rule.
+- **`src/routes/dashboard.js` — `_dashboardRefreshing` was unreachable dead state (LOW).** `getDashboardData` is fully synchronous, so no request could ever observe the flag; its comment also justified it with impossible cross-process sharing of a module-local `let`. Removed (header comment already documents why no lock is needed).
+- **`src/routes/knowledge.js` — comment said "Prepend" but the code appends (LOW).** Reworded to match `concat(...).slice(-MAX)` (evicts oldest-viewed from the front).
+- **`views/pages/error.ejs` — hardcoded "500 / Server Error" for 4xx responses (LOW).** The error handler honors `err.status` (e.g. 413) but the page always showed 500; now displays the actual code and "Request Error" for 4xx.
+- **`views/pages/dashboard.ejs` — upcoming changes dropped the time from `scheduled_start` (LOW).** Switched to `formatDateTime` like changes index/show.
+- **`views/partials/nav.ejs` — "My Tickets" filtered to `status=open` only (LOW).** An assignee whose tickets were all `in_progress` got an empty list; now matches the dashboard's "My Active Tickets" link.
+- **`views/pages/licenses/index.ejs` — expired licenses not highlighted (LOW).** `isExpiringSoon` ignores negative days; expired rows now highlight like expiring-soon ones (mirrors the dashboard warranty and asset Expired badge conventions).
+- **`views/pages/staff/index.ejs` — only list page without an empty state (LOW).** Added the standard `empty-state` block.
+- **`public/css/app.css` — `.alert`/`.alert-warning` used by the knowledge fallback banner were undefined (LOW).** Added, mirroring `.flash` styling.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **700 passed / 700 total** (28 suites, +23 regression tests in `tests/code_review_114.test.js` covering the resolveOptionalField sentinel, assets status validation, projects member-add/quick-status, changes/vendors/staff non-string guards, the licenses list policy, tickets-form PII gating, expired-license highlight, and the error-page status code).
+
+## Review cycle 2026-08-13 (113th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware
 modules, utils, constants, models, seed, EJS views, `public/js/app.js`, and the

@@ -1,4 +1,5 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'itmanager.db');
@@ -6,7 +7,7 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 
 // Ensure data directory exists
 const dir = path.dirname(DB_PATH);
 try {
-  require('fs').mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true });
 } catch (err) {
   console.error(`ERROR: Cannot create database directory "${dir}": ${err.message}`);
   process.exit(1);
@@ -14,14 +15,37 @@ try {
 
 let db;
 try {
-  // Mode 0o640: owner read/write, group read. This is the correct default for
-  // single-process deployments. Multi-process/container deployments may need to
-  // adjust the mode (e.g. 0o644) if the runtime user differs from the DB owner.
-  db = new Database(DB_PATH, { mode: 0o640 });
+  db = new Database(DB_PATH);
 } catch (err) {
   console.error(`ERROR: Cannot open database at "${DB_PATH}": ${err.message}`);
   process.exit(1);
 }
+
+// Restrict database file permissions to 0o640 (owner read/write, group read):
+// the database holds password hashes, requester PII, license keys, and the
+// audit trail, so it must not be world-readable. better-sqlite3 does NOT
+// support a `mode` constructor option (unknown keys are silently ignored), so
+// the file is created with the process umask (typically 0o644, world-readable)
+// unless chmod is applied explicitly. Best-effort: failures (e.g. exotic
+// filesystems) log a warning instead of exiting — the DB is still functional,
+// just with default permissions. Multi-process/container deployments whose
+// runtime user differs from the file owner may need wider modes and can adjust
+// ownership separately.
+function _restrictDbFilePermissions() {
+  if (DB_PATH === ':memory:') {
+    return;
+  }
+  try {
+    for (const p of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
+      if (fs.existsSync(p)) {
+        fs.chmodSync(p, 0o640);
+      }
+    }
+  } catch (err) {
+    console.warn(`WARNING: Could not restrict database file permissions to 0o640: ${err.message}`);
+  }
+}
+_restrictDbFilePermissions();
 
 // Enable WAL mode for better performance. Assert the result: on filesystems
 // that don't support WAL the pragma silently "succeeds" but returns a
@@ -34,6 +58,10 @@ const journalMode = db.pragma('journal_mode = WAL', { simple: true });
 if (!isMemoryDb && journalMode !== 'wal') {
   console.warn(`WARNING: SQLite WAL mode not enabled (got "${journalMode}"). Concurrency/durability assumptions may not hold.`);
 }
+// Re-apply permissions now that WAL mode has created the -wal/-shm sidecar
+// files — they are created by SQLite with the process umask and inherit no
+// mode from the main database file.
+_restrictDbFilePermissions();
 // Referential integrity must be ON or every FK-backed cascade/cleanup in the
 // routes silently stops enforcing. Assert it actually turned on (exit, not warn).
 db.pragma('foreign_keys = ON');

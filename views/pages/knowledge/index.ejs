@@ -1,6 +1,6 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Knowledge Base <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Knowledge Base</div></div><% if (isPrivileged(user)) { %><a href="/knowledge/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Article</a><% } %></div>
+<div class="page-header"><div><h2>Knowledge Base <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Knowledge Base</div></div><a href="/knowledge/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Article</a></div>
 <form method="GET" action="/knowledge" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search articles..." aria-label="Search articles" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="category" aria-label="Filter by category">

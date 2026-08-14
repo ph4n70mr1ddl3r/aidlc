@@ -657,9 +657,12 @@ function recalcProjectProgress(db, projectId) {
  * the field is ABSENT from the request (partial submission). An empty submitted
  * value CLEARS the field (null), consistent with the create route.
  * When present and non-empty, the value is truncated to maxLen (if provided).
-  * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
-  * vendors.js, licenses.js, projects.js, and changes.js. Rejects arrays from
-  * HTTP parameter pollution.
+ * Extracted to eliminate the repeated raw !== undefined ? ... pattern across
+ * vendors.js, licenses.js, projects.js, and changes.js. Rejects arrays from
+ * HTTP parameter pollution AND present non-string values (e.g. a JSON number
+ * or object) — a non-string is neither "absent" nor an intentional empty-string
+ * clear, and previously collapsed to the clear branch, silently wiping the
+ * stored value; callers must check for the { error: true } sentinel.
  * @param {*} rawValue - the raw req.body[field] value; may be undefined
  *   (absent field), a string, an array (HPP), or any other type.
  * @param {*} processedValue - the already-processed value or null; non-string
@@ -672,7 +675,7 @@ function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
   if (rawValue === undefined || rawValue === null) {
     return existingValue;
   }
-  if (Array.isArray(rawValue)) {
+  if (Array.isArray(rawValue) || typeof rawValue !== 'string') {
     return { error: true };
   }
   if (processedValue !== null && processedValue !== '') {

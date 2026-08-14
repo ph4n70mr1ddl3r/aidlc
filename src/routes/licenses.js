@@ -5,10 +5,24 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositi
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
+const { normalizeIp } = require('../utils');
+
+// Key rate-limiting by authenticated user id (per-account) so one admin's
+// requests cannot silence the whole team behind a NAT'd office IP — the key
+// reveal limiter is the anti-exfiltration control for the module's most
+// sensitive secret and must not be exhaustible by colleagues. Mirrors the
+// authKeyGenerator pattern in knowledge.js / reports.js / audit.js.
+function authKeyGenerator(req) {
+  if (req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
+}
 
 const licenseWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
+  keyGenerator: authKeyGenerator,
   message: 'Too many license operations. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -58,6 +72,7 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
 const licenseKeyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
+  keyGenerator: authKeyGenerator,
   message: 'Too many key reveal requests. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -80,8 +95,12 @@ const _licenseUpdateStmt = db.prepare(`
     WHERE id = ?
   `);
 
-// List licenses (paginated)
-router.get('/', (req, res) => {
+// List licenses (paginated) — admin/manager only, matching the show route:
+// the list renders the same business-sensitive cost and seat data the show
+// route is gated on, so leaving it open to all staff would render that gate
+// meaningless. `notes` is intentionally not selected — the index template
+// never renders it (mirrors the dashboard's minimal-column convention).
+router.get('/', requireAdminOrManager, (req, res) => {
   const { page: requestedPage, limit } = paginate(req);
 
   const qLicenseType = safeQueryValue(req.query.license_type);
@@ -105,7 +124,7 @@ router.get('/', (req, res) => {
 
   const licenses = selectQuery(db, `
     SELECT l.id, l.software_name, l.vendor, l.license_type, l.total_seats, l.used_seats,
-      l.purchase_date, l.expiry_date, l.cost, l.notes, l.created_at, l.updated_at
+      l.purchase_date, l.expiry_date, l.cost, l.created_at, l.updated_at
     FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
@@ -193,11 +212,11 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // malformed-date handling on projects/assets/vendors/change-log.
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
-  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+  if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
     req.flash('error', 'Invalid purchase date');
     return res.redirect('/licenses/new');
   }
-  if (expiry_date && expiry_date !== '' && sExpiry === null) {
+  if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '' && sExpiry === null) {
     req.flash('error', 'Invalid expiry date');
     return res.redirect('/licenses/new');
   }
@@ -364,11 +383,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // malformed-date handling on projects/assets/vendors/change-log.
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
-  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+  if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
     req.flash('error', 'Invalid purchase date');
     return res.redirect(`/licenses/${id}/edit`);
   }
-  if (expiry_date && expiry_date !== '' && sExpiry === null) {
+  if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '' && sExpiry === null) {
     req.flash('error', 'Invalid expiry date');
     return res.redirect(`/licenses/${id}/edit`);
   }

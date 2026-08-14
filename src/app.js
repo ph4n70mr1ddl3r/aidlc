@@ -557,7 +557,7 @@ app.use((err, req, res, _next) => {
     return res.status(status).json({ error: detail });
   }
 
-  res.status(status).render('pages/error', { title: 'Error', error: { message: detail } });
+  res.status(status).render('pages/error', { title: 'Error', statusCode: status, error: { message: detail } });
 });
 
 // ---------------------------------------------------------------------------

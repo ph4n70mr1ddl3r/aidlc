@@ -301,7 +301,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // Reject a present, non-empty due date that fails to parse (fail-closed)
   // instead of silently storing NULL — mirrors projects/assets/vendors/change-log.
   const safeDueDate = safeDate(due_date);
-  if (due_date && due_date !== '' && safeDueDate === null) {
+  if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
     req.flash('error', 'Invalid due date');
     return res.redirect('/tickets/new');
   }
@@ -501,10 +501,12 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
   // Requester PII (email/phone/department) is only editable by privileged users
-  // (admin/manager). Non-privileged editors' forms redact these fields (matching
-  // the show route), so their submissions lack them and the stored values are
-  // preserved inside the transaction rather than failing validation or wiping
-  // the data. requester_name stays editable for everyone.
+  // (admin/manager). The edit form omits these fields entirely for non-
+  // privileged editors (matching the show route's redaction), so their
+  // submissions lack them and the stored values are preserved inside the
+  // transaction rather than failing validation or wiping the data. On create
+  // the fields are rendered for everyone, prefilled with the submitter's own
+  // PII. requester_name stays editable for everyone.
   const canEditRequesterPII = isPrivileged(req.session.user);
   const rawRequesterPhone = safeQueryValue(req.body.requester_phone);
   const rawRequesterDepartment = safeQueryValue(req.body.requester_department);
@@ -557,7 +559,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // instead of silently overwriting a stored date with NULL when any other
   // field is edited — mirrors projects/assets/vendors/change-log.
   const safeDueDate = safeDate(due_date);
-  if (due_date && due_date !== '' && safeDueDate === null) {
+  if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
     req.flash('error', 'Invalid due date');
     return res.redirect(`/tickets/${id}/edit`);
   }

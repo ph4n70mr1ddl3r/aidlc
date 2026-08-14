@@ -76,6 +76,14 @@ body {
 .flash.success { background: var(--success-light); color: var(--success); border: 1px solid #bbf7d0; }
 .flash.error { background: var(--danger-light); color: var(--danger); border: 1px solid #fecaca; }
 .flash.info { background: var(--info-light); color: var(--info); border: 1px solid #a5f3fc; }
+/* Inline alert banner (knowledge show page's markdown-fallback warning).
+   Mirrors .flash styling so the degraded-rendering notice is visually
+   presented as a warning instead of unstyled plain text. */
+.alert {
+  padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px; font-size: 14px;
+}
+.alert-warning { background: var(--warning-light); color: var(--warning); border: 1px solid #fde68a; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .card {
   background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden;

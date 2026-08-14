@@ -10,7 +10,9 @@
       <div class="nav-section">Operations</div>
       <a href="/tickets" class="nav-item <% if (currentPage && currentPage.startsWith('/tickets')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/tickets')) { %>aria-current="page"<% } %>><i class="fas fa-ticket" aria-hidden="true"></i> Tickets</a>
       <a href="/assets" class="nav-item <% if (currentPage && currentPage.startsWith('/assets')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/assets')) { %>aria-current="page"<% } %>><i class="fas fa-box" aria-hidden="true"></i> Assets</a>
+      <% if (isPrivileged(user)) { %>
       <a href="/licenses" class="nav-item <% if (currentPage && currentPage.startsWith('/licenses')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/licenses')) { %>aria-current="page"<% } %>><i class="fas fa-key" aria-hidden="true"></i> Licenses</a>
+      <% } %>
       <a href="/projects" class="nav-item <% if (currentPage && currentPage.startsWith('/projects')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/projects')) { %>aria-current="page"<% } %>><i class="fas fa-project-diagram" aria-hidden="true"></i> Projects</a>
       <div class="nav-section">Management</div>
       <a href="/staff" class="nav-item <% if (currentPage && currentPage.startsWith('/staff')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/staff')) { %>aria-current="page"<% } %>><i class="fas fa-users" aria-hidden="true"></i> Staff</a>
@@ -29,7 +31,7 @@
       <div class="header-left"><h1><%= typeof title !== 'undefined' ? title : 'Dashboard' %></h1></div>
       <div class="header-right">
         <button class="btn btn-sm btn-outline mobile-menu-toggle" data-toggle="sidebar" title="Menu" aria-label="Toggle menu"><i class="fas fa-bars"></i></button>
-        <a href="/tickets?status=open&assigned_to=<%= user.id %>" class="btn btn-sm btn-outline" title="My Tickets" aria-label="My Tickets"><i class="fas fa-bell"></i></a>
+        <a href="/tickets?assigned_to=<%= user.id %>" class="btn btn-sm btn-outline" title="My Tickets" aria-label="My Tickets"><i class="fas fa-bell"></i></a>
         <a href="/profile" class="user-menu">
           <div class="user-avatar"><%= (user.first_name || '?').charAt(0) %><%= (user.last_name || '?').charAt(0) %></div>
           <div class="user-info"><div class="name"><%= user.first_name %> <%= user.last_name %></div><div class="role"><%= titleCase(user.role) %></div></div>

@@ -77,6 +77,13 @@ function _verifySessionUser(req, res) {
     }
     if (row.role !== req.session.user.role) {
       req.session.user = { ...req.session.user, role: row.role, password_changed_at: row.password_changed_at || null };
+      // app.js captured res.locals.user BEFORE this middleware ran, so it
+      // still references the pre-sync object — refresh it so templates and
+      // isPrivileged()-gated UI rendered for THIS request reflect the synced
+      // role instead of showing stale security-relevant UI for one request.
+      if (res && res.locals) {
+        res.locals.user = req.session.user;
+      }
       // Persist the role change immediately so subsequent middleware in the
       // same request cycle (e.g. requireRole) sees the updated role without
       // waiting for the next response cycle's resave.

@@ -459,10 +459,11 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     } catch (err) {
       console.error('View count update error:', err.message);
     }
-    // Prepend the new article and cap the tracking set by evicting the oldest
-    // entry. Use concat (non-mutating) instead of push so that the reassignment
-    // below triggers the session.modified flag — resave:false won't persist
-    // in-place array mutations against the same reference.
+    // Append the new article id and cap the tracking set with slice(-MAX),
+    // which evicts the OLDEST-viewed entry from the front. Use concat
+    // (non-mutating) instead of push so that the reassignment below triggers
+    // the session.modified flag — resave:false won't persist in-place array
+    // mutations against the same reference.
     req.session[VIEWED_KEY] = viewed.concat(id).slice(-MAX_VIEWED_ARTICLES);
   }
 

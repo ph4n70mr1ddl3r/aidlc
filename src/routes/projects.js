@@ -52,9 +52,12 @@ const _showMembersStmt = db.prepare(`
     FROM project_members pm
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
+    ORDER BY pm.id ASC
     LIMIT 100
   `);
-const _projectBudgetSpentStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id, description FROM projects WHERE id = ?');
+// Loads the full set of columns the update transaction preserves on partial
+// submissions (budget/spent plus status/priority/dates/owner/description).
+const _projectUpdateBaseStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id, description FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -77,7 +80,7 @@ const _taskInsertStmt = db.prepare(`
 const _taskExistsStmt = db.prepare('SELECT id, project_id, title, description, status, priority, assigned_to, due_date, completed_at, created_at, updated_at FROM project_tasks WHERE id = ? AND project_id = ?');
 const _taskQuickStatusStmt = db.prepare(`
     UPDATE project_tasks SET status = ?,
-      completed_at = CASE WHEN ? THEN datetime('now') ELSE NULL END,
+      completed_at = CASE WHEN ? THEN COALESCE(completed_at, datetime('now')) ELSE NULL END,
       updated_at = datetime('now')
     WHERE id = ? AND project_id = ?
   `);
@@ -222,11 +225,11 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // storing NULL. Empty input is allowed (falls back to NULL); only a present
   // value that fails to parse is an error. Mirrors the strict date validation
   // in changes.js (_resolveDateTimeField) and licenses.js.
-  if (start_date && start_date !== '' && sStart === null) {
+  if (start_date !== undefined && start_date !== null && start_date !== '' && sStart === null) {
     req.flash('error', 'Invalid start date');
     return res.redirect('/projects/new');
   }
-  if (end_date && end_date !== '' && sEnd === null) {
+  if (end_date !== undefined && end_date !== null && end_date !== '' && sEnd === null) {
     req.flash('error', 'Invalid end date');
     return res.redirect('/projects/new');
   }
@@ -400,11 +403,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // storing NULL. Empty input is allowed (falls back to NULL); only a present
     // value that fails to parse is an error. Mirrors the strict date validation
     // in changes.js (_resolveDateTimeField) and licenses.js.
-    if (start_date && start_date !== '' && sStart === null) {
+    if (start_date !== undefined && start_date !== null && start_date !== '' && sStart === null) {
       req.flash('error', 'Invalid start date');
       return res.redirect(`/projects/${id}/edit`);
     }
-    if (end_date && end_date !== '' && sEnd === null) {
+    if (end_date !== undefined && end_date !== null && end_date !== '' && sEnd === null) {
       req.flash('error', 'Invalid end date');
       return res.redirect(`/projects/${id}/edit`);
     }
@@ -430,7 +433,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       // preserve values when the submitted fields are absent, eliminating a
       // TOCTOU race where these fields are modified between the SELECT and the
       // UPDATE.
-      const existingProject = _projectBudgetSpentStmt.get(id);
+      const existingProject = _projectUpdateBaseStmt.get(id);
       if (!existingProject) {
         throw new Error('NOT_FOUND');
       }
@@ -512,7 +515,15 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('DATE_RANGE_INVALID');
       }
 
-      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), resolveOptionalField(rawDescription, description || null, MAX_DESC, existingProject.description), effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
+      // Present-but-non-string description (e.g. a JSON number) is rejected
+      // rather than silently clearing the stored value — the fail-closed
+      // sentinel contract honored by vendors.js/licenses.js/changes.js.
+      const resolvedDescription = resolveOptionalField(rawDescription, description || null, MAX_DESC, existingProject.description);
+      if (resolvedDescription && resolvedDescription.error) {
+        throw new Error('INVALID_DESCRIPTION');
+      }
+
+      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), resolvedDescription, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
         preservedBudget, preservedSpent, resolvedOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -549,6 +560,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
     if (err.message === 'DATE_RANGE_INVALID') {
       req.flash('error', 'End date must be on or after start date');
+      return res.redirect(`/projects/${id}/edit`);
+    }
+    if (err.message === 'INVALID_DESCRIPTION') {
+      req.flash('error', 'Invalid description');
       return res.redirect(`/projects/${id}/edit`);
     }
     console.error('Project update error:', err.message);
@@ -658,7 +673,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       const safeDueDate = safeDate(due_date);
       // Fail-closed: a present but malformed due_date must be rejected rather than
       // silently stored as NULL — consistent with ticket/project/asset date validation.
-      if (due_date && due_date !== '' && safeDueDate === null) {
+      if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
@@ -726,6 +741,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // Uses explicit '1' check to mirror the is_featured checkbox idiom in
   // knowledge.js — prevents accidental truthy matches on arbitrary strings.
   if (safeQueryValue(req.body._quick_status) === '1') {
+    // Reject an invalid present status up front (mirrors the tickets.js
+    // quick-status route) — previously it silently fell back to the stored
+    // status and reported "Status unchanged", mislabeling invalid input as a
+    // valid no-op.
+    if (typeof status !== 'string' || !VALID_TASK_STATUSES.includes(status)) {
+      req.flash('error', 'Invalid task status');
+      return res.redirect(`/projects/${projectId}`);
+    }
     // Quick status update only — read current status and update atomically
     // inside a single transaction to avoid a TOCTOU where a concurrent change
     // between the read and the UPDATE is silently overwritten.
@@ -842,7 +865,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       const safeDueDate = safeDate(due_date);
       // Fail-closed: a present but malformed due_date must be rejected rather than
       // silently stored as NULL — consistent with ticket/project/asset date validation.
-      if (due_date && due_date !== '' && safeDueDate === null) {
+      if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
       // Preserve the existing due date when ABSENT on a partial edit, so a
@@ -968,6 +991,14 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
 
   const user_id = safeQueryValue(req.body.user_id);
   const role = safeQueryValue(req.body.role);
+  // Fail closed on a present-but-malformed user id ("5abc", "10.0", a JSON
+  // float) — safeId's parseInt coercion would silently target a DIFFERENT
+  // valid user. Mirrors the owner/assignee guards everywhere else in the
+  // codebase (tickets, assets, changes, and this file's owner/task routes).
+  if (isPresentInvalidId(user_id)) {
+    req.flash('error', 'Invalid user');
+    return res.redirect(`/projects/${id}`);
+  }
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) {
@@ -993,14 +1024,17 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       if (!isActiveUser(db, safeUserId)) {
         throw new Error('USER_NOT_AVAILABLE');
       }
-      return _memberInsertStmt.run(id, safeUserId, role).changes;
+      // Return the inserted row id so the audit log records the real
+      // project_member entity id, matching the member-delete audit trail.
+      const result = _memberInsertStmt.run(id, safeUserId, role);
+      return { changes: result.changes, memberId: Number(result.lastInsertRowid) };
     });
-    const changes = addMember();
+    const { changes, memberId } = addMember();
 
     if (changes === 0) {
       req.flash('info', 'User is already a member of this project');
     } else {
-      req.audit('create', 'project_member', null, `Added member #${safeUserId} to project #${id}`);
+      req.audit('create', 'project_member', memberId, `Added member #${safeUserId} to project #${id}`);
       req.flash('success', 'Member added');
       invalidateDashboardCache();
     }

@@ -210,11 +210,11 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // closed) rather than silently stored as NULL — the exact malformed-date
   // default-to-NULL bug fixed for the assets UPDATE path (11th pass) and for
   // projects.js (8th pass). An empty date is still allowed (falls back to NULL).
-  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+  if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
     req.flash('error', 'Invalid purchase date');
     return res.redirect('/assets/new');
   }
-  if (warranty_expiry && warranty_expiry !== '' && sWarranty === null) {
+  if (warranty_expiry !== undefined && warranty_expiry !== null && warranty_expiry !== '' && sWarranty === null) {
     req.flash('error', 'Invalid warranty expiry date');
     return res.redirect('/assets/new');
   }
@@ -428,6 +428,14 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid condition rating');
     return res.redirect(`/assets/${id}/edit`);
   }
+  // A present-but-invalid status is rejected; an absent/empty field means
+  // "keep what's stored" (resolved inside the transaction). Mirrors the
+  // projects.js update convention — previously an invalid status was silently
+  // swallowed here and reported as a successful update.
+  if (status && !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid status');
+    return res.redirect(`/assets/${id}/edit`);
+  }
 
   // Fail closed on malformed purchase price (MEDIUM). A present, non-empty
   // price that fails to parse must be rejected rather than silently stored as
@@ -448,11 +456,11 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // closed) rather than silently overwriting the stored date with NULL — the
   // exact malformed-date default-to-NULL bug fixed for projects.js. An empty
   // date is still allowed to fall back to the existing stored value.
-  if (purchase_date && purchase_date !== '' && sPurchase === null) {
+  if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
     req.flash('error', 'Invalid purchase date');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (warranty_expiry && warranty_expiry !== '' && sWarranty === null) {
+  if (warranty_expiry !== undefined && warranty_expiry !== null && warranty_expiry !== '' && sWarranty === null) {
     req.flash('error', 'Invalid warranty expiry date');
     return res.redirect(`/assets/${id}/edit`);
   }
@@ -497,8 +505,9 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       // Resolve status from the transaction-consistent re-fetch rather than the
       // outer fetch, closing a TOCTOU gap where a concurrent status change
       // between the outer fetch and this UPDATE could be silently overwritten
-      // when the submitted status is invalid/absent (which triggers the
-      // preserve-existing fallback).
+      // when the submitted status is absent (which triggers the
+      // preserve-existing fallback). A present-but-invalid status was already
+      // rejected above, so this branch only handles absent/empty submissions.
       const safeStatus = VALID_STATUSES.includes(status) ? status : current.status;
 
       // Resolve price and dates against the freshly-read transaction-consistent

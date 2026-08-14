@@ -103,9 +103,14 @@ const stmts = {
     GROUP BY t.assigned_to
     ORDER BY resolved DESC LIMIT 10
   `),
-  // Asset Report. Both queries exclude disposed assets for consistency with the
-  // warranty queries below (a disposed asset's value/seat no longer represents
-  // active inventory).
+  // Asset Report. The VALUE-oriented queries (assetsByCategory,
+  // assetsTotalValue, and the warranty queries below) exclude disposed assets
+  // — a disposed asset's value/warranty no longer represents active inventory.
+  // The fleet-composition breakdowns (assetsByStatus, assetsByCondition,
+  // ageDistribution) intentionally cover ALL assets including disposed: the
+  // point of a status breakdown is to audit every status, and disposed is one.
+  // The template's top stat card is computed from byCategory and is therefore
+  // labeled "Active Assets" so it does not contradict the status totals.
   assetsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count, SUM(purchase_price) as total_value
     FROM assets WHERE status != 'disposed' GROUP BY category ORDER BY count DESC

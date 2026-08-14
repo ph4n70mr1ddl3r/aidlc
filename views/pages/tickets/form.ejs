@@ -78,6 +78,7 @@
           <label for="requester_name">Requester Name *</label>
           <input type="text" name="requester_name" id="requester_name" class="form-control" value="<%= ticket.requester_name || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" required autocomplete="off">
         </div>
+        <% if (!isEdit || isPrivileged(user)) { %>
         <div class="form-group">
           <label for="requester_email">Requester Email *</label>
           <input type="email" name="requester_email" id="requester_email" class="form-control" value="<%= ticket.requester_email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" required autocomplete="off">
@@ -90,6 +91,7 @@
           <label for="requester_phone">Phone</label>
           <input type="text" name="requester_phone" id="requester_phone" class="form-control" value="<%= ticket.requester_phone || '' %>" maxlength="<%= CONSTANTS.MAX_PHONE %>" autocomplete="off">
         </div>
+        <% } %>
       </div>
 
       <% if (isEdit) { %>

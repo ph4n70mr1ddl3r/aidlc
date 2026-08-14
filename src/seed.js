@@ -347,10 +347,11 @@ function runSeed(db, adminPw, staffPw) {
 
 // Execute the transaction when run directly
 if (require.main === module) {
-  // Normalize NODE_ENV — matches the pattern in app.js. Using a local variable
-  // avoids mutating process.env which can race with module loading order.
+  // Honor the same SEED_DANGER=1 override runSeed() documents — the CLI is
+  // the only user-facing entry point (npm run seed), so an unconditional
+  // early-exit here would make runSeed's own override instruction unfollowable.
   const env = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
-  if (env === 'production') {
+  if (env === 'production' && process.env.SEED_DANGER !== '1') {
     console.error('ERROR: Refusing to seed database in production');
     process.exit(1);
   }

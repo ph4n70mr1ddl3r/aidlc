@@ -198,6 +198,13 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const last_name = trim(safeQueryValue(req.body.last_name));
   const role = trim(safeQueryValue(req.body.role));
   const department = trim(safeQueryValue(req.body.department));
+  // Fail closed on a present-but-non-string department (e.g. a JSON number):
+  // trim() coerces it to '', which would silently store NULL — the same
+  // fail-closed convention applied to phone below.
+  if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
+    req.flash('error', 'Invalid department');
+    return res.redirect('/staff/new');
+  }
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
@@ -381,6 +388,13 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const department = trim(safeQueryValue(req.body.department));
+  // Fail closed on a present-but-non-string department (e.g. a JSON number):
+  // trim() coerces it to '', which would silently clear the stored department
+  // on update — the same fail-closed convention applied to phone below.
+  if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
+    req.flash('error', 'Invalid department');
+    return res.redirect(`/staff/${id}/edit`);
+  }
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
@@ -534,7 +548,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       return res.redirect('/staff');
     }
     if (err.message === 'ACCESS_DENIED_ADMIN') {
-      req.flash('error', 'You cannot modify administrator accounts');
+      // Same condition as the outer check (non-admin editing a manager/admin
+      // account) — keep the message identical so the race path does not
+      // misdescribe which guard fired.
+      req.flash('error', 'You cannot modify administrator or manager accounts');
       return res.redirect('/staff');
     }
     if (err.message === 'ROLE_CHANGED') {

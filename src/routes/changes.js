@@ -421,9 +421,21 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('ACTUAL_END_BEFORE_START');
       }
 
-      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolveOptionalField(rawDescription, description || null, MAX_DESC, existingChange.description), change_type, status, safePriority,
+      // Present-but-non-string description/impact (e.g. a JSON number) is
+      // rejected rather than silently clearing the stored value — the same
+      // fail-closed sentinel contract vendors.js/licenses.js already honor.
+      const resolvedDescription = resolveOptionalField(rawDescription, description || null, MAX_DESC, existingChange.description);
+      if (resolvedDescription && resolvedDescription.error) {
+        throw new Error('INVALID_DESCRIPTION');
+      }
+      const resolvedImpact = resolveOptionalField(rawImpact, impact || null, MAX_LONG_STR, existingChange.impact);
+      if (resolvedImpact && resolvedImpact.error) {
+        throw new Error('INVALID_IMPACT');
+      }
+
+      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, status, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
-        resolveOptionalField(rawImpact, impact || null, MAX_LONG_STR, existingChange.impact), resolvedAssignee, id);
+        resolvedImpact, resolvedAssignee, id);
     });
     updateChange();
 
@@ -451,6 +463,14 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     const dateFieldName = INVALID_DATE_FIELDS[err.message];
     if (dateFieldName) {
       req.flash('error', `Invalid ${dateFieldName}`);
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    if (err.message === 'INVALID_DESCRIPTION') {
+      req.flash('error', 'Invalid description');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+    if (err.message === 'INVALID_IMPACT') {
+      req.flash('error', 'Invalid impact');
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);

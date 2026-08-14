@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
@@ -502,6 +502,11 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     }
 
     audit({ req, action: 'update', entity: 'user', entityId: userId, details: 'Updated own profile' });
+    // Profile edits change first_name/last_name — the exact columns cached by
+    // getActiveStaff() — so invalidate that cache too, mirroring the parallel
+    // admin route (PUT /staff/:id). Previously dropdowns showed the old name
+    // for up to the 30s TTL after a self-service rename.
+    invalidateActiveStaffCache();
     invalidateDashboardCache();
     req.flash('success', 'Profile updated successfully');
   } catch (err) {

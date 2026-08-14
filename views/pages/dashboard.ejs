@@ -133,7 +133,7 @@
         <% upcomingChanges.forEach(c => { %>
           <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
             <div class="text-sm" style="font-weight:600;"><%= c.title %></div>
-            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= formatDate(c.scheduled_start) %></div>
+            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= formatDateTime(c.scheduled_start) %></div>
           </div>
         <% }) %>
       </div>

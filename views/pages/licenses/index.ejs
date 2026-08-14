@@ -13,7 +13,12 @@
     <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
     <tbody><% licenses.forEach(l => { 
       const _usagePct = usagePercent(l.used_seats, l.total_seats);
-      const _expSoon = isExpiringSoon(l.expiry_date, 30);
+      // Highlight both soon-to-expire AND already-expired licenses — an expired
+      // license is at least as urgent (mirrors the dashboard's expiringWarranties
+      // and the asset show page's Expired badge; isExpiringSoon alone ignores
+      // negative daysUntil values).
+      const _expDays = daysUntil(l.expiry_date);
+      const _expSoon = _expDays !== null && _expDays <= 30;
     %><tr>
       <td><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a></td>
       <td class="text-sm"><%= l.vendor || '-' %></td>

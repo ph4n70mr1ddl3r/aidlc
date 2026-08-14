@@ -3,7 +3,7 @@
 <div class="page-header"><div><h2>Asset Report</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Assets</div></div></div>
 
 <div class="stats-grid">
-  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Total Assets</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Active Assets</div></div></div>
   <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '$0' %></div><div class="stat-label">Total Value</div></div></div>
   <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Expiring (90d)</div></div></div>
 </div>

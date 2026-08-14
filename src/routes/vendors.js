@@ -222,6 +222,17 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(safeQueryValue(req.body.notes));
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects): trim() coerces them to '', which would silently store
+  // NULL — the same fail-closed convention the update route enforces via
+  // resolveOptionalField's error sentinel.
+  for (const field of ['contact_person', 'email', 'address', 'website', 'category', 'notes']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/vendors/new');
+    }
+  }
 
   if (!name) {
     req.flash('error', 'Vendor name is required');
@@ -274,12 +285,14 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // A present, non-empty contract date that fails to parse must be rejected
   // (fail closed) rather than silently stored as NULL — the same malformed-date
   // default-to-NULL pattern fixed for the assets/projects update paths. An empty
-  // contract date is still allowed (falls back to NULL).
-  if (contract_start && contract_start !== '' && sContractStart === null) {
+  // contract date is still allowed (falls back to NULL). Use explicit absence
+  // checks (not truthiness) so a falsy non-string JSON value (0/false) is also
+  // rejected, matching the update route's _resolveClearableDate semantics.
+  if (contract_start !== undefined && contract_start !== null && contract_start !== '' && sContractStart === null) {
     req.flash('error', 'Invalid contract start date');
     return res.redirect('/vendors/new');
   }
-  if (contract_end && contract_end !== '' && sContractEnd === null) {
+  if (contract_end !== undefined && contract_end !== null && contract_end !== '' && sContractEnd === null) {
     req.flash('error', 'Invalid contract end date');
     return res.redirect('/vendors/new');
   }

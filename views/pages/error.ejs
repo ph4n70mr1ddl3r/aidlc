@@ -1,8 +1,8 @@
 <%- include('../partials/header') %>
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);">
   <div style="text-align:center;max-width:500px;padding:20px;">
-    <h1 style="font-size:72px;font-weight:800;color:var(--danger);line-height:1;">500</h1>
-    <h2 style="margin-bottom:12px;">Server Error</h2>
+    <h1 style="font-size:72px;font-weight:800;color:var(--danger);line-height:1;"><%= typeof statusCode !== 'undefined' ? statusCode : 500 %></h1>
+    <h2 style="margin-bottom:12px;"><%= typeof statusCode !== 'undefined' && statusCode < 500 ? 'Request Error' : 'Server Error' %></h2>
     <% if (typeof error !== 'undefined' && error && error.message) { %>
       <p style="margin-bottom:12px;padding:12px;background:var(--danger-light);border-radius:8px;font-family:monospace;font-size:13px;"><%= error.message %></p>
     <% } else { %>
