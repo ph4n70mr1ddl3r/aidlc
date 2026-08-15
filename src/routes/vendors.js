@@ -479,11 +479,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // default-to-NULL pattern checked in the create route and across all other
   // sibling update routes (assets, projects, licenses). An empty contract date
   // is still allowed to fall back to the stored value.
-  if (contract_start && contract_start !== '' && sContractStart === null) {
+  if (contract_start !== undefined && contract_start !== null && contract_start !== '' && sContractStart === null) {
     req.flash('error', 'Invalid contract start date');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (contract_end && contract_end !== '' && sContractEnd === null) {
+  if (contract_end !== undefined && contract_end !== null && contract_end !== '' && sContractEnd === null) {
     req.flash('error', 'Invalid contract end date');
     return res.redirect(`/vendors/${id}/edit`);
   }

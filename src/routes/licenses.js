@@ -416,7 +416,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // user could submit it as a literal key value and wipe the stored key.)
       const resolvedKey = clearKey
         ? null
-        : (license_key ? license_key.substring(0, MAX_LONG_STR) || null : existing.license_key);
+        : (license_key ? license_key.substring(0, MAX_LONG_STR) : existing.license_key);
       // Resolve cost against the freshly-read row: an absent field preserves the
       // stored value (avoids a TOCTOU between this SELECT and the UPDATE); an
       // invalid value was already rejected before the transaction.
