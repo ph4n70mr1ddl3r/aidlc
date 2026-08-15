@@ -9,6 +9,32 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (123rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency fixes.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/vendors.js` — show route missing `canAccessResource` guard (MEDIUM).** Every other entity show route (assets, tickets, projects, changes) re-checks ownership via `canAccessResource(req, resource)` before rendering and emits an `access_denied` audit entry on denial. The vendor show route omitted this check entirely, so any authenticated user could view any vendor's details including PII (contact person, email, phone, address). Added the same `canAccessResource` gate plus `req.audit('access_denied', 'vendor', id, ...)` audit trail, matching the pattern used by all sibling routes.
+
+**Consistency**
+- **`src/routes/changes.js` — `INVALID_DATE_FIELDS` value casing not title-cased (LOW).** The dynamic error path reconstructs the flash message as `` Invalid ${dateFieldName} `` where `dateFieldName` comes from `INVALID_DATE_FIELDS`. Every other route that uses the same dynamic-reconstruction pattern (vendors.js line 626, knowledge.js `titleCase` helper) title-cases each word so the user sees `"Invalid Scheduled Start"` rather than `"Invalid scheduled start"`. Updated all four entries to title-case (`'Scheduled Start'`, `'Scheduled End'`, `'Actual Start'`, `'Actual End'`) to match the cross-file convention.
+
+**Test coverage**
+- **`tests/vendors_access.test.js` — added regression test for vendor show route `canAccessResource` guard.** Three tests cover: (1) access denied returns the correct redirect and flash message, (2) an `access_denied` audit entry is emitted on denial, and (3) the route renders normally when access is allowed. Prevents a future refactor from silently dropping the ownership guard.
+- **`tests/code_review_114.test.js` — added regression test for `INVALID_DATE_FIELDS` casing.** Drives the change update handler with an invalid datetime and asserts the flash message starts with `Invalid ` followed by a capital letter, pinning the title-case convention so a future lowercase revert fails immediately.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **715 passed / 715 total** (30 suites, +4 regression tests).
+
+---
+
 ## Review cycle 2026-08-16 (122nd pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

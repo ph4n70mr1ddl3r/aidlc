@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
@@ -366,6 +366,11 @@ router.get('/:id', (req, res) => {
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
+    return res.redirect('/vendors');
+  }
+  if (!canAccessResource(req, vendor)) {
+    req.audit('access_denied', 'vendor', id, `Unauthorized view attempt on vendor ${vendor.name}`);
+    req.flash('error', 'You do not have permission to view this vendor');
     return res.redirect('/vendors');
   }
   req.audit('read', 'vendor', id, `Viewed vendor: ${vendor.name}`);

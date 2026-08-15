@@ -447,3 +447,53 @@ describe('error page — displays the real status code instead of a hardcoded 50
     expect(html).toContain('Server Error');
   });
 });
+
+// ---------------------------------------------------------------------------
+// changes — INVALID_DATE_FIELDS use title-case matching vendors.js convention
+// ---------------------------------------------------------------------------
+describe('changes — INVALID_DATE_FIELDS value casing matches title-case convention', () => {
+  // The dynamic error path in changes.js reconstructs the flash message as
+  // `Invalid ${dateFieldName}` where dateFieldName comes from INVALID_DATE_FIELDS.
+  // vendors.js line 626 title-cases every word for the same pattern, producing
+  // "Invalid Contact Person" rather than "Invalid contact person". This test
+  // pins the casing so a future refactor cannot silently revert to lowercase.
+  it('INVALID_DATE_FIELDS values are title-cased', () => {
+    // The module does not export INVALID_DATE_FIELDS directly, but we can
+    // inspect the error messages produced by the update handler by triggering
+    // a bad datetime and verifying the flash message uses title-case field names.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValueOnce({
+      id: 1, title: 'Change', description: 'Desc', change_type: 'maintenance',
+      status: 'scheduled', priority: 'medium',
+      scheduled_start: '2026-01-01 10:00', scheduled_end: '2026-01-01 12:00',
+      actual_start: null, actual_end: null, impact: null, assigned_to: null
+    });
+    // Direct unit check on the exported helper is not enough — we need the
+    // actual flash message. Use a minimal request to drive the full handler.
+    const router = require('../src/routes/changes');
+    const h = lastHandlerFor(router, 'put', '/:id');
+    const flashCalls = [];
+    const req = {
+      params: { id: '1' },
+      method: 'PUT',
+      session: { user: { id: 1, role: 'admin' } },
+      flash: (type, msg) => flashCalls.push([type, msg]),
+      body: { title: 'Change', change_type: 'maintenance', status: 'scheduled', scheduled_start: 'not-a-datetime' }
+    };
+    const res = {
+      redirect: () => {},
+      render: () => {},
+      status: () => res,
+      json: () => {},
+      end: () => {}
+    };
+    h(req, res, () => {});
+    const errFlash = flashCalls.find(([t]) => t === 'error')?.[1];
+    expect(errFlash).toBeDefined();
+    // The message must use title-case field names to match the convention
+    // enforced by the vendors.js dynamic error path (line 626).
+    expect(errFlash).toMatch(/^Invalid [A-Z]/);
+  });
+});
