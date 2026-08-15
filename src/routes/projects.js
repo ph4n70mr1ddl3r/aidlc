@@ -279,10 +279,10 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     });
     const result = createProject();
 
-    req.audit('create', 'project', Number(result.lastInsertRowid), `Created project ${name}`);
+    req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
     req.flash('success', 'Project created successfully');
     invalidateDashboardCache();
-    return res.redirect(`/projects/${Number(result.lastInsertRowid)}`);
+    return res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
     if (err.message === 'OWNER_NOT_AVAILABLE') {
       req.flash('error', 'Selected owner is not available');
@@ -679,7 +679,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       }
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
 
-      return Number(result.lastInsertRowid);
+      return result.lastInsertRowid;
     });
     const taskId = addTask();
 
@@ -1035,7 +1035,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       // Return the inserted row id so the audit log records the real
       // project_member entity id, matching the member-delete audit trail.
       const result = _memberInsertStmt.run(id, safeUserId, role);
-      return { changes: result.changes, memberId: Number(result.lastInsertRowid) };
+      return { changes: result.changes, memberId: result.lastInsertRowid };
     });
     const { changes, memberId } = addMember();
 

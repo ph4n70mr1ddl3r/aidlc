@@ -292,7 +292,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
       phone ? phone.substring(0, MAX_PHONE) : null
     );
 
-    req.audit('create', 'user', Number(result.lastInsertRowid), `Created user ${username}`);
+    req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
     req.flash('success', `Staff member ${first_name} ${last_name} created`);
     invalidateActiveStaffCache();
     invalidateDashboardCache();
@@ -319,7 +319,7 @@ router.get('/:id', (req, res) => {
   // PII disclosure control: only privileged users (admin/manager) or the user
   // themselves may view a staff profile. A regular staff member enumerating
   // IDs must not be able to read other employees' email/phone/department.
-  const isSelf = Number(id) === Number(req.session.user.id);
+  const isSelf = id === req.session.user.id;
   if (!isPrivileged(req.session.user) && !isSelf) {
     req.flash('error', 'You do not have permission to view that staff member');
     return res.redirect('/staff');
@@ -466,7 +466,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
-  if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
+  if (id === req.session.user.id && safeRole !== req.session.user.role) {
     req.flash('error', 'You cannot change your own role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -536,7 +536,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // data from the DB (consistent with the auth.js password-change route) so
     // the session user object is a complete mirror of the current DB row instead
     // of a hand-patched subset that could diverge if new columns are added.
-    if (Number(id) === Number(req.session.user.id)) {
+    if (id === req.session.user.id) {
       const fresh = _showStaffStmt.get(id);
       if (fresh) {
         req.session.user = fresh;
@@ -656,7 +656,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   }
 
   // Prevent admin from resetting own password via this route (use profile instead)
-  if (Number(id) === Number(req.session.user.id)) {
+  if (id === req.session.user.id) {
     req.flash('error', 'Use the profile page to change your own password');
     return res.redirect('/profile');
   }
@@ -767,7 +767,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
   }
 
   // Prevent admin from deactivating themselves
-  if (Number(id) === Number(req.session.user.id)) {
+  if (id === req.session.user.id) {
     req.flash('error', 'You cannot deactivate your own account');
     return res.redirect('/staff');
   }

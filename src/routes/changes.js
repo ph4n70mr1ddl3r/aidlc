@@ -223,7 +223,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     });
     const result = createChange();
 
-    req.audit('create', 'change', Number(result.lastInsertRowid), `Created change "${title}"`);
+    req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
     req.flash('success', 'Change record created');
     invalidateDashboardCache();
     return res.redirect('/changes');

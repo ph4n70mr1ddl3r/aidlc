@@ -276,11 +276,11 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         safePurchasePrice,
         sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
       );
-      return { asset_tag, id: Number(result.lastInsertRowid) };
+      return { asset_tag, id: result.lastInsertRowid };
     });
 
     const { asset_tag, id } = createAsset();
-    req.audit('create', 'asset', Number(id), `Created asset ${asset_tag}`);
+    req.audit('create', 'asset', id, `Created asset ${asset_tag}`);
     req.flash('success', `Asset ${asset_tag} created successfully`);
     invalidateDashboardCache();
     return res.redirect('/assets');
