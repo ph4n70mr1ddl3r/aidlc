@@ -4,8 +4,28 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (115+ consecutive hardening commits) was
+Jest suite. Prior review history (120+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-16 (121st pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency fixes.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/licenses.js` — duplicate `authKeyGenerator` import from `../utils` (LOW).** Line 4 destructured 16 utilities from `../utils` but omitted `authKeyGenerator`; line 8 re-required the same module solely for that one binding. Merged into the single line-4 import so the file has exactly one `require('../utils')` statement, matching the convention used by every other route module.
+- **`src/routes/knowledge.js` — view-count owner check missing `Number()` coercion (LOW).** Line 449 compared `article.author_id !== req.session.user.id` without explicit `Number()` on either side, while the same file's show/edit/update/delete authorization checks all used `Number(...) === Number(...)`. Unified to `Number(article.author_id) !== Number(req.session.user.id)` so the view-count path shares the same numeric-comparison contract as the surrounding ownership guards.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **710 passed / 710 total** (29 suites).
 
 ---
 

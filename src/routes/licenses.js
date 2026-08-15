@@ -1,11 +1,10 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
-const { authKeyGenerator } = require('../utils');
 
 // Key rate-limiting by authenticated user id (per-account, shared utils helper)
 // so one admin's requests cannot silence the whole team behind a NAT'd office IP

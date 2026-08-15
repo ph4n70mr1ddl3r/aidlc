@@ -446,7 +446,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed.includes(id) && article.author_id !== req.session.user.id) {
+  if (!viewed.includes(id) && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       _viewCountStmt.run(id);
     } catch (err) {
