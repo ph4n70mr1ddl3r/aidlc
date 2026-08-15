@@ -1,11 +1,85 @@
 # Code Review Notes
 
-**Date:** 2026-08-13
+**Date:** 2026-08-16
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
-(`src/`, `tests/`). 11 route modules, 2 middleware modules, models, utils, constants.
+(`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (100+ consecutive hardening commits) was
+Jest suite. Prior review history (114+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-16 (115th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+and the test suite). **No new SQL injection, CSRF, XSS, auth, rate-limit, or
+error-leakage defects were found.** The codebase has reached a high plateau of
+hardening; this pass confirms no regressions and documents the current security
+posture.
+
+### Findings
+
+**Security controls verified:**
+- **SQL injection:** All dynamic queries use whitelisted helpers (`buildFilters`,
+  `addSearch`, `safeSort`, `quoteColumn`, `countQuery`, `selectQuery`) with
+  bound params. No raw user input reaches SQL interpolations.
+- **Authentication / session:** `requireAuth` re-verifies `is_active`,
+  `password_changed_at`, and `role` on every request. Session is regenerated on
+  login and password change. Session idle (15 min default) and absolute (8 h
+  default) timeouts are enforced by middleware before any route handler runs.
+- **Authorization (RBAC / IDOR):** Privileged routes use
+  `requireAdminOrManager`/`requireAdmin`. Ownership/re-assignment checks are
+  re-done inside `db.transaction()` for TOCTOU safety. `canAccessResource` gates
+  all show/edit/delete paths.
+- **CSRF:** `doubleCsrf` protects all state-changing routes. Logout is POST-only.
+  CSRF cookie is set on every request (including GET) so API/health paths also
+  establish the cookie. Token is read from `_csrf` body or `x-csrf-token` header.
+- **XSS (KB markdown):** `marked` output is sanitized via `sanitize-html`;
+  `input` elements are disallowed; links get `rel="noopener noreferrer"` +
+  scheme check. Fallback degrades to escaped plain text (fail-closed).
+- **Password policy:** bcrypt 12 rounds, 72-byte cap enforced, complexity
+  required. Dummy-hash timing-safe compare on login prevents enumeration.
+- **Rate limiting:** Login (10/15m + lockout), password, profile, KB write/read,
+  report, audit, and per-route write limiters all present. All authenticated
+  limiters use `authKeyGenerator` (user-id keyed, normalized-IP fallback) to
+  prevent NAT-bucket sharing.
+- **Login brute-force:** Per-account + per-IP failure maps with lockout, bounded
+  size (`MAX_LOGIN_FAILURES_MAP_SIZE = 10_000`), periodic stale-entry purge,
+  timing-safe dummy-hash compare.
+- **HTTP hardening:** `x-powered-by` disabled, `query parser: 'simple'` (prevents
+  prototype-pollution CVEs via bracket syntax), TRACE/TRACK rejected at the
+  edge, HSTS + CSP + Permissions-Policy via Helmet.
+- **Input validation / HPP:** `safeQueryValue`/`safeId`/`safeInt`/`safePositiveFloat`
+  reject arrays; `rejectHppArrays()` fail-closed on every write route.
+- **Audit logging:** All writes audited; `audit()` validates action/entity
+  against allowlists. Access-denied attempts are logged.
+- **Transactions / TOCTOU:** All multi-step writes (create/update/delete with
+  dependent cleanup) re-fetch and re-check inside `db.transaction()`.
+- **File permissions:** DB file permissions explicitly `chmodSync(0o640)` on main
+  file plus WAL/SHM sidecars (re-applied after WAL pragma creates them).
+- **Session store:** `SESSION_STORE` acceptlist prevents arbitrary code execution
+  via env injection. MemoryStore warned in production.
+
+**Observations (by design, not defects):**
+- **Cross-ticket commenting** (`tickets.js`): any authenticated user may comment
+  on any ticket they can access. Intentional for cross-team collaboration.
+- **Manager cannot reactivate a deactivated user** (`staff.js`): `requireAdmin`-only.
+- **`recalcProjectProgress` runs post-commit** during staff deactivation:
+  eventually consistent; not a defect under synchronous SQLite.
+- **Vendor rename syncs `licenses.vendor` by case-insensitive text match**:
+  `licenses.vendor` is free text (not a FK); normalized vendor FK would be a
+  larger refactor, not a bug fix.
+- **Dashboard cache** is process-local TTL (30 s default). In multi-process
+  deployments cache is stale up to TTL but never inconsistent — a known
+  trade-off documented in `dashboard.js`.
+- **Seed script** is guarded against production (`SEED_DANGER=1` override).
+  The CLI path and `runSeed()` both enforce the same rule.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **709 passed / 709 total** (29 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
