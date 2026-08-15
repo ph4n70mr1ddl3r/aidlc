@@ -9,6 +9,32 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (124th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency fixes for numeric
+id comparisons.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/staff.js` — four self-identity checks omitted `Number()` coercion (LOW).** Lines 469, 539, 659, and 770 compared `id === req.session.user.id` with bare `===`, while the same file's `isSelf` check on line 322 and every ownership/authorship check across the codebase (knowledge.js show/edit/update/delete, staff.js index row mapping) use `Number(...) === Number(...)` to guard against a future caller that accidentally passes a string id. Unified all four to `Number(id) === Number(req.session.user.id)` so the numeric-comparison contract is uniform.
+
+**Consistency**
+- **`src/middleware/auth.js` — `canAccessResource` resource-id comparison omitted `Number()` coercion (LOW).** Line 188 compared `resource[f] === req.session.user.id` with bare `===`, while the convention throughout the codebase is explicit `Number()` coercion on both sides. Unified to `Number(resource[f]) === Number(req.session.user.id)` so the function is robust if a future resource source returns string ids.
+
+**Test coverage**
+- **`tests/code_review_124.test.js` — added regression tests for the Number() coercion fixes.** Eight tests cover: (1) `canAccessResource` matches when a string resource id is compared against a numeric session user id, (2) matches when both are strings, (3) does not match when ids differ after coercion, (4) short-circuits on null resource fields without calling `Number()`, (5) short-circuits on undefined resource fields, (6) the staff update route's self-role-change guard fires when `id` is a string, (7) the password-reset route's self-service guard fires when `id` is a string, and (8) the deactivate route's self-deactivation guard fires when `id` is a string. Prevents a future refactor from silently dropping the `Number()` coercion on any of these paths.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **723 passed / 723 total** (31 suites, +8 regression tests).
+
+---
+
 ## Review cycle 2026-08-16 (123rd pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

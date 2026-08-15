@@ -466,7 +466,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
-  if (id === req.session.user.id && safeRole !== req.session.user.role) {
+  if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
     req.flash('error', 'You cannot change your own role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -536,7 +536,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // data from the DB (consistent with the auth.js password-change route) so
     // the session user object is a complete mirror of the current DB row instead
     // of a hand-patched subset that could diverge if new columns are added.
-    if (id === req.session.user.id) {
+    if (Number(id) === Number(req.session.user.id)) {
       const fresh = _showStaffStmt.get(id);
       if (fresh) {
         req.session.user = fresh;
@@ -656,8 +656,8 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   }
 
   // Prevent admin from resetting own password via this route (use profile instead)
-  if (id === req.session.user.id) {
-    req.flash('error', 'Use the profile page to change your own password');
+  if (Number(id) === Number(req.session.user.id)) {
+    req.flash('error', 'You cannot reset your own password via this route');
     return res.redirect('/profile');
   }
 
@@ -767,7 +767,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
   }
 
   // Prevent admin from deactivating themselves
-  if (id === req.session.user.id) {
+  if (Number(id) === Number(req.session.user.id)) {
     req.flash('error', 'You cannot deactivate your own account');
     return res.redirect('/staff');
   }
