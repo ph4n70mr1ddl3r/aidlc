@@ -806,7 +806,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
 
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
-  const rawDescription = safeQueryValue(req.body.description);
+  // Raw (unprocessed) value needed for resolveOptionalField so it can detect
+  // HPP arrays and present-but-non-string values. Mirrors the project-update
+  // route above and the convention used by changes.js / licenses.js / vendors.js.
+  const rawDescription = req.body.description;
 
   if (!title) {
     req.flash('error', 'Task title is required');

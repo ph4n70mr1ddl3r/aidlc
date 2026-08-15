@@ -9,6 +9,25 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (120th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents one consistency fix.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/projects.js` — task full-update passed a `safeQueryValue`-collapsed description to `resolveOptionalField` (LOW).** The project update route correctly captured `rawDescription = req.body.description` (the raw, unprocessed value) so that `resolveOptionalField`'s internal `Array.isArray(rawValue)` guard and present-non-string rejection both remained operative. The task full-update route instead captured `rawDescription = safeQueryValue(req.body.description)`, which silently collapses HPP arrays to their first element before `resolveOptionalField` ever sees them. While the explicit `rejectHppArrays` guard above the handler already rejects arrays (so the defensive check in `resolveOptionalField` was never triggered in practice), the inconsistency made the sentinel's array guard dead code for this call site and diverged from the convention used by the sibling project update, changes update, licenses update, and vendors update routes. Changed to `const rawDescription = req.body.description` to match the shared pattern and keep the `resolveOptionalField` guard fully operative.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **710 passed / 710 total** (29 suites).
+
+---
+
 ## Review cycle 2026-08-16 (116th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
