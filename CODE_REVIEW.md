@@ -4,8 +4,29 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (114+ consecutive hardening commits) was
+Jest suite. Prior review history (115+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-16 (116th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents one consistency fix and one missing
+error-path.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/projects.js` — task full-update silently cleared stored description on present non-string input (LOW-MEDIUM).** The task update route manually implemented absent-vs-empty resolution for `description` (`(raw === undefined || raw === null) ? existing : processed`), which matched the route's own convention for assignee/due_date/priority but diverged from the project update route (line 522) and all sibling routes (vendors, licenses, changes) which use `resolveOptionalField`. The manual path accepted any present non-string value (e.g. a JSON number `123`) and silently coerced it through `trim()` → `''` → `null`, wiping the stored description with no user feedback. Switched to `resolveOptionalField(rawDescription, description || null, MAX_DESC, existingTask.description)` so present non-string values return the `{ error: true }` sentinel and are rejected as `INVALID_DESCRIPTION`, matching the fail-closed contract across all update routes.
+- **`src/routes/projects.js` — task update catch block lacked `INVALID_DESCRIPTION` handler (LOW).** The new `resolveOptionalField` sentinel throws `INVALID_DESCRIPTION` inside the transaction; the outer catch block previously had no branch for this error and fell through to the generic "Error updating task" message. Added the missing handler mirroring the project update catch block (line 566).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **710 passed / 710 total** (29 suites, +1 regression test covering the non-string description rejection on task full-update).
 
 ---
 

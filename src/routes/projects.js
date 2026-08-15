@@ -887,11 +887,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       // string in the form wipes it, while an ABSENT field on a partial API
       // submission preserves the stored value. Previously a PUT that omitted
       // description silently nulled it — the inconsistent outlier on a route
-      // where assignee, due_date, and priority all preserve on absence.
-      const effectiveDescription = (rawDescription === undefined || rawDescription === null)
-        ? existingTask.description
-        : (description || '').substring(0, MAX_DESC) || null;
-      const params = [title.substring(0, MAX_MEDIUM_STR), effectiveDescription, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      // where assignee, due_date, and priority all preserve on absence. Using
+      // resolveOptionalField also rejects present-but-non-string values (e.g.
+      // a JSON number) rather than silently clearing the stored value.
+      const resolvedTaskDescription = resolveOptionalField(rawDescription, description || null, MAX_DESC, existingTask.description);
+      if (resolvedTaskDescription && resolvedTaskDescription.error) {
+        throw new Error('INVALID_DESCRIPTION');
+      }
+      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedTaskDescription, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -922,6 +925,10 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     }
     if (err.message === 'INVALID_DUE_DATE') {
       req.flash('error', 'Invalid due date');
+      return res.redirect(`/projects/${projectId}`);
+    }
+    if (err.message === 'INVALID_DESCRIPTION') {
+      req.flash('error', 'Invalid description');
       return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task update error:', err.message);

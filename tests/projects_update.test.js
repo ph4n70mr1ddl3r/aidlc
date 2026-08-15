@@ -352,3 +352,31 @@ describe('Projects update — absent description preserves, empty clears (regres
     expect(params[1]).toBe('New description');
   });
 });
+
+describe('Projects task full-update — rejects non-string description (regression)', () => {
+  const projectsRouter = require('../src/routes/projects');
+
+  it('rejects a present-but-non-string description instead of silently clearing it', () => {
+    // Regression: previously a JSON number or object in the description field
+    // silently wiped the stored value to NULL. Using resolveOptionalField now
+    // returns { error: true } for present non-string raw values, matching the
+    // fail-closed convention used by vendors.js, licenses.js, and changes.js.
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 2, project_id: 1, title: 'Old title', description: 'Stored desc',
+      status: 'todo', priority: 'high', assigned_to: 5,
+      due_date: null, completed_at: null, created_at: null, updated_at: null
+    });
+    const h = lastHandlerFor(projectsRouter, 'put', '/:projectId/tasks/:taskId');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      title: 'Renamed', status: 'in_progress', priority: 'medium', description: 123
+    }, { projectId: '1', taskId: '2' });
+    expect(redirectCalls).toEqual(['/projects/1']);
+    const errorFlash = flashCalls.find(([t]) => t === 'error');
+    expect(errorFlash).toBeDefined();
+    expect(errorFlash[1]).toBe('Invalid description');
+    expect(stmt.run).not.toHaveBeenCalled();
+  });
+});
