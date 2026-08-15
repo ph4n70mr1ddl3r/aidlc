@@ -3,13 +3,12 @@
 <div class="page-header">
   <div><h2><%= article.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/knowledge">Knowledge Base</a> / <%= article.title %></div></div>
   <%
-    const canEditArticle = article.author_id === user.id || isPrivileged(user);
-    const canDeleteArticle = article.author_id === user.id || isPrivileged(user);
+    const canManageArticle = Number(article.author_id) === Number(user.id) || isPrivileged(user);
   %>
-  <% if (canEditArticle || canDeleteArticle) { %>
+  <% if (canManageArticle) { %>
   <div class="flex gap-2">
-    <% if (canEditArticle) { %><a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
-    <% if (canDeleteArticle) { %><form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this article?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form><% } %>
+    <a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this article?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
   </div>
   <% } %>
 </div>

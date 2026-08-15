@@ -9,6 +9,32 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (125th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency fixes for numeric
+id comparisons in EJS templates.
+
+### Fixes applied
+
+**Consistency**
+- **`views/pages/tickets/show.ejs` — two ownership checks used bare `===` without `Number()` coercion (LOW).** Lines 10 and 26 compared `ticket.assigned_to === user.id` with bare `===`, while the same file's `canDeleteTicket` check and every ownership/authorship check across the codebase (knowledge.js show/edit/update/delete, staff.js index row mapping) use `Number(...) === Number(...)` to guard against a future caller that accidentally passes a string id. Unified both to `Number(ticket.assigned_to) === Number(user.id)` so the numeric-comparison contract is uniform.
+
+**Consistency**
+- **`views/pages/knowledge/show.ejs` — two identical redundant variables and bare `===` without `Number()` coercion (LOW).** Lines 6–7 declared `canEditArticle` and `canDeleteArticle` as separate but identical expressions (`article.author_id === user.id || isPrivileged(user)`), and both used bare `===`. Consolidated into a single `canManageArticle` variable with `Number()` coercion on both sides (`Number(article.author_id) === Number(user.id) || isPrivileged(user)`) to match the convention used by the knowledge.js route handlers (show/edit/update/delete at lines 430, 482, 516, 593, 639, 658) and eliminate the dead redundancy.
+
+**Test coverage**
+- **`tests/code_review_125.test.js` — added 5 regression tests for the template `Number()` coercion fixes.** Five tests cover: (1) tickets/show renders edit/status buttons when `assigned_to` is a string matching the session user id, (2) hides edit/status buttons when the string ids differ, (3) knowledge/show renders edit/delete buttons when `author_id` is a string matching the session user id, (4) hides edit/delete buttons when the string ids differ, and (5) privileged users always see edit/delete regardless of authorship. Prevents a future refactor from silently dropping `Number()` coercion on either template path.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **728 passed / 728 total** (32 suites, +5 regression tests).
+
+---
+
 ## Review cycle 2026-08-16 (124th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

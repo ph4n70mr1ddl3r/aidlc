@@ -7,7 +7,7 @@
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/tickets">Tickets</a> / <%= ticket.ticket_number %></div>
   </div>
   <%
-    const canEditTicket = isPrivileged(user) || ticket.assigned_to === user.id;
+    const canEditTicket = isPrivileged(user) || Number(ticket.assigned_to) === Number(user.id);
     const canDeleteTicket = isPrivileged(user);
   %>
   <div class="flex gap-2">
@@ -23,7 +23,7 @@
 </div>
 
 <%
-  const canChangeTicketStatus = isPrivileged(user) || ticket.assigned_to === user.id;
+  const canChangeTicketStatus = isPrivileged(user) || Number(ticket.assigned_to) === Number(user.id);
 %>
 <% if (canChangeTicketStatus) { %>
 <!-- Quick Status Actions -->
