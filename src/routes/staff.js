@@ -319,7 +319,7 @@ router.get('/:id', (req, res) => {
   // PII disclosure control: only privileged users (admin/manager) or the user
   // themselves may view a staff profile. A regular staff member enumerating
   // IDs must not be able to read other employees' email/phone/department.
-  const isSelf = id === req.session.user.id;
+  const isSelf = Number(id) === Number(req.session.user.id);
   if (!isPrivileged(req.session.user) && !isSelf) {
     req.flash('error', 'You do not have permission to view that staff member');
     return res.redirect('/staff');

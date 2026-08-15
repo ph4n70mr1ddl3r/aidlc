@@ -2,6 +2,14 @@ const { describe, it, expect } = require('@jest/globals');
 
 const { isValidAssetTag, safePositiveFloat } = require('../src/utils');
 
+// Mock database so we can inspect the SQL passed to prepare() for regression
+// tests that assert statement shapes without needing a live DB.
+let mockStmt;
+jest.mock('../src/models/database', () => {
+  mockStmt = { get: jest.fn(() => null), all: jest.fn(() => []), run: jest.fn(() => ({ changes: 1, lastInsertRowid: 1 })) };
+  return { prepare: jest.fn(() => mockStmt), exec: jest.fn(), pragma: jest.fn(), transaction: jest.fn((fn) => fn), close: jest.fn() };
+});
+
 describe('Asset tag validation', () => {
   it('accepts valid asset tags (AST-XXX)', () => {
     expect(isValidAssetTag('AST-001')).toBe(true);
@@ -78,5 +86,27 @@ describe('Assets create purchase_price sentinel regression', () => {
       : safePositiveFloat(purchase_price, Infinity);
     expect(safePurchasePrice).toBe(0);
     expect(safePurchasePrice).not.toBe(Infinity);
+  });
+});
+
+describe('Assets delete — detach tickets updates updated_at (regression)', () => {
+  // Regression test for the assets DELETE path: when an asset is deleted,
+  // related tickets must have their updated_at refreshed so they continue
+  // to surface in "recently updated" lists. Previously _deleteDetachTicketsStmt
+  // only set asset_id = NULL without touching updated_at, leaving orphaned
+  // tickets stale in time-sensitive sorting.
+  it('includes updated_at in the detach-statement SQL', () => {
+    // Require the route module to trigger module-level prepare() calls
+    // that seed db.prepare.mock.calls.
+    require('../src/routes/assets');
+    const db = jest.requireMock('../src/models/database');
+    const prepareCalls = db.prepare.mock.calls;
+    const detachSql = prepareCalls
+      .map(([sql]) => sql)
+      .find((sql) => sql.includes('UPDATE') && sql.includes('tickets') && sql.includes('asset_id'));
+    expect(detachSql).toBeDefined();
+    expect(detachSql).toContain("updated_at = datetime('now')");
+    expect(detachSql).toContain('asset_id = NULL');
+    expect(detachSql).toContain('WHERE asset_id = ?');
   });
 });

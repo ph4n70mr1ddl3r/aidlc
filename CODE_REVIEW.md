@@ -9,6 +9,32 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (122nd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents three consistency/correctness fixes.
+
+### Fixes applied
+
+**Data freshness**
+- **`src/routes/assets.js` — `_deleteDetachTicketsStmt` did not refresh `tickets.updated_at` (LOW).** When an asset was deleted, related tickets had their `asset_id` nulled but their `updated_at` was left untouched, so orphaned tickets stopped sorting into "recently updated" lists and could stall in SLA / workload calculations. Added `updated_at = datetime('now')` to the statement so deleting an asset surfaces the change on its linked tickets immediately.
+
+**Consistency**
+- **`src/routes/staff.js` — `isSelf` comparison omitted `Number()` coercion (LOW).** Line 322 compared `id === req.session.user.id` with bare `===`, while every other ownership/authorship check across the codebase uses `Number(...) === Number(...)` (e.g. knowledge.js show/edit/update/delete routes). Unified to `Number(id) === Number(req.session.user.id)` so the numeric-comparison contract is uniform and a future caller that accidentally passes a string id cannot silently match a numeric session user id.
+- **`src/routes/tickets.js` — `_commentExistsStmt` selected an unused column (LOW).** The show-route comment handler only reads `ticket.id` from the row; `assigned_to` was a dead column that added unnecessary bytes to every comment-check query. Removed it from the SELECT.
+
+**Test coverage**
+- **`tests/assets.test.js` — added regression test for `_deleteDetachTicketsStmt` SQL shape** to prevent future drift away from the `updated_at = datetime('now')` guard.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **711 passed / 711 total** (29 suites, +1 regression test).
+
+---
+
 ## Review cycle 2026-08-16 (121st pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
