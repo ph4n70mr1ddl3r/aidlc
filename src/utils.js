@@ -3,6 +3,7 @@
  */
 
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = require('./constants');
+const rateLimit = require('express-rate-limit');
 let PAGE_SIZE;
 
 const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
@@ -1064,6 +1065,25 @@ function normalizeIp(ip) {
 }
 
 /**
+ * Per-account rate-limit key for authenticated requests. Returns a stable key
+ * derived from the session user id so one user behind a NAT'd office IP cannot
+ * consume the shared budget for the whole team (the convention established and
+ * documented in tickets.js / dashboard.js / licenses.js / knowledge.js /
+ * reports.js / audit.js). Falls back to a normalized-IP key when there is no
+ * authenticated session so a pre-auth path with no user (e.g. the login
+ * limiter) still gets per-source limits. Uses rateLimit.ipKeyGenerator for the
+ * IP fallback so express-rate-limit v8 can apply proper IPv6 subnet prefixing.
+ * @param {import('express').Request} req
+ * @returns {string}
+ */
+function authKeyGenerator(req) {
+  if (req && req.session && req.session.user && req.session.user.id) {
+    return `user:${req.session.user.id}`;
+  }
+  return rateLimit.ipKeyGenerator(normalizeIp(req && req.ip));
+}
+
+/**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances.
  */
@@ -1155,6 +1175,10 @@ module.exports = {
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE,
   resetCachedStatements, resetPageSize,
   rejectHppArrays, normalizeIp,
+  // Shared per-account rate-limit key (user id, normalized-IP fallback). Used by
+  // every authenticated-route limiter so one NAT'd office IP cannot exhaust a
+  // shared budget; authenticate-then-limit paths continue to be IP-keyed.
+  authKeyGenerator,
   // Exported for unit testing only — mirrors the pattern used by route modules
   // that expose internal helpers (e.g. _resolveDateTimeField in changes.js).
   _touchCache,

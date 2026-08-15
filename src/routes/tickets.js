@@ -1,16 +1,18 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, normalizeIp } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, authKeyGenerator } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
 
-// Rate limit ticket write operations to prevent abuse
+// Rate limit ticket write operations to prevent abuse. Keyed per account so a
+// single user behind a NAT'd office IP cannot consume the shared write budget.
 const ticketWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
+  keyGenerator: authKeyGenerator,
   message: 'Too many ticket operations. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -18,16 +20,9 @@ const ticketWriteLimiter = rateLimit({
 
 // Key comment rate-limiting by user id (per-account) so a single user can't
 // be silenced by another's IP. The IP fallback exists for defense in depth.
-// Uses rateLimit.ipKeyGenerator for the IP fallback so express-rate-limit v8
-// can apply proper IPv6 subnet prefixing.
-function commentKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  // Normalize IP here so the IP fallback key is consistent with audit.js and
-  // auth.js (strips ::ffff: prefix, falls back to 'unknown' for arrays/missing).
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Delegates to the shared utils.authKeyGenerator (user key + normalized-IP
+// fallback via rateLimit.ipKeyGenerator for IPv6 subnet prefixing).
+const commentKeyGenerator = authKeyGenerator;
 
 const commentRateLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -822,6 +817,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
 const statusUpdateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
+  keyGenerator: authKeyGenerator,
   message: 'Too many status updates. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false
@@ -896,6 +892,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
 const satisfactionLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
+  keyGenerator: authKeyGenerator,
   message: 'Too many rating submissions. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false

@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { safeInt, safeQueryValue, normalizeIp } = require('../utils');
+const { safeInt, safeQueryValue, authKeyGenerator } = require('../utils');
 
 /**
  * Parse the `period` report query parameter, clamps to [1, 365], and fails
@@ -30,16 +30,9 @@ function resolveReportPeriod(raw, fallback = 30) {
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
-// Key rate-limiting by authenticated user id (per-account) so one admin's
-// requests cannot silence the whole team behind a NAT'd IP. The normalized-IP
-// fallback exists for defense in depth. Mirrors the commentKeyGenerator pattern
-// in tickets.js.
-function authKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Key rate-limiting by authenticated user id (per-account, shared utils helper)
+// so one admin's requests cannot silence the whole team behind a NAT'd IP. The
+// normalized-IP fallback exists for defense in depth.
 
 // Rate limit report data endpoints — aggregation queries are expensive and could
 // be abused for DoS even behind admin/manager auth. Applied below to the

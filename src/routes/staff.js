@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, invalidateActiveStaffCache } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -165,10 +165,12 @@ router.get('/new', requireAdminOrManager, (req, res) => {
   res.render('pages/staff/form', { title: 'New Staff Member', staffMember: {}, isEdit: false, viewerRole: req.session.user.role });
 });
 
-// Rate limit staff creation to prevent account-mass-creation attacks
+// Rate limit staff creation to prevent account-mass-creation attacks.
+// Per-account keyed so one admin's bulk work cannot silence another admin.
 const createStaffLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
+  keyGenerator: authKeyGenerator,
   message: 'Too many staff creation attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -177,6 +179,7 @@ const createStaffLimiter = rateLimit({
 const staffWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
+  keyGenerator: authKeyGenerator,
   message: 'Too many staff update operations. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -572,6 +575,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
 const reactivateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
+  keyGenerator: authKeyGenerator,
   message: 'Too many reactivation attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -637,6 +641,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
 const resetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  keyGenerator: authKeyGenerator,
   message: 'Too many password resets. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -747,6 +752,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 const deactivateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
+  keyGenerator: authKeyGenerator,
   message: 'Too many deactivation attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false

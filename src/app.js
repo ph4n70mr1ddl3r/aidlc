@@ -23,6 +23,7 @@ const utilsModule = require('./utils');
 const constantsModule = require('./constants');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = constantsModule;
 const { stopLoginFailureCleanup } = require('./routes/auth');
+const { destroySessionAndRedirect } = require('./middleware/auth');
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -258,6 +259,20 @@ if (process.env.SESSION_STORE) {
 // session. Placing it first ensures req.cookies is populated for all middleware.
 app.use(cookieParser());
 
+// ---------------------------------------------------------------------------
+// Session idle / absolute timeouts
+// ---------------------------------------------------------------------------
+// Enforced by the middleware below. Values are SECONDS. Malformed/unset/invalid
+// env values fall back to the defaults (fail-closed to the security baseline)
+// rather than disabling the timeout entirely — a parsed 0 or NaN would make the
+// `now - last > window` comparisons always-false and silently kill the feature.
+function _parsePositiveSeconds(raw, fallback) {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+const SESSION_IDLE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_IDLE_TIMEOUT_SECONDS, 15 * 60); // 15 minutes
+const SESSION_ABSOLUTE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS, 8 * 60 * 60); // 8 hours
+
 // Re-evaluate secure flag at session-config time so it is always correct
 // regardless of when constants.js was required relative to NODE_ENV normalization.
 app.use(session({
@@ -273,6 +288,68 @@ app.use(session({
     maxAge: SESSION_MAX_AGE
   }
 }));
+
+// Throttle lastAccess writes to once a minute so idle enforcement does not
+// write the session store on every request. express-session saves whenever a
+// session property is assigned, which would otherwise defeat the resave:false
+// intent. The idle window (>= 5 minutes, default 15) tolerates lastAccess being
+// up to 60s stale, so an active user is never falsely expired and the stored
+// "idle since" marker is accurate enough for a 15-minute window.
+const _LAST_ACCESS_THROTTLE_MS = 60_000;
+
+/**
+ * Middleware factory that enforces per-session idle and absolute timeouts.
+ * Acts ONLY on requests carrying an authenticated session (`req.session.user`);
+ * unauthenticated requests fall through to the route-level requireAuth, which
+ * flash-errors and redirects to /login exactly as before. Enforcing here rather
+ * than inside requireAuth guarantees the timeout bounds every mounted router
+ * that calls `router.use(requireAuth)`, while leaving public routes (login,
+ * health, static) and the sessionless write path untouched.
+ *
+ * On expiry the session is destroyed, the cookie is cleared, and the user is
+ * redirected to /login?reason=<...>. A query param is used instead of a flash
+ * message because destroying the session wipes the store the flash would travel
+ * in (and connect-flash throws if a request has no live session).
+ *
+ * @param {number} idleMs - inactivity window before idle timeout (ms)
+ * @param {number} absoluteMs - hard session lifetime cap (ms)
+ * @returns {import('express').RequestHandler}
+ */
+function createSessionTimeoutMiddleware(idleMs, absoluteMs) {
+  return function sessionTimeoutMiddleware(req, res, next) {
+    if (!req.session || !req.session.user) {
+      return next();
+    }
+    const now = Date.now();
+    const sessionStart = req.session.sessionStart || now;
+
+    // Absolute timeout checked first so a both-expired session reports the
+    // more security-relevant reason. The absolute window is anchored to the
+    // first post-login request (session regeneration on login/password change
+    // discards prior state, so a fresh window starts there).
+    if (now - sessionStart > absoluteMs) {
+      return destroySessionAndRedirect(req, res, '/login?reason=session_expired', 'Session destroy error (absolute timeout):');
+    }
+    // Idle timeout: no request touched this session inside the window.
+    // lastAccess anchors on sessionStart until the first request initializes it.
+    if (now - (req.session.lastAccess || sessionStart) > idleMs) {
+      return destroySessionAndRedirect(req, res, '/login?reason=session_idle', 'Session destroy error (idle timeout):');
+    }
+
+    if (!req.session.sessionStart) {
+      req.session.sessionStart = sessionStart;
+    }
+    if (!req.session.lastAccess || now - req.session.lastAccess >= _LAST_ACCESS_THROTTLE_MS) {
+      req.session.lastAccess = now;
+    }
+    next();
+  };
+}
+
+app.use(createSessionTimeoutMiddleware(
+  SESSION_IDLE_TIMEOUT_SECONDS * 1000,
+  SESSION_ABSOLUTE_TIMEOUT_SECONDS * 1000
+));
 
 app.use(flash());
 
@@ -489,6 +566,19 @@ app.get('/', (req, res) => {
   return res.redirect('/login');
 });
 
+// Test smoke endpoints — allow the session-timeout integration tests to probe
+// the middleware wiring without going through the full login flow. Only present
+// when NODE_ENV is 'test'; the guard keeps them out of production builds.
+if (process.env.NODE_ENV === 'test') {
+  app.get('/__st_smoke', (req, res) => {
+    res.json({ hasUser: Boolean(req.session && req.session.user) });
+  });
+  app.get('/__st_login', (req, res) => {
+    req.session.user = { id: 1, username: 'smoke' };
+    res.json({ ok: true });
+  });
+}
+
 // 404 handler
 app.use((req, res) => {
   // Honor content negotiation so AJAX clients (Accept: application/json / */*)
@@ -675,6 +765,8 @@ if (require.main === module) {
   });
 }
 
-// Exposed for unit testing the SESSION_STORE allowlist (tests/app.test.js).
+// Exposed for unit testing the SESSION_STORE allowlist (tests/app.test.js) and
+// the session idle/absolute timeout middleware (tests/session_timeout.test.js).
 module.exports = app;
 module.exports.SESSION_STORE_RE = SESSION_STORE_RE;
+module.exports.createSessionTimeoutMiddleware = createSessionTimeoutMiddleware;

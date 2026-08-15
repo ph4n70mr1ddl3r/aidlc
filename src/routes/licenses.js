@@ -5,19 +5,12 @@ const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositi
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
-const { normalizeIp } = require('../utils');
+const { authKeyGenerator } = require('../utils');
 
-// Key rate-limiting by authenticated user id (per-account) so one admin's
-// requests cannot silence the whole team behind a NAT'd office IP — the key
-// reveal limiter is the anti-exfiltration control for the module's most
-// sensitive secret and must not be exhaustible by colleagues. Mirrors the
-// authKeyGenerator pattern in knowledge.js / reports.js / audit.js.
-function authKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Key rate-limiting by authenticated user id (per-account, shared utils helper)
+// so one admin's requests cannot silence the whole team behind a NAT'd office IP
+// — the key reveal limiter is the anti-exfiltration control for the module's most
+// sensitive secret and must not be exhaustible by colleagues.
 
 const licenseWriteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

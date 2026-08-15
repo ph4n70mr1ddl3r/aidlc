@@ -15,6 +15,10 @@
       <div class="flash error" role="alert"><i class="fas fa-exclamation-circle"></i> Your account has been deactivated. Contact your administrator.</div>
     <% } else if (typeof reason !== 'undefined' && reason === 'password_changed') { %>
       <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session has expired because your password was changed. Please log in again.</div>
+    <% } else if (typeof reason !== 'undefined' && reason === 'session_idle') { %>
+      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session expired due to inactivity. Please log in again.</div>
+    <% } else if (typeof reason !== 'undefined' && reason === 'session_expired') { %>
+      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session has expired after reaching its maximum lifetime. Please log in again.</div>
     <% } %>
     <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
       <div class="flash success" role="alert"><i class="fas fa-check-circle"></i> <%= m %></div>

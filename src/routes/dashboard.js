@@ -1,20 +1,13 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { normalizeIp } = require('../utils');
+const { authKeyGenerator } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
-// Key rate-limiting by authenticated user id (per-account) so one user's
-// reloads cannot silence everyone behind the same NAT'd office IP — the
-// dashboard is the landing page for ALL users, so IP-keying a tight 10/min
-// limit would throttle whole offices sharing an egress address. Mirrors the
-// authKeyGenerator pattern in knowledge.js / reports.js / audit.js / tickets.js.
-function authKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Key rate-limiting by authenticated user id (per-account, shared utils helper)
+// so one user's reloads cannot silence everyone behind the same NAT'd office IP
+// — the dashboard is the landing page for ALL users, so IP-keying a tight 10/min
+// limit would throttle whole offices sharing an egress address.
 
 // Rate limit dashboard requests to prevent abuse of aggregation queries.
 // Uses a plain 429 response (with a queued flash for the next page view)

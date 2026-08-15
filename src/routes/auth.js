@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
@@ -15,10 +15,13 @@ function _regenerateSession(session) {
 
 const router = require('express').Router();
 
-// Rate limit password-related endpoints to prevent brute-force
+// Rate limit password-related endpoints to prevent brute-force. Keyed per
+// account (the routes are authenticated) so one user's actions never consume
+// the shared budget of everyone behind a NAT'd IP.
 const passwordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes (aligned with loginRateLimiter)
   max: 10,
+  keyGenerator: authKeyGenerator,
   message: 'Too many password attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -28,6 +31,7 @@ const passwordLimiter = rateLimit({
 const profileLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  keyGenerator: authKeyGenerator,
   message: 'Too many profile update attempts. Please try again later.',
   standardHeaders: true,
   legacyHeaders: false
@@ -250,7 +254,7 @@ router.get('/login', (req, res) => {
     return res.redirect('/dashboard');
   }
   // Only allow known reason values to prevent arbitrary message injection via crafted URLs
-  const allowedReasons = ['deactivated', 'password_changed'];
+  const allowedReasons = ['deactivated', 'password_changed', 'session_idle', 'session_expired'];
   const qReason = safeQueryValue(req.query.reason);
   const reason = allowedReasons.includes(qReason) ? qReason : '';
   res.render('pages/auth/login', { title: 'Login', reason });

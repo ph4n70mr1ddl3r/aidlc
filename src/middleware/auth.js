@@ -6,7 +6,12 @@ const { audit } = require('./audit');
 const _authVerifiedSym = Symbol('authVerified');
 
 
-function _destroyAndRedirect(req, res, redirectUrl, errMsg) {
+// Shared "destroy this session and send the user to login" helper. Used by the
+// requireAuth/requireRole path below and by app.js's session idle/absolute
+// timeout middleware, so the destroy + cookie-clear + redirect sequence stays
+// identical (and equally well-guarded) everywhere a session is killed.
+// The redirectUrl may carry a `reason` query param the login page understands.
+function destroySessionAndRedirect(req, res, redirectUrl, errMsg) {
   if (res.headersSent) {
     return;
   }
@@ -63,16 +68,16 @@ function _verifySessionUser(req, res) {
   try {
     const uid = req.session.user.id;
     if (uid == null) {
-      _destroyAndRedirect(req, res, '/login', 'Session verification failed. Please log in again.');
+      destroySessionAndRedirect(req, res, '/login', 'Session verification failed. Please log in again.');
       return false;
     }
     const row = _getAuthCheckStmt().get(uid);
     if (!row || row.id !== uid || !row.is_active) {
-      _destroyAndRedirect(req, res, '/login?reason=deactivated', 'Session destroy error (deactivated):');
+      destroySessionAndRedirect(req, res, '/login?reason=deactivated', 'Session destroy error (deactivated):');
       return false;
     }
     if (row.password_changed_at && row.password_changed_at !== req.session.user.password_changed_at) {
-      _destroyAndRedirect(req, res, '/login?reason=password_changed', 'Session destroy error (password changed):');
+      destroySessionAndRedirect(req, res, '/login?reason=password_changed', 'Session destroy error (password changed):');
       return false;
     }
     if (row.role !== req.session.user.role) {
@@ -188,4 +193,4 @@ function canAccessResource(req, resource) {
 function resetCachedStatements() {
   _authCheckStmt = null;
 }
-module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource, resetCachedStatements };
+module.exports = { requireAuth, requireRole, requireAdminOrManager, requireAdmin, canAccessResource, destroySessionAndRedirect, resetCachedStatements };

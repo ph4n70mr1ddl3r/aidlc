@@ -1,23 +1,16 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters, rejectHppArrays, normalizeIp } = require('../utils');
+const { paginate, paginationBaseUrl, buildFilters, countQuery, selectQuery, safeSort, safeQueryValue, safeFilters, rejectHppArrays, authKeyGenerator } = require('../utils');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
 const router = require('express').Router();
 router.use(requireAuth, requireAdminOrManager, auditMiddleware);
 
-// Key rate-limiting by authenticated user id (per-account) so one admin's
-// requests cannot silence the whole team behind a NAT'd IP. The normalized-IP
-// fallback exists for defense in depth. Mirrors the commentKeyGenerator pattern
-// in tickets.js.
-function authKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Key rate-limiting by authenticated user id (per-account, shared utils helper)
+// so one admin's requests cannot silence the whole team behind a NAT'd IP. The
+// normalized-IP fallback exists for defense in depth.
 
 // Rate limit the audit log endpoint — the LEFT JOIN over a fast-growing
 // audit_log table is expensive and could be abused for DoS even behind

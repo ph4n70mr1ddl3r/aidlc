@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, normalizeIp } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -43,16 +43,9 @@ const sanitizeHtml = (() => {
 })();
 const rateLimit = require('express-rate-limit');
 
-// Key rate-limiting by authenticated user id (per-account) so one user's
-// requests cannot silence everyone behind the same NAT'd office IP. The
-// normalized-IP fallback exists for defense in depth. Mirrors the
-// commentKeyGenerator pattern in tickets.js.
-function authKeyGenerator(req) {
-  if (req.session && req.session.user && req.session.user.id) {
-    return `user:${req.session.user.id}`;
-  }
-  return rateLimit.ipKeyGenerator(normalizeIp(req.ip));
-}
+// Key rate-limiting by authenticated user id (per-account, shared utils helper)
+// so one user's requests cannot silence everyone behind the same NAT'd office
+// IP. The normalized-IP fallback exists for defense in depth.
 
 // Rate limit knowledge article creation/update — markdown parsing + sanitization
 // is CPU-intensive and could be abused for server-side DoS even by authenticated users.
