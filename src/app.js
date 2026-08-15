@@ -574,6 +574,13 @@ if (process.env.NODE_ENV === 'test') {
     res.json({ hasUser: Boolean(req.session && req.session.user) });
   });
   app.get('/__st_login', (req, res) => {
+    // Initialize sessionStart/lastAccess explicitly so the first request after
+    // smoke-login does not trigger a false idle/absolute timeout. The
+    // createSessionTimeoutMiddleware below assigns these on first real access
+    // when absent, but seed them here so tests that immediately probe the
+    // timeout middleware after /__st_login see a freshly-initialized window.
+    req.session.sessionStart = Date.now();
+    req.session.lastAccess = Date.now();
     req.session.user = { id: 1, username: 'smoke' };
     res.json({ ok: true });
   });

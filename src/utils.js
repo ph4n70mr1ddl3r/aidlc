@@ -533,6 +533,11 @@ function formatDate(value) {
     const local = new Date(y, mo - 1, da, h, mi, s);
     return local.toLocaleDateString();
   }
+  // Fallback for unrecognized date-like strings: delegate to the native Date
+  // parser and toLocaleDateString(). This path is rarely reached because the
+  // YYYY-MM-DD regex above handles the canonical format; it covers e.g.
+  // ISO strings with timezone offsets ("2024-01-15T00:00:00Z") that the
+  // strict regex intentionally rejects.
   return d.toLocaleDateString();
 }
 
