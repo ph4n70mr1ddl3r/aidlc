@@ -68,11 +68,7 @@ const _staffInsertStmt = db.prepare(`
     INSERT INTO users (username, password, email, first_name, last_name, role, department, phone)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
-const _staffUpdateStmt = db.prepare(`
-    UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?,
-      department = ?, phone = ?, is_active = is_active, updated_at = datetime('now')
-    WHERE id = ?
-  `);
+const _staffUpdateStmt = db.prepare('UPDATE users SET email = ?, first_name = ?, last_name = ?, role = ?, department = ?, phone = ?, is_active = is_active, updated_at = datetime(\'now\') WHERE id = ?');
 
 // Cached prepared statement for department list in staff index.
 // Include all departments (not just those with active users) so the filter

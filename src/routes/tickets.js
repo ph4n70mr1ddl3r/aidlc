@@ -145,7 +145,7 @@ const SORT_MAP = Object.freeze({
  * @returns {Array}
  */
 function ensureLinkedAssetInList(assets, linkedAsset) {
-  if (linkedAsset && !assets.some(a => a.id === linkedAsset.id)) {
+  if (linkedAsset && !assets.some(a => Number(a.id) === Number(linkedAsset.id))) {
     return [linkedAsset, ...assets];
   }
   return assets;
