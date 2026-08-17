@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, titleCase } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -627,8 +627,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message.startsWith('INVALID_')) {
-      const fieldName = err.message.replace('INVALID_', '').replace(/_/g, ' ');
-      req.flash('error', `Invalid ${fieldName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}`);
+      const fieldName = err.message.replace('INVALID_', '');
+      req.flash('error', `Invalid ${titleCase(fieldName)}`);
       return res.redirect(`/vendors/${id}/edit`);
     }
     console.error('Vendor update error:', err.message);

@@ -9,6 +9,36 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-16 (126th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency fixes for numeric
+id comparisons in EJS templates and one robustness improvement for vendor
+error messages.
+
+### Fixes applied
+
+**Consistency**
+- **`views/pages/staff/show.ejs` — bare `!==` without `Number()` coercion on id comparison (LOW).** Line 88 compared `staffUser.id !== user.id` with bare `!==`, while every ownership/authorship check across the codebase (knowledge.js show/edit/delete, tickets.js show, staff.js index row mapping) uses `Number(...) === Number(...)` to guard against a future caller that accidentally passes a string id. Unified to `Number(staffUser.id) !== Number(user.id)` so the numeric-comparison contract is uniform.
+
+**Consistency**
+- **Six EJS templates omitted `Number()` coercion on id comparisons used for `<option selected>` and filter-preserve logic (LOW).** The form templates (`projects/form.ejs`, `tickets/form.ejs`, `changes/form.ejs`, `assets/form.ejs`) all used loose `==` when matching a resource id against a staff member id, while the index templates (`assets/index.ejs`, `tickets/index.ejs`, `changes/index.ejs`) used ad-hoc `String()` or asymmetric `Number()` coercions. All six were unified to `Number(value) === Number(s.id)` to match the convention established by the show-page ownership checks and the `canAccessResource` middleware.
+
+**Robustness**
+- **`src/routes/vendors.js` — manual title-casing of `INVALID_` error field names was fragile (LOW).** The catch block reconstructed flash messages by splitting on spaces and lowercasing each word, which would break if the error key ever changed casing. Replaced with a call to the shared `titleCase` helper from `utils.js` so all error messages follow the same deterministic casing contract used across the rest of the codebase.
+
+**Test coverage**
+- **`tests/code_review_126.test.js` — added 9 regression tests for the template `Number()` coercion fixes and the vendor `titleCase` usage.** Tests cover: (1) `titleCase('CONTACT_PERSON')` produces `"Contact Person"`, (2) `titleCase('EMAIL')` produces `"Email"`, (3) `titleCase('CONTRACT_START')` produces `"Contract Start"`, (4) `titleCase('VENDOR_RATING')` produces `"Vendor Rating"`, (5) `projects/form.ejs` selects the right owner option when both ids are strings, (6) `projects/form.ejs` does not select a mismatched owner, (7) `tickets/form.ejs` selects the right assignee and asset options under string coercion, (8) `changes/form.ejs` selects the right assignee under string coercion, (9) `assets/form.ejs` selects the right assignee under string coercion, (10) `assets/index.ejs` preserves filter selection under string coercion, (11) `tickets/index.ejs` preserves filter selection under string coercion, and (12) `changes/index.ejs` preserves filter selection under string coercion. Prevents a future refactor from silently dropping `Number()` coercion on any of these template paths.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **744 passed / 744 total** (33 suites, +9 regression tests).
+
+---
+
 ## Review cycle 2026-08-16 (125th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

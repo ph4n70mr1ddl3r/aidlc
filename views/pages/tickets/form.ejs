@@ -53,7 +53,7 @@
           <select name="assigned_to" id="assigned_to" class="form-control">
             <option value="">Unassigned</option>
             <% if (typeof staff !== 'undefined') { staff.forEach(s => { %>
-              <option value="<%= s.id %>" <%= ticket.assigned_to == s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+              <option value="<%= s.id %>" <%= Number(ticket.assigned_to) === Number(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
             <% }); } %>
           </select>
         </div>
@@ -62,7 +62,7 @@
           <select name="asset_id" id="asset_id" class="form-control">
             <option value="">None</option>
             <% if (typeof assets !== 'undefined') { assets.forEach(a => { %>
-              <option value="<%= a.id %>" <%= ticket.asset_id == a.id ? 'selected' : '' %>><%= a.asset_tag %> - <%= a.name %></option>
+              <option value="<%= a.id %>" <%= Number(ticket.asset_id) === Number(a.id) ? 'selected' : '' %>><%= a.asset_tag %> - <%= a.name %></option>
             <% }); } %>
           </select>
         </div>

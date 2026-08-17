@@ -8,7 +8,7 @@
     <% CONSTANTS.CHANGE_STATUSES.forEach(s => { %><option value="<%= s %>" <%= filters.status === s ? 'selected' : '' %>><%= titleCase(s) %></option><% }) %></select>
   <select name="change_type" aria-label="Filter by type"><option value="">All Types</option><% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %></select>
   <select name="priority" aria-label="Filter by priority"><option value="">All Priority</option><% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option><% }) %></select>
-  <select name="assigned_to" aria-label="Filter by assignee"><option value="">All Assignees</option><% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>" <%= String(filters.assigned_to) === String(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }); } %></select>
+  <select name="assigned_to" aria-label="Filter by assignee"><option value="">All Assignees</option><% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>" <%= Number(filters.assigned_to) === Number(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }); } %></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
   <a href="/changes" class="btn btn-sm btn-outline">Clear</a>
 </form>

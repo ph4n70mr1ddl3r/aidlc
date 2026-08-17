@@ -33,7 +33,7 @@
   <select name="assigned_to" aria-label="Filter by assignee">
     <option value="">All Assignees</option>
     <% if (typeof staff !== 'undefined') { staff.forEach(s => { %>
-      <option value="<%= s.id %>" <%= Number(filters.assigned_to) === s.id ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
+      <option value="<%= s.id %>" <%= Number(filters.assigned_to) === Number(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option>
     <% }) } %>
   </select>
   <select name="sort" aria-label="Sort order">
