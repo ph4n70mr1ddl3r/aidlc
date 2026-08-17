@@ -10,6 +10,41 @@ const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
 /**
+ * Derive PAGE_SIZE from environment (testable helper).
+ * Logs a warning if PAGE_SIZE is set but invalid; values exceeding MAX_PAGE_SIZE are clamped.
+ */
+function _derivePageSize() {
+  const raw = process.env.PAGE_SIZE;
+  const p = parseInt(raw, 10);
+  if (raw !== undefined && raw !== '' && (!Number.isFinite(p) || p <= 0)) {
+    console.warn(
+      `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
+    );
+  }
+  const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
+  return env || DEFAULT_PAGE_SIZE;
+}
+
+/**
+ * Reset the env-derived PAGE_SIZE (test use only).
+ * Called by resetCachedStatements(), but also exported separately so tests
+ * that change process.env.PAGE_SIZE can re-derive it without clearing all
+ * cached prepared statements.
+ */
+function _resetPageSize() {
+  PAGE_SIZE = _derivePageSize();
+}
+
+// Initialize PAGE_SIZE at module load — declared before paginate() so the
+// function's default-page-size fallback is available without relying on JS
+// execution-order assumptions (the runtime is fine today because paginate is
+// only called after module load, but forward-referencing a let binding is
+// fragile and violates the declare-before-use convention).
+let PAGE_SIZE = _derivePageSize();
+// Public alias so tests can call it directly.
+const resetPageSize = _resetPageSize;
+
+/**
  * Extract a scalar value from a query parameter. When the value is an array
  * (HTTP parameter pollution), returns the first element — this is the
  * fail-open fallback used by utilities that do not have an explicit HPP
@@ -1103,39 +1138,7 @@ function resetCachedStatements() {
   _pruneDeleteStmt = null;
   _countQueryCache.clear();
   _selectQueryCache.clear();
-  _resetPageSize();
 }
-
-/**
- * Derive PAGE_SIZE from environment (testable helper).
- * Logs a warning if PAGE_SIZE is set but invalid; values exceeding MAX_PAGE_SIZE are clamped.
- */
-function _derivePageSize() {
-  const raw = process.env.PAGE_SIZE;
-  const p = parseInt(raw, 10);
-  if (raw !== undefined && raw !== '' && (!Number.isFinite(p) || p <= 0)) {
-    console.warn(
-      `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
-    );
-  }
-  const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
-  return env || DEFAULT_PAGE_SIZE;
-}
-
-/**
- * Reset the env-derived PAGE_SIZE (test use only).
- * Called by resetCachedStatements(), but also exported separately so tests
- * that change process.env.PAGE_SIZE can re-derive it without clearing all
- * cached prepared statements.
- */
-function _resetPageSize() {
-  PAGE_SIZE = _derivePageSize();
-}
-
-// Initialize PAGE_SIZE at module load
-let PAGE_SIZE = _derivePageSize();
-// Public alias so tests can call it directly.
-const resetPageSize = _resetPageSize;
 
 /**
  * Reject HTTP parameter pollution (HPP) array payloads on a list of fields.

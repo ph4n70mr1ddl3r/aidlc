@@ -1,11 +1,34 @@
 # Code Review Notes
 
-**Date:** 2026-08-16
+**Date:** 2026-08-17
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
 Jest suite. Prior review history (120+ consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-17 (127th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents one defense-in-depth fix for DB
+result-object mutation in the knowledge show route.
+
+### Fixes applied
+
+**Defense-in-depth**
+- **`src/routes/knowledge.js` — show route mutated DB query result object in-place (LOW).** The show route had shallow-copied the asset row in `assets.js` and the ticket row in `tickets.js` before deleting PII properties, but the knowledge show route added `renderedContent` directly to the `_showArticleStmt.get()` result (`article.renderedContent = ...`). If better-sqlite3 ever returns cached/memoized row objects, this would mutate shared state and leak derived data across requests. Changed to always allocate a new object (`const safeArticle = { ...article }; safeArticle.renderedContent = ...`) so the original DB result is never mutated, matching the pattern used by `safeAsset` in assets.js and `safeTicket` in tickets.js.
+
+**Test coverage**
+- **`tests/code_review_127.test.js` — added 3 regression tests for the DB result immutability fix.** Tests cover: (1) the original DB row object does not gain a `renderedContent` property after the show handler runs, (2) the template still receives an article with `renderedContent` populated, and (3) the route correctly redirects to `/knowledge` when the article is not found. Prevents a future refactor from silently dropping the shallow-copy guard on this path.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **747 passed / 747 total** (34 suites, +3 regression tests).
 
 ---
 

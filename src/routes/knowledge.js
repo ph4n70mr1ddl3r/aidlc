@@ -460,9 +460,13 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     req.session[VIEWED_KEY] = viewed.concat(id).slice(-MAX_VIEWED_ARTICLES);
   }
 
-  article.renderedContent = renderMarkdown(article.content);
-
-  res.render('pages/knowledge/show', { title: article.title, article, markedFallback });
+  // Shallow-copy the article before adding renderedContent so the original
+  // DB query result object is never mutated in place (a mutated row could leak
+  // across requests if better-sqlite3 ever caches result objects). Mirrors the
+  // safeAsset / safeTicket shallow-copy patterns used throughout the codebase.
+  const safeArticle = { ...article };
+  safeArticle.renderedContent = renderMarkdown(article.content);
+  res.render('pages/knowledge/show', { title: article.title, article: safeArticle, markedFallback });
 });
 
 // Edit article (author or admin/manager only)
