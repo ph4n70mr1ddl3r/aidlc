@@ -386,6 +386,7 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_project_tasks_project_status ON project_tasks(project_id, status);
     CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket_created ON ticket_comments(ticket_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_members(project_id);
+    CREATE INDEX IF NOT EXISTS idx_project_members_project_role ON project_members(project_id, role);
     CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_licenses_software ON licenses(software_name);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_serial ON assets(serial_number) WHERE serial_number IS NOT NULL;
