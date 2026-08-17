@@ -1965,3 +1965,27 @@ describe('resolveOptionalField (shared absent-vs-empty resolver)', () => {
     expect(utils.resolveOptionalField('x', false, 100, 'existing')).toBe('false');
   });
 });
+
+describe('authKeyGenerator', () => {
+  it('keys by authenticated user id so colleagues behind one NAT IP do not share a budget', () => {
+    expect(utils.authKeyGenerator({ session: { user: { id: 5 } }, ip: '203.0.113.7' }))
+      .toBe('user:5');
+    expect(utils.authKeyGenerator({ session: { user: { id: 'a1' } }, ip: '203.0.113.7' }))
+      .toBe('user:a1');
+  });
+
+  it('falls back to a normalized-IP key when unauthenticated (per-source limits preserved)', () => {
+    // No session at all
+    expect(utils.authKeyGenerator({ ip: '203.0.113.7' })).toBe('203.0.113.7');
+    // Session exists but carries no user (login path)
+    expect(utils.authKeyGenerator({ session: {}, ip: '::ffff:203.0.113.9' })).toBe('203.0.113.9');
+    // user object present but id missing
+    expect(utils.authKeyGenerator({ session: { user: {} }, ip: '198.51.100.1' })).toBe('198.51.100.1');
+  });
+
+  it('never throws on degenerate input and yields a stable unknown key', () => {
+    const key = utils.authKeyGenerator(undefined);
+    expect(typeof key).toBe('string');
+    expect(key.length).toBeGreaterThan(0);
+  });
+});

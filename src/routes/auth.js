@@ -499,10 +499,12 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     // Fetch fresh user data from DB for the new session (consistent with
     // the password-change route) — avoids an incomplete session user object
     // that could cause issues for code reading role/username/department before
-    // the auth middleware syncs them.
+    // the auth middleware syncs them. Password is excluded so the session
+    // never holds credential material.
     const freshUser = _getProfileSelectStmt().get(userId);
     if (freshUser) {
-      req.session.user = freshUser;
+      const { password: _pw, ...sessionUser } = freshUser;
+      req.session.user = sessionUser;
     }
 
     audit({ req, action: 'update', entity: 'user', entityId: userId, details: 'Updated own profile' });
@@ -632,7 +634,8 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   // Fetch fresh user data (without password) for the new session
   const freshUser = _getProfileSelectStmt().get(userId);
   if (freshUser) {
-    req.session.user = freshUser;
+    const { password: _pw, ...sessionUser } = freshUser;
+    req.session.user = sessionUser;
   }
   req.flash('success', 'Password changed successfully');
   return res.redirect('/profile');

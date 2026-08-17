@@ -536,10 +536,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // data from the DB (consistent with the auth.js password-change route) so
     // the session user object is a complete mirror of the current DB row instead
     // of a hand-patched subset that could diverge if new columns are added.
+    // Password is explicitly excluded so the session never holds credential
+    // material — the login path already destructures it out, and the session
+    // should stay clean after any in-request refresh.
     if (Number(id) === Number(req.session.user.id)) {
       const fresh = _showStaffStmt.get(id);
       if (fresh) {
-        req.session.user = fresh;
+        const { password: _pw, ...sessionUser } = fresh;
+        req.session.user = sessionUser;
       }
     }
 
