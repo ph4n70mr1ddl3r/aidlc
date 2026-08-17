@@ -806,7 +806,7 @@ function ensureAssigneeInList(staff, currentAssigneeId, db) {
   if (cid == null) {
     return staff;
   }
-  if (staff.some(s => s.id === cid)) {
+  if (staff.some(s => Number(s.id) === Number(cid))) {
     return staff;
   }
   const assignee = _getAssigneeByIdStmt(db).get(cid);
