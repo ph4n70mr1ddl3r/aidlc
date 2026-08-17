@@ -76,7 +76,7 @@ function _verifySessionUser(req, res) {
       return false;
     }
     const row = _getAuthCheckStmt().get(uid);
-    if (!row || row.id !== uid || !row.is_active) {
+    if (!row || Number(row.id) !== Number(uid) || !row.is_active) {
       destroySessionAndRedirect(req, res, '/login?reason=deactivated', 'Session destroy error (deactivated):');
       return false;
     }
