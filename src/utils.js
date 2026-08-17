@@ -3,7 +3,7 @@
  */
 
 const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = require('./constants');
-const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 
 const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
 const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
@@ -1110,7 +1110,7 @@ function normalizeIp(ip) {
  * documented in tickets.js / dashboard.js / licenses.js / knowledge.js /
  * reports.js / audit.js). Falls back to a normalized-IP key when there is no
  * authenticated session so a pre-auth path with no user (e.g. the login
- * limiter) still gets per-source limits. Uses rateLimit.ipKeyGenerator for the
+ * limiter) still gets per-source limits. Uses ipKeyGenerator for the
  * IP fallback so express-rate-limit v8 can apply proper IPv6 subnet prefixing.
  * @param {import('express').Request} req
  * @returns {string}
@@ -1119,7 +1119,7 @@ function authKeyGenerator(req) {
   if (req && req.session && req.session.user && req.session.user.id) {
     return `user:${req.session.user.id}`;
   }
-  return rateLimit.ipKeyGenerator(normalizeIp(req && req.ip));
+  return ipKeyGenerator(normalizeIp(req && req.ip));
 }
 
 /**

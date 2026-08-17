@@ -9,6 +9,29 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-17 (128th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents two consistency improvements for
+import organization.
+
+### Fixes applied
+
+**Consistency**
+- **`src/app.js` — route module imports were inline-requiring instead of hoisted (LOW, code clarity).** The file already hoisted `utilsModule`, `constantsModule`, `authRoutes`, and `authMiddleware` to the top, but the remaining 11 route mounts (`/dashboard` through `/audit`) inlined `require('./routes/...')` calls inside each `app.use()` invocation. This made it easy to miss that `authRoutes` and `authMiddleware` were already imported and required re-scanning the file to find any module. Hoisted all 11 remaining route modules to named top-level constants (`dashboardRoutes`, `assetsRoutes`, `ticketsRoutes`, `projectsRoutes`, `staffRoutes`, `vendorsRoutes`, `knowledgeRoutes`, `changesRoutes`, `licensesRoutes`, `reportsRoutes`, `auditRoutes`) and updated the mount calls to reference them. Matches the existing convention used by `utilsModule`, `constantsModule`, `authRoutes`, and `authMiddleware`.
+
+**Consistency**
+- **`src/utils.js` — `express-rate-limit` import only used `ipKeyGenerator` but required the full module (LOW, code clarity).** The `authKeyGenerator` utility called `rateLimit.ipKeyGenerator(...)`, while `src/routes/auth.js` already destructured `ipKeyGenerator` directly from the same package. Changed to `const { ipKeyGenerator } = require('express-rate-limit')` so the import matches the actual usage and is consistent with the convention in `auth.js`. Updated the JSDoc comment to reference `ipKeyGenerator` directly instead of `rateLimit.ipKeyGenerator`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **747 passed / 747 total** (34 suites).
+
+---
+
 ## Review cycle 2026-08-17 (127th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

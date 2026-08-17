@@ -21,9 +21,22 @@ process.env.NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE
 
 const utilsModule = require('./utils');
 const constantsModule = require('./constants');
+const authRoutes = require('./routes/auth');
+const authMiddleware = require('./middleware/auth');
+const dashboardRoutes = require('./routes/dashboard');
+const assetsRoutes = require('./routes/assets');
+const ticketsRoutes = require('./routes/tickets');
+const projectsRoutes = require('./routes/projects');
+const staffRoutes = require('./routes/staff');
+const vendorsRoutes = require('./routes/vendors');
+const knowledgeRoutes = require('./routes/knowledge');
+const changesRoutes = require('./routes/changes');
+const licensesRoutes = require('./routes/licenses');
+const reportsRoutes = require('./routes/reports');
+const auditRoutes = require('./routes/audit');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = constantsModule;
-const { stopLoginFailureCleanup } = require('./routes/auth');
-const { destroySessionAndRedirect } = require('./middleware/auth');
+const { stopLoginFailureCleanup } = authRoutes;
+const { destroySessionAndRedirect } = authMiddleware;
 
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
@@ -514,18 +527,18 @@ app.use((req, res, next) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-app.use('/', require('./routes/auth'));
-app.use('/dashboard', require('./routes/dashboard'));
-app.use('/assets', require('./routes/assets'));
-app.use('/tickets', require('./routes/tickets'));
-app.use('/projects', require('./routes/projects'));
-app.use('/staff', require('./routes/staff'));
-app.use('/vendors', require('./routes/vendors'));
-app.use('/knowledge', require('./routes/knowledge'));
-app.use('/changes', require('./routes/changes'));
-app.use('/licenses', require('./routes/licenses'));
-app.use('/reports', require('./routes/reports'));
-app.use('/audit', require('./routes/audit'));
+app.use('/', authRoutes);
+app.use('/dashboard', dashboardRoutes);
+app.use('/assets', assetsRoutes);
+app.use('/tickets', ticketsRoutes);
+app.use('/projects', projectsRoutes);
+app.use('/staff', staffRoutes);
+app.use('/vendors', vendorsRoutes);
+app.use('/knowledge', knowledgeRoutes);
+app.use('/changes', changesRoutes);
+app.use('/licenses', licensesRoutes);
+app.use('/reports', reportsRoutes);
+app.use('/audit', auditRoutes);
 
 // Return 204 No Content for favicon.ico to prevent browser favicon requests
 // from generating 404 errors in the access log.
