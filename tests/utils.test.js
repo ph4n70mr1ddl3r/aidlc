@@ -1104,6 +1104,14 @@ describe('formatDate', () => {
     expect(result).toContain('15');
   });
 
+  it('should fall back to native Date parser for ISO strings with timezone offsets', () => {
+    // The YYYY-MM-DD regex rejects timezone offsets, so this path delegates
+    // to the native Date constructor and toLocaleDateString.
+    const result = utils.formatDate('2024-01-15T00:00:00Z');
+    expect(result).not.toBe('-');
+    expect(typeof result).toBe('string');
+  });
+
   it('should return dash for invalid input', () => {
     expect(utils.formatDate('not-a-date')).toBe('-');
   });
@@ -1987,5 +1995,55 @@ describe('authKeyGenerator', () => {
     const key = utils.authKeyGenerator(undefined);
     expect(typeof key).toBe('string');
     expect(key.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Test for invalidateActiveStaffCache function
+ */
+describe('invalidateActiveStaffCache', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
+  it('should clear the active staff cache', () => {
+    const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
+    const stmt = { all: jest.fn(() => staff) };
+    const db = { prepare: jest.fn(() => stmt) };
+    // Warm the cache
+    utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(1);
+    // Invalidate
+    utils.invalidateActiveStaffCache();
+    // Next call should re-query
+    utils.getActiveStaff(db);
+    expect(stmt.all).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Test for ensureAssigneeInList function — edge cases
+ */
+describe('ensureAssigneeInList edge cases', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
+  it('should return input unchanged when currentAssigneeId is null', () => {
+    const staff = [{ id: 1, first_name: 'A', last_name: 'B' }];
+    const result = utils.ensureAssigneeInList(staff, null, {});
+    expect(result).toBe(staff);
+  });
+
+  it('should return input unchanged when currentAssigneeId is an invalid id string', () => {
+    const staff = [{ id: 1, first_name: 'A', last_name: 'B' }];
+    const result = utils.ensureAssigneeInList(staff, 'not-a-number', {});
+    expect(result).toBe(staff);
+  });
+
+  it('should return input unchanged when currentAssigneeId is a malformed id object', () => {
+    const staff = [{ id: 1, first_name: 'A', last_name: 'B' }];
+    const result = utils.ensureAssigneeInList(staff, { id: 5 }, {});
+    expect(result).toBe(staff);
   });
 });

@@ -236,12 +236,6 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect('/assets/new');
   }
 
-  // A present, non-empty price that fails to parse must be rejected rather than
-  // silently stored as NULL, which would drop a legitimate price on a typo'd
-  // submission. An empty/omitted price defaults to 0 (consistent with the
-  // projects.js budget/spent and licenses.js cost conventions — Infinity was
-  // previously used as the fallback sentinel which SQLite stored as a valid
-  // REAL and broke the asset report SUM aggregation).
   const safePurchasePrice = purchase_price === undefined || purchase_price === null || purchase_price === ''
     ? 0
     : safePositiveFloat(purchase_price, Infinity);
