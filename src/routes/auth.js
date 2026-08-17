@@ -366,7 +366,11 @@ router.post('/logout', (req, res) => {
       console.error('Session destroy error:', err.message);
     }
     try {
-      res.clearCookie(SESSION_COOKIE, SESSION_COOKIE_OPTIONS);
+      // Match the full cookie options (including `secure`) used when the
+      // session cookie was originally set — omitting `secure` on the clear
+      // cookie can prevent browsers from removing a Secure cookie in
+      // production. Mirrors the session config in app.js.
+      res.clearCookie(SESSION_COOKIE, { ...SESSION_COOKIE_OPTIONS, secure: process.env.NODE_ENV === 'production' });
     } catch {
       // Non-critical — cookie clear failure does not prevent logout
     }
