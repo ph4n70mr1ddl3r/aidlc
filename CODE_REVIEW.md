@@ -4,8 +4,34 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (133 consecutive hardening commits) was
+Jest suite. Prior review history (134 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-18 (135th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents three consistency/correctness fixes.
+
+### Fixes applied
+
+**Correctness**
+- **`src/routes/staff.js` — password-reset self-service guard redirected to `/profile` (LOW, correctness).** When an admin attempted to reset their own password via `PUT /staff/:id/reset-password`, the self-service guard redirected to `/profile` — the admin's own profile page, not the staff page they were working on. This broke the expected navigation flow and offered no context about which staff member's password reset was blocked. Changed to `res.redirect(\`/staff/${id}\`)` so the admin lands on the target staff show page, matching the redirect pattern used by every other validation path in the same handler (and consistent with the `GET /staff/:id` → `/staff/:id/edit` convention across the route).
+
+**Consistency**
+- **`views/pages/staff/show.ejs` + `src/constants.js` — project member role badge hardcoded to `badge-medium` for all roles (LOW, consistency).** Every project membership row rendered `<span class="badge badge-medium">` regardless of whether the role was `lead`, `member`, or `stakeholder`, making all three roles visually indistinguishable. Added a `MEMBER_ROLE_BADGE` mapping (`{ lead: 'critical', member: 'medium', stakeholder: 'low' }`) to `constants.js` (mirroring the existing `ROLE_BADGE`, `CONDITION_BADGE`, and `CHANGE_TYPE_BADGE` conventions), exported it through `utils.js` and `app.js` `res.locals`, and updated the template to use `badgeClass(pm.project_role, MEMBER_ROLE_BADGE)` with `titleCase()` so each role renders with its appropriate severity color.
+- **`src/routes/knowledge.js` — redundant `Number(id)` coercion on view-count check (LOW, consistency).** Line 449 wrapped `id` in `Number()` inside `viewed.includes(Number(id))`, but `id` is already a number returned by `safeId()`. Removed the unnecessary `Number()` wrapper so the expression matches the convention used everywhere else where `safeId()` results are compared directly without an extra coercion pass.
+
+**Test coverage**
+- **`tests/templates.test.js` — added regression test for project role badge distinctiveness.** Asserts that rendering `staff/show.ejs` with a mix of `lead`, `member`, and `stakeholder` project roles produces `badge-critical`, `badge-medium`, and `badge-low` classes respectively, preventing a future refactor from collapsing them back to the single `badge-medium` class.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **754 passed / 754 total** (34 suites, +1 regression test).
 
 ---
 

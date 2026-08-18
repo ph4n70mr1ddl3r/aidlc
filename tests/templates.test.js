@@ -39,6 +39,7 @@ function baseLocals() {
     CONDITION_BADGE: constants.CONDITION_BADGE,
     CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
     ROLE_BADGE: constants.ROLE_BADGE,
+    MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
     CONSTANTS: constants
   };
 }
@@ -65,7 +66,7 @@ describe('res.locals wiring guards', () => {
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
     }
     // Badge constants are objects (maps), not functions
-    const objHelpers = ['CONDITION_BADGE', 'CHANGE_TYPE_BADGE', 'ROLE_BADGE'];
+    const objHelpers = ['CONDITION_BADGE', 'CHANGE_TYPE_BADGE', 'ROLE_BADGE', 'MEMBER_ROLE_BADGE'];
     for (const name of objHelpers) {
       expect(typeof utils[name]).toBe('object');
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
@@ -375,6 +376,28 @@ describe('every template renders without error (regression)', () => {
     });
     expect(html).toContain('Restricted');
     expect(html).not.toContain('m.patel@company.com');
+  });
+
+  it('staff/show renders project roles with distinct badge classes (not all badge-medium)', () => {
+    // Regression: the project role badge was hardcoded to badge-medium for every
+    // role (lead, member, stakeholder), making them visually indistinguishable.
+    // MEMBER_ROLE_BADGE now maps lead→critical, member→medium, stakeholder→low.
+    const html = render('staff/show.ejs', {
+      ...baseLocals(), title: 'Staff', staffUser,
+      assignedTickets: [], assignedTasks: [],
+      projectMemberships: [
+        { project_id: 1, project_name: 'Alpha', project_status: 'in_progress', project_role: 'lead' },
+        { project_id: 2, project_name: 'Beta', project_status: 'planning', project_role: 'member' },
+        { project_id: 3, project_name: 'Gamma', project_status: 'completed', project_role: 'stakeholder' }
+      ],
+      assignedAssets: []
+    });
+    expect(html).toContain('badge-critical');
+    expect(html).toContain('badge-medium');
+    expect(html).toContain('badge-low');
+    expect(html).toContain('Lead');
+    expect(html).toContain('Member');
+    expect(html).toContain('Stakeholder');
   });
 
   it('login template only renders static messages — the raw reason query value is never output', () => {

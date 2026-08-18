@@ -103,6 +103,11 @@ const BCRYPT_SALT_ROUNDS = 12;
 const CONDITION_BADGE = Object.freeze({ new: 'low', good: 'low', fair: 'medium', poor: 'critical', broken: 'critical' });
 const CHANGE_TYPE_BADGE = Object.freeze({ security: 'critical', incident: 'high', maintenance: 'medium', upgrade: 'low', configuration: 'low' });
 const ROLE_BADGE = Object.freeze({ admin: 'critical', manager: 'high', staff: 'medium' });
+// Project member roles — maps each role to a badge severity so the staff show
+// page renders lead/member/stakeholder with distinct colors instead of all
+// falling back to the generic yellow warning class. Mirrors the CONDITION /
+// CHANGE_TYPE / ROLE badge conventions used across all other templates.
+const MEMBER_ROLE_BADGE = Object.freeze({ lead: 'critical', member: 'medium', stakeholder: 'low' });
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
@@ -125,5 +130,5 @@ module.exports = {
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS,
-  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE
+  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE
 };

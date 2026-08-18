@@ -658,7 +658,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // Prevent admin from resetting own password via this route (use profile instead)
   if (Number(id) === Number(req.session.user.id)) {
     req.flash('error', 'You cannot reset your own password via this route');
-    return res.redirect('/profile');
+    return res.redirect(`/staff/${id}`);
   }
 
   // Fail closed on HTTP parameter pollution: reject array payloads on the

@@ -153,13 +153,13 @@ describe('staff routes — self-check uses Number() coercion (regression)', () =
   });
 
   it('password reset route rejects self-service when id is passed as a string', () => {
-    // Guard: if (Number(id) === Number(req.session.user.id)) → redirect to /profile
+    // Guard: if (Number(id) === Number(req.session.user.id)) → redirect to /staff/:id
     const staffRouter = require('../src/routes/staff');
     const h = lastHandlerFor(staffRouter, 'put', '/:id/reset-password');
     const { redirectCalls, flashCalls } = runHandler(h, {
       new_password: 'NewPass1!xyz', current_password: 'OldPass1!xyz'
     }, { id: '1' }, { id: 1, role: 'admin' });
-    expect(redirectCalls).toEqual(['/profile']);
+    expect(redirectCalls).toEqual(['/staff/1']);
     expect(errorFlash(flashCalls)).toBe('You cannot reset your own password via this route');
   });
 

@@ -34,7 +34,7 @@ const changesRoutes = require('./routes/changes');
 const licensesRoutes = require('./routes/licenses');
 const reportsRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE } = constantsModule;
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE } = constantsModule;
 const { stopLoginFailureCleanup } = authRoutes;
 const { destroySessionAndRedirect } = authMiddleware;
 
@@ -498,6 +498,7 @@ app.use((req, res, next) => {
   res.locals.CONDITION_BADGE = CONDITION_BADGE;
   res.locals.CHANGE_TYPE_BADGE = CHANGE_TYPE_BADGE;
   res.locals.ROLE_BADGE = ROLE_BADGE;
+  res.locals.MEMBER_ROLE_BADGE = MEMBER_ROLE_BADGE;
   // Reuse the hoisted CONSTANTS object shared across all requests.
   res.locals.CONSTANTS = TEMPLATE_CONSTANTS;
   next();
