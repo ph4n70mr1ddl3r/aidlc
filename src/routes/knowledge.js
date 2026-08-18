@@ -679,7 +679,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       req.flash('error', 'You can only delete your own articles');
     } else {
       console.error('Article delete error:', err.message);
-      req.flash('error', 'Error deleting article');
+      req.flash('error', 'Error deleting article.');
     }
   }
   return res.redirect('/knowledge');

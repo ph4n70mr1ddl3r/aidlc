@@ -599,7 +599,7 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
     }
   } catch (err) {
     console.error('Project delete error:', err.message);
-    req.flash('error', 'Error deleting project');
+    req.flash('error', 'Error deleting project.');
   }
   return res.redirect('/projects');
 });

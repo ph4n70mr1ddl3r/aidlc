@@ -509,7 +509,7 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     }
   } catch (err) {
     console.error('Change delete error:', err.message);
-    req.flash('error', 'Error deleting change');
+    req.flash('error', 'Error deleting change.');
   }
   return res.redirect('/changes');
 });

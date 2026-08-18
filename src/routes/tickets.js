@@ -988,7 +988,7 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
     }
   } catch (err) {
     console.error('Ticket delete error:', err.message);
-    req.flash('error', 'Error deleting ticket');
+    req.flash('error', 'Error deleting ticket.');
   }
   return res.redirect('/tickets');
 });

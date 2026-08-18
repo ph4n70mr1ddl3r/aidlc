@@ -613,7 +613,7 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
   } catch (err) {
     console.error('Asset delete error:', err.message);
-    req.flash('error', 'Error deleting asset');
+    req.flash('error', 'Error deleting asset.');
   }
   return res.redirect('/assets');
 });

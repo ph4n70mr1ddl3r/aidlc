@@ -767,7 +767,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     }
   } catch (err) {
     console.error('Vendor delete error:', err.message);
-    req.flash('error', 'Error deleting vendor');
+    req.flash('error', 'Error deleting vendor.');
   }
   return res.redirect('/vendors');
 });

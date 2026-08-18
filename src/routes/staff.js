@@ -565,7 +565,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       req.flash('error', 'An account with this email address already exists');
     } else {
       console.error('Staff update error:', err.message);
-      req.flash('error', 'Error updating staff. Please try again.');
+      req.flash('error', 'Error updating staff member. Please try again.');
     }
     return res.redirect(`/staff/${id}/edit`);
   }

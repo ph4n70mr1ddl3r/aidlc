@@ -512,7 +512,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
     }
   } catch (err) {
     console.error('License delete error:', err.message);
-    req.flash('error', 'Error deleting license');
+    req.flash('error', 'Error deleting license.');
   }
   return res.redirect('/licenses');
 });
