@@ -800,7 +800,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     }
     if (err.message === 'USER_INACTIVE') {
       req.flash('error', 'Your account is no longer active');
-      return res.redirect('/login');
+      return res.redirect('/login?reason=session_expired');
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');
@@ -808,7 +808,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket comment error:', err.message);
-    req.flash('error', 'Error adding comment');
+    req.flash('error', 'Error adding comment. Please try again.');
     return res.redirect(`/tickets/${id}`);
   }
 });
@@ -883,7 +883,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket status update error:', err.message);
-    req.flash('error', 'Error updating status');
+    req.flash('error', 'Error updating status. Please try again.');
     return res.redirect(`/tickets/${id}`);
   }
 });

@@ -718,7 +718,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
-    req.flash('error', 'Invalid ID');
+    req.flash('error', 'Invalid task ID');
     return res.redirect('/projects');
   }
 
@@ -798,7 +798,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         req.flash('error', 'Task not found');
       } else {
         console.error('Project task quick-status error:', err.message);
-        req.flash('error', 'Error updating task');
+        req.flash('error', 'Error updating task. Please try again.');
       }
       return res.redirect(`/projects/${projectId}`);
     }
@@ -945,7 +945,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
-    req.flash('error', 'Invalid ID');
+    req.flash('error', 'Invalid task ID');
     return res.redirect('/projects');
   }
 
@@ -980,7 +980,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
     return res.redirect(`/projects/${projectId}`);
   } catch (err) {
     console.error('Project task delete error:', err.message);
-    req.flash('error', 'Error deleting task');
+    req.flash('error', 'Error deleting task. Please try again.');
     return res.redirect(`/projects/${projectId}`);
   }
 });
@@ -1059,7 +1059,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       return res.redirect(`/projects/${id}`);
     }
     console.error('Project member add error:', err.message);
-    req.flash('error', 'Error adding member');
+    req.flash('error', 'Error adding member. Please try again.');
   }
   return res.redirect(`/projects/${id}`);
 });
@@ -1069,7 +1069,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
   const id = safeId(req.params.id);
   const memberId = safeId(req.params.memberId);
   if (!id || !memberId) {
-    req.flash('error', 'Invalid ID');
+    req.flash('error', 'Invalid member ID');
     return res.redirect('/projects');
   }
 
@@ -1114,7 +1114,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
       return res.redirect(`/projects/${id}`);
     }
     console.error('Project member remove error:', err.message);
-    req.flash('error', 'Error removing member');
+    req.flash('error', 'Error removing member. Please try again.');
   }
   return res.redirect(`/projects/${id}`);
 });
