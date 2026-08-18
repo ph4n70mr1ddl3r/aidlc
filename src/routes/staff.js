@@ -632,7 +632,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     req.flash('success', 'Account reactivated successfully');
   } catch (err) {
     console.error('Staff reactivate error:', err.message);
-    req.flash('error', 'Error reactivating account');
+    req.flash('error', 'Error reactivating account.');
   }
   return res.redirect(`/staff/${id}`);
 });
@@ -840,7 +840,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     }
   } catch (err) {
     console.error('Staff deactivate error:', err.message);
-    req.flash('error', 'Error deactivating staff');
+    req.flash('error', 'Error deactivating staff.');
   }
   return res.redirect('/staff');
 });

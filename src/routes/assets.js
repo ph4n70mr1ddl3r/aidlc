@@ -287,7 +287,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       req.flash('error', 'An asset with this tag or serial number already exists');
     } else {
       console.error('Asset create error:', err.message);
-      req.flash('error', 'Error creating asset. Please check your input and try again.');
+      req.flash('error', 'Error creating asset. Please try again.');
     }
     return res.redirect('/assets/new');
   }
@@ -580,7 +580,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect(`/assets/${id}/edit`);
     } else {
       console.error('Asset update error:', err.message);
-      req.flash('error', 'Error updating asset. Please check your input and try again.');
+      req.flash('error', 'Error updating asset. Please try again.');
       return res.redirect(`/assets/${id}/edit`);
     }
   }

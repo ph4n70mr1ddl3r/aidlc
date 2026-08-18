@@ -674,7 +674,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor deactivate error:', err.message);
-    req.flash('error', 'Error deactivating vendor');
+    req.flash('error', 'Error deactivating vendor.');
   }
   return res.redirect(`/vendors/${id}`);
 });
@@ -716,7 +716,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor reactivate error:', err.message);
-    req.flash('error', 'Error reactivating vendor');
+    req.flash('error', 'Error reactivating vendor.');
   }
   return res.redirect(`/vendors/${id}`);
 });

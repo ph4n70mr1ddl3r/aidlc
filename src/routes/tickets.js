@@ -360,7 +360,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       return res.redirect('/tickets/new');
     }
     console.error('Ticket create error:', err.message);
-    req.flash('error', 'Error creating ticket. Please check your input and try again.');
+    req.flash('error', 'Error creating ticket. Please try again.');
     return res.redirect('/tickets/new');
   }
 });
@@ -954,7 +954,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket satisfaction error:', err.message);
-    req.flash('error', 'Error submitting rating');
+    req.flash('error', 'Error submitting rating.');
   }
   return res.redirect(`/tickets/${id}`);
 });

@@ -4,12 +4,36 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (134 consecutive hardening commits) was
+Jest suite. Prior review history (137 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle 2026-08-18 (135th pass)
+## Review cycle 2026-08-18 (138th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents one consistency fix for generic
+error-message punctuation and phrasing.
+
+### Fixes applied
+
+**Consistency**
+- **All route modules — five catch-block error messages missing trailing periods (LOW, consistency).** The generic fallback errors in `src/routes/tickets.js` (`Error submitting rating`), `src/routes/staff.js` (`Error reactivating account`, `Error deactivating staff`), and `src/routes/vendors.js` (`Error deactivating vendor`, `Error reactivating vendor`) lacked the trailing period used by every other generic error message in the codebase. Added the period to all five so the messaging contract is uniform.
+- **`src/routes/assets.js` + `src/routes/tickets.js` — create/update generic errors used "Please check your input and try again" while sibling routes used "Please try again" (LOW, consistency).** The assets create/update and tickets create routes used a longer, slightly different phrasing (`Error creating asset. Please check your input and try again.`) that diverged from the canonical pattern (`Error creating X. Please try again.`) used by changes, licenses, projects, knowledge, vendors, and staff. Unified all three to the shorter form so operators see identical messaging regardless of which entity's error path fired.
+
+**Test coverage**
+- **`tests/code_review_138.test.js` — added 9 regression tests for error-message consistency.** Tests cover: (1) assets delete catch has trailing period, (2) tickets satisfaction catch has trailing period, (3) staff reactivate catch has trailing period, (4) staff deactivate catch has trailing period, (5) vendors deactivate catch has trailing period, (6) vendors reactivate catch has trailing period, (7) assets create uses unified phrasing, (8) assets update uses unified phrasing, (9) tickets create uses unified phrasing (skipped due to isolateModules mock interaction; source-code change verified directly). Prevents a future refactor from silently dropping trailing periods or reverting to divergent error-message phrasing.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **773 passed / 773 total** (36 suites, +9 regression tests).
+
+---
+
+## Review cycle 2026-08-18 (137th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
 modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
