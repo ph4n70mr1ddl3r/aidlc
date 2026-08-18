@@ -88,13 +88,19 @@ const stmts = {
       COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END), 0) as critical_open
     FROM tickets
   `),
+  // Exclude disposed assets so the total matches the "Active Assets" stat card
+  // label in the dashboard template and the reports page's "Active Assets" card.
+  // Mirrors the disposed-asset exclusion in reports.js assetsByCategory and
+  // assetsTotalValue; without it the dashboard total would include disposed
+  // assets while the subtotals (in_use/in_storage/in_repair) would not, causing
+  // the three subtotals to never sum to the total.
   assetStats: db.prepare(`
     SELECT
       COUNT(*) as total,
       COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
       COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
       COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair
-    FROM assets
+    FROM assets WHERE status != 'disposed'
   `),
   projectStats: db.prepare(`
     SELECT

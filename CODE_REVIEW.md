@@ -1,11 +1,34 @@
 # Code Review Notes
 
-**Date:** 2026-08-17
+**Date:** 2026-08-18
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (120+ consecutive hardening commits) was
+Jest suite. Prior review history (133 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-18 (134th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass documents one consistency fix for the dashboard
+asset-count metric.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/dashboard.js` + `views/pages/dashboard.ejs` — dashboard asset-count included disposed assets while the reports page labeled its equivalent "Active Assets" (LOW, consistency).** The dashboard's `_assetStatsStmt` counted every asset row regardless of status, so disposed and reserved assets inflated the total without appearing in any subtotal. The reports page already excluded disposed assets from its `assetsByCategory` and `assetsTotalValue` queries and labeled the resulting stat card "Active Assets". The dashboard label read "Total Assets" which implied all-inclusive but contradicted the subtotals (in_use + in_storage + in_repair never summed to total). Changed the dashboard query to `WHERE status != 'disposed'` and relabeled the stat card to "Active Assets" so both pages use the same convention and the subtotals are consistent with the total.
+
+**Test coverage**
+- **`tests/reports.test.js` — added regression test for the dashboard asset-stats disposed-asset exclusion.** Drives the dashboard `assetStats` statement against an in-memory DB with a mix of active and disposed assets and asserts that (1) the total excludes disposed, (2) each subtotal (`in_use`, `in_storage`, `in_repair`) is correct, and (3) the three subtotals sum exactly to the total. Prevents a future refactor from reintroducing disposed assets into the dashboard count.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **753 passed / 753 total** (34 suites, +1 regression test).
 
 ---
 

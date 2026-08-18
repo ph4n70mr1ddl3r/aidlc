@@ -121,6 +121,25 @@ describe('asset inventory value excludes disposed assets', () => {
     expect(laptop.total_value).toBe(1000);
     expect(server.total_value).toBe(5000);
   });
+
+  it('dashboard assetStats skips disposed assets and stays consistent with subtotals (regression)', () => {
+    // Regression: the dashboard assetStats query must exclude disposed assets
+    // so the total matches the "Active Assets" label and the subtotals (in_use,
+    // in_storage, in_repair) sum to the total — matching the reports page
+    // convention and preventing a misleading dashboard stat card.
+    const insert = db.prepare('INSERT INTO assets (asset_tag, name, category, status) VALUES (?, ?, ?, ?)');
+    insert.run('AST-D001', 'active-laptop', 'laptop', 'in_use');
+    insert.run('AST-D002', 'active-server', 'server', 'in_storage');
+    insert.run('AST-D003', 'disposed-laptop', 'laptop', 'disposed');
+
+    const stats = dashboard.__stmts.assetStats.get();
+    expect(stats.total).toBe(2);
+    expect(stats.in_use).toBe(1);
+    expect(stats.in_storage).toBe(1);
+    expect(stats.in_repair).toBe(0);
+    // Subtotals must sum to total (no disposed leakage).
+    expect(stats.in_use + stats.in_storage + stats.in_repair).toBe(stats.total);
+  });
 });
 
 describe('resetCachedStatements', () => {
