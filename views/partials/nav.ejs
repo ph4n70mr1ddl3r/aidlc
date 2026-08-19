@@ -16,7 +16,9 @@
       <a href="/projects" class="nav-item <% if (currentPage && currentPage.startsWith('/projects')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/projects')) { %>aria-current="page"<% } %>><i class="fas fa-project-diagram" aria-hidden="true"></i> Projects</a>
       <div class="nav-section">Management</div>
       <a href="/staff" class="nav-item <% if (currentPage && currentPage.startsWith('/staff')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/staff')) { %>aria-current="page"<% } %>><i class="fas fa-users" aria-hidden="true"></i> Staff</a>
+      <% if (isPrivileged(user)) { %>
       <a href="/vendors" class="nav-item <% if (currentPage && currentPage.startsWith('/vendors')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/vendors')) { %>aria-current="page"<% } %>><i class="fas fa-building" aria-hidden="true"></i> Vendors</a>
+      <% } %>
       <a href="/changes" class="nav-item <% if (currentPage && currentPage.startsWith('/changes')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/changes')) { %>aria-current="page"<% } %>><i class="fas fa-history" aria-hidden="true"></i> Changes</a>
       <div class="nav-section">Resources</div>
       <a href="/knowledge" class="nav-item <% if (currentPage && currentPage.startsWith('/knowledge')) { %>active<% } %>" <% if (currentPage && currentPage.startsWith('/knowledge')) { %>aria-current="page"<% } %>><i class="fas fa-book" aria-hidden="true"></i> Knowledge Base</a>

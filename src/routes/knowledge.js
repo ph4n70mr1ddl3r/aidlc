@@ -388,9 +388,13 @@ router.post('/', kbWriteLimiter, (req, res) => {
   }
 
   try {
-    // Resolve safeStatus/safeFeatured inside a transaction to avoid a TOCTOU
-    // race where the user's role is changed between the resolution and the INSERT
-    // (mirrors the update route pattern where these are resolved inside the txn).
+    // Co-locate safeStatus/safeFeatured resolution with the INSERT in a single
+    // transaction. Note: this does NOT protect against a concurrent ROLE change
+    // — the role is read from req.session.user, a request-lifetime snapshot
+    // that a transaction boundary cannot re-check (requireAuth re-syncs it once
+    // per request at the very start). The transaction merely keeps the resolved
+    // values and the INSERT atomic; role TOCTOU is accepted because a demotion
+    // takes effect on the user's next request.
     const createArticle = db.transaction(() => {
       const txnSafeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured);
@@ -582,18 +586,24 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   }
 
   try {
-    // Verify the article still exists, recheck authorization, and update in a
-    // single transaction to avoid TOCTOU races: the article could be deleted or
-    // the user's role changed between the outer checks and the UPDATE.
-    // Rechecking authorization inside the transaction prevents a concurrent
-    // role change from bypassing the edit restriction.
+    // Verify the article still exists and recheck authorization in a single
+    // transaction to avoid TOCTOU races on the ARTICLE row: it could be deleted
+    // (or its status/is_featured flags changed — consumed below from the
+    // rechecked row) between the outer checks and the UPDATE. Note: the
+    // authorization recheck reads the author id from the rechecked row but the
+    // ROLE from req.session.user, a request-lifetime snapshot — a concurrent
+    // role change cannot be detected inside this transaction; it takes effect
+    // on the user's next request. What the recheck does close is the window
+    // where the article's ownership changed between the outer check and the
+    // UPDATE.
     const updateArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
         throw new Error('NOT_FOUND');
       }
-      // Recheck authorization inside the transaction so a concurrent role
-      // change between the outer check and the UPDATE cannot bypass it.
+      // Recheck ownership inside the transaction against the re-fetched row so
+      // a concurrent ownership/author change between the outer check and the
+      // UPDATE cannot bypass the edit restriction.
       const txnIsOwner = Number(recheck.author_id) === Number(req.session.user.id);
       if (!txnIsOwner && !isPrivileged(req.session.user)) {
         throw new Error('ACCESS_DENIED');

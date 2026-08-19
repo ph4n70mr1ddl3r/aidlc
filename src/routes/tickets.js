@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -85,7 +85,7 @@ const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 // preserve them on partial submissions and for non-privileged editors whose
 // edit form redacts requester PII (mirrors the show route).
 const _updateCheckStmt = db.prepare(
-  'SELECT status, assigned_to, asset_id, due_date, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
+  'SELECT status, assigned_to, asset_id, due_date, description, resolution_notes, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
 );
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
@@ -224,6 +224,17 @@ router.post('/', ticketWriteLimiter, (req, res) => {
 
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects): trim() coerces them to '', which would silently store
+  // NULL — the same fail-closed convention the update route enforces via
+  // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
+  for (const field of ['description', 'requester_department']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/tickets/new');
+    }
+  }
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
   const requester_name = trim(safeQueryValue(req.body.requester_name));
@@ -484,6 +495,12 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   }
 
   const title = trim(safeQueryValue(req.body.title));
+  // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
+  // text field (partial submission — preserve stored value) from an explicit
+  // empty string (clear the field). Mirrors the raw-vs-processed split used by
+  // assets.js / vendors.js / licenses.js updates.
+  const rawDescription = req.body.description;
+  const rawResolutionNotes = req.body.resolution_notes;
   const description = trim(safeQueryValue(req.body.description));
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
@@ -676,9 +693,25 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
           ? ticket.requester_phone
           : (requester_phone ? requester_phone.substring(0, MAX_PHONE) : null))
         : ticket.requester_phone;
+      // Absent-vs-empty convention for the optional text fields: an ABSENT field
+      // (partial API submission) preserves the stored value, while an explicit
+      // empty string CLEARS it (null). A present non-string value is rejected
+      // via resolveOptionalField's error sentinel. Previously description and
+      // resolution_notes were unconditionally overwritten, so a partial PUT that
+      // omitted them silently wiped the stored values — the exact bug class
+      // already fixed for assignee/asset/due_date/requester PII above. Mirrors
+      // the update convention in changes.js / licenses.js / vendors.js.
+      const resolvedDescription = resolveOptionalField(rawDescription, description || null, MAX_DESC, ticket.description);
+      if (resolvedDescription && resolvedDescription.error) {
+        throw new Error('INVALID_DESCRIPTION');
+      }
+      const resolvedResolutionNotes = resolveOptionalField(rawResolutionNotes, resolution_notes || null, MAX_DESC, ticket.resolution_notes);
+      if (resolvedResolutionNotes && resolvedResolutionNotes.error) {
+        throw new Error('INVALID_RESOLUTION_NOTES');
+      }
 
-      const params = [title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, status,
-        resolvedAssignee, resolvedAssetId, resolvedDueDate, (resolution_notes || '').substring(0, MAX_DESC) || null,
+      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedDescription, category, priority, status,
+        resolvedAssignee, resolvedAssetId, resolvedDueDate, resolvedResolutionNotes,
         (requester_name || '').substring(0, MAX_SHORT_STR), resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
@@ -715,6 +748,14 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       req.flash('error', 'Selected asset does not exist');
       return res.redirect(`/tickets/${id}/edit`);
     }
+    // Map the resolveOptionalField sentinels (INVALID_DESCRIPTION,
+    // INVALID_RESOLUTION_NOTES) to a specific validation message instead of the
+    // generic server-error flash — a rejected value is a client error, not a
+    // transient failure (mirrors the INVALID_ mapping in vendors.js).
+    if (err.message.startsWith('INVALID_')) {
+      req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
+      return res.redirect(`/tickets/${id}/edit`);
+    }
     console.error('Ticket update error:', err.message);
     req.flash('error', 'Error updating ticket. Please try again.');
     return res.redirect(`/tickets/${id}/edit`);
@@ -728,7 +769,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
 // all tickets, while regular staff can only comment on tickets assigned to
 // them (enforced inside the transaction below).
 // Re-checks ticket visibility inside the transaction via canAccessResource()
-// (line ~739) so that staff cannot comment on tickets they shouldn't see.
+// so that staff cannot comment on tickets they shouldn't see.
 router.post('/:id/comments', commentRateLimiter, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {

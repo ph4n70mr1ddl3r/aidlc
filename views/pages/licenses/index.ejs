@@ -8,7 +8,7 @@
   <a href="/licenses" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (licenses.length === 0) { %><div class="empty-state"><i class="fas fa-key"></i><h3>No licenses found</h3></div>
+  <% if (licenses.length === 0) { %><div class="empty-state"><i class="fas fa-key"></i><h3>No licenses found</h3><p>Add your first license or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
     <tbody><% licenses.forEach(l => { 

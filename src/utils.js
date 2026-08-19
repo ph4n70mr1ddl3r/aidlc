@@ -255,7 +255,11 @@ function addSearch(where, params, search, columns) {
 
 /**
  * Safely parse a route parameter as a positive integer. Returns null if invalid.
- * Rejects arrays (HPP defense) since parseInt coerces arrays to strings.
+ * Rejects arrays (HPP defense) since parseInt coerces arrays to strings, and
+ * requires canonical integer strings ("12abc" / "1e5" / "+5" are rejected, not
+ * prefix-parsed) so an id parameter can never target a different valid record
+ * than the one the caller wrote — the same strict /^[1-9]\d*$/ contract
+ * isPresentInvalidId enforces for form-supplied relational ids.
  */
 function safeId(value) {
   if (Array.isArray(value)) {
@@ -265,6 +269,9 @@ function safeId(value) {
   // This prevents unintended coercion (e.g. true → 1 via String(true)).
   if (typeof value !== 'string' && typeof value !== 'number') {
     return null;
+  }
+  if (typeof value === 'string') {
+    return /^[1-9]\d*$/.test(value.trim()) ? parseInt(value, 10) : null;
   }
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -422,8 +429,9 @@ function escapeHtml(value) {
 }
 
 /**
- * Sanitize a phone number: keep only digits, +, -, (, ), spaces.
- * Returns sanitized string or null if input is empty.
+ * Sanitize a phone number: keep only digits, +, -, (, ), spaces, and the
+ * extension separators . x X # (e.g. "555-1234 x77"). Returns sanitized string
+ * or null if input is empty.
  */
 function sanitizePhone(phone) {
   if (!phone || typeof phone !== 'string') {
@@ -531,11 +539,13 @@ function trim(value) {
 }
 
 /**
- * Format a date-only string ("YYYY-MM-DD" or "YYYY-MM-DDTHH:MM:SS") for display.
- * For date-only strings, uses the localDate() helper to avoid the UTC timezone
- * offset bug where `new Date("2024-01-15")` shows Jan 14 in negative-UTC-offset
- * timezones. For datetime strings (containing 'T'), delegates to `new Date()`
- * which handles them correctly.
+ * Format a date-only string ("YYYY-MM-DD" or "YYYY-MM-DD[ T]HH:MM[:SS]") for
+ * display as a calendar date. Both canonical shapes are parsed component-wise
+ * into a LOCAL Date so the display matches the calendar day the user entered —
+ * `new Date("YYYY-MM-DD")` is UTC midnight, which shows the previous day in
+ * negative-UTC-offset timezones, and `new Date("YYYY-MM-DD HH:MM")` is not
+ * reliably parsed across engines at all. Unrecognized date-like strings (e.g.
+ * ISO strings with timezone offsets) fall back to the native Date parser.
  * Returns '-' for null/undefined input.
  */
 function formatDate(value) {
@@ -703,8 +713,12 @@ function recalcProjectProgress(db, projectId) {
  * or object) — a non-string is neither "absent" nor an intentional empty-string
  * clear, and previously collapsed to the clear branch, silently wiping the
  * stored value; callers must check for the { error: true } sentinel.
+ * Exception: an explicit JSON null preserves the stored value (treated as
+ * absent) — form submissions cannot send null, so this only affects JSON API
+ * callers, where null reads as "no opinion on this field".
  * @param {*} rawValue - the raw req.body[field] value; may be undefined
- *   (absent field), a string, an array (HPP), or any other type.
+ *   (absent field), null (treated as absent — see above), a string, an array
+ *   (HPP), or any other type.
  * @param {*} processedValue - the already-processed value or null; non-string
  *   values are coerced to strings via String(...) before truncation.
  * @param {number|null} maxLen - max string length to truncate to, or null
@@ -1042,7 +1056,7 @@ function selectQuery(db, sql, params) {
  * Absent/empty values are left to the caller (they must decide whether to
  * preserve an existing value or default to 0), so they are coerced to 0 here.
  * @param {*} value
- * @param {boolean} [privileged=true] - gate caller-supplied flags (e.g. an
+ * @param {boolean} [allowSet=true] - gate caller-supplied flags (e.g. an
  *   internal comment flag) behind a privilege check before allowing 1.
  * @returns {0|1}
  */

@@ -283,7 +283,13 @@ function _parsePositiveSeconds(raw, fallback) {
   const n = parseInt(raw, 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
-const SESSION_IDLE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_IDLE_TIMEOUT_SECONDS, 15 * 60); // 15 minutes
+// The idle window is floored at 60s (the lastAccess write throttle below):
+// lastAccess is only refreshed when it is at least 60s stale, so a configured
+// idle window below 60s would falsely expire continuously-active users whose
+// marker is up to 60s old. The absolute timeout has no such coupling and takes
+// any positive value.
+const _LAST_ACCESS_THROTTLE_MS = 60_000;
+const SESSION_IDLE_TIMEOUT_SECONDS = Math.max(_LAST_ACCESS_THROTTLE_MS / 1000, _parsePositiveSeconds(process.env.SESSION_IDLE_TIMEOUT_SECONDS, 15 * 60)); // 15 minutes
 const SESSION_ABSOLUTE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS, 8 * 60 * 60); // 8 hours
 
 // Re-evaluate secure flag at session-config time so it is always correct
@@ -305,10 +311,10 @@ app.use(session({
 // Throttle lastAccess writes to once a minute so idle enforcement does not
 // write the session store on every request. express-session saves whenever a
 // session property is assigned, which would otherwise defeat the resave:false
-// intent. The idle window (>= 5 minutes, default 15) tolerates lastAccess being
-// up to 60s stale, so an active user is never falsely expired and the stored
-// "idle since" marker is accurate enough for a 15-minute window.
-const _LAST_ACCESS_THROTTLE_MS = 60_000;
+// intent. Because the idle window is floored at the throttle interval (see
+// above), lastAccess can never be staler than the window itself — so an active
+// user is never falsely expired and the stored "idle since" marker is always
+// accurate enough for the configured window.
 
 /**
  * Middleware factory that enforces per-session idle and absolute timeouts.
@@ -485,8 +491,11 @@ app.use((req, res, next) => {
   res.locals.localDate = utilsModule.localDate;
   res.locals.formatDate = utilsModule.formatDate;
   res.locals.formatDateTime = utilsModule.formatDateTime;
-  // Date/usage helpers used by list/detail templates (licenses index, asset &
-  // project show pages). Without these the templates throw ReferenceError.
+  // Date/usage helpers consumed by list/detail templates (licenses index, asset
+  // & project show pages, KB pages). The surface is deliberately complete —
+  // every utils helper a template might call is exposed, so adding a call to a
+  // template can never crash with ReferenceError (pinned by the res.locals
+  // wiring guard in tests/templates.test.js).
   res.locals.daysUntil = utilsModule.daysUntil;
   res.locals.usagePercent = utilsModule.usagePercent;
   res.locals.escapeHtml = utilsModule.escapeHtml;

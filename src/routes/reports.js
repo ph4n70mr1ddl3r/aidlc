@@ -74,10 +74,15 @@ const stmts = {
     WHERE created_at >= date('now', '-' || ? || ' days')
     GROUP BY priority ORDER BY count DESC
   `),
+  // Resolution metrics (avgResolution, slaStats, topResolvers) window on the
+  // RESOLUTION date (resolved_at >= cutoff), matching staffPerformance's
+  // tResolved subquery — "resolved in the period" must mean the same thing on
+  // both report pages. Intake metrics (ticketsByDay/Category/Priority) stay
+  // windowed on created_at because they measure new-ticket volume.
   avgResolution: db.prepare(`
     SELECT AVG(julianday(resolved_at) - julianday(created_at)) as avg_days
     FROM tickets
-    WHERE resolved_at IS NOT NULL AND created_at >= date('now', '-' || ? || ' days')
+    WHERE resolved_at IS NOT NULL AND resolved_at >= date('now', '-' || ? || ' days')
   `),
   slaStats: db.prepare(`
     SELECT
@@ -86,13 +91,13 @@ const stmts = {
       SUM(CASE WHEN julianday(resolved_at) - julianday(created_at) <= 3 THEN 1 ELSE 0 END) as within_3d,
       SUM(CASE WHEN julianday(resolved_at) - julianday(created_at) <= 7 THEN 1 ELSE 0 END) as within_7d
     FROM tickets
-    WHERE resolved_at IS NOT NULL AND created_at >= date('now', '-' || ? || ' days')
+    WHERE resolved_at IS NOT NULL AND resolved_at >= date('now', '-' || ? || ' days')
   `),
   topResolvers: db.prepare(`
     SELECT u.first_name || ' ' || u.last_name as name, COUNT(*) as resolved
     FROM tickets t
     JOIN users u ON t.assigned_to = u.id
-    WHERE t.resolved_at IS NOT NULL AND t.created_at >= date('now', '-' || ? || ' days')
+    WHERE t.resolved_at IS NOT NULL AND t.resolved_at >= date('now', '-' || ? || ' days')
     GROUP BY t.assigned_to
     ORDER BY resolved DESC LIMIT 10
   `),
@@ -117,11 +122,14 @@ const stmts = {
   assetsTotalValue: db.prepare("SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets WHERE status != 'disposed'"),
   // Also include already-expired warranties — they are more urgent than expiring-soon.
   // Exclude disposed assets: a disposed asset's warranty is no longer actionable,
-  // so surfacing it in the "expiring soon" alert/list is noise. Mirrors the
-  // dashboard's expiringWarranties query.
+  // so surfacing it in the "expiring soon" alert/list is noise. Same disposed-asset
+  // and expired-inclusive semantics as the dashboard's expiringWarranties query,
+  // but a 90-day report horizon (vs the dashboard's 30-day glance) and a larger
+  // list cap — do NOT treat the two queries as interchangeable when changing either.
   // Separate COUNT for the stat card — the list query below is capped (LIMIT)
   // to bound rendering cost on large inventories, so warrantyExpiring.length
-  // would undercount. Mirrors the dashboard's defensive LIMIT 20.
+  // would undercount. The dashboard uses the same count/list split for its
+  // 30-day alert card.
   warrantyExpiringCount: db.prepare(`
     SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
   `),

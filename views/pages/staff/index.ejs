@@ -32,7 +32,7 @@
 <div class="card">
   <div class="card-body" style="padding:0;">
     <% if (staff.length === 0) { %>
-    <div class="empty-state"><i class="fas fa-users"></i><h3>No staff found</h3></div>
+    <div class="empty-state"><i class="fas fa-users"></i><h3>No staff found</h3><p>Adjust filters or clear them to see all staff</p></div>
     <% } else { %>
     <div class="table-responsive">
       <table>
@@ -48,7 +48,9 @@
             </a></td>
             <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? s.email : 'Restricted' %></td>
             <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
-            <td class="text-sm"><%= s.department || '-' %></td>
+            <% // Department mirrors the email column's redaction marker: the route
+               // nulls department on rows the viewer may not see PII for. %>
+            <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? (s.department || '-') : 'Restricted' %></td>
             <td class="text-sm"><%= s.open_tickets %></td>
             <td class="text-sm"><%= s.open_tasks %></td>
             <td><span class="badge badge-<%= s.is_active ? 'low' : 'critical' %>"><%= s.is_active ? 'Active' : 'Inactive' %></span></td>

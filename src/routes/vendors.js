@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
+const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, titleCase } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
@@ -147,8 +147,13 @@ const _vendorInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-// List vendors (paginated)
-router.get('/', (req, res) => {
+// List vendors (paginated) — admin/manager only, matching the show route: the
+// list renders vendor contact PII (contact_person, email) in its columns, the
+// same data the show route exposes in full. Leaving the list open to all staff
+// would render the show-route gate meaningless — the exact policy gap pass 114
+// closed for licenses. Every write route below is already privileged, so this
+// makes the whole module a coherent admin/manager surface.
+router.get('/', requireAdminOrManager, (req, res) => {
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
@@ -355,8 +360,16 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 });
 
-// Show vendor
-router.get('/:id', (req, res) => {
+// Show vendor (admin/manager only — vendor contact PII (contact person,
+// email, phone, address) is business-sensitive). Gated at the route level with
+// requireAdminOrManager, which also audits role denials. An earlier revision
+// gated this route with the ownership-field helper from middleware/auth
+// (canAccessResource), but that helper only passes for non-privileged users
+// when the resource carries an ownership column (assigned_to/owner_id/user_id/
+// author_id) — vendors have none, so the check was structurally always-false
+// for staff and merely acted as an accidental (and confusing) role gate while
+// the list route above stayed open.
+router.get('/:id', requireAdminOrManager, (req, res) => {
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -366,11 +379,6 @@ router.get('/:id', (req, res) => {
   const vendor = _showVendorStmt.get(id);
   if (!vendor) {
     req.flash('error', 'Vendor not found');
-    return res.redirect('/vendors');
-  }
-  if (!canAccessResource(req, vendor)) {
-    req.audit('access_denied', 'vendor', id, `Unauthorized view attempt on vendor ${vendor.name}`);
-    req.flash('error', 'You do not have permission to view this vendor');
     return res.redirect('/vendors');
   }
   req.audit('read', 'vendor', id, `Viewed vendor: ${vendor.name}`);

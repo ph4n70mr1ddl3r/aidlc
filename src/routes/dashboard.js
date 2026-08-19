@@ -60,15 +60,17 @@ let dashboardCache = { timestamp: 0, data: null };
 // so the template doesn't crash on property access like ticketStats.open.
 const EMPTY_DEFAULTS = {
   ticketStats: { total: 0, open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0 },
-  assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 },
+  assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0, reserved: 0 },
   projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
   staffCount: { total: 0 },
   recentTickets: [],
   expiringWarranties: [],
+  expiringWarrantiesCount: 0,
   upcomingChanges: [],
   ticketsByCategory: [],
   staffWorkload: [],
-  licenseAlerts: []
+  licenseAlerts: [],
+  licenseAlertsCount: 0
 };
 
 // ---------------------------------------------------------------------------
@@ -85,21 +87,21 @@ const stmts = {
       COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0) as waiting,
       COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) as resolved,
       COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) as closed,
-      COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress') THEN 1 ELSE 0 END), 0) as critical_open
+      COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress','waiting') THEN 1 ELSE 0 END), 0) as critical_open
     FROM tickets
   `),
   // Exclude disposed assets so the total matches the "Active Assets" stat card
   // label in the dashboard template and the reports page's "Active Assets" card.
   // Mirrors the disposed-asset exclusion in reports.js assetsByCategory and
-  // assetsTotalValue; without it the dashboard total would include disposed
-  // assets while the subtotals (in_use/in_storage/in_repair) would not, causing
-  // the three subtotals to never sum to the total.
+  // assetsTotalValue. The four subtotals (in_use/in_storage/in_repair/reserved)
+  // cover every non-disposed status, so they always sum exactly to the total.
   assetStats: db.prepare(`
     SELECT
       COUNT(*) as total,
       COALESCE(SUM(CASE WHEN status = 'in_use' THEN 1 ELSE 0 END), 0) as in_use,
       COALESCE(SUM(CASE WHEN status = 'in_storage' THEN 1 ELSE 0 END), 0) as in_storage,
-      COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair
+      COALESCE(SUM(CASE WHEN status = 'in_repair' THEN 1 ELSE 0 END), 0) as in_repair,
+      COALESCE(SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END), 0) as reserved
     FROM assets WHERE status != 'disposed'
   `),
   projectStats: db.prepare(`
@@ -123,14 +125,25 @@ const stmts = {
   // Include already-expired warranties — they are more urgent than expiring-soon.
   // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
   // Exclude disposed assets: their warranties are no longer actionable, so showing
-  // them here would produce misleading "expiring soon" alerts. Mirrors the
-  // reports warrantyExpiring query.
+  // them here would produce misleading "expiring soon" alerts. Same disposed-asset
+  // and expired-inclusive semantics as the reports warrantyExpiring query, but a
+  // 30-day glance horizon (vs the report's 90 days) and a tighter list cap —
+  // do NOT treat the two queries as interchangeable when changing either.
   expiringWarranties: db.prepare(`
     SELECT id, name, asset_tag, warranty_expiry FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
     ORDER BY warranty_expiry ASC
     LIMIT ${_DASH_WARRANTY_LIMIT}
+  `),
+  // Uncapped COUNT for the alert card number. The list query above is capped
+  // (LIMIT) to bound the cached payload, so expiringWarranties.length would
+  // undercount when more than the cap qualify — the exact bug class reports.js
+  // fixed by splitting warrantyExpiringCount from warrantyExpiring.
+  expiringWarrantiesCount: db.prepare(`
+    SELECT COUNT(*) as c FROM assets
+    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
+      AND status != 'disposed'
   `),
   upcomingChanges: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
@@ -162,6 +175,12 @@ const stmts = {
     ORDER BY expiry_date ASC
     LIMIT ${_DASH_LICENSE_ALERTS_LIMIT}
   `),
+  // Uncapped COUNT for the alert card number — licenseAlerts.length would
+  // undercount past the list cap, exactly like expiringWarranties above.
+  licenseAlertsCount: db.prepare(`
+    SELECT COUNT(*) as c FROM licenses
+    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
+  `),
   // Only select the columns the dashboard template renders (mirrors recentTickets).
   // Avoid SELECT * so sensitive columns like requester_email/requester_phone are
   // never loaded into the shared data object — defense-in-depth that shrinks the
@@ -191,10 +210,12 @@ function getDashboardData(user) {
         staffCount: stmts.staffCount.get(),
         recentTickets: stmts.recentTickets.all(),
         expiringWarranties: stmts.expiringWarranties.all(),
+        expiringWarrantiesCount: stmts.expiringWarrantiesCount.get().c,
         upcomingChanges: stmts.upcomingChanges.all(),
         ticketsByCategory: stmts.ticketsByCategory.all(),
         staffWorkload: stmts.staffWorkload.all(),
-        licenseAlerts: stmts.licenseAlerts.all()
+        licenseAlerts: stmts.licenseAlerts.all(),
+        licenseAlertsCount: stmts.licenseAlertsCount.get().c
       };
 
       dashboardCache = { timestamp: now, data: shared };
@@ -227,10 +248,12 @@ function getDashboardData(user) {
     staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
     recentTickets: (shared.recentTickets || EMPTY_DEFAULTS.recentTickets).map(r => ({ ...r })),
     expiringWarranties: (shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties).map(r => ({ ...r })),
+    expiringWarrantiesCount: shared.expiringWarrantiesCount ?? EMPTY_DEFAULTS.expiringWarrantiesCount,
     upcomingChanges: (shared.upcomingChanges || EMPTY_DEFAULTS.upcomingChanges).map(r => ({ ...r })),
     ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
     staffWorkload: (shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload).map(r => ({ ...r })),
     licenseAlerts: (shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts).map(r => ({ ...r })),
+    licenseAlertsCount: shared.licenseAlertsCount ?? EMPTY_DEFAULTS.licenseAlertsCount,
     myTickets: myTickets.map(r => ({ ...r }))
   };
   return result;

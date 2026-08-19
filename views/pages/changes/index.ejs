@@ -13,7 +13,7 @@
   <a href="/changes" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (changes.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No changes found</h3></div>
+  <% if (changes.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No changes found</h3><p>Add your first change or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
     <tbody><% changes.forEach(c => { %><tr>

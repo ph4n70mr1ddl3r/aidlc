@@ -18,7 +18,7 @@
   <a href="/vendors" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (vendors.length === 0) { %><div class="empty-state"><i class="fas fa-building"></i><h3>No vendors found</h3></div>
+  <% if (vendors.length === 0) { %><div class="empty-state"><i class="fas fa-building"></i><h3>No vendors found</h3><p>Add your first vendor or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Name</th><th>Contact</th><th>Email</th><th>Category</th><th>Contract End</th><th>Rating</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody><% vendors.forEach(v => { %><tr>

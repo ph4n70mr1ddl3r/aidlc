@@ -13,7 +13,7 @@
   <a href="/audit" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (entries.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No audit entries found</h3></div>
+  <% if (entries.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No audit entries found</h3><p>Adjust filters or clear them to see all entries</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Date/Time</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>IP Address</th><th>Details</th></tr></thead>
     <tbody><% entries.forEach(e => { %><tr>

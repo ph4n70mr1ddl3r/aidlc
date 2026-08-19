@@ -196,7 +196,11 @@ function initSchema() {
       is_internal INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      -- CASCADE (not SET NULL): user_id is NOT NULL, so SET NULL could never
+      -- fire — deleting a commenting user would abort with a constraint error.
+      -- The app only deactivates users (never deletes them); if deletion is
+      -- ever added, CASCADE removes their comments cleanly instead.
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     -- ========================
@@ -251,7 +255,11 @@ function initSchema() {
       joined_at TEXT DEFAULT (datetime('now')),
       UNIQUE(project_id, user_id),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      -- CASCADE (not SET NULL): user_id is NOT NULL, so SET NULL could never
+      -- fire — deleting a member user would abort with a constraint error.
+      -- The app only deactivates users (never deletes them); if deletion is
+      -- ever added, CASCADE removes their memberships cleanly instead.
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
     -- ========================

@@ -170,10 +170,13 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // PROJECTS
     // ========================
+    // progress values are pre-computed to match recalcProjectProgress()
+    // (done/total rounded) — a stale value would jump on the first task edit:
+    // project 1 has 2/5 tasks done (40), project 3 has 2/4 done (50).
     const projects = [
-      { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: '2026-01-15', end_date: '2026-08-30', budget: 150000, spent: 45000, progress: 35, owner_id: 2 },
+      { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: '2026-01-15', end_date: '2026-08-30', budget: 150000, spent: 45000, progress: 40, owner_id: 2 },
       { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: '2026-06-01', end_date: '2026-12-31', budget: 200000, spent: 5000, progress: 5, owner_id: 2 },
-      { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: '2026-03-01', end_date: '2026-07-31', budget: 50000, spent: 32000, progress: 65, owner_id: 3 },
+      { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: '2026-03-01', end_date: '2026-07-31', budget: 50000, spent: 32000, progress: 50, owner_id: 3 },
       { name: 'Office 365 Copilot Rollout', description: 'Deploy Microsoft Copilot to all departments with training and governance policies.', status: 'planning', priority: 'high', start_date: '2026-07-01', end_date: '2026-09-30', budget: 75000, spent: 0, progress: 0, owner_id: 1 },
       { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: '2026-02-01', end_date: '2026-04-30', budget: 85000, spent: 82000, progress: 100, owner_id: 6 }
     ];

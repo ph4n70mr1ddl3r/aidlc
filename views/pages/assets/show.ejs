@@ -31,7 +31,10 @@
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= titleCase(asset.status) %></span></div></div>
         <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= badgeClass(asset.condition_rating, CONDITION_BADGE) %>"><%= titleCase(asset.condition_rating) %></span></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(asset.purchase_date) %></div></div>
-        <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price != null ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
+        <% // `> 0` guard: create defaults an unpriced asset to 0, which is
+           // indistinguishable from "free" — render '-' instead (projects pages
+           // use the same convention for zero budgets). %>
+        <div class="detail-row"><div class="detail-label">Purchase Price</div><div class="detail-value"><%= asset.purchase_price != null && Number(asset.purchase_price) > 0 ? '$' + Number(asset.purchase_price).toLocaleString() : '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><% if (asset.warranty_expiry) { %>
           <% const _wDays = daysUntil(asset.warranty_expiry); %>
           <%= formatDate(asset.warranty_expiry) %>

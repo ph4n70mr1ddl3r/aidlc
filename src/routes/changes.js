@@ -146,6 +146,17 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
   const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects): trim() coerces them to '', which would silently store
+  // NULL — the same fail-closed convention the update route enforces via
+  // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
+  for (const field of ['description', 'impact']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/changes/new');
+    }
+  }
 
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');

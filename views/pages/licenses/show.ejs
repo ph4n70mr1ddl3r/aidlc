@@ -17,7 +17,10 @@
   <div class="detail-row"><div class="detail-label">Seats</div><div class="detail-value"><%= license.used_seats %> / <%= license.total_seats %> used (<%= license.total_seats > 0 ? Math.round((license.used_seats/license.total_seats)*100) : 0 %>%)</div></div>
   <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(license.purchase_date) %></div></div>
   <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? formatDate(license.expiry_date) : 'Perpetual' %></div></div>
-  <div class="detail-row"><div class="detail-label">Cost</div><div class="detail-value"><%= license.cost != null ? '$' + Number(license.cost).toLocaleString() : '-' %></div></div>
+  <% // `> 0` guard: create defaults an unpriced license to 0, which is
+     // indistinguishable from "free" — render '-' instead (projects pages use
+     // the same convention for zero budgets). %>
+  <div class="detail-row"><div class="detail-label">Cost</div><div class="detail-value"><%= license.cost != null && Number(license.cost) > 0 ? '$' + Number(license.cost).toLocaleString() : '-' %></div></div>
   <% if (license.notes) { %><div class="detail-row"><div class="detail-label">Notes</div><div class="detail-value" style="white-space:pre-wrap;"><%= license.notes %></div></div><% } %>
 </div></div>
 <%- include('../../partials/nav-close') %><%- include('../../partials/footer') %>

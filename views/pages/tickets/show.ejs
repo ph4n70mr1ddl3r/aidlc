@@ -92,7 +92,8 @@
 
     <!-- Comments -->
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-comments" style="margin-right:8px;color:var(--primary)"></i>Comments (<%= comments.length %>)</h3></div>
+      <!-- "N+" when the 500-comment cap was hit — the list is a capped subset. -->
+      <div class="card-header"><h3><i class="fas fa-comments" style="margin-right:8px;color:var(--primary)"></i>Comments (<%= comments.length %><%= comments.length >= 500 ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% comments.forEach(c => { %>
         <div class="comment <%= c.is_internal ? 'internal' : '' %>">

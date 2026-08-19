@@ -191,6 +191,14 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   const name = trim(safeQueryValue(req.body.name));
   const description = trim(safeQueryValue(req.body.description));
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects): trim() coerces them to '', which would silently store
+  // NULL — the same fail-closed convention the update route enforces via
+  // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
+  if (req.body.description !== undefined && req.body.description !== null && req.body.description !== '' && typeof req.body.description !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/projects/new');
+  }
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));
   const start_date = safeQueryValue(req.body.start_date);
@@ -823,7 +831,13 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
-  if (!VALID_TASK_STATUSES.includes(status)) {
+  // A present-but-invalid status is rejected; an absent/empty field means
+  // "keep what's stored" (resolved inside the transaction). Mirrors the
+  // project-update route's statusProvided convention and the absent-vs-empty
+  // handling of priority/assignee/due_date/description on this same route —
+  // previously an absent status failed validation, rejecting a perfectly valid
+  // partial PUT that only renamed a task.
+  if (status && !VALID_TASK_STATUSES.includes(status)) {
     req.flash('error', 'Invalid task status');
     return res.redirect(`/projects/${projectId}`);
   }
@@ -897,7 +911,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (resolvedTaskDescription && resolvedTaskDescription.error) {
         throw new Error('INVALID_DESCRIPTION');
       }
-      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedTaskDescription, status, effectivePriority, resolvedTaskAssignee, effectiveDueDate, status === 'done' ? 1 : 0, taskId, projectId];
+      // Preserve the existing status when absent on a partial edit (validated
+      // above only when present) and drive the completed_at encoding from the
+      // RESOLVED status so a partial edit cannot clobber the completion
+      // timestamp of a stored 'done' task.
+      const effectiveStatus = status || existingTask.status;
+      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedTaskDescription, effectiveStatus, effectivePriority, resolvedTaskAssignee, effectiveDueDate, effectiveStatus === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -959,9 +978,9 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
       return { changes: result.changes, title: existing.title, affectedProject: result.changes > 0 ? projectId : null };
     });
     const result = deleteTask();
-    // Recalculate project progress outside the transaction so SQLite's write
-    // lock is not held across multiple sequential queries. Mirrors the pattern
-    // used in the task-add and task-full-update routes below.
+    // Recalculate project progress outside the transaction to avoid holding the
+    // SQLite write lock across multiple sequential queries. Mirrors the pattern
+    // used in the task-add and task-full-update routes above.
     if (result.changes > 0 && result.affectedProject != null) {
       try {
         recalcProjectProgress(db, result.affectedProject);

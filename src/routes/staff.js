@@ -36,12 +36,15 @@ const _assignedAssetsStmt = db.prepare(`
     FROM assets WHERE assigned_to = ?
     LIMIT 50
   `);
+// Cap the result set like every sibling sidebar query in this module — a user
+// who is a member of many projects must not render an unbounded list.
 const _projectMembershipsStmt = db.prepare(`
     SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status
     FROM project_members pm
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
     ORDER BY p.updated_at DESC
+    LIMIT 100
   `);
 const _staffUserStmt = db.prepare('SELECT id, role, username, is_active FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');
@@ -317,6 +320,10 @@ router.get('/:id', (req, res) => {
   // IDs must not be able to read other employees' email/phone/department.
   const isSelf = Number(id) === Number(req.session.user.id);
   if (!isPrivileged(req.session.user) && !isSelf) {
+    // Audit the denial like every other entity show route — an ID-enumeration
+    // attempt against staff PII is exactly the probing the audit log exists
+    // to surface (mirrors tickets/assets/projects/changes/knowledge).
+    req.audit('access_denied', 'user', id, 'Unauthorized staff profile view attempt');
     req.flash('error', 'You do not have permission to view that staff member');
     return res.redirect('/staff');
   }
@@ -362,6 +369,9 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   }
   // Managers cannot edit admin accounts
   if (req.session.user.role !== 'admin' && user.role !== 'staff') {
+    // Audit the denial like the sibling knowledge edit route — a manager
+    // probing the admin/manager edit form is a privilege boundary crossing.
+    req.audit('access_denied', 'user', id, 'Unauthorized staff edit attempt');
     req.flash('error', 'You cannot modify administrator or manager accounts');
     return res.redirect('/staff');
   }
@@ -532,9 +542,9 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // data from the DB (consistent with the auth.js password-change route) so
     // the session user object is a complete mirror of the current DB row instead
     // of a hand-patched subset that could diverge if new columns are added.
-    // Password is explicitly excluded so the session never holds credential
-    // material — the login path already destructures it out, and the session
-    // should stay clean after any in-request refresh.
+    // The SELECT never includes the password column; the destructure below is
+    // defensive belt-and-braces so credential material can never enter the
+    // session even if a future column-list edit adds it back.
     if (Number(id) === Number(req.session.user.id)) {
       const fresh = _showStaffStmt.get(id);
       if (fresh) {

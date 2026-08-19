@@ -8,7 +8,7 @@
       <div class="form-group"><label for="software_name">Software Name *</label><input type="text" name="software_name" id="software_name" class="form-control" value="<%= license.software_name || '' %>" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required></div>
       <div class="form-group"><label for="vendor">Vendor</label><input type="text" name="vendor" id="vendor" class="form-control" value="<%= license.vendor || '' %>" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>"></div>
       <div class="form-group"><label for="license_key">License Key</label><input type="text" name="license_key" id="license_key" class="form-control" placeholder="Enter new key or leave blank to keep current" maxlength="<%= CONSTANTS.MAX_LONG_STR %>" style="font-family:monospace;" autocomplete="off"></div>
-      <% if (isEdit && license.license_key) { %><div class="form-group form-check"><label><input type="checkbox" name="clear_key" id="clear_key" value="on"> Clear existing key</label></div><% } %>
+      <% if (isEdit && license.license_key) { %><div class="form-group"><label><input type="checkbox" name="clear_key" id="clear_key" value="on"> Clear existing key</label></div><% } %>
       <div class="form-group"><label for="license_type">License Type</label><select name="license_type" id="license_type" class="form-control">
         <% CONSTANTS.LICENSE_TYPES.forEach(t => { %><option value="<%= t %>" <%= license.license_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %>
       </select></div>

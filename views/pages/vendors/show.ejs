@@ -5,7 +5,13 @@
   <% if (isPrivileged(user)) { %>
   <div class="flex gap-2">
     <a href="/vendors/<%= vendor.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <% // Delete only renders for inactive vendors — the route refuses to delete
+       // an active vendor ("Deactivate the vendor before deleting"), so showing
+       // the button on active vendors would always fail after confirmation.
+       // Mirrors the staff show page's state-dependent action pattern. %>
+    <% if (!vendor.is_active) { %>
     <form action="/vendors/<%= vendor.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this vendor permanently? This cannot be undone."><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <% } %>
   </div>
   <% } %>
 </div>

@@ -142,6 +142,96 @@ describe('asset inventory value excludes disposed assets', () => {
   });
 });
 
+describe('dashboard alert counts are uncapped while lists stay capped (regression)', () => {
+  beforeEach(clearAssets);
+  it('expiringWarrantiesCount reports the true total past the 20-row list cap', () => {
+    // Regression: the alert card used to render expiringWarranties.length,
+    // which is capped at LIMIT 20 — with 25 qualifying assets the card said
+    // "20 asset(s)" as if that were the total.
+    for (let i = 1; i <= 25; i++) {
+      insertAsset({ name: 'warranty-' + i, status: 'in_use', warranty_expiry: daysFromNow(i % 25) });
+    }
+    const list = dashboard.__stmts.expiringWarranties.all();
+    const count = dashboard.__stmts.expiringWarrantiesCount.get().c;
+    expect(list.length).toBe(20); // list stays capped to bound the cached payload
+    expect(count).toBe(25); // count is the true, uncapped total
+  });
+
+  it('licenseAlertsCount reports the true total past the 20-row list cap', () => {
+    const insert = db.prepare('INSERT INTO licenses (software_name, vendor, license_key, license_type, total_seats, used_seats, cost, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    for (let i = 1; i <= 22; i++) {
+      insert.run('Soft-' + i, null, null, null, 1, 0, 0, daysFromNow(5));
+    }
+    const list = dashboard.__stmts.licenseAlerts.all();
+    const count = dashboard.__stmts.licenseAlertsCount.get().c;
+    expect(list.length).toBe(20);
+    expect(count).toBe(22);
+  });
+});
+
+describe('dashboard critical_open includes waiting tickets (regression)', () => {
+  beforeEach(() => {
+    db.pragma('foreign_keys = OFF');
+    db.exec('DELETE FROM ticket_comments; DELETE FROM tickets;');
+    db.pragma('foreign_keys = ON');
+  });
+  it('a critical ticket in waiting status still counts as critical_open', () => {
+    // Regression: critical_open used status IN ('open','in_progress') while
+    // every other "active" metric on the page includes 'waiting' — a critical
+    // ticket moved to waiting (e.g. pending vendor RMA) vanished from the most
+    // severe alert while still appearing in Recent Tickets below it.
+    const insert = db.prepare('INSERT INTO tickets (ticket_number, title, category, priority, status, requester_name, requester_email) VALUES (?, ?, ?, ?, ?, ?, ?)');
+    insert.run('TK-C1', 'waiting critical', 'hardware', 'critical', 'waiting', 'R', 'r@x.com');
+    const stats = dashboard.__stmts.ticketStats.get();
+    expect(stats.critical_open).toBe(1);
+    expect(stats.waiting).toBe(1);
+  });
+});
+
+describe('dashboard assetStats carries a reserved subtotal (regression)', () => {
+  beforeEach(clearAssets);
+  it('reserved assets count toward the total and the four subtotals still sum to it', () => {
+    // Regression: 'reserved' is a legal asset status but had no subtotal, so
+    // in_use+in_storage+in_repair could never sum to the total whenever a
+    // reserved asset existed — the exact invariant the query comment claimed.
+    const insert = db.prepare('INSERT INTO assets (asset_tag, name, category, status) VALUES (?, ?, ?, ?)');
+    insert.run('AST-R001', 'laptop', 'laptop', 'in_use');
+    insert.run('AST-R002', 'held laptop', 'laptop', 'reserved');
+    insert.run('AST-R003', 'dead laptop', 'laptop', 'disposed');
+    const stats = dashboard.__stmts.assetStats.get();
+    expect(stats.reserved).toBe(1);
+    expect(stats.total).toBe(2);
+    expect(stats.in_use + stats.in_storage + stats.in_repair + stats.reserved).toBe(stats.total);
+  });
+});
+
+describe('resolved metrics window on the resolution date (regression)', () => {
+  beforeEach(() => {
+    db.pragma('foreign_keys = OFF');
+    db.exec('DELETE FROM ticket_comments; DELETE FROM tickets; DELETE FROM users WHERE username LIKE \'rpt-%\';');
+    db.pragma('foreign_keys = ON');
+  });
+  it('a ticket created outside the period but resolved inside it counts (30-day period)', () => {
+    // Regression: avgResolution / slaStats / topResolvers windowed on
+    // created_at while the staff report windows on resolved_at — the same
+    // "Resolved" label measured two different ticket sets on the two pages.
+    db.prepare("INSERT INTO users (username, password, email, first_name, last_name, role) VALUES ('rpt-solver', 'x', 's@x.com', 'Solve', 'R', 'staff')").run();
+    const uid = db.prepare("SELECT id FROM users WHERE username = 'rpt-solver'").get().id;
+    db.prepare("INSERT INTO tickets (ticket_number, title, category, priority, status, requester_name, requester_email, assigned_to, created_at, resolved_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-40 days'), datetime('now', '-1 day'))")
+      .run('TK-R1', 'old but resolved', 'hardware', 'low', 'resolved', 'R', 'r@x.com', uid);
+
+    const top = reports.__stmts.topResolvers.all(30);
+    expect(top).toHaveLength(1);
+    expect(top[0].resolved).toBe(1);
+
+    const avg = reports.__stmts.avgResolution.get(30);
+    expect(avg.avg_days).not.toBeNull();
+
+    const sla = reports.__stmts.slaStats.get(30);
+    expect(sla.total_resolved).toBe(1);
+  });
+});
+
 describe('resetCachedStatements', () => {
   it('resetCachedStatements is a function that does not throw', () => {
     expect(typeof reports.resetCachedStatements).toBe('function');

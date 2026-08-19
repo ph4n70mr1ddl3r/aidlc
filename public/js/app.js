@@ -150,10 +150,11 @@ document.addEventListener('change', function (e) {
 });
 
 // License key reveal: <button data-license-reveal="id"> toggles key display
-// The full key is NEVER embedded in the initial HTML — it is fetched via
-// AJAX on first reveal and stored in a closure variable only (not in the DOM).
-// Toggling back shows the masked preview (last 4 chars) without re-fetching.
-const _licenseKeys = Object.create(null);
+// The full key is NEVER embedded in the initial HTML — it is fetched via AJAX
+// on every reveal and held only in the display element's text node. It is not
+// cached anywhere in memory, so each reveal re-fetches (the server-side rate
+// limiter and audit trail see every disclosure) and nothing outlives the
+// masking handlers below.
 document.addEventListener('click', function (e) {
   const btn = e.target.closest('[data-license-reveal]');
   if (!btn) {
@@ -199,7 +200,6 @@ document.addEventListener('click', function (e) {
         return res.json();
       })
       .then(function (data) {
-        _licenseKeys[licenseId] = data.key;
         display.textContent = data.key;
         display.dataset.shown = '1';
         const icon = btn.querySelector('i');
@@ -232,12 +232,14 @@ document.addEventListener('visibilitychange', function () {
   });
 });
 
-// Re-mask license keys and clear in-memory storage on page hide.
+// Re-mask license keys on page hide.
 // The visibilitychange listener above covers most cases, but bfcache (browser
 // back-forward cache) can persist the page without firing visibilitychange when
 // the user navigates away. The pagehide event fires in both regular navigation
 // and bfcache scenarios, so it is the reliable fallback for clearing sensitive
-// in-memory state before the page is cached.
+// in-memory state before the page is cached. (There is no key cache to clear
+// since the reveal path re-fetches on every click — masking the display is the
+// full cleanup.)
 document.addEventListener('pagehide', function () {
   const displays = document.querySelectorAll('[id="license-key-display"]');
   displays.forEach(function (display) {
@@ -246,9 +248,4 @@ document.addEventListener('pagehide', function () {
       display.dataset.shown = '';
     }
   });
-  // Clear the in-memory key store so cached keys cannot be accessed if the
-  // page is restored from bfcache and the user clicks reveal again.
-  for (const key of Object.keys(_licenseKeys)) {
-    delete _licenseKeys[key];
-  }
 });

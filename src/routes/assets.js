@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -116,7 +116,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/assets/index', {
     title: 'Assets', assets, staff,
-    filters: safeFilters(req.query, ['search', 'status', 'category', 'assigned_to']),
+    filters: safeFilters(req.query, ['search', 'status', 'category', 'assigned_to', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
@@ -157,6 +157,17 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const location = trim(safeQueryValue(req.body.location));
   const notes = trim(safeQueryValue(req.body.notes));
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects): trim() coerces them to '', which would silently store
+  // NULL — the same fail-closed convention the update route enforces via
+  // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
+  for (const field of ['manufacturer', 'model', 'serial_number', 'location', 'notes']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/assets/new');
+    }
+  }
 
   if (!name || !category) {
     req.flash('error', 'Name and category are required');
@@ -228,7 +239,9 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // Fail closed on malformed purchase price (LOW). A present, non-empty price
   // that fails to parse must be rejected rather than silently stored as NULL,
   // which would drop a legitimate price on a typo'd submission. An empty/omitted
-  // price is allowed (falls back to NULL, consistent with the update path).
+  // price is allowed (defaults to 0 — the schema treats price as NOT NULL and a
+  // blank form field means "not recorded"; the update path instead PRESERVES
+  // the stored value on absence). Mirrors licenses create cost handling.
   // Mirrors the assets UPDATE path (11th pass) and licenses create (9th pass).
   if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
       !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
@@ -372,6 +385,17 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));
   const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
+  // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
+  // text field (partial submission — preserve stored value) from an explicit
+  // empty string (clear the field). trim() collapses undefined to '', so the raw
+  // values are captured here for the resolveOptionalField resolution inside the
+  // transaction below. Mirrors the raw-vs-processed split in vendors.js and
+  // licenses.js.
+  const rawManufacturer = req.body.manufacturer;
+  const rawModel = req.body.model;
+  const rawSerialNumber = req.body.serial_number;
+  const rawLocation = req.body.location;
+  const rawNotes = req.body.notes;
   const manufacturer = trim(safeQueryValue(req.body.manufacturer));
   const model = trim(safeQueryValue(req.body.model));
   const serial_number = trim(safeQueryValue(req.body.serial_number));
@@ -544,13 +568,41 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         ? current.condition_rating
         : condition_rating;
 
+      // Absent-vs-empty convention for the optional text fields: an ABSENT field
+      // (partial API submission) preserves the stored value, while an explicit
+      // empty string (the edit form's cleared input) CLEARS it (null). A present
+      // non-string value is rejected via resolveOptionalField's error sentinel.
+      // Previously these fields were unconditionally overwritten, so a partial
+      // PUT that omitted them silently wiped the stored values — the exact bug
+      // class already fixed for assignee/status/price/dates/condition above.
+      // Mirrors the update convention in changes.js / licenses.js / vendors.js.
+      const resolvedManufacturer = resolveOptionalField(rawManufacturer, manufacturer || null, MAX_SHORT_STR, current.manufacturer);
+      if (resolvedManufacturer && resolvedManufacturer.error) {
+        throw new Error('INVALID_MANUFACTURER');
+      }
+      const resolvedModel = resolveOptionalField(rawModel, model || null, MAX_SHORT_STR, current.model);
+      if (resolvedModel && resolvedModel.error) {
+        throw new Error('INVALID_MODEL');
+      }
+      const resolvedSerialNumber = resolveOptionalField(rawSerialNumber, serial_number || null, MAX_SHORT_STR, current.serial_number);
+      if (resolvedSerialNumber && resolvedSerialNumber.error) {
+        throw new Error('INVALID_SERIAL_NUMBER');
+      }
+      const resolvedLocation = resolveOptionalField(rawLocation, location || null, MAX_SHORT_STR, current.location);
+      if (resolvedLocation && resolvedLocation.error) {
+        throw new Error('INVALID_LOCATION');
+      }
+      const resolvedNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, current.notes);
+      if (resolvedNotes && resolvedNotes.error) {
+        throw new Error('INVALID_NOTES');
+      }
+
       const result = _updateStmt.run(
         asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
-        (manufacturer || '').substring(0, MAX_SHORT_STR) || null, (model || '').substring(0, MAX_SHORT_STR) || null,
-        (serial_number || '').substring(0, MAX_SHORT_STR) || null, safeStatus, resolvedCondition,
+        resolvedManufacturer, resolvedModel, resolvedSerialNumber, safeStatus, resolvedCondition,
         resolvedPurchase, resolvedPrice,
         resolvedWarranty, resolvedAssignee,
-        (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null, id
+        resolvedLocation, resolvedNotes, id
       );
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -573,6 +625,14 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
     if (err.message === 'WARRANTY_BEFORE_PURCHASE') {
       req.flash('error', 'Warranty expiry must be on or after purchase date');
+      return res.redirect(`/assets/${id}/edit`);
+    }
+    // Map the resolveOptionalField sentinels (INVALID_MANUFACTURER, etc.) to a
+    // specific validation message instead of the generic server-error flash —
+    // a rejected value is a client error, not a transient failure (mirrors the
+    // INVALID_ mapping in vendors.js).
+    if (err.message.startsWith('INVALID_')) {
+      req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
       return res.redirect(`/assets/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {

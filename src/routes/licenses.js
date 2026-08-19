@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -27,7 +27,11 @@ router.use(requireAuth, auditMiddleware);
  * Resolve total_seats / used_seats from a form submission.
  * On UPDATE, pass the existing row so ABSENT fields preserve stored values;
  * on CREATE, pass null so absent fields default to 1 total / 0 used.
- * Rejects arrays (HPP defense) and out-of-range counts.
+ * Rejects arrays (HPP defense) and non-numeric/garbage counts (fail closed —
+ * a present value that does not parse is an error, never a silent coercion).
+ * A submitted total below 1 is floored to 1 (a license must carry at least one
+ * seat), so `total_seats=0` persists as a 1-seat license rather than being
+ * rejected outright.
  * @returns {{ seats: number, used: number, error: string|null }}
  */
 function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
@@ -59,8 +63,10 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   return { seats: finalSeats, used: finalUsed, error: null };
 }
 
-// Rate limit license key reveal to prevent bulk exfiltration
-// (higher limit than write operations since this is just a read)
+// Rate limit license key reveal to prevent bulk exfiltration. Deliberately a
+// TIGHTER cap than the write limiter above (20 vs 50 per 15 min): this is the
+// anti-exfiltration control for the module's most sensitive secret, and every
+// reveal is audited, so bulk enumeration must be the hardest operation here.
 const licenseKeyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
@@ -152,6 +158,20 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const expiry_date = safeQueryValue(req.body.expiry_date);
   const cost = safeQueryValue(req.body.cost);
   const notes = trim(safeQueryValue(req.body.notes));
+  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // numbers/objects — a numeric license key is a realistic submission): trim()
+  // coerces them to '', which would silently store NULL, losing the value with
+  // a success flash. The same fail-closed convention the update route enforces
+  // via resolveOptionalField's error sentinel. Mirrors the vendors.js create
+  // guard. (license_type needs no guard: the enum check below rejects any
+  // present non-string value already.)
+  for (const field of ['vendor', 'license_key', 'notes']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/licenses/new');
+    }
+  }
 
   if (!software_name) {
     req.flash('error', 'Software name is required');
@@ -454,9 +474,12 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (resolvedPurchase && resolvedExpiry && resolvedExpiry < resolvedPurchase) {
         throw Object.assign(new Error('DATE_RANGE_INVALID'), { flash: 'Expiry date must be on or after purchase date' });
       }
-      _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), resolvedVendor, resolvedKey, resolvedLicenseType,
+      const updateResult = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), resolvedVendor, resolvedKey, resolvedLicenseType,
         resolved.seats, resolved.used,
         resolvedPurchase, resolvedExpiry, resolvedCost, resolvedNotes, id);
+      if (updateResult.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
     });
     updateLicense();
 
@@ -475,6 +498,15 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     }
     if (err.message === 'DATE_RANGE_INVALID' && err.flash) {
       req.flash('error', err.flash);
+      return res.redirect(`/licenses/${id}/edit`);
+    }
+    // Map the resolveOptionalField sentinels (INVALID_VENDOR / INVALID_LICENSE_TYPE
+    // / INVALID_NOTES) to a specific validation message instead of falling
+    // through to the generic server-error flash — a rejected value is a client
+    // error that retrying can never fix (mirrors the INVALID_ mapping in
+    // vendors.js). Previously these sentinels were thrown but never handled.
+    if (err.message.startsWith('INVALID_')) {
+      req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
       return res.redirect(`/licenses/${id}/edit`);
     }
     console.error('License update error:', err.message);

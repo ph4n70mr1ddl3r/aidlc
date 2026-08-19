@@ -21,7 +21,7 @@
   <a href="/knowledge" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (articles.length === 0) { %><div class="empty-state"><i class="fas fa-book"></i><h3>No articles found</h3></div>
+  <% if (articles.length === 0) { %><div class="empty-state"><i class="fas fa-book"></i><h3>No articles found</h3><p>Write your first article or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Title</th><th>Category</th><th>Author</th><th>Status</th><th>Views</th><th>Featured</th><th>Updated</th><th>Actions</th></tr></thead>
     <tbody><% articles.forEach(a => { %><tr>

@@ -6,7 +6,10 @@
   <div class="stat-card">
     <div class="stat-icon blue"><i class="fas fa-ticket"></i></div>
     <div>
-      <div class="stat-value"><%= ticketStats.open + ticketStats.in_progress %></div>
+      <!-- "Active" matches the app-wide definition used by My Active Tickets,
+           Team Workload, and Active Tickets by Category: open + in_progress +
+           waiting (every non-terminal status). -->
+      <div class="stat-value"><%= ticketStats.open + ticketStats.in_progress + (ticketStats.waiting || 0) %></div>
       <div class="stat-label">Active Tickets</div>
     </div>
   </div>
@@ -58,14 +61,14 @@
 <% if (Array.isArray(expiringWarranties) && expiringWarranties.length > 0) { %>
   <div class="alert-card">
     <h4><i class="fas fa-shield-alt"></i> Warranty Expiring Soon</h4>
-    <p><%= expiringWarranties.length %> asset(s) with warranty expiring in the next 30 days</p>
+    <p><%= typeof expiringWarrantiesCount === 'number' ? expiringWarrantiesCount : expiringWarranties.length %> asset(s) with a warranty expired or expiring within 30 days</p>
   </div>
 <% } %>
 
 <% if (Array.isArray(licenseAlerts) && licenseAlerts.length > 0) { %>
   <div class="alert-card">
     <h4><i class="fas fa-key"></i> License Expiring Soon</h4>
-    <p><%= licenseAlerts.length %> software license(s) expiring in the next 30 days</p>
+    <p><%= typeof licenseAlertsCount === 'number' ? licenseAlertsCount : licenseAlerts.length %> software license(s) expired or expiring within 30 days</p>
   </div>
 <% } %>
 
@@ -117,7 +120,7 @@
               <span class="text-sm text-muted"><%= s.open_tickets %> tickets</span>
             </div>
             <div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(s.open_tickets * 15, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.open_tickets %> open tickets" >
-              <div class="progress-fill <%= s.open_tickets > 5 ? 'red' : s.open_tickets > 3 ? 'orange' : 'blue' %>" 
+              <div class="progress-fill <%= s.open_tickets > 5 ? 'red' : s.open_tickets > 3 ? 'orange' : 'green' %>" 
                    style="width: <%= Math.min(s.open_tickets * 15, 100) %>%"></div>
             </div>
           </div>
@@ -142,18 +145,26 @@
   </div>
 </div>
 
-<!-- Recent Tickets -->
+<!-- Recently Active Tickets — non-terminal tickets ordered by last update,
+     matching the "active" definition used by every other widget on this page. -->
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-clock" style="margin-right:8px;color:var(--primary)"></i>Recent Tickets</h3>
+    <h3><i class="fas fa-clock" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets</h3>
     <a href="/tickets" class="btn btn-sm btn-outline">View All</a>
   </div>
   <div class="card-body" style="padding:0;">
+    <% if (!Array.isArray(recentTickets) || recentTickets.length === 0) { %>
+      <div class="empty-state" style="padding:30px;">
+        <i class="fas fa-check-circle" style="color:var(--success)"></i>
+        <h3>No open tickets</h3>
+        <p>No unresolved tickets in the system</p>
+      </div>
+    <% } else { %>
     <div class="table-responsive">
       <table>
         <thead><tr><th>Ticket</th><th>Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Created</th></tr></thead>
         <tbody>
-          <% if (Array.isArray(recentTickets)) { recentTickets.forEach(t => { %>
+          <% recentTickets.forEach(t => { %>
           <tr>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><%= t.title %></td>
@@ -163,10 +174,11 @@
             <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
           </tr>
-        <% }); } %>
+        <% }); %>
         </tbody>
       </table>
     </div>
+    <% } %>
   </div>
 </div>
 
