@@ -12,7 +12,11 @@
         <% }) %>
       </select></div>
       <div class="form-group"><label for="status">Status</label><select name="status" id="status" class="form-control">
-        <% CONSTANTS.KB_STATUSES.forEach(s => { %>
+        <% // Non-privileged authors see only 'draft' plus the article's current
+           // status — resolveSafeStatus silently discards any other promotion,
+           // so offering the full list showed options that could never take
+           // effect (mirrors the is_featured privilege gate below). %>
+        <% CONSTANTS.KB_STATUSES.filter(s => isPrivileged(user) || s === 'draft' || s === (article.status || 'draft')).forEach(s => { %>
           <option value="<%= s %>" <%= (article.status || 'draft') === s ? 'selected' : '' %>><%= titleCase(s) %></option>
         <% }) %>
       </select></div>

@@ -105,8 +105,8 @@ const _leadMemberCountStmt = db.prepare("SELECT COUNT(*) as lead_count FROM proj
 const _selectProjectByIdStmt = db.prepare('SELECT id, name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id, created_at, updated_at FROM projects WHERE id = ?');
 
 const _projectInsertStmt = db.prepare(`
-    INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, owner_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO projects (name, description, status, priority, start_date, end_date, budget, spent, owner_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
 // Sort options for the projects list route. Mirrors the pattern used in
@@ -148,9 +148,11 @@ router.get('/', (req, res) => {
 
   // Use LEFT JOIN with conditional aggregation instead of correlated subqueries
   // for task counts — avoids N+1 query pattern on large project lists.
+  // owner_id is selected (not just owner_name) so the index template can link
+  // cards only for rows the viewer can open on the ownership-gated show route.
   const projects = selectQuery(db, `
     SELECT p.id, p.name, p.description, p.status, p.priority, p.start_date, p.end_date,
-      p.budget, p.spent, p.progress, p.created_at, p.updated_at,
+      p.budget, p.spent, p.progress, p.owner_id, p.created_at, p.updated_at,
       u.first_name || ' ' || u.last_name as owner_name,
       COALESCE(tCounts.task_count, 0) as task_count,
       COALESCE(tCounts.done_count, 0) as done_count
@@ -168,7 +170,7 @@ router.get('/', (req, res) => {
 
   res.render('pages/projects/index', {
     title: 'Projects', projects,
-    filters: safeFilters(req.query, ['search', 'status', 'priority']),
+    filters: safeFilters(req.query, ['search', 'status', 'priority', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
   });
@@ -183,7 +185,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
 // Create project
 router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads.
-  const hppErrors = rejectHppArrays(req, ['name', 'description', 'status', 'priority', 'start_date', 'end_date', 'budget', 'owner_id']);
+  const hppErrors = rejectHppArrays(req, ['name', 'description', 'status', 'priority', 'start_date', 'end_date', 'budget', 'spent', 'owner_id']);
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/projects/new');
@@ -204,6 +206,10 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const start_date = safeQueryValue(req.body.start_date);
   const end_date = safeQueryValue(req.body.end_date);
   const budget = safeQueryValue(req.body.budget);
+  // spent shares the create form with budget and must be parsed here too —
+  // previously the form collected it while the create route silently dropped
+  // it (INSERT omitted the column), storing 0 with a success flash.
+  const spent = safeQueryValue(req.body.spent);
   const owner_id = safeQueryValue(req.body.owner_id);
 
   if (!name) {
@@ -263,6 +269,22 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
   }
 
+  // Fail closed on malformed spent, mirroring budget above: a present,
+  // non-empty value that fails to parse is rejected rather than silently
+  // coerced to 0. An empty/omitted value is allowed (falls back to 0,
+  // consistent with the column default and the update path's preserve-on-
+  // absent semantics).
+  let safeSpent;
+  if (spent === undefined || spent === null || spent === '') {
+    safeSpent = 0;
+  } else {
+    safeSpent = safePositiveFloat(spent, Infinity);
+    if (!Number.isFinite(safeSpent)) {
+      req.flash('error', 'Invalid spent amount');
+      return res.redirect('/projects/new');
+    }
+  }
+
   // Validate owner is an active user
   // Fail closed on a present-but-malformed owner id ("abc", "3.5", an HPP
   // array) instead of silently coercing it to NULL via safeId, which would
@@ -283,7 +305,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
       return _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
-        sStart, sEnd, safeBudget, safeOwnerId);
+        sStart, sEnd, safeBudget, safeSpent, safeOwnerId);
     });
     const result = createProject();
 
@@ -629,6 +651,14 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
 
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
+  // Fail closed on a present-but-non-string description (e.g. a JSON number):
+  // trim() coerces it to '', which would silently store NULL with a success
+  // flash — the same convention the task UPDATE route enforces via
+  // resolveOptionalField's error sentinel and every other create route applies.
+  if (req.body.description !== undefined && req.body.description !== null && req.body.description !== '' && typeof req.body.description !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/projects/${projectId}`);
+  }
   const status = safeQueryValue(req.body.status);
   const priority = safeQueryValue(req.body.priority);
   const assigned_to = safeQueryValue(req.body.assigned_to);

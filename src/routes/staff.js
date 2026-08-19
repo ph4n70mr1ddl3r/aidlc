@@ -126,8 +126,12 @@ router.get('/', (req, res) => {
       GROUP BY assigned_to
     ) tCounts ON tCounts.assigned_to = u.id
     LEFT JOIN (
+      -- status != 'done' (not an explicit status list) so tasks in the
+      -- non-terminal 'review' state count as open here — matching the show
+      -- route's Active Tasks sidebar and the unassign-recalc queries in this
+      -- module. Previously a task moved to review vanished from this count.
       SELECT assigned_to, COUNT(*) as open_tasks
-      FROM project_tasks WHERE status IN ('todo','in_progress')
+      FROM project_tasks WHERE status != 'done'
       GROUP BY assigned_to
     ) ptCounts ON ptCounts.assigned_to = u.id
     WHERE ${whereClause}

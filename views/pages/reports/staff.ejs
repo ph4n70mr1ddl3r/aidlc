@@ -27,7 +27,8 @@
       <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(p.open_tickets * 15, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.open_tickets %> open tickets" style="width:100px;display:inline-block;vertical-align:middle;">
         <div class="progress-fill <%= p.open_tickets > 5 ? 'red' : p.open_tickets > 3 ? 'orange' : 'green' %>" style="width:<%= Math.min(p.open_tickets * 15, 100) %>%"></div>
       </div></td>
-    </tr><% }); } %></tbody>
+    </tr><% }); } %>
+    <% if (typeof performance === 'undefined' || performance.length === 0) { %><tr><td colspan="7" class="text-center text-muted text-sm" style="padding:24px;">No active staff to report on</td></tr><% } %></tbody>
   </table></div>
 </div></div>
 

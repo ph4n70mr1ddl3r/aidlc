@@ -93,6 +93,12 @@ const stmts = {
     FROM tickets
     WHERE resolved_at IS NOT NULL AND resolved_at >= date('now', '-' || ? || ' days')
   `),
+  // topResolvers is ATTRIBUTION over the period (no is_active filter — work a
+  // staffer resolved before deactivation still belongs to them), while
+  // staffPerformance below is the CURRENT ROSTER (is_active = 1). The split is
+  // deliberate, mirroring the disposed-asset exclusion comments above: a
+  // recently deactivated resolver can appear on /reports/tickets while being
+  // absent from /reports/staff for the same window.
   topResolvers: db.prepare(`
     SELECT u.first_name || ' ' || u.last_name as name, COUNT(*) as resolved
     FROM tickets t
@@ -170,9 +176,15 @@ const stmts = {
       COALESCE(ptDone.completed_tasks, 0) as completed_tasks
     FROM users u
     LEFT JOIN (
+      /* Open Tickets is a CURRENT-SNAPSHOT metric (no created_at window):
+         same statuses, same unwindowed semantics as the dashboard's Team
+         Workload and the staff directory's Open Tickets column — the three
+         surfaces share a bar encoding, so windowing one of them by creation
+         date made the same person read green on /reports/staff and red on the
+         dashboard. The period parameter scopes only the resolved/completed
+         (historical) metrics. */
       SELECT assigned_to, COUNT(*) as open_tickets
       FROM tickets WHERE status IN ('open','in_progress','waiting')
-        AND created_at >= date('now', '-' || ? || ' days')
       GROUP BY assigned_to
     ) tOpen ON tOpen.assigned_to = u.id
     LEFT JOIN (
@@ -189,6 +201,8 @@ const stmts = {
       GROUP BY assigned_to
     ) ptDone ON ptDone.assigned_to = u.id
     WHERE u.is_active = 1
+    /* ^ current-roster view, as opposed to topResolvers' attribution view —
+       see the comment above the topResolvers statement. */
     ORDER BY resolved_tickets DESC
     LIMIT 200
   `)
@@ -252,8 +266,9 @@ router.get('/assets', reportLimiter, (req, res) => {
 router.get('/staff', reportLimiter, (req, res) => {
   try {
     const period = resolveReportPeriod(req.query.period);
-    // Three ? placeholders: open_tickets period, resolved_tickets period, completed_tasks period
-    const performance = stmts.staffPerformance.all(period, period, period);
+    // Two ? placeholders: resolved_tickets period, completed_tasks period
+    // (open_tickets is an unwindowed current snapshot — see the statement).
+    const performance = stmts.staffPerformance.all(period, period);
 
     req.audit('read', 'user', null, 'Viewed staff performance report');
 

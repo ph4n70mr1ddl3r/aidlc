@@ -9,6 +9,64 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-19 (141st pass)
+
+An independent pass (four parallel full re-reads covering all 12 route modules,
+both middleware modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, or
+password/auth defects were found.** The pass surfaced one error-rendering
+correctness bug, several access-policy/list-show incoherences in the exact
+class passes 114/123/140 established conventions for, a cluster of
+partial-update and fail-closed gaps, and a set of metric/consistency defects.
+
+### Fixes applied
+
+**Correctness (error rendering / availability)**
+- **`views/partials/header.ejs` — styled error pages crashed with a secondary ReferenceError for errors thrown before the locals middleware (MEDIUM, correctness).** `header.ejs:6` referenced `csrfToken` unguarded while `title` on the next line was guarded. The global error handler renders `pages/error` for body-parser failures (413 payload-too-large, 400 malformed JSON) which `next(err)` out of `express.json()`/`urlencoded()` — middleware that runs BEFORE the `res.locals` middleware assigns `csrfToken`. EJS threw `ReferenceError: csrfToken is not defined`, and Express's final handler replaced the intended styled 413/400 page with a bare-text 500. Guarded the reference (`typeof csrfToken !== 'undefined' ? csrfToken : ''`), mirroring the `title` guard.
+- **`src/app.js` — global `writeLimiter` keyed per-IP, inverting the app's documented per-account keying convention (MEDIUM, consistency/availability).** The 100-writes/15-min backstop mounted across all ten write mounts used express-rate-limit's default IP key, so an entire team behind one NAT'd office/proxy IP shared a single budget — the exact failure mode `authKeyGenerator`'s docstring ("one user behind a NAT'd office IP cannot consume the shared budget for the whole team") exists to prevent, and the opposite of every per-route authenticated limiter. Added `keyGenerator: utilsModule.authKeyGenerator` (normalized-IP fallback still bounds unauthenticated abuse).
+
+**Access policy (list/show coherence — the class fixed for licenses pass 114, vendors pass 123/140, knowledge index)**
+- **`src/routes/changes.js` — the change LIST rendered restricted metadata to all staff and its search filter was a content oracle on the gated description text (MEDIUM, security/consistency).** The show route gates staff to `canAccessResource` (assigned-only, audited), yet the list rendered every change's title/type/status/priority/schedule/assignee to any authenticated user, and `addSearch(... ['c.title','c.description'])` let a staff user probe whether arbitrary text occurs in restricted descriptions. Changes are privileged-created (`requireAdminOrManager` on create/edit) with no staff write path, so staff's only legitimate surface is assigned changes. Scoped the list WHERE (`c.assigned_to = ?`) for non-privileged users before the clause is built, mirroring the knowledge index's `(k.status = 'published' OR k.author_id = ?)` pattern — count and listing stay in sync.
+- **`views/pages/tickets/index.ejs`, `assets/index.ejs`, `projects/index.ejs` — every list row linked to a show route that denies staff unless assigned/owner, guaranteeing an `access_denied` flash + audit entry on routine navigation (MEDIUM, consistency/audit noise).** Queue/inventory/portfolio visibility stays open by design (the "All Assignees" filter, "My Tickets" header button, and dashboard Team Workload all assume it), but the guaranteed-dead links flooded the audit log's most security-relevant stream with noise (alert fatigue). Rows now link only when the viewer can actually open the show route (`isPrivileged(user) || row.assigned_to/owner_id === user.id`); unlinked rows keep full visibility. Added the ownership column to the tickets and projects list SELECTs (assets already selected it).
+- **`views/pages/projects/index.ejs` — project cards rendered budget/spent to every viewer (MEDIUM, consistency).** Pass 114 established that cost data is business-sensitive (the licenses list is `requireAdminOrManager` for exactly this), yet project financials rendered to all staff on the cards. Gated the budget/spent line behind `isPrivileged(user)`.
+
+**Partial-update / fail-closed consistency**
+- **`src/routes/tickets.js` update — `status`/`category`/`priority` were required on every PUT (MEDIUM, consistency).** Assets, projects, and (since pass 140) task updates all validate-when-present and preserve on absence; tickets was the sole outlier, so a partial JSON PUT that only renamed a ticket failed with "Invalid status". Adopted the convention: enums validate when present; `effectiveCategory/Priority/Status` resolve from the transaction re-fetch (`_updateCheckStmt` now selects all three); the `resolved_at` set/clear CASE flags and the audit message derive from the EFFECTIVE status, so a partial edit of a resolved ticket can no longer clear `resolved_at` and the audit entry reports the persisted value.
+- **`src/routes/tickets.js` update — a present non-string `requester_department` silently wiped the stored value (MEDIUM, correctness).** `trim(42)` → `''` → `null` with a success flash, while the create route rejects the identical payload. Now resolved via `resolveOptionalField` with the `INVALID_REQUESTER_DEPARTMENT` sentinel mapped by the existing `INVALID_` catch.
+- **`src/routes/projects.js` create — the form-submitted `spent` was silently discarded (MEDIUM, completeness).** The shared create/edit form rendered the input unconditionally, but the create route's HPP list, parsing, and INSERT all omitted `spent` — an initial spend became 0 with a "Project created successfully" flash. Now parsed with the same `safePositiveFloat` fail-closed pattern as budget ("Invalid spent amount" on malformed input) and inserted.
+- **`src/routes/projects.js` task-add — a present non-string `description` silently stored NULL (LOW, consistency).** The task UPDATE route rejects it via `resolveOptionalField`; every other create route received the fail-closed guard in pass 140; this one was missed.
+- **`src/routes/licenses.js` update — a present non-string `license_key` was silently treated as blank→preserve, discarding the submitted key with a success flash (MEDIUM, consistency).** A numeric JSON key (realistic) hit `trim()` → `''` → preserve-existing, while the create route rejects the same payload and its comment claims parity. Added the fail-closed guard ("Invalid license key").
+- **`src/routes/changes.js` update + create — a present non-string `priority` silently preserved the stored value / fell to the 'medium' default (LOW, consistency).** Non-string input collapsed to `''`, skipping the validate-when-present enum check. Both routes now reject present non-empty non-string values; the analogous `license_type` on licenses was already covered by its sentinel.
+
+**Metric / display correctness**
+- **`views/pages/dashboard.ejs` — "Active Projects" counted only `in_progress` (MEDIUM, consistency).** The app-wide active-project definition is planning/in_progress/on_hold (see staff.js ownership clearing); the card used only `in_progress` while the route computed — and the template wasted — `planning` and `on_hold`. Same "column existed, unused" pattern as the Active Tickets fix in pass 140. The card now renders `planning + in_progress + on_hold`.
+- **`src/routes/staff.js` — the directory's "Open Tasks" column excluded tasks in `review` status (MEDIUM, correctness/consistency).** The ptCounts subquery used `status IN ('todo','in_progress')` while the show route's Active Tasks sidebar and every unassign/recalc query in the same module use `status != 'done'` — a technician with 3 tasks in review read "Open Tasks: 0" in the directory and 3 on their profile. Unified on `status != 'done'`.
+- **`src/routes/reports.js` — staff report "Open Tickets" was windowed by creation date while the identically-labeled dashboard Team Workload and staff-directory columns are unwindowed snapshots sharing the same bar encoding (MEDIUM, consistency).** For period=7 a staffer holding 10 tickets created 8+ days ago read 0/green on `/reports/staff` and red on the dashboard. Dropped the `created_at` window from the tOpen subquery — Open Tickets is now a current snapshot on all three surfaces; the period parameter scopes only the resolved/completed (historical) metrics, stated in a comment and pinned by a real-SQL regression test.
+- **`views/pages/licenses/index.ejs` — zero-cost (unpriced) licenses rendered "$0" while the show page renders "-" per its documented convention (LOW, consistency).** Applied the same `Number(l.cost) > 0` guard.
+- **`views/pages/reports/staff.ejs` + `reports/tickets.ejs` — missing empty states every sibling surface has (LOW, completeness).** Added "No active staff to report on", the byPriority "No data for this period" line, and the Top Resolvers empty row.
+- **`views/pages/audit/index.ejs` — `login_blocked`/`login_rate_limited`/`access_denied` rendered with the same "medium" badge as routine reads while `login_failed` is critical (LOW, consistency).** The audit surface's most attack-relevant rows are now visually distinct (critical), matching `delete`/`login_failed`.
+
+**Unambiguity / audit detail**
+- **`views/pages/staff/show.ejs` — Edit button rendered for any privileged viewer although the route unconditionally denies managers for manager/admin targets, including the manager's own profile (MEDIUM, consistency).** Mirrored the route gate in the template (`user.role === 'admin' || staffUser.role === 'staff'`), removing guaranteed-denial navigation + `access_denied` noise — the same bug class as the vendors Delete button fixed in pass 140.
+- **`views/pages/staff/show.ejs` — an HTML comment claimed the ticket sidebar was filtered to active tickets; the query has no status filter (LOW, unambiguity).** Reworded the comment (and the "No active tickets" empty state) to match the actual all-assigned/open-first semantics.
+- **`src/routes/reports.js` — topResolvers includes deactivated staff while staffPerformance excludes them, with no statement of intent (LOW, unambiguity).** Documented the deliberate attribution-vs-current-roster split on both statements (mirroring the disposed-asset exclusion comments), rather than changing either query.
+- **`src/routes/vendors.js` — a rename rewrote N license rows (`vendor` + `updated_at`) with no audit trace of the side effect (LOW, completeness).** The audit details now include the dependent-license count (`N license reference(s) updated`), mirroring the delete route's "detached from N license(s)".
+- **`views/pages/knowledge/form.ejs` — the status dropdown offered `published`/`archived` to non-privileged authors, but `resolveSafeStatus` silently discards the promotion with a plain success flash (LOW, consistency/unambiguity).** Non-privileged authors now see only `draft` plus the article's current status (exactly what `resolveSafeStatus` permits), mirroring the `is_featured` privilege gate on the same form.
+
+**Seed data contract**
+- **`src/seed.js` — seeded progress contradicted `recalcProjectProgress` for taskless projects (MEDIUM-LOW, completeness).** 'Zero Trust' seeded `progress: 5` with zero tasks and 'Data Center Cooling Upgrade' seeded `completed`/`progress: 100` with zero tasks — recalc maps zero tasks to 0, so the first task edit snapped 5→0 and 100→0, exactly the "jump on first edit" the adjacent comment claims was prevented. Zero Trust now seeds 0; the completed project owns one done task (1/1 = 100), keeping its seeded value recalc-consistent; the comment states the full contract. `tests/seed.test.js` project_tasks count updated 9 → 10.
+
+**Documentation accuracy**
+- **README / `.env.example` claimed the seeder prints generated passwords — it does not (without `SEED_VERBOSE=1`), making the documented Quick Start path lock operators out of a fresh install (MEDIUM, unambiguity).** Docs now state passwords print only with `SEED_VERBOSE=1` (and that one password is shared by manager/staff, not "per role"); Quick Start uses `SEED_VERBOSE=1 npm run seed`.
+- **README config table omitted six env vars the code reads** (`SESSION_IDLE_TIMEOUT_SECONDS`, `SESSION_ABSOLUTE_TIMEOUT_SECONDS`, `SEED_ADMIN_PASSWORD`, `SEED_PASSWORD`, `SEED_VERBOSE`, `SEED_DANGER`) — all added; `.env.example` now documents the silent 60s floor on the idle timeout.
+- **README project structure omitted `public/js/app.js` (the CSP-safe client layer) and `favicon.svg`** — both added.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **840 passed / 840 total** (39 suites; +34 regression tests in `tests/code_review_141.test.js` and `tests/reports.test.js`, seed count pinned to the new contract).
+
+---
+
 ## Review cycle 2026-08-19 (140th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
@@ -1028,6 +1086,15 @@ defects were found.** Two minor consistency/DRY improvements applied:
 
 - **Cross-ticket commenting** (`tickets.js`): any authenticated user may comment
   on any ticket they can access. Intentional for cross-team collaboration.
+- **Ticket/asset/project LISTS stay open to all authenticated users while the
+  SHOW routes gate staff to assigned/owned rows** (`tickets.js`/`assets.js`/
+  `projects.js`): queue/inventory/portfolio awareness is a product feature
+  (the "All Assignees" filter, "My Tickets" header shortcut, and dashboard
+  Team Workload all assume it) — the lists expose only summary columns, never
+  the requester PII or license-key-class detail the show gates protect. Since
+  cycle 141 the templates link only rows the viewer can open, so the open list
+  no longer generates access_denied noise. Changes (privileged-created) are
+  scoped assigned-only for staff instead — see cycle 141.
 - **Manager cannot reactivate a deactivated user** (`staff.js`): `requireAdmin`-only.
 - **`recalcProjectProgress` runs post-commit** during staff deactivation:
   eventually consistent; not a defect under synchronous SQLite.

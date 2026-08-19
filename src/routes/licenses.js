@@ -344,6 +344,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const rawNotes = req.body.notes;
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
+  // Fail closed on a present-but-non-string license key (e.g. a numeric JSON
+  // key, which is realistic): trim() coerces it to '', which the resolution
+  // below treats as "blank → preserve existing", so the submitted key would be
+  // silently discarded with a success flash — while the create route rejects
+  // the identical payload. Absent/empty is allowed (preserve / clear via the
+  // explicit clear_key checkbox).
+  if (req.body.license_key !== undefined && req.body.license_key !== null && req.body.license_key !== '' && typeof req.body.license_key !== 'string') {
+    req.flash('error', 'Invalid license key');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
   const clearKey = parseBooleanFlag(safeQueryValue(req.body.clear_key));
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);

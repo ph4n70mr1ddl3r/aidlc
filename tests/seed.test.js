@@ -57,7 +57,9 @@ describe('seed.js runSeed', () => {
     expect(count('tickets')).toBe(10);
     expect(count('ticket_comments')).toBe(5);
     expect(count('projects')).toBe(5);
-    expect(count('project_tasks')).toBe(9);
+    // 9 task-list entries + 1 done task for project 5 ('completed', 1/1 = 100)
+    // so its seeded progress matches recalcProjectProgress.
+    expect(count('project_tasks')).toBe(10);
     expect(count('project_members')).toBe(11);
     expect(count('vendors')).toBe(5);
     expect(count('knowledge_articles')).toBe(6);

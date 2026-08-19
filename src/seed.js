@@ -172,10 +172,12 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // progress values are pre-computed to match recalcProjectProgress()
     // (done/total rounded) — a stale value would jump on the first task edit:
-    // project 1 has 2/5 tasks done (40), project 3 has 2/4 done (50).
+    // project 1 has 2/5 tasks done (40), project 3 has 2/4 done (50), project
+    // 5 has 1/1 done (100). Taskless projects seed progress 0 — recalc maps a
+    // zero task count to 0, so any other seeded value would visibly jump.
     const projects = [
       { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: '2026-01-15', end_date: '2026-08-30', budget: 150000, spent: 45000, progress: 40, owner_id: 2 },
-      { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: '2026-06-01', end_date: '2026-12-31', budget: 200000, spent: 5000, progress: 5, owner_id: 2 },
+      { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: '2026-06-01', end_date: '2026-12-31', budget: 200000, spent: 5000, progress: 0, owner_id: 2 },
       { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: '2026-03-01', end_date: '2026-07-31', budget: 50000, spent: 32000, progress: 50, owner_id: 3 },
       { name: 'Office 365 Copilot Rollout', description: 'Deploy Microsoft Copilot to all departments with training and governance policies.', status: 'planning', priority: 'high', start_date: '2026-07-01', end_date: '2026-09-30', budget: 75000, spent: 0, progress: 0, owner_id: 1 },
       { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: '2026-02-01', end_date: '2026-04-30', budget: 85000, spent: 82000, progress: 100, owner_id: 6 }
@@ -201,7 +203,12 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-03-15', completed_at: '2026-03-14' },
       { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: '2026-04-30', completed_at: '2026-04-29' },
       { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: '2026-06-15' },
-      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' }
+      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' },
+      // Project 5 ('completed', progress 100) needs at least one done task so
+      // its seeded progress matches recalcProjectProgress (1/1 = 100) — a
+      // taskless completed project would snap from 100% to 0% on its first
+      // task edit (recalc maps zero tasks to 0).
+      { project_id: 5, title: 'HVAC unit replacement', description: 'Replace all aging HVAC units and commission the new cooling system', status: 'done', priority: 'high', assigned_to: 6, due_date: '2026-04-15', completed_at: '2026-04-14' }
     ];
 
     const insertTask = db.prepare(`

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, isPrivileged } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -89,6 +89,18 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
+  // Scope the list for non-privileged users to changes assigned to them —
+  // the exact policy the show route enforces via canAccessResource (staff may
+  // only view their own changes). Previously the list rendered every change's
+  // metadata to any authenticated user and its search filter matched against
+  // the restricted description text, acting as a content oracle — the same
+  // list/show access incoherence fixed for the knowledge index (scoped) and
+  // licenses/vendors (privileged-only). Applied BEFORE the whereClause is
+  // built so the count query and the listing stay in sync.
+  if (!isPrivileged(req.session.user)) {
+    where.push('c.assigned_to = ?');
+    params.push(req.session.user.id);
+  }
   addSearch(where, params, safeQueryValue(req.query.search), ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
@@ -150,7 +162,9 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  for (const field of ['description', 'impact']) {
+  // priority is included because the enum check below is validate-when-present:
+  // a non-string collapses to '' and would silently fall back to the default.
+  for (const field of ['description', 'impact', 'priority']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -352,6 +366,16 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect(`/changes/${id}/edit`);
   }
   if (priority && !VALID_PRIORITIES.includes(priority)) {
+    req.flash('error', 'Invalid priority');
+    return res.redirect(`/changes/${id}/edit`);
+  }
+  // Fail closed on a present-but-non-string priority (e.g. a JSON number):
+  // trim() coerces it to '', which would skip the enum check above and leave
+  // safePriority silently preserving the stored value with a success flash —
+  // inconsistent with title/change_type/status (rejected) and the resolveOptionalField
+  // text fields on this route (sentinel-rejected). Absent/empty is allowed
+  // (falls back to the stored value / create default).
+  if (req.body.priority !== undefined && req.body.priority !== null && req.body.priority !== '' && typeof req.body.priority !== 'string') {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/changes/${id}/edit`);
   }

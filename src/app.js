@@ -411,10 +411,15 @@ app.use(csrfConfig.doubleCsrfProtection);
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-// Rate limit write endpoints to prevent spam
+// Rate limit write endpoints to prevent spam. Keyed per-account via the shared
+// authKeyGenerator (session user id, normalized-IP fallback) — the same
+// convention every authenticated-route limiter uses, so one team behind a
+// NAT'd office IP cannot exhaust the shared budget for everyone else. The
+// normalized-IP fallback still bounds unauthenticated pre-auth abuse.
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100,
+  keyGenerator: utilsModule.authKeyGenerator,
   message: 'Too many requests. Please slow down.',
   standardHeaders: true,
   legacyHeaders: false

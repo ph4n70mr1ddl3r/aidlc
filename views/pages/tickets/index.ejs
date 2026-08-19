@@ -57,11 +57,16 @@
     <div class="table-responsive">
       <table>
         <thead><tr><th>Ticket</th><th>Title</th><th>Requester</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Created</th><th>Actions</th></tr></thead>
-        <tbody>
-          <% tickets.forEach(t => { %>
+      <tbody>
+        <% tickets.forEach(t => {
+        // Link rows only when the viewer can actually open the show route —
+        // staff are denied there unless the ticket is assigned to them, so an
+        // unconditional link guaranteed an access_denied flash + audit entry on
+        // every routine click. Unlinked rows still keep queue visibility.
+        const canView = isPrivileged(user) || Number(t.assigned_to) === Number(user.id); %>
           <tr>
-            <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
-            <td><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a></td>
+            <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a><% } else { %><span style="font-weight:600;"><%= t.ticket_number %></span><% } %></td>
+            <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a><% } else { %><%= t.title %><% } %></td>
             <td class="text-sm"><%= t.requester_name %></td>
             <td class="text-sm"><%= titleCase(t.category) %></td>
             <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
@@ -69,11 +74,11 @@
             <td class="text-sm"><% if (t.assigned_name) { %><%= t.assigned_name %><% } else { %><span class="text-muted">Unassigned</span><% } %></td>
             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
             <td class="actions-cell">
-              <a href="/tickets/<%= t.id %>" class="btn btn-sm btn-outline" aria-label="View ticket"><i class="fas fa-eye" aria-hidden="true"></i></a>
+              <% if (canView) { %><a href="/tickets/<%= t.id %>" class="btn btn-sm btn-outline" aria-label="View ticket"><i class="fas fa-eye" aria-hidden="true"></i></a><% } else { %><span class="text-muted" title="Assigned to another technician">—</span><% } %>
             </td>
           </tr>
           <% }) %>
-        </tbody>
+      </tbody>
       </table>
     </div>
     <% } %>

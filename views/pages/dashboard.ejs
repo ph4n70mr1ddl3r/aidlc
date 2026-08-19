@@ -30,7 +30,11 @@
   <div class="stat-card">
     <div class="stat-icon purple"><i class="fas fa-project-diagram"></i></div>
     <div>
-      <div class="stat-value"><%= projectStats.in_progress %></div>
+      <% // planning + in_progress + on_hold — the app-wide definition of an
+         // active project (see staff.js ownership-clearing and the projects
+         // module). Counting only in_progress contradicted every other active
+         // metric on this page and left planning/on_hold unused. %>
+      <div class="stat-value"><%= projectStats.planning + projectStats.in_progress + projectStats.on_hold %></div>
       <div class="stat-label">Active Projects</div>
     </div>
   </div>

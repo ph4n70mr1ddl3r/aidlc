@@ -46,8 +46,8 @@ npm install
 cp .env.example .env
 # Edit .env and set strong SESSION_SECRET and CSRF_SECRET for production
 
-# Seed the database with sample data
-npm run seed
+# Seed the database with sample data (SEED_VERBOSE=1 prints the generated passwords)
+SEED_VERBOSE=1 npm run seed
 
 # Start the server
 npm start
@@ -57,9 +57,15 @@ Open http://localhost:3000 in your browser.
 
 ### Seed / Login Credentials
 
-`npm run seed` does **not** use fixed default passwords. It generates a strong
-random password for each role, prints it to the console (with a warning), and
-hashes it with bcrypt before storing it:
+`npm run seed` does **not** use fixed default passwords. It generates strong
+random passwords (one for the admin account, one shared by the manager/staff
+accounts), hashes them with bcrypt before storing, and does **not** print them
+by default. To display the generated passwords, run the seed with
+`SEED_VERBOSE=1`:
+
+```bash
+SEED_VERBOSE=1 npm run seed
+```
 
 ```
 Default login credentials:
@@ -68,7 +74,9 @@ Default login credentials:
   Staff:    mpatel / <random>
 ```
 
-Copy the printed passwords from the seed output to sign in.
+Copy the printed passwords from the seed output to sign in. Without
+`SEED_VERBOSE=1` the passwords are never displayed and cannot be recovered
+from the stored bcrypt hashes — you would have to re-seed.
 
 To use fixed passwords instead (e.g. for a shared dev/CI environment), set them
 in `.env` **before** seeding:
@@ -86,8 +94,11 @@ SEED_PASSWORD=<your-strong-staff-password>
 ```
 ├── data/                   # SQLite database files (git-ignored)
 ├── public/
-│   └── css/
-│       └── app.css         # Extracted stylesheet
+│   ├── css/
+│   │   └── app.css         # Extracted stylesheet
+│   ├── js/
+│   │   └── app.js          # Client-side layer (CSP-safe: flash dismiss, confirm dialogs, license-key reveal)
+│   └── favicon.svg
 ├── src/
 │   ├── app.js              # Express app setup & server entry
 │   ├── constants.js        # Validation enums, limits, session config
@@ -144,7 +155,13 @@ Environment variables (set in `.env`):
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0` |
 | `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
+| `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; values below 60 are raised to 60 (lastAccess write-throttle floor) |
+| `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views (max `100`) |
+| `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` |
+| `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` |
+| `SEED_VERBOSE` | `0` | Set to `1`/`true` to print auto-generated seed passwords |
+| `SEED_DANGER` | `0` | Set to `1` to allow seeding in production (drops all data) |
 
 ## Security
 

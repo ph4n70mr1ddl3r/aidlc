@@ -85,7 +85,7 @@ const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 // preserve them on partial submissions and for non-privileged editors whose
 // edit form redacts requester PII (mirrors the show route).
 const _updateCheckStmt = db.prepare(
-  'SELECT status, assigned_to, asset_id, due_date, description, resolution_notes, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
+  'SELECT status, category, priority, assigned_to, asset_id, due_date, description, resolution_notes, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
 );
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
@@ -182,7 +182,7 @@ router.get('/', (req, res) => {
   const offset = (page - 1) * limit;
 
   const tickets = selectQuery(db, `
-    SELECT t.id, t.ticket_number, t.title, t.requester_name, t.category, t.priority, t.status, t.created_at, u.first_name || ' ' || u.last_name as assigned_name
+    SELECT t.id, t.ticket_number, t.title, t.requester_name, t.category, t.priority, t.status, t.assigned_to, t.created_at, u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE ${whereClause}
@@ -553,16 +553,23 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  // Validate enum fields — reject empty/missing values
-  if (!category || !VALID_CATEGORIES.includes(category)) {
+  // Validate enum fields — validate-when-present, the convention used by the
+  // assets/projects/task update routes: a present value must be a member of
+  // the allowlist; an ABSENT field (partial API submission) preserves the
+  // stored value, resolved inside the transaction below. Previously all three
+  // were required on every PUT, so a partial submission that only renamed a
+  // ticket failed with "Invalid status/category/priority" — inconsistent with
+  // every other optional field on this route (assignee, asset, due date, PII,
+  // description, resolution notes), all of which preserve on absence.
+  if (category && !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+  if (priority && !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid priority');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (!status || !VALID_STATUSES.includes(status)) {
+  if (status && !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -635,6 +642,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     // update in a single transaction to avoid TOCTOU races: the ticket could be
     // deleted, the assignee deactivated, or the asset deleted between the
     // separate checks and the UPDATE.
+    // auditStatus captures the EFFECTIVE (resolved) status from inside the
+    // transaction so the post-commit audit entry reports the persisted value
+    // even when the submission omitted the field (partial update).
+    let auditStatus = status;
     const updateTicket = db.transaction(() => {
       const ticket = _updateCheckStmt.get(id);
       if (!ticket) {
@@ -680,14 +691,16 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
         : ticket.requester_email;
       // Absent-vs-empty convention for requester PII: an explicit empty string
       // in the form ("Clear") wipes the stored value, while an ABSENT field on
-      // a partial API submission preserves it. Previously an absent department/
-      // phone silently wiped the stored value — only requester_email was safe
-      // because validation requires it for privileged editors.
+      // a partial API submission preserves it. A present non-string value
+      // (e.g. a JSON number) is rejected via resolveOptionalField's error
+      // sentinel — previously it coerced to '' and silently wiped the stored
+      // department while the create route rejected the identical payload.
       const resolvedRequesterDept = canEditRequesterPII
-        ? ((rawRequesterDepartment === undefined || rawRequesterDepartment === null)
-          ? ticket.requester_department
-          : (requester_department || '').substring(0, MAX_SHORT_STR) || null)
+        ? resolveOptionalField(rawRequesterDepartment, requester_department || null, MAX_SHORT_STR, ticket.requester_department)
         : ticket.requester_department;
+      if (resolvedRequesterDept && resolvedRequesterDept.error) {
+        throw new Error('INVALID_REQUESTER_DEPARTMENT');
+      }
       const resolvedRequesterPhone = canEditRequesterPII
         ? ((rawRequesterPhone === undefined || rawRequesterPhone === null)
           ? ticket.requester_phone
@@ -709,13 +722,21 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       if (resolvedResolutionNotes && resolvedResolutionNotes.error) {
         throw new Error('INVALID_RESOLUTION_NOTES');
       }
+      // Resolve the enum fields against the transaction-consistent row using
+      // the same absent-preserves convention as the optional text fields: an
+      // ABSENT (or empty) field keeps the stored value. The edit form always
+      // submits a concrete value, and a present-but-invalid value was already
+      // rejected above, so only valid enums and "no opinion" reach here.
+      const effectiveCategory = category || ticket.category;
+      const effectivePriority = priority || ticket.priority;
+      const effectiveStatus = status || ticket.status;
 
-      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedDescription, category, priority, status,
+      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedDescription, effectiveCategory, effectivePriority, effectiveStatus,
         resolvedAssignee, resolvedAssetId, resolvedDueDate, resolvedResolutionNotes,
         (requester_name || '').substring(0, MAX_SHORT_STR), resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
-      const isNowResolved = status === 'resolved' || status === 'closed';
+      const isNowResolved = effectiveStatus === 'resolved' || effectiveStatus === 'closed';
       const shouldSet = isNowResolved && !wasResolved ? 1 : 0;
       const shouldClear = !isNowResolved && wasResolved ? 1 : 0;
 
@@ -723,10 +744,14 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
+      // Surface the resolved status to the post-transaction audit entry — an
+      // absent status on a partial submission must audit the EFFECTIVE status,
+      // not the empty submitted value.
+      auditStatus = effectiveStatus;
     });
     updateTicket();
 
-    req.audit('update', 'ticket', id, `Updated ticket (status: ${status})`);
+    req.audit('update', 'ticket', id, `Updated ticket (status: ${auditStatus})`);
     req.flash('success', 'Ticket updated successfully');
     invalidateDashboardCache();
     return res.redirect(`/tickets/${id}`);
@@ -749,9 +774,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       return res.redirect(`/tickets/${id}/edit`);
     }
     // Map the resolveOptionalField sentinels (INVALID_DESCRIPTION,
-    // INVALID_RESOLUTION_NOTES) to a specific validation message instead of the
-    // generic server-error flash — a rejected value is a client error, not a
-    // transient failure (mirrors the INVALID_ mapping in vendors.js).
+    // INVALID_RESOLUTION_NOTES, INVALID_REQUESTER_DEPARTMENT) to a specific
+    // validation message instead of the generic server-error flash — a rejected
+    // value is a client error, not a transient failure (mirrors the INVALID_
+    // mapping in vendors.js).
     if (err.message.startsWith('INVALID_')) {
       req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
       return res.redirect(`/tickets/${id}/edit`);

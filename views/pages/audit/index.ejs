@@ -19,7 +19,12 @@
     <tbody><% entries.forEach(e => { %><tr>
       <td class="text-sm"><%= formatDateTime(e.created_at) %></td>
       <td><%= e.user_name || 'System' %></td>
-      <td><span class="badge badge-<%= e.action === 'delete' || e.action === 'login_failed' ? 'critical' : e.action === 'create' ? 'low' : 'medium' %>"><%= e.action.replace(/_/g, ' ') %></span></td>
+      <% // Security-relevant actions (lockouts, rate-limit trips, access
+         // denials, failed logins) share the critical styling with deletes —
+         // they are the rows an investigator scans for, and previously
+         // login_blocked rendered with the same "medium" badge as routine
+         // reads. %>
+      <td><span class="badge badge-<%= ['delete', 'login_failed', 'login_blocked', 'login_rate_limited', 'access_denied'].includes(e.action) ? 'critical' : e.action === 'create' ? 'low' : 'medium' %>"><%= e.action.replace(/_/g, ' ') %></span></td>
       <td><%= e.entity_type ? e.entity_type.replace(/_/g, ' ') : '-' %></td>
       <td><%= e.entity_id || '-' %></td>
       <td class="text-sm"><%= e.ip_address || '-' %></td>

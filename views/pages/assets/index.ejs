@@ -46,9 +46,14 @@
       <table>
         <thead><tr><th>Asset Tag</th><th>Name</th><th>Category</th><th>Status</th><th>Condition</th><th>Assigned To</th><th>Location</th><th>Actions</th></tr></thead>
         <tbody>
-          <% assets.forEach(a => { %>
+          <% assets.forEach(a => {
+          // Link rows only when the viewer can open the show route — staff are
+          // denied there unless the asset is assigned to them, so an
+          // unconditional link guaranteed an access_denied flash + audit entry
+          // on every routine click. Unlinked rows keep inventory visibility.
+          const canView = isPrivileged(user) || Number(a.assigned_to) === Number(user.id); %>
           <tr>
-            <td><a href="/assets/<%= a.id %>" style="color:var(--primary);font-weight:600;text-decoration:none;"><%= a.asset_tag %></a></td>
+            <td><% if (canView) { %><a href="/assets/<%= a.id %>" style="color:var(--primary);font-weight:600;text-decoration:none;"><%= a.asset_tag %></a><% } else { %><span style="font-weight:600;"><%= a.asset_tag %></span><% } %></td>
             <td><%= a.manufacturer %> <%= a.name %></td>
             <td class="text-sm"><%= titleCase(a.category) %></td>
             <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
@@ -56,7 +61,7 @@
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
             <td class="actions-cell">
-              <a href="/assets/<%= a.id %>" class="btn btn-sm btn-outline" aria-label="View asset"><i class="fas fa-eye" aria-hidden="true"></i></a>
+              <% if (canView) { %><a href="/assets/<%= a.id %>" class="btn btn-sm btn-outline" aria-label="View asset"><i class="fas fa-eye" aria-hidden="true"></i></a><% } else { %><span class="text-muted" title="Assigned to another technician">—</span><% } %>
             </td>
           </tr>
           <% }) %>

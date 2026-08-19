@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="csrf-token" content="<%= csrfToken %>">
+  <% // csrfToken is guarded because the global error handler renders this
+     // partial for errors thrown BEFORE the res.locals middleware runs (e.g. a
+     // body-parser 413/400) — an unguarded reference would throw a secondary
+     // ReferenceError and downgrade the styled error page to a bare-text 500. %>
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
   <meta name="theme-color" content="#1e293b">
   <title><%= typeof title !== 'undefined' ? title + ' | ' : '' %>IT Department Manager</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">

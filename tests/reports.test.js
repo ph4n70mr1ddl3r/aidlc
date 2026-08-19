@@ -264,3 +264,36 @@ describe('resolveReportPeriod HPP fail-closed', () => {
     expect(resolveReportPeriod('abc')).toBe(30);
   });
 });
+
+describe('staffPerformance Open Tickets is an unwindowed current snapshot', () => {
+  beforeEach(clearAssets);
+
+  it('counts an old open ticket regardless of its creation date (regression)', () => {
+    // Regression (cycle 141): the tOpen subquery previously windowed on
+    // created_at >= cutoff, so a staffer holding tickets all created outside
+    // the period read 0 open tickets / a green workload bar on /reports/staff
+    // while the dashboard's Team Workload and the staff directory showed the
+    // real count. Open Tickets must be a current snapshot (same statuses,
+    // unwindowed) on all three surfaces.
+    db.prepare(
+      "INSERT INTO users (username, password, email, first_name, last_name, role, is_active) VALUES ('snapshot-u1', 'x', 'snap1@t.io', 'Snap', 'One', 'staff', 1)"
+    ).run();
+    const u = db.prepare("SELECT id FROM users WHERE username = 'snapshot-u1'").get();
+
+    const insertTicket = db.prepare(
+      "INSERT INTO tickets (ticket_number, title, category, priority, status, requester_name, requester_email, assigned_to, created_at, resolved_at) VALUES (?, ?, 'hardware', 'medium', ?, 'R', 'r@t.io', ?, ?, ?)"
+    );
+    // Old OPEN ticket (created 60 days ago — outside a 30-day window).
+    insertTicket.run('TK-SNAP-1', 'old open', 'open', u.id, daysFromNow(-60).replace(/T.*/, '') + ' 12:00:00', null);
+    // Old WAITING ticket (also outside the window; waiting counts as active).
+    insertTicket.run('TK-SNAP-2', 'old waiting', 'waiting', u.id, daysFromNow(-45).replace(/T.*/, '') + ' 12:00:00', null);
+    // Recently resolved ticket — the period-scoped historical metric.
+    insertTicket.run('TK-SNAP-3', 'recent resolved', 'resolved', u.id, daysFromNow(-10).replace(/T.*/, '') + ' 12:00:00', daysFromNow(-5) + ' 12:00:00');
+
+    const rows = reports.__stmts.staffPerformance.all(30, 30);
+    const snap = rows.find(r => r.id === u.id);
+    expect(snap).toBeTruthy();
+    expect(snap.open_tickets).toBe(2);
+    expect(snap.resolved_tickets).toBe(1);
+  });
+});

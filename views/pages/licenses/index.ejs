@@ -28,7 +28,10 @@
         <div class="progress-fill <%= _usagePct > 90 ? 'red' : _usagePct > 70 ? 'orange' : 'green' %>" style="width:<%= _usagePct %>%"></div>
       </div> <span class="text-sm"><%= _usagePct %>%</span></td>
       <td class="text-sm" style="<%= _expSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? formatDate(l.expiry_date) : 'Perpetual' %></td>
-      <td class="text-sm"><%= l.cost != null ? '$' + Number(l.cost).toLocaleString() : '-' %></td>
+      <% // `> 0` guard mirrors the show page: create defaults an unpriced
+         // license to cost 0, which is indistinguishable from "free" — render
+         // '-' instead of a misleading "$0". %>
+      <td class="text-sm"><%= l.cost != null && Number(l.cost) > 0 ? '$' + Number(l.cost).toLocaleString() : '-' %></td>
       <td class="actions-cell"><a href="/licenses/<%= l.id %>" class="btn btn-sm btn-outline" aria-label="View license"><i class="fas fa-eye" aria-hidden="true"></i></a></td>
     </tr><% }) %></tbody>
   </table></div><% } %>

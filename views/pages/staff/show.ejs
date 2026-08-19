@@ -3,7 +3,11 @@
 
 <div class="page-header">
   <div><h2><%= staffUser.first_name %> <%= staffUser.last_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/staff">Staff</a> / <%= staffUser.first_name %> <%= staffUser.last_name %></div></div>
-  <% if (isPrivileged(user)) { %>
+  <% // Mirror the edit route's gate exactly: managers may only edit staff
+     // accounts (an admin can edit anyone). Rendering the button for a manager
+     // viewing an admin/manager profile — including their own — linked to a
+     // route that always denies, generating spurious access_denied audit noise. %>
+  <% if (user.role === 'admin' || staffUser.role === 'staff') { %>
   <div class="flex gap-2">
     <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
   </div>
@@ -12,7 +16,8 @@
 
 <div class="grid-2-1">
   <div>
-    <!-- Active Tickets -->
+    <!-- Assigned Tickets (ALL assigned tickets, open statuses first — the
+         sidebar query has no status filter, only the LIMIT cap below) -->
     <div class="card mb-3">
       <!-- The parenthesized count shows "N+" when the sidebar query's LIMIT cap
            was hit — the displayed rows are a capped subset, not the total. -->
@@ -27,7 +32,7 @@
             <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
             <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
           </tr><% }) %></tbody>
-        </table></div><% } else { %><p class="text-muted text-sm" style="padding:16px;">No active tickets</p><% } %>
+        </table></div><% } else { %><p class="text-muted text-sm" style="padding:16px;">No assigned tickets</p><% } %>
       </div>
     </div>
 

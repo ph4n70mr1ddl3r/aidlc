@@ -509,6 +509,9 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   try {
+    // Count of license rows the rename below rewrote (0 when the name is
+    // unchanged) — surfaced in the audit details after the transaction.
+    let renamedLicenseRefs = 0;
     const updateVendor = db.transaction(() => {
       // Verify vendor exists and fetch current state inside the transaction
       // to avoid a TOCTOU race with concurrent activate/deactivate requests.
@@ -602,12 +605,19 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).
       if (existing.name !== safeName) {
+        renamedLicenseRefs = _licenseDependentsCountStmt.get(existing.name).cnt;
         _licenseSyncStmt.run(safeName, existing.name);
       }
     });
     updateVendor();
 
-    req.audit('update', 'vendor', id, `Updated vendor ${name}`);
+    // When the rename rewrote license references, record the side effect in
+    // the audit details (mirrors the delete route's "detached from N license(s)")
+    // — otherwise an auditor cannot tell why N licenses' vendor/updated_at
+    // changed alongside a vendor rename.
+    req.audit('update', 'vendor', id, renamedLicenseRefs > 0
+      ? `Updated vendor ${name} (renamed from previous name; ${renamedLicenseRefs} license reference(s) updated)`
+      : `Updated vendor ${name}`);
     req.flash('success', 'Vendor updated');
     invalidateDashboardCache();
     return res.redirect(`/vendors/${id}`);

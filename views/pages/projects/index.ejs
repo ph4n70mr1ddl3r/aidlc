@@ -27,11 +27,16 @@
 </form>
 
 <div class="grid-2">
-  <% projects.forEach(p => { %>
+  <% projects.forEach(p => {
+  // Link the card title only when the viewer can open the ownership-gated
+  // show route (privileged or owner) — an unconditional link guaranteed an
+  // access_denied flash + audit entry on routine staff navigation. Unlinked
+  // cards keep portfolio visibility.
+  const canView = isPrivileged(user) || Number(p.owner_id) === Number(user.id); %>
   <div class="card">
     <div class="card-body">
       <div class="flex justify-between items-center mb-1">
-        <a href="/projects/<%= p.id %>" style="font-size:16px;font-weight:600;color:var(--text);text-decoration:none;"><%= p.name %></a>
+        <% if (canView) { %><a href="/projects/<%= p.id %>" style="font-size:16px;font-weight:600;color:var(--text);text-decoration:none;"><%= p.name %></a><% } else { %><span style="font-size:16px;font-weight:600;"><%= p.name %></span><% } %>
         <span class="badge badge-<%= p.status %>"><%= titleCase(p.status) %></span>
       </div>
       <p class="text-sm text-muted mb-2"><%= (p.description || '').substring(0, 120) %><%= (p.description || '').length > 120 ? '...' : '' %></p>
@@ -51,7 +56,10 @@
         <i class="fas fa-calendar"></i> <%= p.start_date ? formatDate(p.start_date) : '?' %> — <%= p.end_date ? formatDate(p.end_date) : '?' %>
       </div>
       <% } %>
-      <% if (p.budget != null && p.budget > 0) { %>
+      <% // Budget/spent are financial data gated to privileged users — the same
+         // business-sensitivity policy licenses.js applies to cost/seats (the
+         // license list route is requireAdminOrManager for exactly this reason). %>
+      <% if (isPrivileged(user) && p.budget != null && p.budget > 0) { %>
       <div class="text-sm text-muted mt-1">
         <i class="fas fa-dollar-sign"></i> <%= p.spent != null ? '$' + Number(p.spent).toLocaleString() : '-' %> / $<%= Number(p.budget).toLocaleString() %>
       </div>
