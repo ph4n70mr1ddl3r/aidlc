@@ -318,7 +318,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // field (partial submission — preserve stored value) from an explicit empty
   // string (clear the field). trim() collapses undefined to '', so the raw
   // values are captured here for the transaction resolution below. Mirrors the
-  // raw-vs-processed split mirrors the pattern in vendors.js (resolveOptionalField).
+  // raw-vs-processed split in vendors.js (resolveOptionalField).
   const rawVendor = req.body.vendor;
   const rawLicenseType = req.body.license_type;
   const rawNotes = req.body.notes;

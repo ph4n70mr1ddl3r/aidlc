@@ -9,6 +9,33 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-19 (139th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, all EJS views, `public/css/app.css`,
+`public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass completes the trailing-period sweep that pass
+138 began and cleans up two readability defects in source comments.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/reports.js` — three catch-block error messages missing trailing periods (LOW, consistency).** The generic fallback errors in the ticket, asset, and staff report routes (`Error generating ticket report`, `Error generating asset report`, `Error generating staff report`) lacked the trailing period that pass 138 standardized across every other generic error message in the codebase. Added the period to all three so the messaging contract is uniform.
+
+**Unambiguity / readability**
+- **`src/routes/licenses.js` — garbled comment with a duplicated word (LOW, readability).** The comment above the update transaction read "Mirrors the raw-vs-processed split mirrors the pattern in vendors.js (resolveOptionalField)" — a merged/duplicated construct that reads as garbled text. Reworded to "Mirrors the raw-vs-processed split in vendors.js (resolveOptionalField)."
+- **`src/routes/vendors.js` — misaligned block comment (LOW, consistency).** Two continuation lines in the `_resolveClearableDate` JSDoc block (`is not silently wiped...` and `projects.js, and licenses.js`) carried an extra leading space, breaking the ` * ` alignment shared by every other line in the block. Removed the stray indentation.
+
+**Test coverage**
+- **`tests/code_review_139.test.js` — added 5 regression tests.** Three behavioral tests drive the ticket/asset/staff report route handlers against a throwing prepared-statement mock and assert the flash error message ends with a period. Two source-level tests assert the licenses.js duplicate-word construct is gone and the vendors.js comment block is consistently aligned, preventing a future refactor from reintroducing either readability defect.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **778 passed / 778 total** (37 suites, +5 regression tests).
+
+---
+
 ## Review cycle 2026-08-18 (138th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

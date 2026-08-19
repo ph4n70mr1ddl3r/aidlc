@@ -211,7 +211,7 @@ router.get('/tickets', reportLimiter, (req, res) => {
     });
   } catch (err) {
     console.error('Ticket report error:', err.message);
-    req.flash('error', 'Error generating ticket report');
+    req.flash('error', 'Error generating ticket report.');
     return res.redirect('/reports');
   }
 });
@@ -235,7 +235,7 @@ router.get('/assets', reportLimiter, (req, res) => {
     });
   } catch (err) {
     console.error('Asset report error:', err.message);
-    req.flash('error', 'Error generating asset report');
+    req.flash('error', 'Error generating asset report.');
     return res.redirect('/reports');
   }
 });
@@ -252,7 +252,7 @@ router.get('/staff', reportLimiter, (req, res) => {
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {
     console.error('Staff report error:', err.message);
-    req.flash('error', 'Error generating staff report');
+    req.flash('error', 'Error generating staff report.');
     return res.redirect('/reports');
   }
 });

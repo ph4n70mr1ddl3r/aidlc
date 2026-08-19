@@ -89,8 +89,8 @@ function _resolveVendorRatingOnUpdate(rawValue, validatedRating, existingRating)
  * Resolve an optional DATE field on update: preserve existing only when ABSENT
  * from the request (partial submission). An empty submitted value CLEARS it (null).
  * A present but unparseable value is an error (fail closed) so the stored date
-  * is not silently wiped. Mirrors the absent-vs-empty distinction in changes.js,
-  * projects.js, and licenses.js.
+ * is not silently wiped. Mirrors the absent-vs-empty distinction in changes.js,
+ * projects.js, and licenses.js.
  * @param {*} rawValue
  * @param {string|null} existingValue
  * @returns {{ error: boolean, value: string|null }}
