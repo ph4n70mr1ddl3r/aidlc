@@ -323,7 +323,7 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, asset)) {
     req.audit('access_denied', 'asset', id, `Unauthorized view attempt on asset ${asset.asset_tag}`);
-    req.flash('error', 'You do not have permission to view this asset');
+    req.flash('error', 'You do not have permission to view this asset.');
     return res.redirect('/assets');
   }
 
@@ -413,7 +413,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect(`/assets/${id}/edit`);
   }
   if (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
-    req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
+    req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001).');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (name.length > MAX_MEDIUM_STR) {
@@ -625,7 +625,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     updateAsset();
 
     req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
-    req.flash('success', 'Asset updated successfully');
+    req.flash('success', 'Asset updated successfully.');
     invalidateDashboardCache();
     return res.redirect(`/assets/${id}`);
   } catch (err) {

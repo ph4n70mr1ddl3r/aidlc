@@ -278,7 +278,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // Only admins can create privileged accounts (manager/admin). Managers must
   // not be able to escalate privileges by creating new manager accounts.
   if (role !== 'staff' && req.session.user.role !== 'admin') {
-    req.flash('error', 'Only administrators can create manager or admin accounts');
+    req.flash('error', 'Only administrators can create manager or admin accounts.');
     return res.redirect('/staff/new');
   }
 
@@ -328,7 +328,7 @@ router.get('/:id', (req, res) => {
     // attempt against staff PII is exactly the probing the audit log exists
     // to surface (mirrors tickets/assets/projects/changes/knowledge).
     req.audit('access_denied', 'user', id, 'Unauthorized staff profile view attempt');
-    req.flash('error', 'You do not have permission to view that staff member');
+    req.flash('error', 'You do not have permission to view that staff member.');
     return res.redirect('/staff');
   }
 
@@ -472,7 +472,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // would grant near-admin capabilities. Managers are limited to editing
   // staff-role users.
   if (safeRole !== 'staff' && req.session.user.role !== 'admin') {
-    req.flash('error', 'Only administrators can assign the manager or admin role');
+    req.flash('error', 'Only administrators can assign the manager or admin role.');
     return res.redirect(`/staff/${id}/edit`);
   }
   // Prevent admin from changing their own role (would lock themselves out)
@@ -654,7 +654,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
       return res.redirect('/staff');
     }
     if (result.alreadyActive) {
-      req.flash('info', 'Account is already active');
+      req.flash('info', 'Account is already active.');
       return res.redirect(`/staff/${id}`);
     }
 
@@ -732,7 +732,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // whether the admin row exists). Mirrors the early-return pattern used in
   // the profile password-change route in auth.js.
   if (!adminUser) {
-    req.flash('error', 'Your current password is incorrect');
+    req.flash('error', 'Your current password is incorrect.');
     return res.redirect(`/staff/${id}`);
   }
   let passwordMatch;
@@ -744,7 +744,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     return res.redirect(`/staff/${id}`);
   }
   if (!passwordMatch) {
-    req.flash('error', 'Your current password is incorrect');
+    req.flash('error', 'Your current password is incorrect.');
     return res.redirect(`/staff/${id}`);
   }
 
@@ -850,7 +850,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     if (result.notFound) {
       req.flash('error', 'Staff member not found');
     } else if (result.alreadyInactive) {
-      req.flash('info', 'Account is already inactive');
+      req.flash('info', 'Account is already inactive.');
     } else {
       // Recalculate project progress outside the transaction so SQLite's
       // write lock is not held across multiple sequential queries. The

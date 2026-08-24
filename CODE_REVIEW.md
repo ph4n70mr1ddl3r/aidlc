@@ -29,6 +29,27 @@ sweep that the error-message sweep in passes 138–139 started.
 
 ---
 
+## Review cycle 2026-08-24 (144th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** This pass completes the
+trailing-period consistency sweep across all flash messages — error, success,
+and info — so every sentence-style message ends with a period (or exclamation
+mark where appropriate) and every short label is left without one.
+
+### Fixes applied
+
+**Consistency**
+- **All route modules — trailing-period consistency across all flash messages (LOW, consistency).** Error messages received their trailing-period sweep in pass 138; success messages in pass 143. Info messages and the remaining error sentences were the final gap. Added trailing periods to 30 full-sentence messages across 8 route modules (`assets`, `auth`, `changes`, `knowledge`, `projects`, `staff`, `tickets`, `vendors`) and updated the one matching assertion in `tests/knowledge.test.js`. Short validation labels (e.g. "Name and category are required", "Title is required") and dynamic messages sourced from external helpers (`pwErr`, `ratingErr`, `resolved.error`) were intentionally left unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **855 passed / 855 total** (40 suites, 0 net change).
+
+---
+
 ## Review cycle 2026-08-20 (142nd pass)
 
 An independent pass (six parallel full re-reads covering all 12 route modules,

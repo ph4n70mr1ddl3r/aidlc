@@ -310,7 +310,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     const result = createProject();
 
     req.audit('create', 'project', result.lastInsertRowid, `Created project ${name}`);
-    req.flash('success', 'Project created successfully');
+    req.flash('success', 'Project created successfully.');
     invalidateDashboardCache();
     return res.redirect(`/projects/${result.lastInsertRowid}`);
   } catch (err) {
@@ -341,7 +341,7 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, project)) {
     req.audit('access_denied', 'project', id, `Unauthorized view attempt on project ${project.name}`);
-    req.flash('error', 'You do not have permission to view this project');
+    req.flash('error', 'You do not have permission to view this project.');
     return res.redirect('/projects');
   }
 
@@ -587,7 +587,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
 
     req.audit('update', 'project', id, `Updated project ${name}`);
-    req.flash('success', 'Project updated successfully');
+    req.flash('success', 'Project updated successfully.');
     invalidateDashboardCache();
     return res.redirect(`/projects/${id}`);
   } catch (err) {
@@ -824,7 +824,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       const result = updateTask();
 
       if (result.unchanged) {
-        req.flash('info', 'Status unchanged');
+        req.flash('info', 'Status unchanged.');
       } else {
         // Recalculate project progress outside the transaction to avoid holding the
         // SQLite write lock across multiple queries. Runs only when the status
@@ -1120,7 +1120,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     const { changes, memberId } = addMember();
 
     if (changes === 0) {
-      req.flash('info', 'User is already a member of this project');
+      req.flash('info', 'User is already a member of this project.');
     } else {
       req.audit('create', 'project_member', memberId, `Added member #${safeUserId} to project #${id}`);
       req.flash('success', 'Member added.');
@@ -1187,7 +1187,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
       return res.redirect('/projects');
     }
     if (err.message === 'LAST_LEAD') {
-      req.flash('error', 'Cannot remove the last lead member of the project');
+      req.flash('error', 'Cannot remove the last lead member of the project.');
       return res.redirect(`/projects/${id}`);
     }
     console.error('Project member remove error:', err.message);

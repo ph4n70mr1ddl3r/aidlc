@@ -684,7 +684,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       return res.redirect('/vendors');
     }
     if (result.alreadyInactive) {
-      req.flash('info', 'Vendor is already inactive');
+      req.flash('info', 'Vendor is already inactive.');
       return res.redirect(`/vendors/${id}`);
     }
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
@@ -726,7 +726,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       return res.redirect('/vendors');
     }
     if (result.alreadyActive) {
-      req.flash('info', 'Vendor is already active');
+      req.flash('info', 'Vendor is already active.');
       return res.redirect(`/vendors/${id}`);
     }
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
@@ -773,14 +773,14 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     });
     const result = deleteVendor();
     if (result.active) {
-      req.flash('error', 'Deactivate the vendor before deleting');
+      req.flash('error', 'Deactivate the vendor before deleting.');
       return res.redirect(`/vendors/${id}`);
     }
     if (result.changes === 0) {
       req.flash('error', 'Vendor not found');
     } else {
       req.audit('delete', 'vendor', id, `Deleted vendor "${result.name}"${result.licenseCount > 0 ? ` (detached from ${result.licenseCount} license(s))` : ''}`);
-      req.flash('success', result.licenseCount > 0 ? `Vendor deleted. ${result.licenseCount} license(s) detached from this vendor.` : 'Vendor deleted');
+      req.flash('success', result.licenseCount > 0 ? `Vendor deleted. ${result.licenseCount} license(s) detached from this vendor.` : 'Vendor deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

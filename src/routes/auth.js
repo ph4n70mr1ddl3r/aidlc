@@ -568,12 +568,12 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     return res.redirect('/profile');
   }
   if (Buffer.byteLength(confirm_password, 'utf8') > MAX_PASSWORD_BYTES) {
-    req.flash('error', 'Password confirmation is invalid');
+    req.flash('error', 'Password confirmation is invalid.');
     return res.redirect('/profile');
   }
 
   if (new_password !== confirm_password) {
-    req.flash('error', 'New passwords do not match');
+    req.flash('error', 'New passwords do not match.');
     return res.redirect('/profile');
   }
 
@@ -603,7 +603,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     return res.redirect('/profile');
   }
   if (!passwordMatch) {
-    req.flash('error', 'Current password is incorrect');
+    req.flash('error', 'Current password is incorrect.');
     return res.redirect('/profile');
   }
 

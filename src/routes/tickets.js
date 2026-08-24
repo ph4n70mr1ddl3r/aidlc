@@ -367,7 +367,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       return res.redirect('/tickets/new');
     }
     if (err.message === 'ASSET_NOT_FOUND') {
-      req.flash('error', 'Selected asset does not exist');
+      req.flash('error', 'Selected asset does not exist.');
       return res.redirect('/tickets/new');
     }
     console.error('Ticket create error:', err.message);
@@ -393,7 +393,7 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, ticket)) {
     req.audit('access_denied', 'ticket', id, `Unauthorized view attempt on ticket ${ticket.ticket_number}`);
-    req.flash('error', 'You do not have permission to view this ticket');
+    req.flash('error', 'You do not have permission to view this ticket.');
     return res.redirect('/tickets');
   }
 
@@ -442,7 +442,7 @@ router.get('/:id/edit', (req, res) => {
 
   if (!canAccessResource(req, ticket)) {
     req.audit('access_denied', 'ticket', id, 'Unauthorized edit attempt on ticket');
-    req.flash('error', 'You can only edit tickets assigned to you');
+    req.flash('error', 'You can only edit tickets assigned to you.');
     return res.redirect(`/tickets/${id}`);
   }
 
@@ -767,7 +767,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     updateTicket();
 
     req.audit('update', 'ticket', id, `Updated ticket (status: ${auditStatus})`);
-    req.flash('success', 'Ticket updated successfully');
+    req.flash('success', 'Ticket updated successfully.');
     invalidateDashboardCache();
     return res.redirect(`/tickets/${id}`);
   } catch (err) {
@@ -777,7 +777,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized update attempt on ticket');
-      req.flash('error', 'You can only update tickets assigned to you');
+      req.flash('error', 'You can only update tickets assigned to you.');
       return res.redirect(`/tickets/${id}`);
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
@@ -785,7 +785,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       return res.redirect(`/tickets/${id}/edit`);
     }
     if (err.message === 'ASSET_NOT_FOUND') {
-      req.flash('error', 'Selected asset does not exist');
+      req.flash('error', 'Selected asset does not exist.');
       return res.redirect(`/tickets/${id}/edit`);
     }
     // Map the resolveOptionalField sentinels (INVALID_DESCRIPTION,
@@ -881,12 +881,12 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       return res.redirect('/tickets');
     }
     if (err.message === 'USER_INACTIVE') {
-      req.flash('error', 'Your account is no longer active');
+      req.flash('error', 'Your account is no longer active.');
       return res.redirect('/login?reason=session_expired');
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');
-      req.flash('error', 'You do not have permission to comment on this ticket');
+      req.flash('error', 'You do not have permission to comment on this ticket.');
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket comment error:', err.message);
@@ -961,7 +961,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized quick-status update attempt on ticket');
-      req.flash('error', 'You can only update status of tickets assigned to you');
+      req.flash('error', 'You can only update status of tickets assigned to you.');
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket status update error:', err.message);
@@ -1032,7 +1032,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
       return res.redirect('/tickets');
     }
     if (err.message === 'NOT_RESOLVED') {
-      req.flash('error', 'Can only rate resolved or closed tickets');
+      req.flash('error', 'Can only rate resolved or closed tickets.');
       return res.redirect(`/tickets/${id}`);
     }
     console.error('Ticket satisfaction error:', err.message);
