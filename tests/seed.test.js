@@ -67,6 +67,26 @@ describe('seed.js runSeed', () => {
     db.close();
   });
 
+  it('seeds scheduled changes in the future so dashboard Upcoming Changes stays populated', () => {
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    db.exec(getSchemaSQL());
+
+    const { runSeed } = require('../src/seed');
+    const before = Date.now();
+    runSeed(db, 'Admin123!', 'Staff123!');
+
+    // Scheduled changes are anchored relative to seed time (not hardcoded
+    // absolute dates, which drift into the past and empty the dashboard panel).
+    const scheduled = db.prepare("SELECT scheduled_start FROM change_log WHERE status = 'scheduled'").all();
+    expect(scheduled.length).toBe(3);
+    for (const row of scheduled) {
+      const d = new Date(row.scheduled_start.replace(' ', 'T') + 'Z');
+      expect(d.getTime()).toBeGreaterThan(before);
+    }
+    db.close();
+  });
+
   it('last seeded asset is AST-012, next counter gives AST-013', () => {
     const db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
@@ -78,9 +98,15 @@ describe('seed.js runSeed', () => {
     const lastAsset = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1').get();
     expect(lastAsset.asset_tag).toBe('AST-012');
 
-    // Simulate the actual counter logic from assets.js:
-    const nextSeq = db.prepare("UPDATE asset_counter SET next_seq = next_seq + 1 WHERE counter_key = 'asset_tag' RETURNING next_seq").get();
-    expect(nextSeq.next_seq).toBe(13);
+    // The asset-tag counter is seeded to the LAST issued sequence (AST-012 =
+    // 12); assets.js generates the next tag via INSERT ... ON CONFLICT ...
+    // next_seq + 1 RETURNING, so a create after seeding yields AST-013. Assert
+    // the seeded counter row directly instead of replaying the counter SQL
+    // here — that would duplicate the implementation and mutate the counter
+    // mid-test.
+    const counter = db.prepare("SELECT next_seq FROM asset_counter WHERE counter_key = 'asset_tag'").get();
+    expect(counter.next_seq).toBe(12);
+    expect(counter.next_seq).toBe(Number(lastAsset.asset_tag.replace(/^AST-/, '')));
     db.close();
   });
 

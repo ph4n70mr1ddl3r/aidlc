@@ -411,6 +411,20 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/projects/${id}/edit`);
   }
+  // Fail closed on a present-but-non-string enum value (e.g. a JSON number):
+  // trim() coerces it to '', which would skip the enum checks below and leave
+  // the field silently preserved with a success flash — inconsistent with the
+  // fail-closed convention applied to every other present-but-invalid field on
+  // this route. Absent/empty submissions are allowed (preserve stored value).
+  // Mirrors the changes.js update guard.
+  for (const field of ['status', 'priority']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${id}/edit`);
+    }
+  }
+
   // Allow empty status to preserve the existing value inside the transaction.
   // A present-but-invalid status is rejected; an absent field means "keep what's stored."
   const statusProvided = !!status;
@@ -860,6 +874,20 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   if (description && description.length > MAX_DESC) {
     req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
+  }
+  // Fail closed on a present-but-non-string enum value (e.g. a JSON number):
+  // trim() coerces it to '', which would skip the enum checks below and leave
+  // the field silently preserved with a success flash — inconsistent with the
+  // fail-closed convention applied to every other present-but-invalid field on
+  // this route. Absent/empty submissions are allowed (preserve stored value).
+  // (The quick-status path above already rejects non-string status via a
+  // dedicated typeof guard.)
+  for (const field of ['status', 'priority']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${projectId}`);
+    }
   }
   // A present-but-invalid status is rejected; an absent/empty field means
   // "keep what's stored" (resolved inside the transaction). Mirrors the

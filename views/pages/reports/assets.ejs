@@ -4,7 +4,7 @@
 
 <div class="stats-grid">
   <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Active Assets</div></div></div>
-  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '$0' %></div><div class="stat-label">Total Value</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '-' %></div><div class="stat-label">Total Value</div></div></div>
   <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Ending (90d)</div></div></div>
 </div>
 
@@ -13,7 +13,7 @@
     <% const assetTotal = byCategory.reduce((a,b) => a + b.count, 0); %>
     <% byCategory.forEach(c => { const pct = assetTotal > 0 ? Math.round(c.count/assetTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
-      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category) %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '$0' %></span></div>
+      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category) %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '-' %></span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.category) %>: <%= c.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>

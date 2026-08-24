@@ -163,9 +163,11 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // coerces them to '', which would silently store NULL, losing the value with
   // a success flash. The same fail-closed convention the update route enforces
   // via resolveOptionalField's error sentinel. Mirrors the vendors.js create
-  // guard. (license_type needs no guard: the enum check below rejects any
-  // present non-string value already.)
-  for (const field of ['vendor', 'license_key', 'notes']) {
+  // guard. license_type is included for the same reason: it is validate-when-
+  // present (the enum check below rejects only a present NON-EMPTY value), and
+  // a non-string collapses to '' and would otherwise be stored as NULL with no
+  // feedback instead of being rejected.
+  for (const field of ['vendor', 'license_key', 'license_type', 'notes']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');

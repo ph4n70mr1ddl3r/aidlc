@@ -343,6 +343,19 @@ router.post('/', kbWriteLimiter, (req, res) => {
   const status = trim(safeQueryValue(req.body.status));
   const is_featured = req.body.is_featured;
 
+  // Fail closed on a present-but-non-string tags/status value (e.g. a JSON
+  // number or object): trim() coerces it to '', which would silently wipe or
+  // default the stored value — for tags that means NULLing the stored tags on
+  // update, for status it means silently falling back to the default. Absent/
+  // empty submissions are allowed and preserve the stored value.
+  for (const field of ['tags', 'status']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/knowledge/new');
+    }
+  }
+
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
@@ -535,6 +548,20 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const status = trim(safeQueryValue(req.body.status));
   const is_featured = req.body.is_featured;
 
+  // Fail closed on a present-but-non-string tags/status value (e.g. a JSON
+  // number or object): trim() coerces it to '', which would silently wipe the
+  // stored tags or preserve status with no feedback — inconsistent with the
+  // fail-closed convention applied to every other present-but-invalid field on
+  // this route. Absent/empty submissions are allowed (tags clears / status
+  // falls back to the stored value).
+  for (const field of ['tags', 'status']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/knowledge/${id}/edit`);
+    }
+  }
+
   if (!title || !content || !category) {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect(`/knowledge/${id}/edit`);
@@ -627,6 +654,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       return res.redirect('/knowledge');
     }
     if (err.message === 'ACCESS_DENIED') {
+      req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article (concurrent ownership change)');
       req.flash('error', 'You can only edit your own articles');
       return res.redirect(`/knowledge/${id}`);
     }
@@ -686,6 +714,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
     }
   } catch (err) {
     if (err.message === 'ACCESS_DENIED') {
+      req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
       req.flash('error', 'You can only delete your own articles');
     } else {
       console.error('Article delete error:', err.message);

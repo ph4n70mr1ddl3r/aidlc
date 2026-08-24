@@ -285,11 +285,22 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // CHANGE LOG
     // ========================
+    // Scheduled changes are anchored relative to seed time (like ticket
+    // timestamps above) so the Dashboard "Upcoming Changes" panel always has
+    // data no matter when the seed runs — hardcoded absolute dates would drift
+    // into the past and render that panel empty. Completed/failed changes keep
+    // absolute historical timestamps (they are past by definition).
+    const changeAt = (daysFromNow, time) => {
+      const d = new Date(now.getTime() + daysFromNow * 86400000);
+      const [hours, minutes] = time.split(':');
+      d.setUTCHours(Number(hours), Number(minutes), 0, 0);
+      return d.toISOString().replace('T', ' ').slice(0, 19);
+    };
     const changes = [
       { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: '2026-05-20 02:00:00', scheduled_end: '2026-05-20 03:00:00', actual_start: '2026-05-20 02:00:00', actual_end: '2026-05-20 02:35:00', impact: 'No user impact expected', assigned_to: 6 },
-      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: '2026-05-25 22:00:00', scheduled_end: '2026-05-26 02:00:00', impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
-      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: '2026-06-01 06:00:00', scheduled_end: '2026-06-01 08:00:00', impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
-      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: '2026-06-05 21:00:00', scheduled_end: '2026-06-05 22:00:00', impact: 'AD replication delay possible', assigned_to: 2 },
+      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00:00'), scheduled_end: changeAt(6, '02:00:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
+      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00:00'), scheduled_end: changeAt(12, '08:00:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
+      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00:00'), scheduled_end: changeAt(16, '22:00:00'), impact: 'AD replication delay possible', assigned_to: 2 },
       { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00:00', scheduled_end: '2026-05-19 01:00:00', actual_start: '2026-05-18 23:00:00', actual_end: '2026-05-18 23:45:00', impact: 'No impact - hot spare active', assigned_to: 6 }
     ];
 

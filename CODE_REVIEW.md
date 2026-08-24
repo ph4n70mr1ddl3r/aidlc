@@ -9,6 +9,55 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-20 (142nd pass)
+
+An independent pass (six parallel full re-reads covering all 12 route modules,
+both middleware modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The pass completed the
+present-but-non-string fail-closed sweep on the remaining update/create routes,
+ported the staff update route onto the update-wide absent-vs-empty convention,
+and fixed a set of template/test/seed consistency defects. Four agent findings
+were verified as non-issues: vendors update already fails closed via
+`resolveOptionalField`, staff search uses the same `addSearch`/SQLite-LIKE
+case-insensitivity as every other list route, and the database.js `:memory:`
+WAL/pragma handling is correct.
+
+### Fixes applied
+
+**Fail-closed enum guards (the changes.js / create-route sweep completed)**
+- **`src/routes/tickets.js` update — a present non-string `category`/`priority`/`status` silently "preserved" the stored value with a success flash (MEDIUM, consistency).** `trim(5)` → `''` → skipped the validate-when-present enum check → `category || ticket.category` fallback, so `PUT {"status": 5}` reported success. Added the fail-closed loop (non-string, non-empty, non-null → "Invalid request parameters"), mirroring the changes.js update route.
+- **`src/routes/projects.js` update + task full-update — the same hole for `status`/`priority` (MEDIUM, consistency).** Both routes validated only when present, so `trim()`-coerced non-strings fell through to preserve/default with success. Added the fail-closed guard to both; the quick-status path already had a dedicated `typeof status !== 'string'` guard.
+- **`src/routes/assets.js` update — the same hole for `condition_rating`/`status` (MEDIUM, consistency).** `category` was already safe (required-and-validated, so a non-string fails as "Invalid category"); `condition_rating`/`status` now fail closed.
+- **`src/routes/licenses.js` create — a present non-string `license_type` was stored as NULL with a success flash, and a comment claimed the enum check rejects it (MEDIUM, consistency).** `if (license_type && ...)` only rejects present NON-EMPTY values, so `{"license_type": 5}` trimmed to `''` and inserted NULL. Added `license_type` to the non-string guard loop (the update route was already protected via `resolveOptionalField`) and corrected the misleading "(license_type needs no guard)" comment.
+- **`src/routes/knowledge.js` create + update — a present non-string `tags` silently wiped the stored tags / `status` silently defaulted (MEDIUM, consistency).** `{"tags": {"a":1}}` passed HPP rejection, trimmed to `''`, and `sanitizeKnowledgeInput` stored NULL. Added non-string guards for `tags`/`status` on both routes.
+
+**Partial-update convention (staff route completed)**
+- **`src/routes/staff.js` update — a partial PUT omitting `department`/`phone` wiped the stored values to NULL (MEDIUM, consistency).** It was the last update handler not on the absent-vs-empty convention every other route uses: `trim()` coerced an absent field to `''` and the UPDATE stored NULL. Both fields now resolve via `resolveOptionalField` against the transaction re-fetch — absent preserves, an explicit empty string clears, present non-string is rejected (defensive sentinels mapped like vendors.js). A present-but-malformed phone and non-string department were already rejected outside the transaction.
+
+**Access-policy audit completeness**
+- **`src/routes/knowledge.js` update + delete, `src/routes/staff.js` update — the inner TOCTOU recheck denials wrote no `access_denied` audit entry (MEDIUM, completeness/audit gap).** The outer guards (show/edit role checks) audit, but when the transaction recheck caught a concurrent ownership/role change (`ACCESS_DENIED` / `ACCESS_DENIED_ADMIN`), the catch only flashed. Each catch branch now emits the audit line too, so a concurrent role-change probing attempt is fully observable.
+
+**Seed data contract**
+- **`src/seed.js` — scheduled `change_log` rows used hardcoded absolute dates that drift into the past, rendering the Dashboard "Upcoming Changes" panel empty (MEDIUM, completeness).** The three `scheduled` changes were anchored to fixed May/June 2026 timestamps while ticket timestamps use seed-relative `isoDaysAgo`; on any later seed the panel had nothing to show. Scheduled changes now use a `changeAt(daysFromNow, time)` relative helper (5/12/16 days out); completed/failed changes keep absolute historical timestamps (they are past by definition).
+
+**Template / test consistency**
+- **`views/pages/reports/assets.ejs` — unpriced assets rendered "$0" while every other template renders "-" (LOW, consistency).** `totalValue.total` COALESCEs to 0 (rendering "$0") and `byCategory.total_value` is NULL for unpriced categories (rendering "$0") — the exact convention pass 141 removed from licenses/index (list) but missed here. Both spots now render "-" (the `Number(x) > 0` guard).
+- **`tests/templates.test.js` — the audit-details escape regression only asserted the plain substrings present, so a missing/double escape would pass (LOW, test strength).** Now asserts `foo &amp; bar` and the absence of `<script>`.
+- **`tests/code_review_141.test.js` — `$5,000`/`$1,200` assertions depended on the host locale (LOW, test determinism).** `jest.setup.js` now pins locale-less `Intl.NumberFormat` constructions (i.e. `Number(x).toLocaleString()`) to en-US, so a de-DE host can't break them.
+- **`tests/seed.test.js` — the next-counter test re-implemented the counter SQL inline and mutated the counter mid-test (LOW, test quality).** Now asserts the seeded counter row directly (equals the last seeded tag's numeric suffix) instead of replaying the assets.js `INSERT ... +1 RETURNING` logic.
+
+### Test coverage
+- **`tests/code_review_142.test.js` — 14 regression tests.** Table-driven: tickets (status/priority/category), projects update (status/priority), task update (status), assets (status/condition_rating), licenses create (license_type), knowledge create + update (tags). Behavioral staff update tests pin absent-preserves and empty-clears for department/phone against the actual handler. One template test renders `reports/assets.ejs` pinning the "-" convention for unpriced categories while a priced category still shows `$5,000`.
+- **`tests/seed.test.js`** — new test pins all three scheduled changes strictly in the future (dashboard Upcoming Changes stays populated regardless of seed date).
+- **`tests/knowledge.test.js`** — the delete ACCESS_DENIED regression now also asserts the new inner-recheck audit entry.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **855 passed / 855 total** (40 suites, +15 net).
+
+---
+
 ## Review cycle 2026-08-19 (141st pass)
 
 An independent pass (four parallel full re-reads covering all 12 route modules,

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -521,14 +521,28 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       if (recheck.role !== targetUser.role) {
         throw new Error('ROLE_CHANGED');
       }
+      // Resolve the optional fields against the transaction-consistent row so a
+      // partial submission that omits them preserves the stored values instead
+      // of wiping them to NULL — the absent-vs-empty convention applied by every
+      // other route's update handlers. An explicit empty string in the edit form
+      // still CLEARS the field (null). Present non-string values were already
+      // rejected above (fail closed), so the error sentinels below are defensive.
+      const resolvedDepartment = resolveOptionalField(req.body.department, department || null, MAX_SHORT_STR, recheck.department);
+      if (resolvedDepartment && resolvedDepartment.error) {
+        throw new Error('INVALID_DEPARTMENT');
+      }
+      const resolvedPhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, recheck.phone);
+      if (resolvedPhone && resolvedPhone.error) {
+        throw new Error('INVALID_PHONE');
+      }
       wasInactive = !recheck.is_active;
       _staffUpdateStmt.run(
         email.substring(0, MAX_EMAIL),
         first_name.substring(0, MAX_SHORT_STR),
         last_name.substring(0, MAX_SHORT_STR),
         safeRole,
-        (department || '').substring(0, MAX_SHORT_STR) || null,
-        phone ? phone.substring(0, MAX_PHONE) : null,
+        resolvedDepartment,
+        resolvedPhone,
         id
       );
     });
@@ -568,11 +582,24 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // Same condition as the outer check (non-admin editing a manager/admin
       // account) — keep the message identical so the race path does not
       // misdescribe which guard fired.
+      req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
       req.flash('error', 'You cannot modify administrator or manager accounts');
       return res.redirect('/staff');
     }
     if (err.message === 'ROLE_CHANGED') {
       req.flash('error', 'This account\'s role changed since the form was loaded. Please review and try again.');
+      return res.redirect(`/staff/${id}/edit`);
+    }
+    // Map the resolveOptionalField sentinels (defensive — the outer guards
+    // already reject present non-string values) to a specific validation
+    // message instead of the generic server-error flash, matching the INVALID_
+    // mapping in vendors.js / licenses.js.
+    if (err.message === 'INVALID_DEPARTMENT') {
+      req.flash('error', 'Invalid department');
+      return res.redirect(`/staff/${id}/edit`);
+    }
+    if (err.message === 'INVALID_PHONE') {
+      req.flash('error', 'Please enter a valid phone number');
       return res.redirect(`/staff/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {

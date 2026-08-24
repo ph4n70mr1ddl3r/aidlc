@@ -553,6 +553,21 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  // Fail closed on a present-but-non-string enum value (e.g. a JSON number or
+  // object): trim() coerces it to '', which would skip the enum checks below
+  // and leave the field silently preserved with a success flash — inconsistent
+  // with the fail-closed convention applied to every other present-but-invalid
+  // field on this route. Absent/empty submissions are allowed (preserve stored
+  // value), so this only rejects a value that is neither an intended enum
+  // member nor "no opinion". Mirrors the changes.js update guard.
+  for (const field of ['category', 'priority', 'status']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+  }
+
   // Validate enum fields — validate-when-present, the convention used by the
   // assets/projects/task update routes: a present value must be a member of
   // the allowlist; an ABSENT field (partial API submission) preserves the

@@ -202,8 +202,8 @@ describe('templates render without ReferenceError', () => {
       ],
       filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/audit'
     });
-    expect(html).toContain('foo');
-    expect(html).toContain('bar');
+    expect(html).toContain('foo &amp; bar');
+    expect(html).not.toContain('<script>');
   });
 
   it('dashboard renders all five dynamic list sections (not just My Tickets)', () => {

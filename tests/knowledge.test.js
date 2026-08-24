@@ -225,10 +225,12 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
     const handler = lastHandlerFor(knowledgeRouter, 'delete', '/:id');
     let redirectedTo = null;
     const flashCalls = [];
+    const auditCalls = [];
     const req = {
       params: { id: '1' },
       session: { user: { id: 1, role: 'staff' } },
-      flash: (type, msg) => flashCalls.push([type, msg])
+      flash: (type, msg) => flashCalls.push([type, msg]),
+      audit: (...args) => auditCalls.push(args)
     };
     const res = {
       redirect: (to) => {
@@ -243,6 +245,9 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
 
     expect(redirectedTo).toBe('/knowledge');
     expect(flashCalls).toEqual([['error', 'You can only delete your own articles']]);
+    // The recheck denial inside the transaction must leave an audit trail too
+    // (mirrors the outer guard's access_denied audit).
+    expect(auditCalls).toEqual([['access_denied', 'knowledge_article', 1, 'Unauthorized delete attempt on article (concurrent ownership change)']]);
   });
 });
 

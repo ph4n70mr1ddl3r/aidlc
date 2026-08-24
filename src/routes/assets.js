@@ -440,6 +440,20 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
+  // Fail closed on a present-but-non-string condition/status value (e.g. a JSON
+  // number or object): trim() coerces it to '', which would skip the enum
+  // checks below and silently preserve the stored value with a success flash —
+  // inconsistent with the fail-closed convention applied to every other
+  // present-but-invalid field on this route. Absent/empty submissions are
+  // allowed (preserve stored value). (category is required-and-validated below,
+  // so a non-string already fails as 'Invalid category'.)
+  for (const field of ['condition_rating', 'status']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/assets/${id}/edit`);
+    }
+  }
   if (!VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid category');
     return res.redirect(`/assets/${id}/edit`);
