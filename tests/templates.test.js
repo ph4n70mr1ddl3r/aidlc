@@ -492,4 +492,16 @@ describe('every template renders without error (regression)', () => {
     expect(html).toContain('<option value="draft"');
     expect(html).toContain('<option value="archived"');
   });
+
+  it('projects/index empty state carries the same hint text convention as sibling list pages', () => {
+    // Regression: the projects list was the only list-page empty state without
+    // a one-line hint, contradicting the consistency sweep pass 140 applied to
+    // staff/vendors/changes/licenses/knowledge/audit. A future refactor must
+    // not silently drop the hint again.
+    const html = render('projects/index.ejs', {
+      ...baseLocals(), title: 'Projects', projects: [], filters: {},
+      page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/projects'
+    });
+    expect(html).toContain('Create your first project or adjust filters');
+  });
 });

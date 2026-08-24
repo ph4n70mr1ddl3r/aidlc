@@ -9,6 +9,27 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle 2026-08-24 (145th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass closes one remaining consistency gap: the
+projects list empty state was the only list page without the "adjust filters"
+hint text that the 140th pass had standardized across every sibling surface.
+
+### Fixes applied
+
+**Consistency**
+- **`views/pages/projects/index.ejs` — list empty state missing the "adjust filters" hint text (LOW, consistency).** Every other list page (assets, tickets, staff, vendors, changes, licenses, knowledge, audit) carries a one-line hint alongside its "No X found" heading so operators know the query returned cleanly rather than the page is broken. `projects/index.ejs` was the sole outlier, rendering only the heading without a hint. Added `"Create your first project or adjust filters"` to bring the projects list in line with the established convention.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **856 passed / 856 total** (40 suites, +1 net).
+
+---
+
 ## Review cycle 2026-08-24 (143rd pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
