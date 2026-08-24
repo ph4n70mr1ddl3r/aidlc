@@ -249,7 +249,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     const result = createChange();
 
     req.audit('create', 'change', result.lastInsertRowid, `Created change "${title}"`);
-    req.flash('success', 'Change record created');
+    req.flash('success', 'Change record created.');
     invalidateDashboardCache();
     return res.redirect('/changes');
   } catch (err) {
@@ -476,7 +476,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     updateChange();
 
     req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
-    req.flash('success', 'Change updated');
+    req.flash('success', 'Change updated.');
     invalidateDashboardCache();
     return res.redirect(`/changes/${id}`);
   } catch (err) {
@@ -539,7 +539,7 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Change not found');
     } else {
       req.audit('delete', 'change', id, `Deleted change "${result.title}"`);
-      req.flash('success', 'Change deleted');
+      req.flash('success', 'Change deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

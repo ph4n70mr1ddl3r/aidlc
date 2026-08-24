@@ -244,7 +244,7 @@ describe('staff update — absent department/phone preserve stored values', () =
       const args = calls[0];
       expect(args[4]).toBe('Support');
       expect(args[5]).toBe('555-0100');
-      expect(flashCalls).toContainEqual(['success', 'Staff member updated']);
+      expect(flashCalls).toContainEqual(['success', 'Staff member updated.']);
     });
   });
 

@@ -296,7 +296,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     );
 
     req.audit('create', 'user', result.lastInsertRowid, `Created user ${username}`);
-    req.flash('success', `Staff member ${first_name} ${last_name} created`);
+    req.flash('success', `Staff member ${first_name} ${last_name} created.`);
     invalidateActiveStaffCache();
     invalidateDashboardCache();
     return res.redirect('/staff');
@@ -571,7 +571,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       }
     }
 
-    req.flash('success', 'Staff member updated');
+    req.flash('success', 'Staff member updated.');
     return res.redirect(`/staff/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
@@ -670,7 +670,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     req.audit('reactivate', 'user', id, 'Reactivated user account');
     invalidateActiveStaffCache();
     invalidateDashboardCache();
-    req.flash('success', 'Account reactivated successfully');
+    req.flash('success', 'Account reactivated successfully.');
   } catch (err) {
     console.error('Staff reactivate error:', err.message);
     req.flash('error', 'Error reactivating account.');
@@ -785,7 +785,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // locked-out user. IP lockouts are only cleared at login success.
 
   req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
-  req.flash('success', 'Password reset successfully');
+  req.flash('success', 'Password reset successfully.');
   return res.redirect(`/staff/${id}`);
 }));
 
@@ -875,7 +875,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // lockout to clear here.
 
       req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
-      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned');
+      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned.');
       invalidateActiveStaffCache();
       invalidateDashboardCache();
     }

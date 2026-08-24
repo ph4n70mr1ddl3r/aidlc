@@ -638,7 +638,7 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
       req.flash('error', 'Project not found');
     } else {
       req.audit('delete', 'project', id, `Deleted project "${result.name}"`);
-      req.flash('success', 'Project deleted');
+      req.flash('success', 'Project deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {
@@ -744,7 +744,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     }
 
     req.audit('create', 'project_task', taskId, `Added task "${title}" to project #${projectId}`);
-    req.flash('success', 'Task added');
+    req.flash('success', 'Task added.');
     invalidateDashboardCache();
   } catch (err) {
     if (err.message === 'PROJECT_NOT_FOUND') {
@@ -841,7 +841,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         // no trail even though the full edit route logged 'update' for the same
         // entity. The full-update branch below already audits; this mirrors it.
         req.audit('update', 'project_task', taskId, `Quick status change to ${result.status}`);
-        req.flash('success', 'Task updated');
+        req.flash('success', 'Task updated.');
         invalidateDashboardCache();
       }
       return res.redirect(`/projects/${projectId}`);
@@ -991,7 +991,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     }
 
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
-    req.flash('success', 'Task updated');
+    req.flash('success', 'Task updated.');
     invalidateDashboardCache();
     return res.redirect(`/projects/${projectId}`);
   } catch (err) {
@@ -1051,7 +1051,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
       req.flash('error', 'Task not found');
     } else {
       req.audit('delete', 'project_task', taskId, `Deleted task "${result.title}"`);
-      req.flash('success', 'Task deleted');
+      req.flash('success', 'Task deleted.');
       invalidateDashboardCache();
     }
     return res.redirect(`/projects/${projectId}`);
@@ -1123,7 +1123,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       req.flash('info', 'User is already a member of this project');
     } else {
       req.audit('create', 'project_member', memberId, `Added member #${safeUserId} to project #${id}`);
-      req.flash('success', 'Member added');
+      req.flash('success', 'Member added.');
       invalidateDashboardCache();
     }
   } catch (err) {
@@ -1178,7 +1178,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
       req.flash('error', 'Member not found');
     } else {
       req.audit('delete', 'project_member', memberId, `Removed member from project #${id}`);
-      req.flash('success', 'Member removed');
+      req.flash('success', 'Member removed.');
       invalidateDashboardCache();
     }
   } catch (err) {

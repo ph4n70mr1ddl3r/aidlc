@@ -358,7 +358,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     const { ticket_number, id } = createTicket();
 
     req.audit('create', 'ticket', id, `Created ticket ${ticket_number}`);
-    req.flash('success', `Ticket ${ticket_number} created successfully`);
+    req.flash('success', `Ticket ${ticket_number} created successfully.`);
     invalidateDashboardCache();
     return res.redirect('/tickets');
   } catch (err) {
@@ -872,7 +872,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     addComment();
 
     req.audit('comment', 'ticket', id, 'Added comment');
-    req.flash('success', 'Comment added');
+    req.flash('success', 'Comment added.');
     invalidateDashboardCache();
     return res.redirect(`/tickets/${id}`);
   } catch (err) {
@@ -951,7 +951,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     updateStatus();
 
     req.audit('update', 'ticket', id, `Status changed to ${status}`);
-    req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}`);
+    req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}.`);
     invalidateDashboardCache();
     return res.redirect(`/tickets/${id}`);
   } catch (err) {
@@ -1065,7 +1065,7 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
       req.flash('error', 'Ticket not found');
     } else {
       req.audit('delete', 'ticket', id, `Deleted ticket ${result.ticket_number}`);
-      req.flash('success', 'Ticket deleted');
+      req.flash('success', 'Ticket deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

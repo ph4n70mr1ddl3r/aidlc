@@ -518,7 +518,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     // for up to the 30s TTL after a self-service rename.
     invalidateActiveStaffCache();
     invalidateDashboardCache();
-    req.flash('success', 'Profile updated successfully');
+    req.flash('success', 'Profile updated successfully.');
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An account with this email address already exists');
@@ -641,7 +641,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     const { password: _pw, ...sessionUser } = freshUser;
     req.session.user = sessionUser;
   }
-  req.flash('success', 'Password changed successfully');
+  req.flash('success', 'Password changed successfully.');
   return res.redirect('/profile');
 }));
 

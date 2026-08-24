@@ -245,7 +245,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       sPurchase, sExpiry, safeCost, (notes || '').substring(0, MAX_NOTES) || null);
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
-    req.flash('success', `License for ${software_name} created`);
+    req.flash('success', `License for ${software_name} created.`);
     invalidateDashboardCache();
     return res.redirect('/licenses');
   } catch (err) {
@@ -496,7 +496,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     updateLicense();
 
     req.audit('update', 'license', id, `Updated license for ${software_name}`);
-    req.flash('success', 'License updated');
+    req.flash('success', 'License updated.');
     invalidateDashboardCache();
     return res.redirect(`/licenses/${id}`);
   } catch (err) {
@@ -551,7 +551,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
       req.flash('error', 'License not found');
     } else {
       req.audit('delete', 'license', id, `Deleted license "${result.name}"`);
-      req.flash('success', 'License deleted');
+      req.flash('success', 'License deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

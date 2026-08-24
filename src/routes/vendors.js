@@ -345,7 +345,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     const result = createVendor();
 
     req.audit('create', 'vendor', result.lastInsertRowid, `Created vendor ${name}`);
-    req.flash('success', `Vendor ${name} created`);
+    req.flash('success', `Vendor ${name} created.`);
     invalidateDashboardCache();
     return res.redirect('/vendors');
   } catch (err) {
@@ -618,7 +618,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.audit('update', 'vendor', id, renamedLicenseRefs > 0
       ? `Updated vendor ${name} (renamed from previous name; ${renamedLicenseRefs} license reference(s) updated)`
       : `Updated vendor ${name}`);
-    req.flash('success', 'Vendor updated');
+    req.flash('success', 'Vendor updated.');
     invalidateDashboardCache();
     return res.redirect(`/vendors/${id}`);
   } catch (err) {
@@ -688,7 +688,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       return res.redirect(`/vendors/${id}`);
     }
     req.audit('deactivate', 'vendor', id, 'Deactivated vendor');
-    req.flash('success', 'Vendor deactivated');
+    req.flash('success', 'Vendor deactivated.');
     invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor deactivate error:', err.message);
@@ -730,7 +730,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       return res.redirect(`/vendors/${id}`);
     }
     req.audit('reactivate', 'vendor', id, 'Reactivated vendor');
-    req.flash('success', 'Vendor reactivated');
+    req.flash('success', 'Vendor reactivated.');
     invalidateDashboardCache();
   } catch (err) {
     console.error('Vendor reactivate error:', err.message);

@@ -288,7 +288,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
     const { asset_tag, id } = createAsset();
     req.audit('create', 'asset', id, `Created asset ${asset_tag}`);
-    req.flash('success', `Asset ${asset_tag} created successfully`);
+    req.flash('success', `Asset ${asset_tag} created successfully.`);
     invalidateDashboardCache();
     return res.redirect('/assets');
   } catch (err) {
@@ -682,7 +682,7 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       req.flash('error', 'Asset not found');
     } else {
       req.audit('delete', 'asset', id, `Deleted asset "${result.name}"`);
-      req.flash('success', 'Asset deleted');
+      req.flash('success', 'Asset deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

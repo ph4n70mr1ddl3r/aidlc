@@ -416,7 +416,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     const result = createArticle();
 
     req.audit('create', 'knowledge_article', result.lastInsertRowid, `Created article "${safeTitle}"`);
-    req.flash('success', 'Article created');
+    req.flash('success', 'Article created.');
     invalidateDashboardCache();
     return res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
@@ -645,7 +645,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     updateArticle();
 
     req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
-    req.flash('success', 'Article updated');
+    req.flash('success', 'Article updated.');
     invalidateDashboardCache();
     return res.redirect(`/knowledge/${id}`);
   } catch (err) {
@@ -709,7 +709,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       req.flash('error', 'Article not found');
     } else {
       req.audit('delete', 'knowledge_article', id, `Deleted article "${deleteResult.title}"`);
-      req.flash('success', 'Article deleted');
+      req.flash('success', 'Article deleted.');
       invalidateDashboardCache();
     }
   } catch (err) {

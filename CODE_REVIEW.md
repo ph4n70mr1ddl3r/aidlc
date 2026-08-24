@@ -1,11 +1,31 @@
 # Code Review Notes
 
-**Date:** 2026-08-18
+**Date:** 2026-08-24
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (137 consecutive hardening commits) was
+Jest suite. Prior review history (142 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle 2026-08-24 (143rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass completes the success-flash trailing-period
+sweep that the error-message sweep in passes 138–139 started.
+
+### Fixes applied
+
+**Consistency**
+- **All route modules — success flash messages missing trailing periods (LOW, consistency).** Error messages were standardized with trailing periods in pass 138; success messages were the remaining inconsistent surface. Added periods to 33 messages across 9 route modules (`assets`, `auth`, `changes`, `knowledge`, `licenses`, `projects`, `staff`, `tickets`, `vendors`) so the messaging contract is uniform. Messages already ending in `!` (e.g. `Welcome back, ...!`, `Thank you for your feedback!`) and dynamic multi-sentence messages (e.g. the vendor-delete success path) were left unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **855 passed / 855 total** (40 suites, 0 net change).
 
 ---
 
