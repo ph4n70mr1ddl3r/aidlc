@@ -9,6 +9,30 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (146th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** Cross-checked audit
+calls against the `ALLOWED_ACTIONS`/`ALLOWED_ENTITY_TYPES` allowlists (all
+match), the `paginationBaseUrl` allowlist against every list route's query
+params (all covered), and flash-message trailing periods against the
+138–144 convention (consistent). The codebase remains at a high hardening
+plateau; this pass closes one remaining consistency gap on the two error
+surfaces.
+
+### Fixes applied
+
+**Consistency**
+- **`views/pages/404.ejs` + `views/pages/error.ejs` — unconditional "Go to Dashboard" CTA (LOW, consistency).** Both error pages rendered a dashboard link for every visitor. For an anonymous viewer (expired session, stale bookmark) the link bounces through `/` to `/login` while claiming to go to the dashboard — misleading about the destination. Worse, these pages can render for failures thrown BEFORE the res.locals middleware ran (e.g. body-parser 413/400), the same reason header.ejs guards `csrfToken`, so the CTA is now gated with `typeof user !== 'undefined' && user`. Signed-in visitors keep "Go to Dashboard"; everyone else gets an honest "Go to Login" link. +8 regression tests (`tests/code_review_146.test.js`) covering both pages × {signed-in, null user, undefined user} and the never-both invariant.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **864 passed / 864 total** (40 suites, +8 net).
+
+---
+
 ## Review cycle 2026-08-24 (145th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

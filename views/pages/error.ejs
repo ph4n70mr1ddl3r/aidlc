@@ -9,7 +9,17 @@
       <p style="margin-bottom:12px;padding:12px;background:var(--danger-light);border-radius:8px;">An unexpected error occurred.</p>
     <% } %>
     <p class="text-muted" style="margin-bottom:24px;">Something went wrong. Please try again later.</p>
-    <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home"></i> Go to Dashboard</a>
+    <% // Auth-gated CTA mirroring 404.ejs: signed-in visitors get "Go to
+       // Dashboard", anonymous ones get "Go to Login". `user` is guarded
+       // because this handler can render for failures thrown BEFORE the
+       // res.locals middleware ran (e.g. body-parser 413/400), leaving the
+       // local genuinely undefined rather than null.
+       %>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home"></i> Go to Dashboard</a>
+    <% } else { %>
+      <a href="/login" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+    <% } %>
   </div>
 </div>
 <%- include('../partials/footer') %>
