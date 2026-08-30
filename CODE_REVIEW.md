@@ -4,8 +4,39 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (148 consecutive hardening commits) was
+Jest suite. Prior review history (150 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (150th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass closes one test-fixture consistency gap:
+the `assetStats` shape in `tests/templates.test.js` was missing the `reserved`
+subtotal that pass 140 added to `EMPTY_DEFAULTS` and the dashboard query, so
+the fixture diverged from the route's actual output contract.
+
+### Fixes applied
+
+**Test fixture consistency**
+- **`tests/templates.test.js` — two `assetStats` fixtures omitted `reserved`
+  (LOW, test completeness).** Pass 140 added a `reserved` CASE subtotal to the
+  dashboard `_assetStatsStmt` and a corresponding `reserved: 0` field to
+  `EMPTY_DEFAULTS.assetStats`, so the four subtotals always sum exactly to the
+  total. The two template-render fixtures (`"dashboard renders all five dynamic
+  list sections"` on line 216 and the empty-state regression on line 329) still
+  passed the pre-140 four-field shape `{ total, in_use, in_storage, in_repair
+  }`. Updated both to include `reserved: 0` so the fixtures mirror the route's
+  current output contract and a future refactor that drops the field will fail
+  immediately.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **890 passed / 890 total** (43 suites, 0 net).
 
 ---
 

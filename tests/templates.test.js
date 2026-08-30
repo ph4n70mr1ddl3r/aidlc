@@ -213,7 +213,7 @@ describe('templates render without ReferenceError', () => {
       ...baseLocals(),
       title: 'Dashboard',
       ticketStats: { open: 1, in_progress: 1, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 2 },
-      assetStats: { total: 4, in_use: 2, in_storage: 1, in_repair: 1 },
+      assetStats: { total: 4, in_use: 2, in_storage: 1, in_repair: 1, reserved: 0 },
       projectStats: { total: 1, in_progress: 1, planning: 0, completed: 0, on_hold: 0 },
       staffCount: { total: 3 },
       expiringWarranties: [],
@@ -326,7 +326,7 @@ describe('every template renders without error (regression)', () => {
     { name: 'reports/assets', file: 'reports/assets.ejs', locals: () => ({ ...baseLocals(), title: 'Asset Report', byCategory: [], byStatus: [], byCondition: [], totalValue: { total: 0 }, warrantyCount: 0, warrantyExpiring: [], ageDistribution: [] }) },
     { name: 'reports/staff', file: 'reports/staff.ejs', locals: () => ({ ...baseLocals(), title: 'Staff Performance', performance: [], period: 30 }) },
     { name: 'audit/index', file: 'audit/index.ejs', locals: () => ({ ...baseLocals(), title: 'Audit Log', entries: [], filters: {}, page: 1, limit: 25, totalPages: 1, total: 0, baseUrl: '/audit' }) },
-    { name: 'dashboard', file: 'dashboard.ejs', locals: () => ({ ...baseLocals(), title: 'Dashboard', ticketStats: { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 0 }, assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0 }, projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 }, staffCount: { total: 0 }, expiringWarranties: [], licenseAlerts: [], myTickets: [], staffWorkload: [], upcomingChanges: [], recentTickets: [], ticketsByCategory: [] }) },
+    { name: 'dashboard', file: 'dashboard.ejs', locals: () => ({ ...baseLocals(), title: 'Dashboard', ticketStats: { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 0 }, assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0, reserved: 0 }, projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 }, staffCount: { total: 0 }, expiringWarranties: [], licenseAlerts: [], myTickets: [], staffWorkload: [], upcomingChanges: [], recentTickets: [], ticketsByCategory: [] }) },
     { name: '404', file: '404.ejs', locals: () => ({ ...baseLocals(), title: 'Not Found' }) },
     { name: 'error', file: 'error.ejs', locals: () => ({ ...baseLocals(), title: 'Error', error: { message: 'Something went wrong' } }) },
     { name: 'error (no error object)', file: 'error.ejs', locals: () => ({ ...baseLocals(), title: 'Error' }) }
