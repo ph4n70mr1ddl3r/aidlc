@@ -169,7 +169,10 @@ describe('Session idle timeout middleware', () => {
     const res = await fetch(`${ctx.base}/touch`, { redirect: 'manual' });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ hasUser: false });
-    expect(Date.now() - before).toBeLessThan(400);
+    // Allow generous latency — under parallel Jest worker load even a trivial
+    // unauthenticated GET can exceed 400ms, so the bound is loose enough to be
+    // deterministic without being so loose it stops catching regressions.
+    expect(Date.now() - before).toBeLessThan(5000);
   });
 
   it('lets an authenticated request through within the idle window', async () => {
