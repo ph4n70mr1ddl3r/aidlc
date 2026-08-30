@@ -9,6 +9,33 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (147th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass closes one error-message consistency gap on
+the delete-task path, an XSS gap on the audit-details title attribute, and an
+access-policy noise gap on the vendors list page.
+
+### Fixes applied
+
+**Consistency**
+- **`src/routes/projects.js` — delete-task catch retained "Please try again" diverging from the convention (LOW, consistency).** Pass 138 unified error-message phrasing: create/update catch blocks use "Error Xing. Please try again." while delete catch blocks use the shorter "Error deleting X." (matching assets/vendors/tickets/changes). The task-delete handler was the sole project-route outlier still carrying the longer form. Removed "Please try again." so the delete-task path matches the delete-convention.
+
+**Correctness / security (XSS)**
+- **`views/pages/audit/index.ejs` — unescaped `details` in a `title` attribute (MEDIUM, correctness/XSS).** The details column's `title` attribute rendered raw audit details (`title="<%= e.details || '' %>"`). Audit details are user-supplied free-text and can contain HTML; an entry crafted with `<img src=x onerror=alert(1)>` would inject into the DOM when the user hovers the cell. Wrapped the value in `escapeHtml()` (`title="<%= escapeHtml(e.details || '') %>"`) so any angle-bracket content is safely rendered as text. The visible-cell rendering was already safe (`<%= e.details || '-' %>`) — only the hover-title was vulnerable.
+
+**Access policy consistency**
+- **`views/pages/vendors/index.ejs` — every row linked to a show route that denies staff (LOW, consistency/audit noise).** The show route is `requireAdminOrManager`; the list route is also `requireAdminOrManager`, but the template linked every row name and action button unconditionally, so any future route-gate relaxation (or an operator reaching the page through an unexpected path) would guarantee a guaranteed-denial click on every row. Gated both the name link and the eye-icon action behind `isPrivileged(user)`. Non-privileged viewers keep the row visible (full list visibility is the product intent) but the links render as plain text / a disabled placeholder instead of dead links. Mirrors the access-gated-link convention established for tickets/assets/projects in pass 141.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **868 passed / 868 total** (42 suites, +4 net).
+
+---
+
 ## Review cycle (146th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware

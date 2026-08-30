@@ -211,7 +211,13 @@ describe('error-message phrasing unification (regression)', () => {
     // The tickets create route's catch block was verified by the source-code
     // change; isolateModules interaction with the tickets module's transaction
     // mock is flaky in this test harness. The canonical message is asserted
-    // via grep in the lint+test gate above.
-    expect(true).toBe(true);
+    // via source-code grep below.
+    const fs = require('fs');
+    const path = require('path');
+    const ticketsSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'routes', 'tickets.js'),
+      'utf8'
+    );
+    expect(ticketsSrc).toContain('Error creating ticket. Please try again.');
   });
 });

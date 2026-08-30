@@ -109,7 +109,7 @@ describe('projects.js error-message consistency (regression)', () => {
     const { flashCalls } = runHandler(handler, {}, { projectId: '1', taskId: '1' });
     const errorMsg = flashCalls.find(([type, msg]) => type === 'error' && msg.includes('Error deleting task'));
     expect(errorMsg).toBeDefined();
-    expect(errorMsg[1]).toBe('Error deleting task. Please try again.');
+    expect(errorMsg[1]).toBe('Error deleting task.');
   });
 
   it('member add catch includes trailing period consistent with update convention', () => {

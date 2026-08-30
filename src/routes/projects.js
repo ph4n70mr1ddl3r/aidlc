@@ -1057,7 +1057,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
     return res.redirect(`/projects/${projectId}`);
   } catch (err) {
     console.error('Project task delete error:', err.message);
-    req.flash('error', 'Error deleting task. Please try again.');
+    req.flash('error', 'Error deleting task.');
     return res.redirect(`/projects/${projectId}`);
   }
 });
