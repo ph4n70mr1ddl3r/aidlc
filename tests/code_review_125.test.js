@@ -33,6 +33,9 @@ function baseLocals(user) {
     CONDITION_BADGE: constants.CONDITION_BADGE,
     CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
     ROLE_BADGE: constants.ROLE_BADGE,
+    MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
+    KB_CATEGORY_BADGE: constants.KB_CATEGORY_BADGE,
+    LICENSE_TYPE_BADGE: constants.LICENSE_TYPE_BADGE,
     CONSTANTS: constants
   };
 }

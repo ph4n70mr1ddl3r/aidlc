@@ -14,7 +14,7 @@
 </div>
 <div class="card mb-3"><div class="card-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
   <span class="badge badge-<%= article.status %>"><%= titleCase(article.status) %></span>
-  <span class="badge badge-medium"><%= titleCase(article.category) %></span>
+  <span class="badge badge-<%= badgeClass(article.category, KB_CATEGORY_BADGE) %>"><%= titleCase(article.category) %></span>
   <span class="text-sm text-muted">By <strong><%= article.author_name %></strong></span>
   <span class="text-sm text-muted"><i class="fas fa-eye"></i> <%= article.views %> views</span>
   <span class="text-sm text-muted"><i class="fas fa-clock"></i> Updated <%= formatDateTime(article.updated_at) %></span>

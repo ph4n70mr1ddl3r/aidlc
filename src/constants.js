@@ -108,6 +108,14 @@ const ROLE_BADGE = Object.freeze({ admin: 'critical', manager: 'high', staff: 'm
 // falling back to the generic yellow warning class. Mirrors the CONDITION /
 // CHANGE_TYPE / ROLE badge conventions used across all other templates.
 const MEMBER_ROLE_BADGE = Object.freeze({ lead: 'critical', member: 'medium', stakeholder: 'low' });
+// Knowledge base categories — renders every category with the same severity
+// since KB categories are organizational, not severity-indicating. Mirrors the
+// same deliberate uniform-badge convention used for license_type below.
+const KB_CATEGORY_BADGE = Object.freeze({ how_to: 'medium', troubleshooting: 'medium', policy: 'medium', faq: 'medium', sop: 'medium', other: 'medium' });
+// License types — renders every type with the same severity since license
+// types are organizational, not severity-indicating. Mirrors the KB_CATEGORY
+// uniform-badge convention.
+const LICENSE_TYPE_BADGE = Object.freeze({ perpetual: 'medium', subscription: 'medium', volume: 'medium', oem: 'medium', academic: 'medium' });
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
@@ -130,5 +138,6 @@ module.exports = {
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS,
-  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE
+  CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
+  KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE
 };

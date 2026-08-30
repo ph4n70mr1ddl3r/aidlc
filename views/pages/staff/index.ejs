@@ -38,27 +38,28 @@
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Open Tickets</th><th>Open Tasks</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
-          <% staff.forEach(s => { %>
-          <tr>
-            <td><a href="/staff/<%= s.id %>" style="color:var(--text);text-decoration:none;font-weight:600;">
-              <div class="flex items-center gap-2">
-                <div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= (s.first_name || '?')[0] %><%= (s.last_name || '?')[0] %></div>
-                <%= s.first_name %> <%= s.last_name %>
-              </div>
-            </a></td>
-            <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? s.email : 'Restricted' %></td>
-            <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
-            <% // Department mirrors the email column's redaction marker: the route
-               // nulls department on rows the viewer may not see PII for. %>
-            <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? (s.department || '-') : 'Restricted' %></td>
-            <td class="text-sm"><%= s.open_tickets %></td>
-            <td class="text-sm"><%= s.open_tasks %></td>
-            <td><span class="badge badge-<%= s.is_active ? 'low' : 'critical' %>"><%= s.is_active ? 'Active' : 'Inactive' %></span></td>
-            <td class="actions-cell">
-              <a href="/staff/<%= s.id %>" class="btn btn-sm btn-outline" aria-label="View staff member"><i class="fas fa-eye" aria-hidden="true"></i></a>
-            </td>
-          </tr>
-          <% }) %>
+          <% staff.forEach(s => {
+            const canView = isPrivileged(user) || Number(user.id) === Number(s.id); %>
+           <tr>
+             <td><% if (canView) { %><a href="/staff/<%= s.id %>" style="color:var(--text);text-decoration:none;font-weight:600;">
+               <div class="flex items-center gap-2">
+                 <div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= (s.first_name || '?')[0] %><%= (s.last_name || '?')[0] %></div>
+                 <%= s.first_name %> <%= s.last_name %>
+               </div>
+             </a><% } else { %><div class="flex items-center gap-2"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= (s.first_name || '?')[0] %><%= (s.last_name || '?')[0] %></div><span style="font-weight:600;"><%= s.first_name %> <%= s.last_name %></span></div><% } %></td>
+             <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? s.email : 'Restricted' %></td>
+             <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
+             <% // Department mirrors the email column's redaction marker: the route
+                // nulls department on rows the viewer may not see PII for. %>
+             <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? (s.department || '-') : 'Restricted' %></td>
+             <td class="text-sm"><%= s.open_tickets %></td>
+             <td class="text-sm"><%= s.open_tasks %></td>
+             <td><span class="badge badge-<%= s.is_active ? 'low' : 'critical' %>"><%= s.is_active ? 'Active' : 'Inactive' %></span></td>
+             <td class="actions-cell">
+               <% if (canView) { %><a href="/staff/<%= s.id %>" class="btn btn-sm btn-outline" aria-label="View staff member"><i class="fas fa-eye" aria-hidden="true"></i></a><% } else { %><span class="text-muted" title="No access to this profile">—</span><% } %>
+             </td>
+           </tr>
+           <% }) %>
         </tbody>
       </table>
     </div>

@@ -58,9 +58,10 @@
       <% if (relatedTickets.length === 0) { %>
         <p class="text-muted text-sm">No tickets linked to this asset</p>
       <% } else { %>
-        <% relatedTickets.forEach(t => { %>
+        <% relatedTickets.forEach(t => {
+          const canView = isPrivileged(user) || Number(t.assigned_to) === Number(user.id); %>
           <div style="padding:8px 0;border-bottom:1px solid var(--border);">
-            <a href="/tickets/<%= t.id %>" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;"><%= t.ticket_number %></a>
+            <% if (canView) { %><a href="/tickets/<%= t.id %>" style="font-size:13px;font-weight:600;color:var(--primary);text-decoration:none;"><%= t.ticket_number %></a><% } else { %><span style="font-size:13px;font-weight:600;"><%= t.ticket_number %></span><% } %>
             <div class="text-sm"><%= t.title %></div>
             <div class="flex gap-2" style="margin-top:4px;">
               <span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span>

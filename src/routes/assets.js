@@ -32,7 +32,7 @@ const _showStmt = db.prepare(`
     WHERE a.id = ?
   `);
 const _relatedTicketsStmt = db.prepare(`
-    SELECT id, ticket_number, title, status, priority, created_at
+    SELECT id, ticket_number, title, status, priority, assigned_to, created_at
     FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
   `);
 const _editStmt = db.prepare('SELECT id, asset_tag, name, category, manufacturer, model, serial_number, status, condition_rating, purchase_date, purchase_price, warranty_expiry, assigned_to, location, notes FROM assets WHERE id = ?');

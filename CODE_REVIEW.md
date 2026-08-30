@@ -4,8 +4,41 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (147 consecutive hardening commits) was
+Jest suite. Prior review history (148 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (149th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass closes four remaining access-gated-link audit-noise
+gaps on dashboard, staff directory, staff show sidebar, and asset show sidebar,
+and centralizes the last two hardcoded `badge-medium` references behind mapping
+constants.
+
+### Fixes applied
+
+**Access-policy consistency (link gating on show-routes that deny staff)**
+- **`views/pages/dashboard.ejs` — "Recently Active Tickets" card linked every row unconditionally (LOW, consistency/audit noise).** The query returns all non-terminal tickets (`status NOT IN ('closed','resolved')`), so non-privileged staff see tickets assigned to colleagues; clicking any link triggers a guaranteed `access_denied` flash plus an audit entry. The card now gates ticket-number and title links behind `isPrivileged(user) || Number(t.assigned_to) === Number(user.id)`, matching the convention in `views/pages/tickets/index.ejs:66`. Unlinked cells retain the monospace-weight styling so the row remains readable. The dashboard's `recentTickets` statement was updated to select `assigned_to` so the template can evaluate the gate.
+- **`views/pages/staff/index.ejs` — every staff row linked to a show route that denies staff unless self (LOW, consistency/audit noise).** The staff list is open to all authenticated users (directory intent), but the show route gates by `isPrivileged || isSelf`. Unconditional name and eye-icon links generated guaranteed-denial clicks on every cross-profile navigation. Both are now gated behind `isPrivileged(user) || Number(user.id) === Number(s.id)`; non-authorized viewers keep the row visible (full directory visibility is the product intent) but the links render as plain text / a disabled placeholder instead of dead links. Mirrors the pattern fixed for tickets/assets/projects in pass 141 and vendors in pass 147.
+- **`views/pages/staff/show.ejs` — project-membership links targeted projects the viewer cannot show (LOW, consistency/audit noise).** The project show route uses `canAccessResource` (checks `assigned_to`/`owner_id`/`user_id`/`author_id`); a non-privileged user who is a project member but not the owner receives a denial on click. The `_projectMembershipsStmt` now selects `p.owner_id` and the template gates the project link behind `isPrivileged(user) || Number(pm.owner_id) === Number(user.id)`. Unlinked rows keep the project name, status, and role badges visible.
+- **`views/pages/assets/show.ejs` — related-ticket links targeted tickets the viewer cannot show (LOW, consistency/audit noise).** A non-privileged user viewing an asset assigned to them may see tickets assigned to other staff; clicking those links triggers `access_denied`. The `_relatedTicketsStmt` now selects `assigned_to` and the template gates the ticket link behind `isPrivileged(user) || Number(t.assigned_to) === Number(user.id)`. Unlinked ticket numbers remain visible as plain text.
+
+**Badge constant centralization**
+- **`src/constants.js` — `KB_CATEGORY_BADGE` and `LICENSE_TYPE_BADGE` missing (LOW, consistency).** KB article categories and license types were hardcoded to `badge-medium` in four templates (`knowledge/index.ejs`, `knowledge/show.ejs`, `licenses/index.ejs`, `licenses/show.ejs`) while every other categorical field (condition, change type, role, member role) uses a mapping constant referenced through `badgeClass()`. Added both mappings (`Object.freeze({ … })`, all values `'medium'` — categories/types are organizational, not severity-indicating, so uniform medium is the correct semantic) and exported them.
+- **`src/utils.js` — re-exported both new constants so templates that depend on `utils`-sourced objects continue to work.**
+- **`src/app.js` — wired both new constants into `res.locals` alongside the existing badge mappings, and added them to the `objHelpers` regression assertion in `tests/templates.test.js`.**
+
+### Test coverage
+- **`tests/code_review_149.test.js` — 15 regression tests.** Table-driven link-gating tests cover: dashboard recent tickets (privileged sees links, non-privileged sees plain text for others' tickets, privileged link for own tickets), staff index (privileged sees links, non-privileged sees plain text for others' profiles, privileged link for self), staff show project memberships (privileged sees links, non-privileged sees plain text for others' projects, privileged link for own projects), assets show related tickets (privileged sees links, non-privileged sees plain text for others' tickets, privileged link for own tickets). Source-level tests pin `assigned_to` on the dashboard recentTickets statement, `owner_id` on the staff projectMemberships statement, and `assigned_to` on the assets relatedTickets statement. Badge tests assert the new constants are frozen objects with all enum values mapped, that `utils` re-exports them, and that the four affected templates render via `badgeClass()` rather than a literal hardcoded class.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **890 passed / 890 total** (43 suites, +22 net).
 
 ---
 

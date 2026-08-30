@@ -2,7 +2,7 @@
  * Shared utilities for routes
  */
 
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE, KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE } = require('./constants');
 const { ipKeyGenerator } = require('express-rate-limit');
 
 const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
@@ -1194,6 +1194,7 @@ module.exports = {
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
+  KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
   resetCachedStatements, resetPageSize,
   rejectHppArrays, normalizeIp,
   // Shared per-account rate-limit key (user id, normalized-IP fallback). Used by

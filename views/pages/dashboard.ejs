@@ -168,17 +168,18 @@
       <table>
         <thead><tr><th>Ticket</th><th>Title</th><th>Category</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Created</th></tr></thead>
         <tbody>
-          <% recentTickets.forEach(t => { %>
-          <tr>
-            <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
-            <td><%= t.title %></td>
-            <td class="text-sm"><%= titleCase(t.category) %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
-            <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
-            <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
-          </tr>
-        <% }); %>
+          <% recentTickets.forEach(t => {
+            const canView = isPrivileged(user) || Number(t.assigned_to) === Number(user.id); %>
+           <tr>
+             <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a><% } else { %><span style="font-weight:600;"><%= t.ticket_number %></span><% } %></td>
+             <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a><% } else { %><%= t.title %><% } %></td>
+             <td class="text-sm"><%= titleCase(t.category) %></td>
+             <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
+             <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
+             <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
+             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
+           </tr>
+         <% }); %>
         </tbody>
       </table>
     </div>

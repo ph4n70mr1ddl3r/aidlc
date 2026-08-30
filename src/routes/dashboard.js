@@ -115,7 +115,7 @@ const stmts = {
   `),
   staffCount: db.prepare('SELECT COUNT(*) as total FROM users WHERE is_active = 1'),
   recentTickets: db.prepare(`
-    SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.created_at,
+    SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.assigned_to, t.created_at,
             u.first_name || ' ' || u.last_name as assigned_name
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id

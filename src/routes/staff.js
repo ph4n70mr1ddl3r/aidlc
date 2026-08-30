@@ -39,7 +39,7 @@ const _assignedAssetsStmt = db.prepare(`
 // Cap the result set like every sibling sidebar query in this module — a user
 // who is a member of many projects must not render an unbounded list.
 const _projectMembershipsStmt = db.prepare(`
-    SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status
+    SELECT pm.role as project_role, p.name as project_name, p.id as project_id, p.status as project_status, p.owner_id
     FROM project_members pm
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?

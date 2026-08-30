@@ -40,6 +40,8 @@ function baseLocals() {
     CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
     ROLE_BADGE: constants.ROLE_BADGE,
     MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
+    KB_CATEGORY_BADGE: constants.KB_CATEGORY_BADGE,
+    LICENSE_TYPE_BADGE: constants.LICENSE_TYPE_BADGE,
     CONSTANTS: constants
   };
 }
@@ -66,7 +68,7 @@ describe('res.locals wiring guards', () => {
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
     }
     // Badge constants are objects (maps), not functions
-    const objHelpers = ['CONDITION_BADGE', 'CHANGE_TYPE_BADGE', 'ROLE_BADGE', 'MEMBER_ROLE_BADGE'];
+    const objHelpers = ['CONDITION_BADGE', 'CHANGE_TYPE_BADGE', 'ROLE_BADGE', 'MEMBER_ROLE_BADGE', 'KB_CATEGORY_BADGE', 'LICENSE_TYPE_BADGE'];
     for (const name of objHelpers) {
       expect(typeof utils[name]).toBe('object');
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
