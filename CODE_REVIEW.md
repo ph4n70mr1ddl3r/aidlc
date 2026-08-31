@@ -4,8 +4,37 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (152 consecutive hardening commits) was
+Jest suite. Prior review history (153 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (154th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass closed one correctness defect: the changes
+update route passed the raw `status` variable directly to the UPDATE statement
+instead of resolving it against the transaction-consistent re-fetch. When an
+API caller omitted `status` on a partial PUT, `trim(undefined)` produced `''`,
+which was written into the CHECK-constrained `status` column, throwing
+`SQLITE_CONSTRAINT` and surfacing as a generic server error. The fix mirrors
+the `effectiveStatus` resolution already used by tickets.js, assets.js, and
+projects.js. +1 regression test pins the absent-status preservation contract.
+
+### Fixes applied
+
+**Correctness (partial-update status resolution)**
+- **`src/routes/changes.js` update — raw `status` written into CHECK-constrained column on absent field (MEDIUM, correctness).** The outer guard validated `status` only when present (`if (status && !VALID_STATUSES.includes(status))`), so an absent or empty submission passed through. Inside the transaction the raw value was bound directly to the UPDATE statement, writing `''` into the `status` column and violating `CHECK(status IN ('scheduled','in_progress','completed','failed','cancelled'))`. The transaction threw `SQLITE_CONSTRAINT` which bubbled up as an unhandled server error. Hoisted `effectiveStatus` outside the transaction callback, resolved it inside against `existingChange.status` when the submitted value is absent/empty (mirroring tickets.js `const effectiveStatus = status || ticket.status;`, assets.js `VALID_STATUSES.includes(status) ? status : current.status`, and projects.js `statusProvided ? status : existingProject.status`), and updated the audit message to report the effective status.
+
+### Test coverage
+- **`tests/partial_update.test.js` — 1 regression test.** Pins that a partial PUT omitting `status` preserves the existing stored status in the UPDATE statement's fourth parameter, preventing the SQLITE_CONSTRAINT crash.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, +1 net).
 
 ---
 

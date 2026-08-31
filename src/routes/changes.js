@@ -399,6 +399,10 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     // Fetch existing record, validate assignee, and update in a single transaction
     // to avoid TOCTOU races: the change could be modified/deleted or the assignee
     // deactivated between the fetch/checks and the UPDATE.
+    // effectiveStatus is hoisted so the post-transaction audit entry reports the
+    // EFFECTIVE (resolved) status rather than the raw submitted value — an absent
+    // status on a partial submission must audit the persisted value.
+    let effectiveStatus;
     const updateChange = db.transaction(() => {
       const existingChange = _editChangeStmt.get(id);
       if (!existingChange) {
@@ -473,14 +477,20 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       if (resolvedImpact && resolvedImpact.error) {
         throw new Error('INVALID_IMPACT');
       }
+      // Resolve status from the transaction-consistent re-fetch: an ABSENT or
+      // empty field preserves the stored status instead of writing '' into the
+      // CHECK-constrained column (which would throw SQLITE_CONSTRAINT). Mirrors
+      // the effectiveStatus resolution in tickets.js and assets.js. A present-
+      // but-invalid status was already rejected by the outer guard above.
+      effectiveStatus = status || existingChange.status;
 
-      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, status, safePriority,
+      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, effectiveStatus, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
         resolvedImpact, resolvedAssignee, id);
     });
     updateChange();
 
-    req.audit('update', 'change', id, `Updated change "${title}" (status: ${status})`);
+    req.audit('update', 'change', id, `Updated change "${title}" (status: ${effectiveStatus})`);
     req.flash('success', 'Change updated.');
     invalidateDashboardCache();
     return res.redirect(`/changes/${id}`);

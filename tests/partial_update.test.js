@@ -791,6 +791,29 @@ describe('relational FK fields on update — ABSENT preserves, EMPTY clears (reg
     expect(params[10]).toBeNull(); // "Unassigned" in the form clears the assignment
   });
 
+  it('changes update preserves the stored status when status is ABSENT', () => {
+    // Regression: an absent status on a partial PUT must preserve the stored
+    // value rather than writing '' into the CHECK-constrained column (which
+    // would throw SQLITE_CONSTRAINT and surface as a generic server error).
+    const db = jest.requireMock('../src/models/database');
+    const stmt = db.prepare();
+    stmt.run.mockClear();
+    stmt.get.mockReturnValue({
+      id: 1, title: 'Server upgrade', description: null, change_type: 'maintenance',
+      status: 'scheduled', priority: 'medium', scheduled_start: null, scheduled_end: null,
+      actual_start: null, actual_end: null, impact: null, assigned_to: 5
+    });
+    const changesRouter = require('../src/routes/changes');
+    const h = lastHandlerFor(changesRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Server upgrade', change_type: 'maintenance', priority: 'medium'
+      // status omitted — must preserve existing 'scheduled'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[3]).toBe('scheduled'); // status column preserved from existing row
+  });
+
   it('projects update preserves the stored owner when owner_id is ABSENT', () => {
     const db = jest.requireMock('../src/models/database');
     const stmt = db.prepare();
