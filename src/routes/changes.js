@@ -361,7 +361,12 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid change type');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (!status || !VALID_STATUSES.includes(status)) {
+  // A present-but-invalid status is rejected; an absent/empty field means
+  // "keep what's stored" — consistent with assets.js, tickets.js, and
+  // projects.js update conventions. The form HTML uses `required` so browsers
+  // block empty submissions client-side, but API callers can hit this route
+  // directly and must be handled correctly here.
+  if (status && !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid status');
     return res.redirect(`/changes/${id}/edit`);
   }

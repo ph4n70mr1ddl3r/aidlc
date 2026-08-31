@@ -244,7 +244,7 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
     handler(req, res, () => {});
 
     expect(redirectedTo).toBe('/knowledge');
-    expect(flashCalls).toEqual([['error', 'You can only delete your own articles.']]);
+    expect(flashCalls).toEqual([['error', 'You do not have permission to delete this article.']]);
     // The recheck denial inside the transaction must leave an audit trail too
     // (mirrors the outer guard's access_denied audit).
     expect(auditCalls).toEqual([['access_denied', 'knowledge_article', 1, 'Unauthorized delete attempt on article (concurrent ownership change)']]);

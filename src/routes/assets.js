@@ -297,7 +297,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect('/assets/new');
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'An asset with this tag or serial number already exists');
+      req.flash('error', 'An asset with this tag already exists');
     } else {
       console.error('Asset create error:', err.message);
       req.flash('error', 'Error creating asset. Please try again.');
@@ -650,7 +650,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect(`/assets/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'An asset with this tag or serial number already exists');
+      req.flash('error', 'An asset with this tag already exists');
       return res.redirect(`/assets/${id}/edit`);
     } else {
       console.error('Asset update error:', err.message);

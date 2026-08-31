@@ -3,11 +3,12 @@
 
 <div class="page-header">
   <div><h2><%= staffUser.first_name %> <%= staffUser.last_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/staff">Staff</a> / <%= staffUser.first_name %> <%= staffUser.last_name %></div></div>
-  <% // Mirror the edit route's gate exactly: managers may only edit staff
-     // accounts (an admin can edit anyone). Rendering the button for a manager
-     // viewing an admin/manager profile — including their own — linked to a
-     // route that always denies, generating spurious access_denied audit noise. %>
-  <% if (user.role === 'admin' || staffUser.role === 'staff') { %>
+   <% // Only show the Edit button when the viewer has permission to actually
+      // use it: admins can edit anyone, managers can edit staff only.
+      // The original `staffUser.role === 'staff'` alone let any staff member
+      // see the button for every profile — fixed by requiring the viewer to
+      // be privileged in the first branch. %>
+   <% if (user.role === 'admin' || (user.role === 'manager' && staffUser.role === 'staff')) { %>
   <div class="flex gap-2">
     <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
   </div>

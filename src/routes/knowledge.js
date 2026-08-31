@@ -503,7 +503,7 @@ router.get('/:id/edit', kbReadLimiter, (req, res) => {
   const isOwner = Number(article.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
-    req.flash('error', 'You can only edit your own articles.');
+    req.flash('error', 'You do not have permission to edit this article.');
     return res.redirect(`/knowledge/${id}`);
   }
 
@@ -537,7 +537,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
-    req.flash('error', 'You can only edit your own articles.');
+    req.flash('error', 'You do not have permission to edit this article.');
     return res.redirect(`/knowledge/${id}`);
   }
 
@@ -655,7 +655,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article (concurrent ownership change)');
-      req.flash('error', 'You can only edit your own articles.');
+      req.flash('error', 'You do not have permission to edit this article.');
       return res.redirect(`/knowledge/${id}`);
     }
     console.error('Article update error:', err.message);
@@ -681,7 +681,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article');
-    req.flash('error', 'You can only delete your own articles.');
+    req.flash('error', 'You do not have permission to delete this article.');
     return res.redirect('/knowledge');
   }
 
@@ -715,7 +715,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   } catch (err) {
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
-      req.flash('error', 'You can only delete your own articles.');
+      req.flash('error', 'You do not have permission to delete this article.');
     } else {
       console.error('Article delete error:', err.message);
       req.flash('error', 'Error deleting article.');

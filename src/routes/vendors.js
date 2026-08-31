@@ -627,7 +627,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       return res.redirect('/vendors');
     }
     if (err.message === 'NAME_EXISTS') {
-      req.flash('error', 'Another vendor with this name already exists');
+      req.flash('error', 'A vendor with this name already exists');
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message === 'CONTRACT_END_BEFORE_START') {
