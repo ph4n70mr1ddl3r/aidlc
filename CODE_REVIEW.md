@@ -1,23 +1,27 @@
 # Code Review Notes
 
-**Date:** 2026-08-30
+**Date:** 2026-08-31
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (151 consecutive hardening commits) was
+Jest suite. Prior review history (152 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (152nd pass)
+## Review cycle (153rd pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
 modules, utils, constants, models, seed, app.js, all EJS views,
 `public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
 rate-limit, or error-leakage defects were found.** The codebase remains at a
-high hardening plateau; this pass confirms consistency across error messaging,
-redirect targets, access-gated links, and partial-update conventions. No
-changes are needed.
+high hardening plateau; this pass verified completeness across all list-page
+empty-state hints (all 9 list views carry the "adjust filters" hint), confirmed
+all badge mappings are centralized through `badgeClass()` with no hardcoded
+severity classes on enum values, and re-checked that no access-gated links
+leak through show-page sidebars (ticket/asset/project links in staff/show are
+safe because non-privileged users can only view their own profile). No changes
+are needed.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
