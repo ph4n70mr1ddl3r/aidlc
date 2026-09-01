@@ -4,8 +4,44 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (155 consecutive hardening commits) was
+Jest suite. Prior review history (156 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (157th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau. This pass verified completeness across all badge
+mappings (every enum value in `CONDITION_BADGE`, `CHANGE_TYPE_BADGE`,
+`ROLE_BADGE`, `MEMBER_ROLE_BADGE`, `KB_CATEGORY_BADGE`, and `LICENSE_TYPE_BADGE`
+is present — no hardcoded severity classes remain in templates), confirmed all
+9 list views carry the "adjust filters" empty-state hint, and re-checked that
+partial-update absent-field resolution is consistent across all 8 UPDATE routes
+(vendors.js, licenses.js, projects.js, and changes.js all use
+`resolveOptionalField`; knowledge.js intentionally omits it because its update
+route has no optional text fields — title/content/category are required, and
+status/is_featured have their own resolution helpers). One correctness defect
+was closed: two redirect targets in `staff.js` PUT /:id pointed to the edit
+page (`/staff/${id}/edit`) instead of the list page (`/staff`) on NOT_FOUND and
+ACCESS_DENIED_ADMIN, creating a confusing redirect loop when the target staff
+member no longer exists. Mirrors the convention used by every other route
+module (assets → `/assets`, tickets → `/tickets`, projects → `/projects`,
+vendors → `/vendors`, changes → `/changes`, licenses → `/licenses`). +2
+redirect fixes, 0 test changes.
+
+### Fixes applied
+
+**Correctness (redirect consistency on staff update)**
+- **`src/routes/staff.js` — NOT_FOUND catch redirects to edit page instead of list (LOW, consistency).** The outer pre-transaction check at line 464–468 correctly redirects to `/staff` on not-found; the inner transaction catch at line 577–579 redirected to `/staff/${id}/edit` instead. A non-existent staff member triggers a double-flash loop (edit page also says "not found", redirecting back to edit). Fixed to `/staff`, matching every other route module.
+- **`src/routes/staff.js` — ACCESS_DENIED_ADMIN catch redirects to edit page instead of list (LOW, consistency).** The outer pre-transaction check at line 485–487 correctly redirects to `/staff` for a non-admin user editing an admin/manager account; the inner transaction catch at line 581–587 redirected to `/staff/${id}/edit` instead. Fixed to `/staff`, matching the outer guard and every other route module.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
 
 ---
 

@@ -576,7 +576,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   } catch (err) {
     if (err.message === 'NOT_FOUND') {
       req.flash('error', 'Staff member not found');
-      return res.redirect(`/staff/${id}/edit`);
+      return res.redirect('/staff');
     }
     if (err.message === 'ACCESS_DENIED_ADMIN') {
       // Same condition as the outer check (non-admin editing a manager/admin
@@ -584,7 +584,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // misdescribe which guard fired.
       req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
       req.flash('error', 'You cannot modify administrator or manager accounts');
-      return res.redirect(`/staff/${id}/edit`);
+      return res.redirect('/staff');
     }
     if (err.message === 'ROLE_CHANGED') {
       req.flash('error', 'This account\'s role changed since the form was loaded. Please review and try again.');
