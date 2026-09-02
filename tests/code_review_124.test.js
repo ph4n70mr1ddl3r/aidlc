@@ -149,7 +149,7 @@ describe('staff routes — self-check uses Number() coercion (regression)', () =
       email: 'a@b.co', first_name: 'A', last_name: 'B', role: 'manager'
     }, { id: '1' }, { id: 1, role: 'admin' });
     expect(redirectCalls).toEqual(['/staff/1/edit']);
-    expect(errorFlash(flashCalls)).toBe('You cannot change your own role');
+    expect(errorFlash(flashCalls)).toBe('You cannot change your own role.');
   });
 
   it('password reset route rejects self-service when id is passed as a string', () => {
@@ -160,7 +160,7 @@ describe('staff routes — self-check uses Number() coercion (regression)', () =
       new_password: 'NewPass1!xyz', current_password: 'OldPass1!xyz'
     }, { id: '1' }, { id: 1, role: 'admin' });
     expect(redirectCalls).toEqual(['/staff/1']);
-    expect(errorFlash(flashCalls)).toBe('You cannot reset your own password via this route');
+    expect(errorFlash(flashCalls)).toBe('You cannot reset your own password via this route.');
   });
 
   it('deactivate route rejects self-deactivation when id is passed as a string', () => {

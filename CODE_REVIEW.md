@@ -4,8 +4,46 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (160 consecutive hardening commits) was
+Jest suite. Prior review history (161 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (162nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found. The application code remains at the same hardening
+plateau. Two consistency/completeness fixes were applied.
+
+### Fixes applied
+- **`src/routes/staff.js` — error-message trailing-period consistency (LOW, consistency).**
+  Four permission-denial flash messages in the staff route lacked trailing
+  periods while the cross-route convention (used by tickets.js, assets.js,
+  projects.js, changes.js, and knowledge.js) consistently appends one to
+  declarative denial sentences. Added trailing periods to:
+  `"You cannot modify administrator or manager accounts"` (edit route outer
+  guard, update route outer guard, and update route transactional guard) and
+  `"You cannot change your own role"` and `"You cannot reset your own password
+  via this route"`.
+- **`tests/code_review_124.test.js` — updated regression assertions.**
+  Bumped the expected flash messages in the self-role-change and self-password-
+  reset tests to match the corrected staff.js strings so the regression guards
+  stay in sync.
+- **`package.json` — `qs` overridden to `^6.16.0` (MEDIUM, security).**
+  Two moderate-severity CVEs in qs ≤ 6.15.3: array-limit bypass via bracket-key
+  comma parsing (GHSA-x5fp-wj9c-mxmx) and Denial of Service via attacker-
+  controlled isBuffer (GHSA-4mjr-xmp4-gh2g). Although this app uses the Express
+  "simple" query parser (which bypasses qs entirely), qs remains a transitive
+  dependency of body-parser/express. Lifting it to ^6.16.0 via the overrides
+  table eliminates both advisories and hardens the pipeline against future
+  configuration drift.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

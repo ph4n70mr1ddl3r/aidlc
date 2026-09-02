@@ -376,7 +376,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     // Audit the denial like the sibling knowledge edit route — a manager
     // probing the admin/manager edit form is a privilege boundary crossing.
     req.audit('access_denied', 'user', id, 'Unauthorized staff edit attempt');
-    req.flash('error', 'You cannot modify administrator or manager accounts');
+    req.flash('error', 'You cannot modify administrator or manager accounts.');
     return res.redirect('/staff');
   }
   res.render('pages/staff/form', { title: 'Edit Staff Member', staffMember: user, isEdit: true, viewerRole: req.session.user.role });
@@ -477,13 +477,13 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
   // Prevent admin from changing their own role (would lock themselves out)
   if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
-    req.flash('error', 'You cannot change your own role');
+    req.flash('error', 'You cannot change your own role.');
     return res.redirect(`/staff/${id}/edit`);
   }
   // Managers cannot edit or deactivate admin accounts, nor other managers
   // (only admins may manage manager accounts).
   if (req.session.user.role !== 'admin' && targetUser.role !== 'staff') {
-    req.flash('error', 'You cannot modify administrator or manager accounts');
+    req.flash('error', 'You cannot modify administrator or manager accounts.');
     return res.redirect('/staff');
   }
   // Preserve existing is_active on edit. Deactivation must go through the
@@ -590,7 +590,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // account) — keep the message identical so the race path does not
       // misdescribe which guard fired.
       req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
-      req.flash('error', 'You cannot modify administrator or manager accounts');
+      req.flash('error', 'You cannot modify administrator or manager accounts.');
       return res.redirect('/staff');
     }
     if (err.message === 'ROLE_CHANGED') {
@@ -705,7 +705,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   // Prevent admin from resetting own password via this route (use profile instead)
   if (Number(id) === Number(req.session.user.id)) {
-    req.flash('error', 'You cannot reset your own password via this route');
+    req.flash('error', 'You cannot reset your own password via this route.');
     return res.redirect(`/staff/${id}`);
   }
 
