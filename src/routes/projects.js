@@ -226,11 +226,11 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   }
 
   if (!status || !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect('/projects/new');
   }
   if (!priority || !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect('/projects/new');
   }
 
@@ -241,11 +241,11 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // value that fails to parse is an error. Mirrors the strict date validation
   // in changes.js (_resolveDateTimeField) and licenses.js.
   if (start_date !== undefined && start_date !== null && start_date !== '' && sStart === null) {
-    req.flash('error', 'Invalid start date');
+    req.flash('error', 'Invalid Start Date');
     return res.redirect('/projects/new');
   }
   if (end_date !== undefined && end_date !== null && end_date !== '' && sEnd === null) {
-    req.flash('error', 'Invalid end date');
+    req.flash('error', 'Invalid End Date');
     return res.redirect('/projects/new');
   }
   if (sStart && sEnd && sEnd < sStart) {
@@ -264,7 +264,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   } else {
     safeBudget = safePositiveFloat(budget, Infinity);
     if (!Number.isFinite(safeBudget)) {
-      req.flash('error', 'Invalid budget amount');
+      req.flash('error', 'Invalid Budget Amount');
       return res.redirect('/projects/new');
     }
   }
@@ -280,7 +280,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   } else {
     safeSpent = safePositiveFloat(spent, Infinity);
     if (!Number.isFinite(safeSpent)) {
-      req.flash('error', 'Invalid spent amount');
+      req.flash('error', 'Invalid Spent Amount');
       return res.redirect('/projects/new');
     }
   }
@@ -291,7 +291,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // store the project unassigned with no user feedback. Absent/empty values
   // legitimately mean "no owner".
   if (isPresentInvalidId(owner_id)) {
-    req.flash('error', 'Invalid owner');
+    req.flash('error', 'Invalid Owner');
     return res.redirect('/projects/new');
   }
   const safeOwnerId = owner_id ? safeId(owner_id) : null;
@@ -429,11 +429,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // A present-but-invalid status is rejected; an absent field means "keep what's stored."
   const statusProvided = !!status;
   if (statusProvided && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/projects/${id}/edit`);
   }
   if (priority && !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect(`/projects/${id}/edit`);
   }
   if (description && description.length > MAX_DESC) {
@@ -449,11 +449,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // value that fails to parse is an error. Mirrors the strict date validation
     // in changes.js (_resolveDateTimeField) and licenses.js.
     if (start_date !== undefined && start_date !== null && start_date !== '' && sStart === null) {
-      req.flash('error', 'Invalid start date');
+      req.flash('error', 'Invalid Start Date');
       return res.redirect(`/projects/${id}/edit`);
     }
     if (end_date !== undefined && end_date !== null && end_date !== '' && sEnd === null) {
-      req.flash('error', 'Invalid end date');
+      req.flash('error', 'Invalid End Date');
       return res.redirect(`/projects/${id}/edit`);
     }
     if (sStart && sEnd && sEnd < sStart) {
@@ -466,7 +466,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // wipe an existing assignment with no user feedback. Absent/empty values
     // legitimately mean "no owner".
     if (isPresentInvalidId(owner_id)) {
-      req.flash('error', 'Invalid owner');
+      req.flash('error', 'Invalid Owner');
       return res.redirect(`/projects/${id}/edit`);
     }
 
@@ -511,7 +511,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       } else {
         preservedSpent = safePositiveFloat(spent, Infinity);
         if (!Number.isFinite(preservedSpent)) {
-          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid amount spent' });
+          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid Amount Spent' });
         }
       }
       let preservedBudget;
@@ -522,7 +522,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       } else {
         preservedBudget = safePositiveFloat(budget, Infinity);
         if (!Number.isFinite(preservedBudget)) {
-          throw Object.assign(new Error('INVALID_BUDGET'), { flash: 'Invalid budget amount' });
+          throw Object.assign(new Error('INVALID_BUDGET'), { flash: 'Invalid Budget Amount' });
         }
       }
 
@@ -691,11 +691,11 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     return res.redirect(`/projects/${projectId}`);
   }
   if (status && !VALID_TASK_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid task status');
+    req.flash('error', 'Invalid Task Status');
     return res.redirect(`/projects/${projectId}`);
   }
   if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid task priority');
+    req.flash('error', 'Invalid Task Priority');
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -705,7 +705,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   // legitimately mean "unassigned" (mirrors the owner validation on this
   // resource and the assignee validation in tickets/changes/assets).
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -756,7 +756,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       return res.redirect(`/projects/${projectId}`);
     }
     if (err.message === 'INVALID_DUE_DATE') {
-      req.flash('error', 'Invalid due date');
+      req.flash('error', 'Invalid Due Date');
       return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task add error:', err.message);
@@ -799,7 +799,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     // status and reported "Status unchanged", mislabeling invalid input as a
     // valid no-op.
     if (typeof status !== 'string' || !VALID_TASK_STATUSES.includes(status)) {
-      req.flash('error', 'Invalid task status');
+      req.flash('error', 'Invalid Task Status');
       return res.redirect(`/projects/${projectId}`);
     }
     // Quick status update only — read current status and update atomically
@@ -896,11 +896,11 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // previously an absent status failed validation, rejecting a perfectly valid
   // partial PUT that only renamed a task.
   if (status && !VALID_TASK_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid task status');
+    req.flash('error', 'Invalid Task Status');
     return res.redirect(`/projects/${projectId}`);
   }
   if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid task priority');
+    req.flash('error', 'Invalid Task Priority');
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -910,7 +910,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // legitimately mean "unassigned" (mirrors the owner validation on this
   // resource and the assignee validation in tickets/changes/assets).
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect(`/projects/${projectId}`);
   }
 
@@ -1004,7 +1004,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       return res.redirect(`/projects/${projectId}`);
     }
     if (err.message === 'INVALID_DUE_DATE') {
-      req.flash('error', 'Invalid due date');
+      req.flash('error', 'Invalid Due Date');
       return res.redirect(`/projects/${projectId}`);
     }
     if (err.message === 'INVALID_DESCRIPTION') {
@@ -1084,13 +1084,13 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
   // valid user. Mirrors the owner/assignee guards everywhere else in the
   // codebase (tickets, assets, changes, and this file's owner/task routes).
   if (isPresentInvalidId(user_id)) {
-    req.flash('error', 'Invalid user');
+    req.flash('error', 'Invalid User');
     return res.redirect(`/projects/${id}`);
   }
   try {
     const safeUserId = safeId(user_id);
     if (!safeUserId) {
-      req.flash('error', 'Invalid user');
+      req.flash('error', 'Invalid User');
       return res.redirect(`/projects/${id}`);
     }
     // Fail closed on absent or invalid role — silent fallback to 'member' would
@@ -1098,7 +1098,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     // explicit intent. Consistent with the fail-closed enum pattern used everywhere
     // else in the route (e.g. task priority, ticket status, staff role).
     if (!role || !VALID_MEMBER_ROLES.includes(role)) {
-      req.flash('error', 'Invalid role');
+      req.flash('error', 'Invalid Role');
       return res.redirect(`/projects/${id}`);
     }
 

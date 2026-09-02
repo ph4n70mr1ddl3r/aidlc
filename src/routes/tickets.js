@@ -296,11 +296,11 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   }
 
   if (!VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect('/tickets/new');
   }
   if (!priority || !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect('/tickets/new');
   }
 
@@ -308,7 +308,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // instead of silently storing NULL — mirrors projects/assets/vendors/change-log.
   const safeDueDate = safeDate(due_date);
   if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
-    req.flash('error', 'Invalid due date');
+    req.flash('error', 'Invalid Due Date');
     return res.redirect('/tickets/new');
   }
 
@@ -317,11 +317,11 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // HPP array) instead of silently coercing them to NULL via safeId. Absent/
   // empty values legitimately mean "unassigned"/"no asset".
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect('/tickets/new');
   }
   if (isPresentInvalidId(asset_id)) {
-    req.flash('error', 'Invalid asset');
+    req.flash('error', 'Invalid Asset');
     return res.redirect('/tickets/new');
   }
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -577,15 +577,15 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // every other optional field on this route (assignee, asset, due date, PII,
   // description, resolution notes), all of which preserve on absence.
   if (category && !VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect(`/tickets/${id}/edit`);
   }
   if (priority && !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect(`/tickets/${id}/edit`);
   }
   if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/tickets/${id}/edit`);
   }
 
@@ -594,7 +594,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // field is edited — mirrors projects/assets/vendors/change-log.
   const safeDueDate = safeDate(due_date);
   if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
-    req.flash('error', 'Invalid due date');
+    req.flash('error', 'Invalid Due Date');
     return res.redirect(`/tickets/${id}/edit`);
   }
 
@@ -644,11 +644,11 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // would wipe an existing assignment/link with no user feedback. Absent/empty
   // values legitimately mean "unassigned"/"no asset".
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect(`/tickets/${id}/edit`);
   }
   if (isPresentInvalidId(asset_id)) {
-    req.flash('error', 'Invalid asset');
+    req.flash('error', 'Invalid Asset');
     return res.redirect(`/tickets/${id}/edit`);
   }
 
@@ -923,7 +923,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
   const status = safeQueryValue(req.body.status);
 
   if (typeof status !== 'string' || !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/tickets/${id}`);
   }
 
@@ -997,7 +997,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
   }
   const rating = safeInt(safeQueryValue(req.body.satisfaction_rating), 0);
   if (rating < 1 || rating > 5) {
-    req.flash('error', 'Invalid satisfaction rating');
+    req.flash('error', 'Invalid Satisfaction Rating');
     return res.redirect(`/tickets/${id}`);
   }
 

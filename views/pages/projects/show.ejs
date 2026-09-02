@@ -31,7 +31,7 @@
     <div class="flex items-center gap-2">
       <span class="text-sm"><strong>Progress: <%= project.progress || 0 %>%</strong></span>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= project.progress || 0 %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= project.progress || 0 %>%" style="flex:1;">
-        <div class="progress-fill <%= (project.progress || 0) >= 75 ? 'green' : (project.progress || 0) >= 50 ? 'blue' : (project.progress || 0) >= 25 ? 'orange' : 'red' %>" style="width:<%= project.progress || 0 %>%"></div>
+        <div class="progress-fill <%= (project.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (project.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (project.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= project.progress || 0 %>%"></div>
       </div>
       <% if (project.budget != null && project.budget > 0) { %>
         <span class="text-sm text-muted"><%= project.spent != null ? '$' + Number(project.spent).toLocaleString() : '-' %> / $<%= Number(project.budget).toLocaleString() %></span>
@@ -45,7 +45,7 @@
   <div class="card">
     <div class="card-header">
       <!-- "N+" when the 200-task cap was hit — the list is a capped subset. -->
-      <h3><i class="fas fa-tasks" style="margin-right:8px;color:var(--primary)"></i>Tasks (<%= tasks.length %><%= tasks.length >= 200 ? '+' : '' %>)</h3>
+      <h3><i class="fas fa-tasks" style="margin-right:8px;color:var(--primary)"></i>Tasks (<%= tasks.length %><%= tasks.length >= CONSTANTS.TASK_LIST_CAP ? '+' : '' %>)</h3>
     </div>
     <div class="card-body">
       <!-- Add Task -->
@@ -102,7 +102,7 @@
   <div>
     <div class="card mb-2">
       <div class="card-header">      <!-- "N+" when the 100-member cap was hit — the list is a capped subset. -->
-      <h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %><%= members.length >= 100 ? '+' : '' %>)</h3></div>
+      <h3><i class="fas fa-users" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %><%= members.length >= CONSTANTS.MEMBER_LIST_CAP ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% if (isPrivileged(user)) { %>
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">

@@ -305,7 +305,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // compare to avoid reintroducing a timing oracle. An oversized username or
   // password cannot match, so rejecting here is fail-closed.
   if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES || safeUsername.length > MAX_USERNAME) {
-    req.flash('error', 'Invalid username or password');
+    req.flash('error', 'Invalid Username Or Password');
     return res.redirect('/login');
   }
 
@@ -314,7 +314,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // ~200-300ms as a live-account wrong-password response.
   if (checkAccountLockout(safeUsername) || checkIpLockout(clientIp)) {
     audit({ req, action: 'login_blocked', entity: 'user', entityId: null, details: `Login blocked for username: ${safeUsername} (account or IP lockout)` });
-    req.flash('error', 'Invalid username or password');
+    req.flash('error', 'Invalid Username Or Password');
     return res.redirect('/login');
   }
 
@@ -322,7 +322,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     recordLoginFailure(safeUsername, clientIp);
     // Audit failed login attempt (user may not exist, use username as entityId substitute)
     audit({ req, action: 'login_failed', entity: 'user', entityId: user ? user.id : null, details: `Failed login for username: ${safeUsername}` });
-    req.flash('error', 'Invalid username or password');
+    req.flash('error', 'Invalid Username Or Password');
     return res.redirect('/login');
   }
 
@@ -550,7 +550,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   // Reject excessively long / non-string current password to prevent bcrypt DoS
   // and silent 72-byte truncation.
   if (typeof current_password !== 'string' || Buffer.byteLength(current_password, 'utf8') > MAX_PASSWORD_BYTES) {
-    req.flash('error', 'Invalid current password');
+    req.flash('error', 'Invalid Current Password');
     return res.redirect('/profile');
   }
 

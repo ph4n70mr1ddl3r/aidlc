@@ -123,9 +123,9 @@
               <span class="text-sm"><%= s.name %></span>
               <span class="text-sm text-muted"><%= s.open_tickets %> tickets</span>
             </div>
-            <div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(s.open_tickets * 15, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.open_tickets %> open tickets" >
-              <div class="progress-fill <%= s.open_tickets > 5 ? 'red' : s.open_tickets > 3 ? 'orange' : 'green' %>" 
-                   style="width: <%= Math.min(s.open_tickets * 15, 100) %>%"></div>
+            <div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(s.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.open_tickets %> open tickets" >
+              <div class="progress-fill <%= s.open_tickets > CONSTANTS.WORKLOAD_RED_THRESHOLD ? 'red' : s.open_tickets > CONSTANTS.WORKLOAD_ORANGE_THRESHOLD ? 'orange' : 'green' %>"
+                   style="width: <%= Math.min(s.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>%"></div>
             </div>
           </div>
         <% }) } %>

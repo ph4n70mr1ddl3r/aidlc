@@ -104,7 +104,7 @@ describe('assets update — present-but-invalid status is rejected', () => {
       asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: 'in-use'
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/assets/1/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid status');
+    expect(errorFlash(flashCalls)).toBe('Invalid Status');
     const db = jest.requireMock('../src/models/database');
     expect(db.prepare().run).not.toHaveBeenCalled();
   });
@@ -138,14 +138,14 @@ describe('projects member add — malformed user_id is rejected, not parseInt-co
       user_id: '5abc', role: 'member'
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/projects/1']);
-    expect(errorFlash(flashCalls)).toBe('Invalid user');
+    expect(errorFlash(flashCalls)).toBe('Invalid User');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 
   it('still rejects a missing user_id', () => {
     const h = lastHandlerFor(projectsRouter, 'post', '/:id/members');
     const { flashCalls } = runHandler(h, { role: 'member' }, { id: '1' });
-    expect(errorFlash(flashCalls)).toBe('Invalid user');
+    expect(errorFlash(flashCalls)).toBe('Invalid User');
   });
 });
 
@@ -163,7 +163,7 @@ describe('projects task quick-status — invalid status is rejected, not reporte
       _quick_status: '1', status: 'bogus'
     }, { projectId: '1', taskId: '2' });
     expect(redirectCalls).toEqual(['/projects/1']);
-    expect(errorFlash(flashCalls)).toBe('Invalid task status');
+    expect(errorFlash(flashCalls)).toBe('Invalid Task Status');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 });
@@ -235,7 +235,7 @@ describe('vendors — JSON non-string optional fields fail closed', () => {
     const h = lastHandlerFor(vendorsRouter, 'post', '/');
     const { redirectCalls, flashCalls } = runHandler(h, { name: 'Acme', contract_start: 0 });
     expect(redirectCalls).toEqual(['/vendors/new']);
-    expect(errorFlash(flashCalls)).toBe('Invalid contract start date');
+    expect(errorFlash(flashCalls)).toBe('Invalid Contract Start Date');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 

@@ -290,7 +290,7 @@ describe('project task full-update preserves an absent status (regression)', () 
 
   it('a rename-only PUT keeps the stored done status and completion timestamp flag', () => {
     // Regression: the full-update route required `status`, so a valid partial
-    // PUT that only renamed a task failed with "Invalid task status" — and a
+    // PUT that only renamed a task failed with "Invalid Task Status" — and a
     // naive fix would have clobbered completed_at via the status flag.
     jest.isolateModules(() => {
       const router = require('../src/routes/projects');

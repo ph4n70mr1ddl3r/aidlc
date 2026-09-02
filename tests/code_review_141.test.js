@@ -155,7 +155,7 @@ describe('tickets update — enum fields preserve on absence (regression)', () =
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid status');
+      expect(errorFlash(flashCalls)).toBe('Invalid Status');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });
@@ -221,7 +221,7 @@ describe('projects create — spent is stored, not silently dropped (regression)
         {}, { id: 1, role: 'admin' }, 'POST'
       );
       lastHandlerFor(router, 'post', '/')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid spent amount');
+      expect(errorFlash(flashCalls)).toBe('Invalid Spent Amount');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });
@@ -291,7 +291,7 @@ describe('changes update — non-string priority is rejected (regression)', () =
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid priority');
+      expect(errorFlash(flashCalls)).toBe('Invalid Priority');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });

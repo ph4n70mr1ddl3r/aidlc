@@ -281,7 +281,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect('/vendors/new');
   }
   const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
@@ -295,11 +295,11 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // checks (not truthiness) so a falsy non-string JSON value (0/false) is also
   // rejected, matching the update route's _resolveClearableDate semantics.
   if (contract_start !== undefined && contract_start !== null && contract_start !== '' && sContractStart === null) {
-    req.flash('error', 'Invalid contract start date');
+    req.flash('error', 'Invalid Contract Start Date');
     return res.redirect('/vendors/new');
   }
   if (contract_end !== undefined && contract_end !== null && contract_end !== '' && sContractEnd === null) {
-    req.flash('error', 'Invalid contract end date');
+    req.flash('error', 'Invalid Contract End Date');
     return res.redirect('/vendors/new');
   }
   if (sContractStart && sContractEnd && sContractEnd < sContractStart) {
@@ -481,7 +481,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect(`/vendors/${id}/edit`);
   }
 
@@ -493,11 +493,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // sibling update routes (assets, projects, licenses). An empty contract date
   // is still allowed to fall back to the stored value.
   if (contract_start !== undefined && contract_start !== null && contract_start !== '' && sContractStart === null) {
-    req.flash('error', 'Invalid contract start date');
+    req.flash('error', 'Invalid Contract Start Date');
     return res.redirect(`/vendors/${id}/edit`);
   }
   if (contract_end !== undefined && contract_end !== null && contract_end !== '' && sContractEnd === null) {
-    req.flash('error', 'Invalid contract end date');
+    req.flash('error', 'Invalid Contract End Date');
     return res.redirect(`/vendors/${id}/edit`);
   }
 
@@ -525,31 +525,43 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // If the field was absent (partial submission), preserve the existing value.
       // Uses resolveOptionalField (shared from utils.js) to eliminate 8-way
       // duplication of the raw-undefined check pattern.
-      const safeContactPerson = resolveOptionalField(req.body.contact_person, contact_person || null, MAX_SHORT_STR, existing.contact_person);
+      // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
+      // text field (partial submission — preserve stored value) from an explicit
+      // empty string (clear the field). trim() collapses undefined to '', so the raw
+      // values are captured here for the resolveOptionalField resolution inside the
+      // transaction. Mirrors the raw-vs-processed split in assets.js and licenses.js.
+      const rawContactPerson = req.body.contact_person;
+      const safeContactPerson = resolveOptionalField(rawContactPerson, contact_person || null, MAX_SHORT_STR, existing.contact_person);
       if (safeContactPerson && safeContactPerson.error) {
         throw new Error('INVALID_CONTACT_PERSON');
       }
-      const safeEmail = resolveOptionalField(req.body.email, email || null, MAX_EMAIL, existing.email);
+      const rawEmail = req.body.email;
+      const safeEmail = resolveOptionalField(rawEmail, email || null, MAX_EMAIL, existing.email);
       if (safeEmail && safeEmail.error) {
         throw new Error('INVALID_EMAIL');
       }
-      const safePhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, existing.phone);
+      const rawVendorPhone = req.body.phone;
+      const safePhone = resolveOptionalField(rawVendorPhone, phone || null, MAX_PHONE, existing.phone);
       if (safePhone && safePhone.error) {
         throw new Error('INVALID_PHONE');
       }
-      const safeAddress = resolveOptionalField(req.body.address, address || null, MAX_ADDRESS, existing.address);
+      const rawAddress = req.body.address;
+      const safeAddress = resolveOptionalField(rawAddress, address || null, MAX_ADDRESS, existing.address);
       if (safeAddress && safeAddress.error) {
         throw new Error('INVALID_ADDRESS');
       }
-      const safeWebsite = resolveOptionalField(req.body.website, website || null, MAX_LONG_STR, existing.website);
+      const rawWebsite = req.body.website;
+      const safeWebsite = resolveOptionalField(rawWebsite, website || null, MAX_LONG_STR, existing.website);
       if (safeWebsite && safeWebsite.error) {
         throw new Error('INVALID_WEBSITE');
       }
-      const safeCategory = resolveOptionalField(req.body.category, category || null, null, existing.category);
+      const rawCat = req.body.category;
+      const safeCategory = resolveOptionalField(rawCat, category || null, null, existing.category);
       if (safeCategory && safeCategory.error) {
         throw new Error('INVALID_CATEGORY');
       }
-      const safeNotes = resolveOptionalField(req.body.notes, notes || null, MAX_NOTES, existing.notes);
+      const rawNotes = req.body.notes;
+      const safeNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, existing.notes);
       if (safeNotes && safeNotes.error) {
         throw new Error('INVALID_NOTES');
       }
@@ -637,11 +649,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     // Handle contract date errors with the same message format as the create route
     // (sentence case, including "date") for consistency.
     if (err.message === 'INVALID_CONTRACT_START') {
-      req.flash('error', 'Invalid contract start date');
+      req.flash('error', 'Invalid Contract Start Date');
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message === 'INVALID_CONTRACT_END') {
-      req.flash('error', 'Invalid contract end date');
+      req.flash('error', 'Invalid Contract End Date');
       return res.redirect(`/vendors/${id}/edit`);
     }
     if (err.message.startsWith('INVALID_')) {

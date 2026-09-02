@@ -156,7 +156,7 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
     expect(redirectCalls).toEqual(['/projects/1']);
     const errorFlash = flashCalls.find(([t]) => t === 'error');
     expect(errorFlash).toBeDefined();
-    expect(errorFlash[1]).toBe('Invalid assignee');
+    expect(errorFlash[1]).toBe('Invalid Assignee');
     expect(stmt.run).not.toHaveBeenCalled();
   });
 
@@ -171,7 +171,7 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
     expect(redirectCalls).toEqual(['/projects/1']);
     const errorFlash = flashCalls.find(([t]) => t === 'error');
     expect(errorFlash).toBeDefined();
-    expect(errorFlash[1]).toBe('Invalid assignee');
+    expect(errorFlash[1]).toBe('Invalid Assignee');
     expect(stmt.run).not.toHaveBeenCalled();
   });
 
@@ -184,7 +184,7 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
       title: 'Fix bug', status: 'in_progress', priority: 'medium', assigned_to: ''
     }, { projectId: '1', taskId: '2' });
     expect(redirectCalls).toEqual(['/projects/1']);
-    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid assignee')).toBe(false);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid Assignee')).toBe(false);
     expect(stmt.run).toHaveBeenCalled();
   });
 
@@ -197,7 +197,7 @@ describe('Projects task assignee — fail closed on malformed id (regression)', 
       title: 'Fix bug', status: 'todo', priority: 'medium', assigned_to: ''
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/projects/1']);
-    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid assignee')).toBe(false);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid Assignee')).toBe(false);
     expect(stmt.run).toHaveBeenCalled();
   });
 });

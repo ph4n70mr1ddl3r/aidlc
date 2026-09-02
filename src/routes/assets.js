@@ -199,16 +199,16 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   }
 
   if (!VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect('/assets/new');
   }
   const safeStatus = status || 'in_storage';
   if (!VALID_STATUSES.includes(safeStatus)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect('/assets/new');
   }
   if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
-    req.flash('error', 'Invalid condition rating');
+    req.flash('error', 'Invalid Condition Rating');
     return res.redirect('/assets/new');
   }
   const safeCondition = condition_rating || 'good';
@@ -224,11 +224,11 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // default-to-NULL bug fixed for the assets UPDATE path (11th pass) and for
   // projects.js (8th pass). An empty date is still allowed (falls back to NULL).
   if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
-    req.flash('error', 'Invalid purchase date');
+    req.flash('error', 'Invalid Purchase Date');
     return res.redirect('/assets/new');
   }
   if (warranty_expiry !== undefined && warranty_expiry !== null && warranty_expiry !== '' && sWarranty === null) {
-    req.flash('error', 'Invalid warranty expiry date');
+    req.flash('error', 'Invalid Warranty Expiry Date');
     return res.redirect('/assets/new');
   }
   if (sPurchase && sWarranty && sWarranty < sPurchase) {
@@ -245,7 +245,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // Mirrors the assets UPDATE path (11th pass) and licenses create (9th pass).
   if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
       !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
-    req.flash('error', 'Invalid purchase price');
+    req.flash('error', 'Invalid Purchase Price');
     return res.redirect('/assets/new');
   }
 
@@ -259,7 +259,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // asset unassigned with no user feedback. Absent/empty values legitimately
   // mean "unassigned".
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect('/assets/new');
   }
   const createAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -455,11 +455,11 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     }
   }
   if (!VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
-    req.flash('error', 'Invalid condition rating');
+    req.flash('error', 'Invalid Condition Rating');
     return res.redirect(`/assets/${id}/edit`);
   }
   // A present-but-invalid status is rejected; an absent/empty field means
@@ -467,7 +467,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // projects.js update convention — previously an invalid status was silently
   // swallowed here and reported as a successful update.
   if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/assets/${id}/edit`);
   }
 
@@ -478,7 +478,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // transaction, TOCTOU-safe, mirroring licenses.js / projects.js).
   if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
       !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
-    req.flash('error', 'Invalid purchase price');
+    req.flash('error', 'Invalid Purchase Price');
     return res.redirect(`/assets/${id}/edit`);
   }
 
@@ -491,11 +491,11 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // exact malformed-date default-to-NULL bug fixed for projects.js. An empty
   // date is still allowed to fall back to the existing stored value.
   if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
-    req.flash('error', 'Invalid purchase date');
+    req.flash('error', 'Invalid Purchase Date');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (warranty_expiry !== undefined && warranty_expiry !== null && warranty_expiry !== '' && sWarranty === null) {
-    req.flash('error', 'Invalid warranty expiry date');
+    req.flash('error', 'Invalid Warranty Expiry Date');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (sPurchase && sWarranty && sWarranty < sPurchase) {
@@ -508,7 +508,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // instead of silently coercing it to NULL via safeId, which would wipe an
   // existing assignment with no user feedback (mirrors the create route).
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect(`/assets/${id}/edit`);
   }
 

@@ -374,12 +374,12 @@ router.post('/', kbWriteLimiter, (req, res) => {
   }
 
   if (!VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect('/knowledge/new');
   }
 
   if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect('/knowledge/new');
   }
 
@@ -580,12 +580,12 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   }
 
   if (!VALID_CATEGORIES.includes(category)) {
-    req.flash('error', 'Invalid category');
+    req.flash('error', 'Invalid Category');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
   if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 

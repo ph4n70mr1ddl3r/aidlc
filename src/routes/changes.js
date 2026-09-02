@@ -190,15 +190,15 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
 
   if (!VALID_CHANGE_TYPES.includes(change_type)) {
-    req.flash('error', 'Invalid change type');
+    req.flash('error', 'Invalid Change Type');
     return res.redirect('/changes/new');
   }
   if (!status || !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect('/changes/new');
   }
   if (priority && !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect('/changes/new');
   }
   const safePriority = priority || 'medium';
@@ -210,12 +210,12 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // a silently-dropped date.
   const sStartRes = _resolveDateTimeField(scheduled_start, null);
   if (sStartRes.error) {
-    req.flash('error', 'Invalid scheduled start date');
+    req.flash('error', 'Invalid Scheduled Start Date');
     return res.redirect('/changes/new');
   }
   const sEndRes = _resolveDateTimeField(scheduled_end, null);
   if (sEndRes.error) {
-    req.flash('error', 'Invalid scheduled end date');
+    req.flash('error', 'Invalid Scheduled End Date');
     return res.redirect('/changes/new');
   }
   const sStart = sStartRes.value;
@@ -231,7 +231,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // store the change unassigned with no user feedback. Absent/empty values
   // legitimately mean "unassigned".
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect('/changes/new');
   }
   const safeAssignee = assigned_to ? safeId(assigned_to) : null;
@@ -358,7 +358,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     return res.redirect(`/changes/${id}/edit`);
   }
   if (!VALID_CHANGE_TYPES.includes(change_type)) {
-    req.flash('error', 'Invalid change type');
+    req.flash('error', 'Invalid Change Type');
     return res.redirect(`/changes/${id}/edit`);
   }
   // A present-but-invalid status is rejected; an absent/empty field means
@@ -367,11 +367,11 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // block empty submissions client-side, but API callers can hit this route
   // directly and must be handled correctly here.
   if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid status');
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/changes/${id}/edit`);
   }
   if (priority && !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect(`/changes/${id}/edit`);
   }
   // Fail closed on a present-but-non-string priority (e.g. a JSON number):
@@ -381,7 +381,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // text fields on this route (sentinel-rejected). Absent/empty is allowed
   // (falls back to the stored value / create default).
   if (req.body.priority !== undefined && req.body.priority !== null && req.body.priority !== '' && typeof req.body.priority !== 'string') {
-    req.flash('error', 'Invalid priority');
+    req.flash('error', 'Invalid Priority');
     return res.redirect(`/changes/${id}/edit`);
   }
 
@@ -391,7 +391,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // wipe an existing assignment with no user feedback. Absent/empty values
   // legitimately mean "unassigned".
   if (isPresentInvalidId(assigned_to)) {
-    req.flash('error', 'Invalid assignee');
+    req.flash('error', 'Invalid Assignee');
     return res.redirect(`/changes/${id}/edit`);
   }
 

@@ -234,7 +234,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // Reject non-string / excessively long passwords early to prevent bcrypt DoS
   // and silent 72-byte truncation.
   if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES) {
-    req.flash('error', 'Invalid password');
+    req.flash('error', 'Invalid Password');
     return res.redirect('/staff/new');
   }
   if (!isValidUsername(username)) {
@@ -271,7 +271,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
   if (!USER_ROLES.includes(role)) {
-    req.flash('error', 'Invalid role');
+    req.flash('error', 'Invalid Role');
     return res.redirect('/staff/new');
   }
 
@@ -453,7 +453,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   }
   const safeRole = trim(safeQueryValue(req.body.role));
   if (!USER_ROLES.includes(safeRole)) {
-    req.flash('error', 'Invalid role');
+    req.flash('error', 'Invalid Role');
     return res.redirect(`/staff/${id}/edit`);
   }
 
@@ -527,11 +527,18 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // other route's update handlers. An explicit empty string in the edit form
       // still CLEARS the field (null). Present non-string values were already
       // rejected above (fail closed), so the error sentinels below are defensive.
-      const resolvedDepartment = resolveOptionalField(req.body.department, department || null, MAX_SHORT_STR, recheck.department);
+      // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
+      // text field (partial submission — preserve stored value) from an explicit
+      // empty string (clear the field). trim() collapses undefined to '', so the raw
+      // values are captured here for the resolveOptionalField resolution inside the
+      // transaction. Mirrors the raw-vs-processed split in assets.js and vendors.js.
+      const rawDept = req.body.department;
+      const resolvedDepartment = resolveOptionalField(rawDept, department || null, MAX_SHORT_STR, recheck.department);
       if (resolvedDepartment && resolvedDepartment.error) {
         throw new Error('INVALID_DEPARTMENT');
       }
-      const resolvedPhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, recheck.phone);
+      const rawStaffPhone = req.body.phone;
+      const resolvedPhone = resolveOptionalField(rawStaffPhone, phone || null, MAX_PHONE, recheck.phone);
       if (resolvedPhone && resolvedPhone.error) {
         throw new Error('INVALID_PHONE');
       }

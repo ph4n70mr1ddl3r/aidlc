@@ -122,6 +122,24 @@ const MAX_PAGE = 5000;            // maximum allowed page number to prevent exce
 const DEFAULT_PAGE_SIZE = 25;     // default rows per page (overridable via PAGE_SIZE env, max MAX_PAGE_SIZE)
 const MAX_PAGE_SIZE = 100;        // hard cap on page size to prevent resource exhaustion
 
+// ---------------------------------------------------------------------------
+// View-level rendering constants — centralized so EJS templates share the same
+// single source of truth instead of duplicating magic numbers across templates.
+// Mirrors the convention of the badge mappings above: static render thresholds
+// that affect visual output but have no route/validation semantics.
+// ---------------------------------------------------------------------------
+const DESC_TRUNCATION_LEN = 120;                       // max chars before truncating project descriptions in list views
+const PROGRESS_GREEN_THRESHOLD = 75;                   // progress bar turns green at or above this %
+const PROGRESS_BLUE_THRESHOLD = 50;                    // progress bar turns blue at or above this %
+const PROGRESS_ORANGE_THRESHOLD = 25;                  // progress bar turns orange at or above this %
+const WORKLOAD_MULTIPLIER = 15;                        // factor multiplied against open-ticket count for workload bar width %
+const WORKLOAD_RED_THRESHOLD = 5;                      // workload bar turns red above this many open tickets
+const WORKLOAD_ORANGE_THRESHOLD = 3;                   // workload bar turns orange above this many open tickets
+const COMMENT_LIST_CAP = 500;                          // max comments rendered in ticket show sidebar
+const ASSIGNED_ITEMS_CAP = 10;                         // max assigned tickets/tasks shown in staff show sidebar
+const TASK_LIST_CAP = 200;                             // max tasks rendered in project show page
+const MEMBER_LIST_CAP = 100;                           // max members rendered in project show page
+
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
   TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES,
@@ -139,5 +157,9 @@ module.exports = {
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
-  KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE
+  KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
+  DESC_TRUNCATION_LEN,
+  PROGRESS_GREEN_THRESHOLD, PROGRESS_BLUE_THRESHOLD, PROGRESS_ORANGE_THRESHOLD,
+  WORKLOAD_MULTIPLIER, WORKLOAD_RED_THRESHOLD, WORKLOAD_ORANGE_THRESHOLD,
+  COMMENT_LIST_CAP, ASSIGNED_ITEMS_CAP, TASK_LIST_CAP, MEMBER_LIST_CAP
 };

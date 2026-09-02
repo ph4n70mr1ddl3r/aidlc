@@ -197,7 +197,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
-    req.flash('error', 'Invalid license type');
+    req.flash('error', 'Invalid License Type');
     return res.redirect('/licenses/new');
   }
 
@@ -210,7 +210,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   } else {
     safeCost = safePositiveFloat(cost, Infinity);
     if (!Number.isFinite(safeCost)) {
-      req.flash('error', 'Invalid cost amount');
+      req.flash('error', 'Invalid Cost Amount');
       return res.redirect('/licenses/new');
     }
   }
@@ -227,11 +227,11 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
   if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
-    req.flash('error', 'Invalid purchase date');
+    req.flash('error', 'Invalid Purchase Date');
     return res.redirect('/licenses/new');
   }
   if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '' && sExpiry === null) {
-    req.flash('error', 'Invalid expiry date');
+    req.flash('error', 'Invalid Expiry Date');
     return res.redirect('/licenses/new');
   }
   if (sPurchase && sExpiry && sExpiry < sPurchase) {
@@ -386,7 +386,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
-    req.flash('error', 'Invalid license type');
+    req.flash('error', 'Invalid License Type');
     return res.redirect(`/licenses/${id}/edit`);
   }
 
@@ -397,7 +397,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   if (cost !== undefined && cost !== null && cost !== '') {
     const _costCheck = safePositiveFloat(cost, Infinity);
     if (!Number.isFinite(_costCheck)) {
-      req.flash('error', 'Invalid cost amount');
+      req.flash('error', 'Invalid Cost Amount');
       return res.redirect(`/licenses/${id}/edit`);
     }
   }
@@ -408,11 +408,11 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const sPurchase = safeDate(purchase_date);
   const sExpiry = safeDate(expiry_date);
   if (purchase_date !== undefined && purchase_date !== null && purchase_date !== '' && sPurchase === null) {
-    req.flash('error', 'Invalid purchase date');
+    req.flash('error', 'Invalid Purchase Date');
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (expiry_date !== undefined && expiry_date !== null && expiry_date !== '' && sExpiry === null) {
-    req.flash('error', 'Invalid expiry date');
+    req.flash('error', 'Invalid Expiry Date');
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (sPurchase && sExpiry && sExpiry < sPurchase) {
