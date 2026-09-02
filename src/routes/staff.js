@@ -816,7 +816,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
 
   // Prevent admin from deactivating themselves
   if (Number(id) === Number(req.session.user.id)) {
-    req.flash('error', 'You cannot deactivate your own account');
+    req.flash('error', 'You cannot deactivate your own account.');
     return res.redirect('/staff');
   }
 

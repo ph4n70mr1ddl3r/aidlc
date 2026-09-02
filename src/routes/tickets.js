@@ -367,7 +367,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       return res.redirect('/tickets/new');
     }
     if (err.message === 'ASSET_NOT_FOUND') {
-      req.flash('error', 'Selected asset does not exist.');
+      req.flash('error', 'Selected asset does not exist');
       return res.redirect('/tickets/new');
     }
     console.error('Ticket create error:', err.message);
@@ -785,7 +785,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       return res.redirect(`/tickets/${id}/edit`);
     }
     if (err.message === 'ASSET_NOT_FOUND') {
-      req.flash('error', 'Selected asset does not exist.');
+      req.flash('error', 'Selected asset does not exist');
       return res.redirect(`/tickets/${id}/edit`);
     }
     // Map the resolveOptionalField sentinels (INVALID_DESCRIPTION,

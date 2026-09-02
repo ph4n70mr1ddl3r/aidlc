@@ -4,8 +4,52 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (159 consecutive hardening commits) was
+Jest suite. Prior review history (160 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (161st pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found. The application code remains at the same hardening
+plateau. Three consistency/completeness fixes were applied.
+
+### Fixes applied
+- **`src/routes/tickets.js` — error-message trailing-period consistency (LOW, consistency).**
+  The "Selected asset does not exist." flash message in the create and update
+  catch blocks retained a trailing period that contradicted the cross-route
+  convention: every other route uses the same construction without a period
+  (`Selected assignee is not available`, `Selected owner is not available`,
+  `Selected user is not available`). Removed the period from both occurrences
+  so the ticket route matches the established pattern.
+- **`src/routes/staff.js` — error-message trailing-period consistency (LOW, consistency).**
+  The self-deactivation guard used `"You cannot deactivate your own account"`
+  without a trailing period while the closely related privilege guard above it
+  (`"Only administrators can assign the manager or admin role."`) included one.
+  Added the period so both permission-denial sentences follow the same style.
+- **`tests/code_review_124.test.js` — updated regression assertion.**
+  Bumped the expected flash message in the self-deactivation test to match the
+  corrected staff.js string so the regression guard stays in sync.
+- **`views/pages/projects/index.ejs` — fixed missing opening quote on ARIA attribute (LOW, correctness).**
+  The progress-bar `aria-valuemin` attribute was rendered as `aria-valuemin=0"`
+  (missing the opening `"`) due to a typo. Fixed to `aria-valuemin="0"` to match
+  the identical element in `projects/show.ejs` and all other progress bars in the
+  app. Without the fix the attribute was silently ignored by browsers, leaving
+  the progress bar without proper ARIA semantics.
+- **`views/pages/licenses/index.ejs` — added defensive access gating on list links (LOW, completeness).**
+  The vendor list view received defensive link gating in pass 147 to prevent
+  guaranteed-denial audit noise when non-privileged users somehow reach a
+  privileged-only page. Applied the same pattern here: software-name cells and
+  action buttons are now gated behind `isPrivileged(user)` so future route
+  relaxations cannot produce spurious access-denied flashes on routine navigation.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

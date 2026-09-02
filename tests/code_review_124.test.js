@@ -169,6 +169,6 @@ describe('staff routes — self-check uses Number() coercion (regression)', () =
     const h = lastHandlerFor(staffRouter, 'delete', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, {}, { id: '1' }, { id: 1, role: 'admin' });
     expect(redirectCalls).toEqual(['/staff']);
-    expect(errorFlash(flashCalls)).toBe('You cannot deactivate your own account');
+    expect(errorFlash(flashCalls)).toBe('You cannot deactivate your own account.');
   });
 });
