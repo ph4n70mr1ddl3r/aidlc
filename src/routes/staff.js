@@ -208,7 +208,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // trim() coerces it to '', which would silently store NULL — the same
   // fail-closed convention applied to phone below.
   if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
-    req.flash('error', 'Invalid department');
+    req.flash('error', 'Invalid Department');
     return res.redirect('/staff/new');
   }
   const rawPhone = safeQueryValue(req.body.phone);
@@ -405,7 +405,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // trim() coerces it to '', which would silently clear the stored department
   // on update — the same fail-closed convention applied to phone below.
   if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
-    req.flash('error', 'Invalid department');
+    req.flash('error', 'Invalid Department');
     return res.redirect(`/staff/${id}/edit`);
   }
   const rawPhone = safeQueryValue(req.body.phone);
@@ -595,7 +595,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // message instead of the generic server-error flash, matching the INVALID_
     // mapping in vendors.js / licenses.js.
     if (err.message === 'INVALID_DEPARTMENT') {
-      req.flash('error', 'Invalid department');
+      req.flash('error', 'Invalid Department');
       return res.redirect(`/staff/${id}/edit`);
     }
     if (err.message === 'INVALID_PHONE') {

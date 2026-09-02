@@ -186,22 +186,22 @@ describe('changes update — JSON non-string description is rejected instead of 
     });
   });
 
-  it('rejects {"description": 123} with "Invalid description" and no UPDATE', () => {
+  it('rejects {"description": 123} with "Invalid Description" and no UPDATE', () => {
     const h = lastHandlerFor(changesRouter, 'put', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, {
       title: 'Title', change_type: 'maintenance', status: 'scheduled', description: 123
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/changes/1/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid description');
+    expect(errorFlash(flashCalls)).toBe('Invalid Description');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 
-  it('rejects {"impact": {}} with "Invalid impact" and no UPDATE', () => {
+  it('rejects {"impact": {}} with "Invalid Impact" and no UPDATE', () => {
     const h = lastHandlerFor(changesRouter, 'put', '/:id');
     const { flashCalls } = runHandler(h, {
       title: 'Title', change_type: 'maintenance', status: 'scheduled', impact: { a: 1 }
     }, { id: '1' });
-    expect(errorFlash(flashCalls)).toBe('Invalid impact');
+    expect(errorFlash(flashCalls)).toBe('Invalid Impact');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 });
@@ -259,13 +259,13 @@ describe('staff update — non-string department is rejected instead of clearing
     db.prepare().run.mockClear();
   });
 
-  it('rejects {"department": 5} with "Invalid department" and no UPDATE', () => {
+  it('rejects {"department": 5} with "Invalid Department" and no UPDATE', () => {
     const h = lastHandlerFor(staffRouter, 'put', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, {
       email: 'a@b.co', first_name: 'A', last_name: 'B', role: 'staff', department: 5
     }, { id: '2' });
     expect(redirectCalls).toEqual(['/staff/2/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid department');
+    expect(errorFlash(flashCalls)).toBe('Invalid Department');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 
@@ -275,7 +275,7 @@ describe('staff update — non-string department is rejected instead of clearing
       username: 'newuser1', password: 'ValidPass1!xyz', email: 'a@b.co',
       first_name: 'A', last_name: 'B', role: 'staff', department: 5
     });
-    expect(errorFlash(flashCalls)).toBe('Invalid department');
+    expect(errorFlash(flashCalls)).toBe('Invalid Department');
   });
 });
 

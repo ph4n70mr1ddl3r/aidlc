@@ -608,7 +608,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       return res.redirect(`/projects/${id}/edit`);
     }
     if (err.message === 'INVALID_DESCRIPTION') {
-      req.flash('error', 'Invalid description');
+      req.flash('error', 'Invalid Description');
       return res.redirect(`/projects/${id}/edit`);
     }
     console.error('Project update error:', err.message);
@@ -1008,7 +1008,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       return res.redirect(`/projects/${projectId}`);
     }
     if (err.message === 'INVALID_DESCRIPTION') {
-      req.flash('error', 'Invalid description');
+      req.flash('error', 'Invalid Description');
       return res.redirect(`/projects/${projectId}`);
     }
     console.error('Project task update error:', err.message);

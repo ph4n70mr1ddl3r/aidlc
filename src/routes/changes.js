@@ -517,11 +517,11 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       return res.redirect(`/changes/${id}/edit`);
     }
     if (err.message === 'INVALID_DESCRIPTION') {
-      req.flash('error', 'Invalid description');
+      req.flash('error', 'Invalid Description');
       return res.redirect(`/changes/${id}/edit`);
     }
     if (err.message === 'INVALID_IMPACT') {
-      req.flash('error', 'Invalid impact');
+      req.flash('error', 'Invalid Impact');
       return res.redirect(`/changes/${id}/edit`);
     }
     console.error('Change update error:', err.message);
