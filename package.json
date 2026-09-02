@@ -19,6 +19,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.7.0",
+    "browserslist": "^4.28.8",
     "connect-flash": "^0.1.1",
     "cookie-parser": "^1.4.7",
     "csrf-csrf": "^4.0.3",
@@ -31,7 +32,7 @@
     "marked": "^15.0.7",
     "method-override": "^3.0.0",
     "morgan": "^1.10.0",
-    "sanitize-html": "2.17.5"
+    "sanitize-html": "^2.17.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -54,7 +55,9 @@
   },
   "type": "commonjs",
   "jest": {
-    "setupFilesAfterEnv": ["<rootDir>/jest.setup.js"]
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ]
   },
   "bugs": {
     "url": "https://github.com/ph4n70mr1ddl3r/aidlc/issues"

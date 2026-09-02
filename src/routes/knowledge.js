@@ -29,7 +29,7 @@ const sanitizeHtml = (() => {
           throw new Error('unexpected sanitize-html shape');
         })());
   } catch (err) {
-    console.error(`ERROR: sanitize-html package failed to load: ${err.message}. Run \`npm install\` to ensure sanitize-html 2.17.5 is installed.`);
+    console.error(`ERROR: sanitize-html package failed to load: ${err.message}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
     // Fail closed: escape all HTML instead of passing it through unsanitized
     // (a no-op fallback would turn renderMarkdown into a stored-XSS surface).
     // Mirrors the marked fallback above, which degrades to plain text.

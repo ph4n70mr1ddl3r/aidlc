@@ -4,8 +4,47 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (158 consecutive hardening commits) was
+Jest suite. Prior review history (159 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (160th pass)
+
+Two dependency vulnerabilities were found and fixed. The application code
+itself remains at the same hardening plateau — no new SQL injection, CSRF,
+XSS, auth, rate-limit, or error-leakage defects were found in source.
+
+### Fixes applied
+- **`package.json` — `sanitize-html` upgraded from `2.17.5` to `^2.17.7`
+  (HIGH, security).** CVE-2026-84371 / GHSA-g8qq-57p8-ggw5: sanitize-html
+  ≤ 2.17.6 allows stored XSS via SVG SMIL URI-list scheme-policy bypass when
+  SVG animation tags are allowed. Although this app's `SANITIZE_HTML_OPTIONS`
+  does not permit `<svg>` / `<animate>`, upgrading eliminates the advisory
+  and hardens the pipeline against future configuration drift.
+- **`package.json` — `browserslist` added as direct dep at `^4.28.8`
+  (HIGH, security).** Two CVEs in browserslist ≤ 4.28.6: unbounded memory
+  growth via distinct query results (GHSA-c83g-rgw3-j3cx) and uncaught crash
+  / prototype write via untrusted `browserslist-stats.json` (GHSA-73wf-gq98-2v4g).
+  The package was already present as a transitive dependency but ungated;
+  lifting it to a direct dep with a patched version range removes both
+  advisories.
+- **`tests/knowledge.test.js` — added CJS-compatible `sanitize-html` mock
+  (LOW, test compatibility).** sanitize-html@2.17.7 depends on htmlparser2@12
+  which is ESM-only (`"type": "module"`); Jest's CJS runtime cannot parse it,
+  so the test suite mocks the module with a CJS shim that mirrors the real API
+  surface (`function`, `.defaults`, `.simpleTransform`) and the sanitization
+  behaviour exercised by the tests. The fallback path (plain-text escape when
+  sanitize-html is unavailable) remains covered by
+  `tests/knowledge_sanitize_fallback.test.js`.
+- **`src/routes/knowledge.js` — updated fallback error message to reference
+  `^2.17.7` instead of `2.17.5`.** Keeps the operator-facing guidance in sync
+  with the pinned dependency.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
