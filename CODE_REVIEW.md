@@ -4,8 +4,37 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (157 consecutive hardening commits) was
+Jest suite. Prior review history (158 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (159th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau. This pass verified: all 6 badge mapping constants
+(`CONDITION_BADGE`, `CHANGE_TYPE_BADGE`, `ROLE_BADGE`, `MEMBER_ROLE_BADGE`,
+`KB_CATEGORY_BADGE`, `LICENSE_TYPE_BADGE`) remain complete — every enum value
+across all constants maps to a severity with zero hardcoded classes in
+templates; all 9 list views carry the "adjust filters" empty-state hint
+(tickets uses "Create a new ticket or adjust your filters" which is appropriate
+for its mixed-create/list audience); `resetCachedStatements` is exported from
+every route and middleware module (14 total, covered by `tests/reset_cached_statements.test.js`);
+the `resolveOptionalField` JSDoc accurately describes its behavior (rejects
+non-string `rawValue` with `{ error: true }`, coerces non-string
+`processedValue` via `String(...)` before truncation); all flash messages follow
+the trailing-period convention (sentence-style end with periods; short validation
+labels do not); all 34 `db.transaction()` boundaries and all 39
+`rejectHppArrays` call sites remain correct; and all `res.locals` helpers and
+badge constants referenced by templates are wired in `app.js`. No changes are
+needed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
 
 ---
 
