@@ -1,11 +1,39 @@
 # Code Review Notes
 
-**Date:** 2026-09-01
+**Date:** 2026-09-02
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (156 consecutive hardening commits) was
+Jest suite. Prior review history (157 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (158th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau. This pass confirmed badge mappings remain complete and
+centralized (every enum value across all six `*_BADGE` constants is present —
+zero hardcoded severity classes remain in templates; dashboard ticket
+priority/status badges use the raw enum as a CSS class name, which is the
+established convention for those monomorphic surfaces), verified all 9 list
+views carry the "adjust filters" empty-state hint, re-checked that partial-update
+absent-field resolution is consistent across all UPDATE routes (vendors.js,
+licenses.js, projects.js, changes.js, assets.js, tickets.js, staff.js all use
+`resolveOptionalField` or equivalent resolution logic; knowledge.js intentionally
+omits it because its update route has no optional text fields — title/content/
+category are required and status/is_featured have their own helpers), confirmed
+all 34 `db.transaction()` boundaries and all 39 `rejectHppArrays` call sites
+remain correct, and verified flash-message trailing-period consistency across
+all route modules (sentence-style messages end with periods; short validation
+labels do not — the established convention). No changes are needed.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **891 passed / 891 total** (43 suites, 0 net).
 
 ---
 
