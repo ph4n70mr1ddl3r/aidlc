@@ -244,7 +244,7 @@ describe('HPP array rejection (regression — fail closed)', () => {
         expect(result.redirectedTo).toBe('/projects/1/edit');
         const errorFlash = result.flashCalls.find(([t]) => t === 'error');
         expect(errorFlash).toBeDefined();
-        expect(errorFlash[1]).toBe('Invalid Amount Spent');
+        expect(errorFlash[1]).toBe('Invalid Spent Amount');
       } finally {
         db.prepare = origPrepare;
       }

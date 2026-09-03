@@ -81,7 +81,7 @@
           <strong>Satisfaction Rating:</strong>
           <span style="display:inline-flex;gap:4px;margin-left:8px;">
             <% [1,2,3,4,5].forEach(r => { %>
-              <button type="submit" name="satisfaction_rating" value="<%= r %>" class="btn btn-sm <%= ticket.satisfaction_rating >= r ? 'btn-warning' : 'btn-outline' %>" title="<%= r %> star<%= r > 1 ? 's' : '' %>" aria-label="<%= r %> star<%= r > 1 ? 's' : '' %>" style="padding:4px 8px;"><i class="fas fa-star"></i></button>
+              <button type="submit" name="satisfaction_rating" value="<%= r %>" class="btn btn-sm <%= ticket.satisfaction_rating >= r ? 'btn-warning' : 'btn-outline' %>" title="<%= r %> star<%= r > 1 ? 's' : '' %>" aria-label="<%= r %> star<%= r > 1 ? 's' : '' %>" style="padding:4px 8px;"><i class="fas fa-star" aria-hidden="true"></i></button>
             <% }) %>
           </span>
           <% if (ticket.satisfaction_rating) { %><span class="text-sm text-muted" style="margin-left:8px;"><%= ticket.satisfaction_rating %>/5</span><% } %>

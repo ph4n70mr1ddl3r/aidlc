@@ -34,12 +34,12 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Username</label>
-          <input type="text" class="form-control" value="<%= profileUser.username %>" disabled style="background:var(--bg)">
+          <label for="username_display">Username</label>
+          <input type="text" id="username_display" class="form-control" value="<%= profileUser.username %>" disabled style="background:var(--bg)">
         </div>
         <div class="form-group">
-          <label>Role</label>
-          <input type="text" class="form-control" value="<%= titleCase(profileUser.role) %>" disabled style="background:var(--bg);">
+          <label for="role_display">Role</label>
+          <input type="text" id="role_display" class="form-control" value="<%= titleCase(profileUser.role) %>" disabled style="background:var(--bg);">
         </div>
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Changes</button>
       </form>

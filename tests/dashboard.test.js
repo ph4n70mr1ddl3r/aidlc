@@ -79,6 +79,7 @@ describe('all dashboard statements exist', () => {
     expect(stats).toHaveProperty('in_use');
     expect(stats).toHaveProperty('in_storage');
     expect(stats).toHaveProperty('in_repair');
+    expect(stats).toHaveProperty('reserved');
   });
 
   it('projectStats statement exists', () => {

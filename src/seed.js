@@ -152,6 +152,12 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     const now = new Date();
     const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
     const isoDaysAgo = (days) => new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+    // Relative due date (14 days out) so a fresh seed never shows an immediately
+    // overdue ticket — mirrors the relative changeAt() helper for scheduled changes.
+    const isoDateDaysFromNow = (days) => new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
+    // Anchor the single seeded due date relative to now (was a hardcoded
+    // 2026-05-25 that drifted into the past).
+    tickets[0].due_date = isoDateDaysFromNow(14);
     const insertCounter = db.prepare('INSERT INTO ticket_counter (counter_date, next_seq) VALUES (?, ?) ON CONFLICT(counter_date) DO UPDATE SET next_seq = ?');
     for (const [i, t] of tickets.entries()) {
       const num = `TK-${today}-${String(i + 1).padStart(3, '0')}`;

@@ -278,6 +278,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // Only admins can create privileged accounts (manager/admin). Managers must
   // not be able to escalate privileges by creating new manager accounts.
   if (role !== 'staff' && req.session.user.role !== 'admin') {
+    req.audit('access_denied', 'user', null, `Unauthorized privileged account creation attempt (role: ${role})`);
     req.flash('error', 'Only administrators can create manager or admin accounts.');
     return res.redirect('/staff/new');
   }
@@ -472,6 +473,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // would grant near-admin capabilities. Managers are limited to editing
   // staff-role users.
   if (safeRole !== 'staff' && req.session.user.role !== 'admin') {
+    req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${safeRole})`);
     req.flash('error', 'Only administrators can assign the manager or admin role.');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -483,6 +485,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // Managers cannot edit or deactivate admin accounts, nor other managers
   // (only admins may manage manager accounts).
   if (req.session.user.role !== 'admin' && targetUser.role !== 'staff') {
+    req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
     req.flash('error', 'You cannot modify administrator or manager accounts.');
     return res.redirect('/staff');
   }

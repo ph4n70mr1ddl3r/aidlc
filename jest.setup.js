@@ -26,3 +26,16 @@ Intl.NumberFormat = function (...args) {
   return (locale === undefined || locale === 'en-US') ? enUsNumberFormat : new NativeNumberFormat(...args);
 };
 Intl.NumberFormat.prototype = NativeNumberFormat.prototype;
+
+// Pin date formatting the same way: templates render dates via
+// toLocaleDateString/toLocaleString (Intl.DateTimeFormat with undefined locale),
+// so a non-en-US host would break date assertions. Force locale-less
+// constructions to en-US for determinism.
+const enUsDateTimeFormat = new Intl.DateTimeFormat('en-US');
+const NativeDateTimeFormat = Intl.DateTimeFormat;
+Intl.DateTimeFormat = function (...args) {
+  const [locales] = args;
+  const locale = Array.isArray(locales) ? locales[0] : locales;
+  return (locale === undefined || locale === 'en-US') ? enUsDateTimeFormat : new NativeDateTimeFormat(...args);
+};
+Intl.DateTimeFormat.prototype = NativeDateTimeFormat.prototype;

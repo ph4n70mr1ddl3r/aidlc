@@ -124,8 +124,9 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
     return existingFeatured;
   }
   // When the is_featured field is absent from the request (partial API update
-  // that omits the field), preserve the existing value.
-  if (is_featured === undefined || is_featured === '') {
+  // that omits the field), preserve the existing value. Null is treated as
+  // absent too (mirrors tags absent-preserve and resolveOptionalField).
+  if (is_featured === undefined || is_featured === null || is_featured === '') {
     return existingFeatured;
   }
   // The edit form pairs the checkbox (value="1") with a hidden value="0"

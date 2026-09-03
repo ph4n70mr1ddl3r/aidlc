@@ -4,8 +4,123 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (162 consecutive hardening commits) was
+Jest suite. Prior review history (163 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (164th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One correctness defect, three
+consistency defects, and fourteen LOW consistency/completeness/a11y/docs
+defects were closed.
+
+Note on numbering: `git log` contains two commits each labelled 161 and 162
+(the earlier pair covers title-case consistency and is not separately
+documented below); the 163rd entry continues that numbering. Older sections
+below have non-contiguous numbers (e.g. missing 152nd/151st, 136th/135th)
+because some historical passes were squashed or documented only in git log —
+left as-is for archaeology. The 143rd/144th sections below were reordered
+into descending order.
+
+### Fixes applied
+- **`views/pages/reports/assets.ejs` — unguarded `daysUntil()` null rendered `critical` + `null days` (LOW, correctness).**
+  `daysUntil()` returns `null` for invalid input, but `null <= 30` coerces to
+  `true`, so an unparseable `warranty_expiry` rendered a `critical` badge with
+  literal `null days`. Added a `days === null` guard rendering `-`, mirroring
+  `assets/show.ejs` (`_wDays !== null`), `projects/show.ejs` (`_tDays !==
+  null`), and `licenses/index.ejs` (`_expDays !== null`).
+- **`views/pages/reports/assets.ejs` — condition severity collapsed to green/orange (LOW, consistency).**
+  `badgeClass(...) === 'low' ? 'green' : 'orange'` mapped both `fair→medium`
+  and `poor/broken→critical` to `orange`, while `reports/tickets.ejs`,
+  dashboard workload, and `assets/show.ejs` map `critical→red`. Now
+  `low→green`, `medium→orange`, else `red`.
+- **`views/pages/staff/show.ejs` — member-role badge missing `|| 'member'` fallback (LOW, consistency).**
+  `badgeClass(pm.project_role, ...)` vs `titleCase(pm.project_role ||
+  'member')`: a NULL role yielded `badge-null` (no CSS) with `Member` text.
+  Now `badgeClass(pm.project_role || 'member', ...)`, mirroring line 62
+  (`staffUser.role || 'staff'`).
+- **`views/pages/vendors/show.ejs` — missing empty-star loop (LOW, consistency).**
+  Only filled stars rendered, so `3★` was ambiguous vs `3★☆☆` on
+  `vendors/index.ejs` and `tickets/show.ejs`. Added the empty-star loop with
+  `aria-hidden="true"`.
+- **`views/pages/projects/show.ejs` — add-task/add-member inputs missing accessible names (LOW, a11y).**
+  `input[name=title]`, `select[name=priority]`, `select[name=assigned_to]`,
+  `select[name=user_id]`, `select[name=role]` had placeholder only. Added
+  `aria-label`s, matching every filter-bar select. The icon-only Add-member
+  button gained `aria-label="Add member" title="Add member"`, matching the
+  `licenses/show.ejs` reveal-button convention from pass 163.
+- **`views/pages/auth/profile.ejs` + `views/pages/vendors/form.ejs` — label association (LOW, a11y).**
+  Disabled Username/Role inputs had `<label>` with no `for`/`id`; vendors edit
+  used `<label>Status</label>` on a static badge (invalid HTML). Added
+  `for`/`id` pairs; vendors status now uses `<span
+  class="detail-label">`.
+- **Decorative `<i>` missing `aria-hidden="true"` (LOW, a11y consistency).**
+  Index eye buttons already hide icons; `licenses/show.ejs` reveal,
+  `projects/show.ejs` add/delete/remove, `tickets/show.ejs` star buttons, and
+  `nav.ejs`/`pagination.ejs` labelled controls exposed icons to AT. Added
+  `aria-hidden="true"` to each.
+- **`src/routes/knowledge.js` — `resolveSafeFeatured` cleared featured on JSON `null` (LOW, consistency).**
+  Preserved on `undefined`/`''` only; `null` fell through to
+  `parseBooleanFlag(null)→0`. Now treats `null` as absent-preserve, mirroring
+  tags (`rawTagsAbsent` includes `null`) and `resolveOptionalField`.
+- **`src/routes/projects.js` — `Invalid Amount Spent` vs `Invalid Spent Amount` (LOW, consistency).**
+  Create flashed `Invalid Spent Amount`, update threw `Invalid Amount Spent`
+  for the same field (budget uses `Invalid Budget Amount` both places).
+  Unified update to `Invalid Spent Amount`; updated `tests/hpp.test.js`.
+- **`src/routes/projects.js` — task `status`/`priority` + member `role` missing `trim` (LOW, consistency).**
+  Project `status`/`priority`, tickets, changes, staff role, license type, and
+  vendor category all `trim` before enum checks; task/member paths used raw
+  `safeQueryValue`, so `' lead '` was rejected here but accepted elsewhere.
+  Now trims (still fail-closed: non-strings collapse to `''` and fail the
+  enum check).
+- **`src/routes/staff.js` — three privileged-escalation denials wrote no `access_denied` audit (LOW, completeness).**
+  Create privileged-account, update assign-privileged, and update
+  modify-admin outer guards only flashed, while the edit-GET and
+  transactional recheck audit the same conditions. Added `req.audit(...)`
+  lines so manager probing leaves a trail.
+- **`tests/dashboard.test.js` — `assetStats` assertion omitted `reserved` (LOW, test completeness).**
+  Same gap pass 150 fixed in `templates.test.js`. Added the property.
+- **`tests/templates.test.js` — dashboard fixtures omitted uncapped counts; staff/show fixtures lacked `owner_id` (LOW, test completeness).**
+  Added `expiringWarrantiesCount/licenseAlertsCount: 0` (exercises the real
+  branch, not the `list.length` fallback) and `owner_id: 1` to task/membership
+  fixtures (exercises the link branch, not just plain text).
+- **`package-lock.json` — synced `engines` with `package.json` (LOW, docs).**
+  Pass 163 added `npm >= 8` without regenerating the lock; ran `npm install
+  --package-lock-only`.
+- **`src/seed.js` — hardcoded ticket `due_date` drifted into the past (LOW, completeness).**
+  `2026-05-25` is overdue on any later seed while tickets otherwise use
+  relative `isoDaysAgo` and changes use relative `changeAt()`. Now anchors
+  `+14 days` via `isoDateDaysFromNow()`.
+- **`jest.setup.js` — locale pin covered numbers, not dates (LOW, test determinism).**
+  Pinned locale-less `Intl.DateTimeFormat` to en-US, mirroring the
+  `Intl.NumberFormat` pin from pass 141.
+- **`README.md` — config/structure gaps (LOW, docs).**
+  `PORT` range/fallback, `PRUNE_AUDIT_INTERVAL_MS` `0`-disables, `PAGE_SIZE`
+  clamp/fallback, hardcoded timeouts note (`30s`/`5s`/`6s`/`24h`), and
+  root-file tree entries (`.env.example`, `.nvmrc`, `CODE_REVIEW.md`,
+  `eslint.config.js`, `jest.setup.js`, lockfile).
+- **`tests/code_review_164.test.js` — 14 regression tests.**
+  Source pins for featured-null, spent wording, trim, and staff audits;
+  render pins for warranty null-guard, severity red, badge fallback,
+  empty stars, a11y labels, and icon hiding.
+
+Deliberately unchanged: dashboard `upcomingChanges`/`licenseAlerts` stay
+globally visible to all authenticated users (no per-user scoping) — the
+dashboard is an operational overview by design (global ticket/asset/project
+stats, team workload, recent tickets with link gating but visible titles per
+pass 141/149), and per-user scoping would break the shared TTL cache (which
+would need per-user keys or fresh queries like `myTickets`); the changes-list
+scoping remains enforced on the list/show routes themselves. Ticket/asset/
+project list scoping stays open per pass 163.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **919 passed / 919 total** (45 suites, +14 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

@@ -92,6 +92,12 @@ SEED_PASSWORD=<your-strong-staff-password>
 ## Project Structure
 
 ```
+├── .env.example            # Environment template (copy to .env)
+├── .nvmrc                  # Pinned Node.js version
+├── CODE_REVIEW.md          # Review history
+├── eslint.config.js        # ESLint config
+├── jest.setup.js           # Jest locale/test setup
+├── package.json / package-lock.json
 ├── data/                   # SQLite database files (git-ignored)
 ├── public/
 │   ├── css/
@@ -148,23 +154,25 @@ Environment variables (set in `.env`):
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `3000` | HTTP port |
+| `PORT` | `3000` | HTTP port (must be `1`–`65535`; non-numeric/invalid values fall back to `3000`, and the server exits with code `1` when run as the entry point) |
 | `DB_PATH` | `./data/itmanager.db` | SQLite database path |
 | `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
 | `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
 | `NODE_ENV` | `development` | `development` or `production` |
 | `TRUST_PROXY` | `0` | Set to `1`/`true` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
-| `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0` |
+| `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0`; set to `0` to disable periodic pruning (invalid values fall back to `86400000`) |
 | `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
 | `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; values below 60 are raised to 60 (lastAccess write-throttle floor) |
 | `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
-| `PAGE_SIZE` | `25` | Default page size for paginated list views (max `100`) |
+| `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100`; invalid values fall back to `25` with a warning |
 | `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` |
 | `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` |
 | `SEED_VERBOSE` | `0` | Set to `1`/`true` to print auto-generated seed passwords |
 | `SEED_DANGER` | `0` | Set to `1` to allow seeding in production (drops all data) |
+
+Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`, headers timeout `6s` (`src/app.js`); session cookie max-age `24h` (`src/constants.js` `SESSION_MAX_AGE`).
 
 ## Security
 

@@ -78,7 +78,7 @@
       <div class="card-body">
         <% projectMemberships.forEach(pm => {
           const canViewProject = isPrivileged(user) || Number(pm.owner_id) === Number(user.id); %>
-          <div style="padding:4px 0;"><% if (canViewProject) { %><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a><% } else { %><span style="font-size:13px;"><%= pm.project_name %></span><% } %> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= titleCase(pm.project_status) %></span> <span class="badge badge-<%= badgeClass(pm.project_role, MEMBER_ROLE_BADGE) %>"><%= titleCase(pm.project_role || 'member') %></span></div>
+          <div style="padding:4px 0;"><% if (canViewProject) { %><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a><% } else { %><span style="font-size:13px;"><%= pm.project_name %></span><% } %> <span class="badge badge-<%= pm.project_status %>" style="margin-left:4px;"><%= titleCase(pm.project_status) %></span> <span class="badge badge-<%= badgeClass(pm.project_role || 'member', MEMBER_ROLE_BADGE) %>"><%= titleCase(pm.project_role || 'member') %></span></div>
         <% }) %>
         <% if (!projectMemberships.length) { %><p class="text-muted text-sm">Not in any projects</p><% } %>
       </div>

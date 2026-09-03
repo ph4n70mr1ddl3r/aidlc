@@ -30,7 +30,7 @@
     <% byCondition.forEach(c => { const pct = condTotal > 0 ? Math.round(c.count/condTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.condition_rating) %></span><span><%= c.count %> (<%= pct %>%)</span></div>
-      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.condition_rating) %>: <%= c.count %> assets"><div class="progress-fill <%= badgeClass(c.condition_rating, CONDITION_BADGE) === 'low' ? 'green' : 'orange' %>" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.condition_rating) %>: <%= c.count %> assets">      <div class="progress-fill <%= badgeClass(c.condition_rating, CONDITION_BADGE) === 'low' ? 'green' : badgeClass(c.condition_rating, CONDITION_BADGE) === 'medium' ? 'orange' : 'red' %>" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
   </div></div>
   <div class="card"><div class="card-header"><h3>Age Distribution</h3></div><div class="card-body">
@@ -54,7 +54,7 @@
       <td style="font-weight:600;"><%= a.asset_tag %></td>
       <td><%= a.name %></td>
       <td><%= formatDate(a.warranty_expiry) %></td>
-      <td><span class="badge badge-<%= days <= 30 ? 'critical' : days <= 60 ? 'high' : 'medium' %>"><%= days < 0 ? 'Expired ' + Math.abs(days) + ' days ago' : days + ' days' %></span></td>
+      <td><% if (days === null) { %>-<% } else { %><span class="badge badge-<%= days <= 30 ? 'critical' : days <= 60 ? 'high' : 'medium' %>"><%= days < 0 ? 'Expired ' + Math.abs(days) + ' days ago' : days + ' days' %></span><% } %></td>
     </tr><% }) %></tbody>
   </table></div>
 </div></div><% } %>

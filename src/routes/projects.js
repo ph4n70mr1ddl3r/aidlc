@@ -511,7 +511,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       } else {
         preservedSpent = safePositiveFloat(spent, Infinity);
         if (!Number.isFinite(preservedSpent)) {
-          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid Amount Spent' });
+          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid Spent Amount' });
         }
       }
       let preservedBudget;
@@ -673,8 +673,8 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/projects/${projectId}`);
   }
-  const status = safeQueryValue(req.body.status);
-  const priority = safeQueryValue(req.body.priority);
+  const status = trim(safeQueryValue(req.body.status));
+  const priority = trim(safeQueryValue(req.body.priority));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const due_date = safeQueryValue(req.body.due_date);
 
@@ -783,8 +783,8 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     return res.redirect(`/projects/${projectId}`);
   }
 
-  const status = safeQueryValue(req.body.status);
-  const priority = safeQueryValue(req.body.priority);
+  const status = trim(safeQueryValue(req.body.status));
+  const priority = trim(safeQueryValue(req.body.priority));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const due_date = safeQueryValue(req.body.due_date);
 
@@ -1078,7 +1078,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
   }
 
   const user_id = safeQueryValue(req.body.user_id);
-  const role = safeQueryValue(req.body.role);
+  const role = trim(safeQueryValue(req.body.role));
   // Fail closed on a present-but-malformed user id ("5abc", "10.0", a JSON
   // float) — safeId's parseInt coercion would silently target a DIFFERENT
   // valid user. Mirrors the owner/assignee guards everywhere else in the

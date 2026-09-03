@@ -52,15 +52,15 @@
       <% if (isPrivileged(user)) { %>
       <form action="/projects/<%= project.id %>/tasks" method="POST" class="mb-3" style="display:flex;gap:8px;flex-wrap:wrap;">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <input type="text" name="title" class="form-control" placeholder="New task title..." style="flex:1;min-width:200px;" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required>
-        <select name="priority" class="form-control" style="width:120px;">
+        <input type="text" name="title" class="form-control" placeholder="New task title..." aria-label="New task title" style="flex:1;min-width:200px;" maxlength="<%= CONSTANTS.MAX_MEDIUM_STR %>" required>
+        <select name="priority" class="form-control" aria-label="Task priority" style="width:120px;">
           <% CONSTANTS.TASK_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= p === 'medium' ? 'selected' : '' %>><%= titleCase(p) %></option><% }) %>
         </select>
-        <select name="assigned_to" class="form-control" style="width:160px;">
+        <select name="assigned_to" class="form-control" aria-label="Task assignee" style="width:160px;">
           <option value="">Unassigned</option>
           <% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }); } %>
         </select>
-        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus" aria-hidden="true"></i> Add</button>
       </form>
       <% } %>
 
@@ -90,7 +90,7 @@
         </form>
         <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);" aria-label="Delete task <%= t.title %>"><i class="fas fa-times"></i></button>
+          <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);" aria-label="Delete task <%= t.title %>"><i class="fas fa-times" aria-hidden="true"></i></button>
         </form><% } %>
       </div>
       <% }) %>
@@ -107,14 +107,14 @@
         <% if (isPrivileged(user)) { %>
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <select name="user_id" class="form-control" style="flex:1;" required>
+          <select name="user_id" class="form-control" aria-label="Member user" style="flex:1;" required>
             <option value="">Add member...</option>
           <% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>"><%= s.first_name %> <%= s.last_name %></option><% }); } %>
           </select>
-          <select name="role" class="form-control" style="width:120px;">
+          <select name="role" class="form-control" aria-label="Member role" style="width:120px;">
             <% CONSTANTS.MEMBER_ROLES.forEach(r => { %><option value="<%= r %>" <%= r === 'member' ? 'selected' : '' %>><%= titleCase(r) %></option><% }) %>
           </select>
-          <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i></button>
+          <button type="submit" class="btn btn-sm btn-primary" aria-label="Add member" title="Add member"><i class="fas fa-plus" aria-hidden="true"></i></button>
         </form>
         <% } %>
         <% members.forEach(m => { %>
@@ -125,7 +125,7 @@
           </div>
           <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;" aria-label="Remove <%= m.member_name %>"><i class="fas fa-times"></i></button>
+            <button type="submit" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px;" aria-label="Remove <%= m.member_name %>"><i class="fas fa-times" aria-hidden="true"></i></button>
           </form><% } %>
         </div>
         <% }) %>
