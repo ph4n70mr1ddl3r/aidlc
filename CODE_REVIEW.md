@@ -1,11 +1,111 @@
 # Code Review Notes
 
-**Date:** 2026-09-02
+**Date:** 2026-09-03
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (161 consecutive hardening commits) was
+Jest suite. Prior review history (162 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (163rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, auth, rate-limit, or error-leakage defects
+were found. One HIGH-severity partial-update correctness defect, three
+MEDIUM fail-closed/absent-preserve defects, and ten LOW
+consistency/completeness defects were closed.
+
+Note on numbering: `git log` contains two commits each labelled 161 and 162
+(the earlier pair covers title-case consistency and is not separately
+documented below); this entry continues as 163 to avoid further collision.
+The 143rd/144th sections below were reordered into descending order.
+
+### Fixes applied
+- **`src/routes/staff.js` — `_staffUserStmt` omitted `department`/`phone`, wiping them on partial update (HIGH, correctness).**
+  The update transaction resolves both fields via `resolveOptionalField(...,
+  recheck.department/recheck.phone)`, but the recheck SELECT only fetched
+  `id, role, username, is_active`, so `recheck.department/phone` were always
+  `undefined` and an absent field resolved to `undefined` (stored as NULL)
+  instead of preserving the stored value. Expanded the SELECT to include
+  `department, phone`.
+- **`src/routes/assets.js` — create silently defaulted present non-string `status`/`condition_rating` (MEDIUM, consistency).**
+  `trim()` coerced a JSON number/object to `''`, which fell through to the
+  `'in_storage'`/`'good'` defaults with a success flash, while the update route
+  already fails closed on both. Added both fields to the create-route
+  non-string guard loop.
+- **`src/routes/changes.js` — update silently preserved on present non-string `status` (MEDIUM, consistency).**
+  Only `priority` had an explicit `typeof` guard; a non-string `status`
+  collapsed to `''`, skipped the validate-when-present enum check, and
+  preserved with success. Generalized the guard to `for (const field of
+  ['priority', 'status'])` with per-field messages.
+- **`src/routes/knowledge.js` — update wiped stored `tags` on absent field (MEDIUM, consistency).**
+  An absent `tags` (partial API PUT) trimmed to `''` and sanitized to NULL,
+  clearing the stored value, while `status`/`is_featured` already preserve via
+  `status || recheck.status` / `resolveSafeFeatured`. Added
+  `rawTagsAbsent` resolution against `existing.tags` (absent preserves,
+  explicit empty clears), mirroring `resolveOptionalField`.
+- **`src/routes/tickets.js` — `USER_INACTIVE` comment-path wrote no `access_denied` audit entry (LOW, completeness/audit gap).**
+  The sibling `ACCESS_DENIED` branch audits, but the inactive-account branch
+  only flashed/redirected. Added a defensive `typeof req.audit === 'function'`
+  audit line so the probe is observable without crashing unit-test harnesses
+  that invoke the handler without `auditMiddleware`.
+- **`src/middleware/auth.js` + `src/routes/auth.js` + `src/routes/staff.js` — error-message trailing-period consistency (LOW, consistency).**
+  Declarative denial sentences without periods while siblings carry them:
+  `"Please log in to access this page"`, `"You do not have permission to
+  access this page"` (middleware), `"Please enter username and password"` (×2,
+  login), `"New password must be different from current password"` (profile),
+  `"Your current password is required to reset another user's password"`
+  (staff reset). Added trailing periods. Short validation labels (`"Name and
+  category are required"`, `"must be at most N characters"`, `"already
+  exists"`) intentionally left without periods per the pass 144 convention.
+- **`views/pages/audit/index.ejs` — double-escaped `details` in `title` attribute (LOW, correctness).**
+  `title="<%= escapeHtml(...) %>"` escaped twice (`<%=` already escapes), so
+  tooltips rendered `&amp;lt;` literally. Changed to `title="<%-
+  escapeHtml(...) %>"` (single-escape). Existing XSS tests still pass via the
+  cell content; the new regression pins the absence of `&amp;lt;`.
+- **`views/pages/staff/show.ejs` + `src/routes/staff.js` — Active-Tasks project links ungated (LOW, consistency/audit noise).**
+  The link targeted the project show route (`canAccessResource`, owner-only)
+  unconditionally, guaranteeing `access_denied` for task-assignees who are not
+  owners. `_assignedTasksStmt` now selects `p.owner_id` and the template gates
+  behind `isPrivileged(user) || Number(t.owner_id) === Number(user.id)`,
+  mirroring the project-membership gating. Assigned-ticket/asset links remain
+  ungated (safe: viewer can only reach this page for self or as privileged,
+  and both surfaces are viewer-accessible by construction).
+- **`views/pages/licenses/show.ejs` — icon-only reveal button missing accessible name (LOW, a11y).**
+  Added `aria-label="Reveal license key" title="Reveal license key"`,
+  matching every other icon-only button in the app.
+- **`views/pages/staff/form.ejs` — fail-open `viewerRole` default (LOW, completeness).**
+  A missing `viewerRole` defaulted to the full `USER_ROLES` list. Changed to
+  fail-closed (`['staff']`) while keeping the `typeof` guard so a missing
+  value cannot throw `ReferenceError`. Both current renders pass the role.
+- **`README.md` — project-structure and config gaps (LOW, docs).**
+  Added `nav-close` to the partials line, top-level `dashboard.ejs/404.ejs/
+  error.ejs` to the pages tree, `/true` to the `TRUST_PROXY` row (implemented
+  in `app.js`, documented in `.env.example`), and the three additional seed
+  staff accounts (`trodriguez/akimura/dmuller`) sharing `SEED_PASSWORD`.
+- **`package.json` — added `npm >= 8` to `engines` (LOW, docs).**
+  Matches the README Prerequisites (`Node.js >= 20`, `npm >= 8`).
+- **`CODE_REVIEW.md` — swapped 143rd/144th sections into descending order (LOW, docs).**
+- **`tests/code_review_163.test.js` — 14 regression tests.**
+  Source pins for the staff SELECT, assets/changes guards, knowledge
+  absent-preserve, tickets defensive audit, and flash periods; render pins for
+  audit single-escape, staff task-link gating (privileged/plain/owner), license
+  aria-label, and staff-form fail-closed default.
+
+Deliberately unchanged: ticket/asset/project list scoping stays open by design
+(queue/inventory visibility with link gating per pass 141 — scoping would break
+the "All Assignees" filter and dashboard workload assumptions); the
+`licenses.js` `POST /:id/key` `rejectHppArrays(['license_key'])` guard stays as
+defense-in-depth (pinned by `tests/hpp.test.js`) despite reading only
+`params.id`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **905 passed / 905 total** (44 suites, +14 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
@@ -472,26 +572,6 @@ hint text that the 140th pass had standardized across every sibling surface.
 
 ---
 
-## Review cycle 2026-08-24 (143rd pass)
-
-An independent pass (full re-read of all 12 route modules, both middleware
-modules, utils, constants, models, seed, app.js, all EJS views,
-`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
-rate-limit, or error-leakage defects were found.** The codebase remains at a
-high hardening plateau; this pass completes the success-flash trailing-period
-sweep that the error-message sweep in passes 138–139 started.
-
-### Fixes applied
-
-**Consistency**
-- **All route modules — success flash messages missing trailing periods (LOW, consistency).** Error messages were standardized with trailing periods in pass 138; success messages were the remaining inconsistent surface. Added periods to 33 messages across 9 route modules (`assets`, `auth`, `changes`, `knowledge`, `licenses`, `projects`, `staff`, `tickets`, `vendors`) so the messaging contract is uniform. Messages already ending in `!` (e.g. `Welcome back, ...!`, `Thank you for your feedback!`) and dynamic multi-sentence messages (e.g. the vendor-delete success path) were left unchanged.
-
-### Tooling
-- `npm run lint` — clean (exit 0).
-- `npm test` — **855 passed / 855 total** (40 suites, 0 net change).
-
----
-
 ## Review cycle 2026-08-24 (144th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
@@ -506,6 +586,26 @@ mark where appropriate) and every short label is left without one.
 
 **Consistency**
 - **All route modules — trailing-period consistency across all flash messages (LOW, consistency).** Error messages received their trailing-period sweep in pass 138; success messages in pass 143. Info messages and the remaining error sentences were the final gap. Added trailing periods to 30 full-sentence messages across 8 route modules (`assets`, `auth`, `changes`, `knowledge`, `projects`, `staff`, `tickets`, `vendors`) and updated the one matching assertion in `tests/knowledge.test.js`. Short validation labels (e.g. "Name and category are required", "Title is required") and dynamic messages sourced from external helpers (`pwErr`, `ratingErr`, `resolved.error`) were intentionally left unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **855 passed / 855 total** (40 suites, 0 net change).
+
+---
+
+## Review cycle 2026-08-24 (143rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, seed, app.js, all EJS views,
+`public/js/app.js`, and the docs). **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at a
+high hardening plateau; this pass completes the success-flash trailing-period
+sweep that the error-message sweep in passes 138–139 started.
+
+### Fixes applied
+
+**Consistency**
+- **All route modules — success flash messages missing trailing periods (LOW, consistency).** Error messages were standardized with trailing periods in pass 138; success messages were the remaining inconsistent surface. Added periods to 33 messages across 9 route modules (`assets`, `auth`, `changes`, `knowledge`, `licenses`, `projects`, `staff`, `tickets`, `vendors`) so the messaging contract is uniform. Messages already ending in `!` (e.g. `Welcome back, ...!`, `Thank you for your feedback!`) and dynamic multi-sentence messages (e.g. the vendor-delete success path) were left unchanged.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).

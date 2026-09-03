@@ -264,7 +264,7 @@ router.get('/login', (req, res) => {
 router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const hppErrors = rejectHppArrays(req, ['username', 'password']);
   if (hppErrors.length > 0) {
-    req.flash('error', 'Please enter username and password');
+    req.flash('error', 'Please enter username and password.');
     return res.redirect('/login');
   }
 
@@ -272,7 +272,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const password = safeQueryValue(req.body.password);
 
   if (!username || typeof username !== 'string' || !password) {
-    req.flash('error', 'Please enter username and password');
+    req.flash('error', 'Please enter username and password.');
     return res.redirect('/login');
   }
 
@@ -578,7 +578,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   }
 
   if (current_password === new_password) {
-    req.flash('error', 'New password must be different from current password');
+    req.flash('error', 'New password must be different from current password.');
     return res.redirect('/profile');
   }
 

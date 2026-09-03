@@ -277,7 +277,10 @@ router.get('/:id', requireAdminOrManager, (req, res) => {
 // are not checked by doubleCsrfProtection and could leak keys via cross-site
 // request forgery.
 router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => {
-  // Fail closed on HTTP parameter pollution: reject array payloads.
+  // Fail closed on HTTP parameter pollution: reject array payloads. This
+  // endpoint reads only req.params.id, but an array-valued license_key body
+  // field is still rejected defensively so a crafted HPP payload cannot probe
+  // the handler (pinned by tests/hpp.test.js).
   const hppErrors = rejectHppArrays(req, ['license_key']);
   if (hppErrors.length > 0) {
     return res.status(400).json({ error: 'Invalid request parameters' });

@@ -161,7 +161,10 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  for (const field of ['manufacturer', 'model', 'serial_number', 'location', 'notes']) {
+  // status/condition_rating are included: without a guard a non-string collapses
+  // to '' and silently falls back to the 'in_storage'/'good' defaults with a
+  // success flash (the update route already guards both).
+  for (const field of ['manufacturer', 'model', 'serial_number', 'location', 'notes', 'status', 'condition_rating']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');

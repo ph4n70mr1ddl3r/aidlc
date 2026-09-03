@@ -20,7 +20,7 @@ const _assignedTicketsStmt = db.prepare(`
     LIMIT 10
   `);
 const _assignedTasksStmt = db.prepare(`
-    SELECT pt.id, pt.title, pt.due_date, p.name as project_name, p.id as project_id
+    SELECT pt.id, pt.title, pt.due_date, p.name as project_name, p.id as project_id, p.owner_id
     FROM project_tasks pt
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
@@ -46,7 +46,7 @@ const _projectMembershipsStmt = db.prepare(`
     ORDER BY p.updated_at DESC
     LIMIT 100
   `);
-const _staffUserStmt = db.prepare('SELECT id, role, username, is_active FROM users WHERE id = ?');
+const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');
 const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
@@ -730,7 +730,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   // Require the admin to confirm their own password before resetting another user's
   if (!current_password || typeof current_password !== 'string' || Buffer.byteLength(current_password, 'utf8') > MAX_PASSWORD_BYTES) {
-    req.flash('error', 'Your current password is required to reset another user\'s password');
+    req.flash('error', 'Your current password is required to reset another user\'s password.');
     return res.redirect(`/staff/${id}`);
   }
   const adminUser = _adminPasswordStmt.get(req.session.user.id);

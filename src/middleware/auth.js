@@ -57,7 +57,7 @@ function _getAuthCheckStmt() {
  */
 function _verifySessionUser(req, res) {
   if (!req.session || !req.session.user) {
-    req.flash('error', 'Please log in to access this page');
+    req.flash('error', 'Please log in to access this page.');
     res.redirect('/login');
     return false;
   }
@@ -150,7 +150,7 @@ function requireRole(...roles) {
         entityId: req.session.user.id,
         details: `Role "${req.session.user.role}" not authorized for ${req.method} ${req.originalUrl}`
       });
-      req.flash('error', 'You do not have permission to access this page');
+      req.flash('error', 'You do not have permission to access this page.');
       return res.redirect('/');
     }
     next();

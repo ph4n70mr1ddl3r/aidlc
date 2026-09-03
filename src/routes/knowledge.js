@@ -602,7 +602,13 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     req.flash('error', 'Error processing input. Please try again.');
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  const { safeTags, safeTitle, safeContent } = sanitized;
+  const { safeTitle, safeContent } = sanitized;
+  // Absent-vs-empty convention (mirrors resolveOptionalField on vendors/licenses/
+  // projects/changes): an ABSENT tags field (partial API PUT omitting it) preserves
+  // the stored value; an explicit empty string clears it to NULL. Previously an
+  // absent field trimmed to '' and wiped the stored tags with a success flash.
+  const rawTagsAbsent = req.body.tags === undefined || req.body.tags === null;
+  const safeTags = rawTagsAbsent ? existing.tags : sanitized.safeTags;
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);

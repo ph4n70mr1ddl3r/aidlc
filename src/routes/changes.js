@@ -374,15 +374,18 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Priority');
     return res.redirect(`/changes/${id}/edit`);
   }
-  // Fail closed on a present-but-non-string priority (e.g. a JSON number):
+  // Fail closed on a present-but-non-string priority/status (e.g. a JSON number):
   // trim() coerces it to '', which would skip the enum check above and leave
-  // safePriority silently preserving the stored value with a success flash —
-  // inconsistent with title/change_type/status (rejected) and the resolveOptionalField
+  // safePriority/safeStatus silently preserving the stored value with a success
+  // flash — inconsistent with title/change_type (rejected) and the resolveOptionalField
   // text fields on this route (sentinel-rejected). Absent/empty is allowed
   // (falls back to the stored value / create default).
-  if (req.body.priority !== undefined && req.body.priority !== null && req.body.priority !== '' && typeof req.body.priority !== 'string') {
-    req.flash('error', 'Invalid Priority');
-    return res.redirect(`/changes/${id}/edit`);
+  for (const field of ['priority', 'status']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', field === 'priority' ? 'Invalid Priority' : 'Invalid Status');
+      return res.redirect(`/changes/${id}/edit`);
+    }
   }
 
   // Validate assignee is an active user

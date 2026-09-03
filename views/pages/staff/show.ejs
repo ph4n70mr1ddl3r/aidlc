@@ -41,10 +41,11 @@
     <div class="card mb-3">
       <div class="card-header"><h3><i class="fas fa-tasks" style="margin-right:8px;color:var(--primary)"></i>Active Tasks (<%= assignedTasks.length %><%= assignedTasks.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
       <div class="card-body">
-        <% assignedTasks.forEach(t => { %>
+        <% assignedTasks.forEach(t => {
+          const canViewTaskProject = isPrivileged(user) || Number(t.owner_id) === Number(user.id); %>
         <div style="padding:8px 0;border-bottom:1px solid var(--border);">
           <div class="text-sm" style="font-weight:600;"><%= t.title %></div>
-          <div class="text-sm text-muted"><a href="/projects/<%= t.project_id %>" style="color:var(--primary);text-decoration:none;"><%= t.project_name %></a> · Due: <%= t.due_date ? formatDate(t.due_date) : 'Not set' %></div>
+          <div class="text-sm text-muted"><% if (canViewTaskProject) { %><a href="/projects/<%= t.project_id %>" style="color:var(--primary);text-decoration:none;"><%= t.project_name %></a><% } else { %><span><%= t.project_name %></span><% } %> · Due: <%= t.due_date ? formatDate(t.due_date) : 'Not set' %></div>
         </div>
         <% }) %>
         <% if (!assignedTasks.length) { %><p class="text-muted text-sm">No active tasks</p><% } %>

@@ -71,7 +71,7 @@ SEED_VERBOSE=1 npm run seed
 Default login credentials:
   Admin:    admin / <random>
   Manager:  jwilliams / <random>
-  Staff:    mpatel / <random>
+  Staff:    mpatel / <random> (also trodriguez, akimura, dmuller share the same staff password)
 ```
 
 Copy the printed passwords from the seed output to sign in. Without
@@ -124,7 +124,7 @@ SEED_PASSWORD=<your-strong-staff-password>
 │       └── audit.js        # Audit log viewer
 ├── tests/                  # Jest test suite
 └── views/
-    ├── partials/            # Header, footer, nav, pagination
+    ├── partials/            # Header, footer, nav, nav-close, pagination
     └── pages/               # EJS page templates
         ├── auth/
         ├── assets/
@@ -136,7 +136,10 @@ SEED_PASSWORD=<your-strong-staff-password>
         ├── changes/
         ├── licenses/
         ├── reports/
-        └── audit/
+        ├── audit/
+        ├── dashboard.ejs    # Dashboard overview
+        ├── 404.ejs          # Not-found page
+        └── error.ejs        # Generic error page
 ```
 
 ## Configuration
@@ -150,7 +153,7 @@ Environment variables (set in `.env`):
 | `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
 | `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
 | `NODE_ENV` | `development` | `development` or `production` |
-| `TRUST_PROXY` | `0` | Set to `1` when behind a reverse proxy (nginx, etc.) |
+| `TRUST_PROXY` | `0` | Set to `1`/`true` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0` |
 | `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |

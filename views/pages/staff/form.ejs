@@ -19,7 +19,7 @@
       <div class="form-group"><label for="last_name">Last Name *</label><input type="text" name="last_name" id="last_name" class="form-control" value="<%= staffMember.last_name || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" required></div>
       <div class="form-group"><label for="email">Email *</label><input type="email" name="email" id="email" class="form-control" value="<%= staffMember.email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" required autocomplete="email"></div>
       <div class="form-group"><label for="role">Role *</label><select name="role" id="role" class="form-control" required>
-        <% const assignableRoles = (typeof viewerRole === 'undefined' || viewerRole === 'admin') ? CONSTANTS.USER_ROLES : ['staff']; %>
+        <% const assignableRoles = (typeof viewerRole !== 'undefined' && viewerRole === 'admin') ? CONSTANTS.USER_ROLES : ['staff']; %>
         <% assignableRoles.forEach(r => { %>
           <option value="<%= r %>" <%= (isEdit ? staffMember.role === r : r === 'staff') ? 'selected' : '' %>><%= titleCase(r) %></option>
         <% }) %>

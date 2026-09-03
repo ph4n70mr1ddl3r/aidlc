@@ -881,6 +881,12 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       return res.redirect('/tickets');
     }
     if (err.message === 'USER_INACTIVE') {
+      // Audit when the helper is available (auditMiddleware runs before this
+      // route in production, but unit-test harnesses may invoke the handler
+      // without it — guard so logging can never crash the redirect).
+      if (typeof req.audit === 'function') {
+        req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket (inactive account)');
+      }
       req.flash('error', 'Your account is no longer active.');
       return res.redirect('/login?reason=session_expired');
     }
