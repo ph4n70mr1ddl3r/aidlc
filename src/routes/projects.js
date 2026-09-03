@@ -669,9 +669,16 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   // trim() coerces it to '', which would silently store NULL with a success
   // flash — the same convention the task UPDATE route enforces via
   // resolveOptionalField's error sentinel and every other create route applies.
-  if (req.body.description !== undefined && req.body.description !== null && req.body.description !== '' && typeof req.body.description !== 'string') {
-    req.flash('error', 'Invalid request parameters');
-    return res.redirect(`/projects/${projectId}`);
+  // status/priority are included because the enum checks below are
+  // validate-when-present: a non-string collapses to '' and would silently fall
+  // back to the 'todo'/'medium' defaults with a success flash (the full-update
+  // route already guards both).
+  for (const field of ['description', 'status', 'priority']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${projectId}`);
+    }
   }
   const status = trim(safeQueryValue(req.body.status));
   const priority = trim(safeQueryValue(req.body.priority));

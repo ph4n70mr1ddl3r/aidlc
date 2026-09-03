@@ -416,7 +416,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect(`/assets/${id}/edit`);
   }
   if (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
-    req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001).');
+    req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }
   if (name.length > MAX_MEDIUM_STR) {

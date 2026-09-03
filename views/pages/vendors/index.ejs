@@ -27,7 +27,7 @@
       <td class="text-sm"><%= v.email || '-' %></td>
       <td class="text-sm"><%= v.category ? titleCase(v.category) : '-' %></td>
       <td class="text-sm"><%= v.contract_end ? formatDate(v.contract_end) : '-' %></td>
-      <td><% if (v.rating) { for (let i=0;i<v.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);font-size:12px;"></i><% } for (let i=v.rating;i<5;i++) { %><i class="far fa-star" style="color:var(--border);font-size:12px;"></i><% } } else { %>-<% } %></td>
+      <td><div <% if (v.rating) { %>role="img" aria-label="<%= v.rating %> out of 5 stars"<% } %>><% if (v.rating) { for (let i=0;i<v.rating;i++) { %><i class="fas fa-star" style="color:var(--warning);font-size:12px;" aria-hidden="true"></i><% } for (let i=v.rating;i<5;i++) { %><i class="far fa-star" style="color:var(--border);font-size:12px;" aria-hidden="true"></i><% } } else { %>-<% } %></div></td>
       <td><span class="badge badge-<%= v.is_active ? 'low' : 'critical' %>"><%= v.is_active ? 'Active' : 'Inactive' %></span></td>
       <td class="actions-cell"><% if (isPrivileged(user)) { %><a href="/vendors/<%= v.id %>" class="btn btn-sm btn-outline" aria-label="View vendor"><i class="fas fa-eye" aria-hidden="true"></i></a><% } else { %><span class="text-muted" title="Admin/manager only">—</span><% } %></td>
     </tr><% }) %></tbody>

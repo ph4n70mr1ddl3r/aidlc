@@ -92,7 +92,9 @@ SEED_PASSWORD=<your-strong-staff-password>
 ## Project Structure
 
 ```
+├── .editorconfig             # Editor style (2-space indent, LF endings)
 ├── .env.example            # Environment template (copy to .env)
+├── .gitignore              # Ignores node_modules, data/, .env, coverage/
 ├── .nvmrc                  # Pinned Node.js version
 ├── CODE_REVIEW.md          # Review history
 ├── eslint.config.js        # ESLint config
@@ -155,7 +157,7 @@ Environment variables (set in `.env`):
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | HTTP port (must be `1`–`65535`; non-numeric/invalid values fall back to `3000`, and the server exits with code `1` when run as the entry point) |
-| `DB_PATH` | `./data/itmanager.db` | SQLite database path |
+| `DB_PATH` | `./data/itmanager.db` (resolved relative to repo root) | SQLite database path |
 | `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
 | `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
 | `NODE_ENV` | `development` | `development` or `production` |

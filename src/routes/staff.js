@@ -661,7 +661,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
 
     if (result.notFound) {
       req.flash('error', 'Staff member not found');
-      return res.redirect(`/staff/${id}`);
+      return res.redirect('/staff');
     }
     if (result.alreadyActive) {
       req.flash('info', 'Account is already active.');

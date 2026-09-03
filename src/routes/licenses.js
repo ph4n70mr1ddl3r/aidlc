@@ -356,7 +356,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // the identical payload. Absent/empty is allowed (preserve / clear via the
   // explicit clear_key checkbox).
   if (req.body.license_key !== undefined && req.body.license_key !== null && req.body.license_key !== '' && typeof req.body.license_key !== 'string') {
-    req.flash('error', 'Invalid license key');
+    req.flash('error', 'Invalid License Key');
     return res.redirect(`/licenses/${id}/edit`);
   }
   const clearKey = parseBooleanFlag(safeQueryValue(req.body.clear_key));

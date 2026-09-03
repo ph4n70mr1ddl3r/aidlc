@@ -147,7 +147,7 @@
         <div class="detail-row"><div class="detail-label">Resolved</div><div class="detail-value"><%= formatDateTime(ticket.resolved_at) %></div></div>
         <% } %>
         <% if (ticket.satisfaction_rating) { %>
-        <div class="detail-row"><div class="detail-label">Satisfaction</div><div class="detail-value"><% for (let i = 0; i < ticket.satisfaction_rating; i++) { %><i class="fas fa-star" style="color:var(--warning);"></i><% } %><% for (let i = ticket.satisfaction_rating; i < 5; i++) { %><i class="far fa-star" style="color:var(--text-light);"></i><% } %> <span class="text-sm text-muted"><%= ticket.satisfaction_rating %>/5</span></div></div>
+        <div class="detail-row"><div class="detail-label">Satisfaction</div><div class="detail-value" role="img" aria-label="<%= ticket.satisfaction_rating %> out of 5 stars"><% for (let i = 0; i < ticket.satisfaction_rating; i++) { %><i class="fas fa-star" style="color:var(--warning);" aria-hidden="true"></i><% } %><% for (let i = ticket.satisfaction_rating; i < 5; i++) { %><i class="far fa-star" style="color:var(--text-light);" aria-hidden="true"></i><% } %> <span class="text-sm text-muted"><%= ticket.satisfaction_rating %>/5</span></div></div>
         <% } %>
       </div>
     </div>

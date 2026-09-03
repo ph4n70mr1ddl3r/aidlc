@@ -4,8 +4,84 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (163 consecutive hardening commits) was
+Jest suite. Prior review history (164 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (165th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One fail-open correctness defect, one
+redirect-target defect, and ten LOW consistency/completeness/a11y/docs
+defects were closed.
+
+### Fixes applied
+- **`src/routes/projects.js` — add-task silently defaulted present non-string `status`/`priority` (LOW, correctness).**
+  The guard only covered `description`; `status`/`priority` are
+  validate-when-present with `|| 'todo'`/`'medium'` defaults, so a JSON
+  `{"status": 5}` trimmed to `''`, skipped the enum check, and stored the
+  default with success. Extended the guard to
+  `['description', 'status', 'priority']`, mirroring the full-update guard and
+  the changes.js create guard.
+- **`src/routes/staff.js` — `PUT /:id/reactivate` NOT_FOUND redirected to the non-existent detail page (LOW, correctness).**
+  `return res.redirect(`/staff/${id}`)` on a missing id re-404s; vendors
+  deactivate/reactivate NOT_FOUND, staff update/reset/deactivate NOT_FOUND all
+  go to the list. Fixed to `/staff`; `alreadyActive` still goes to detail (it
+  exists).
+- **`src/routes/changes.js` — `INVALID_DATE_FIELDS` omitted `Date` while create uses it (LOW, consistency).**
+  Create flashes `Invalid Scheduled Start Date`/`End Date`; update via the map
+  flashed `Invalid Scheduled Start`/`End` (and `Actual Start`/`End`). Added
+  the `Date` suffix to all four map values.
+- **`src/routes/tickets.js` — quick-status rejected padded status while full update trims (LOW, consistency).**
+  `PUT /:id/status` used raw `safeQueryValue`; full `PUT /:id` trims, so
+  `' in_progress '` was rejected here but accepted there. Now trims (still
+  fail-closed: non-strings collapse to `''` and fail the enum check).
+- **`src/routes/licenses.js` — `Invalid license key` casing outlier (LOW, consistency).**
+  Every other `Invalid X` is Title-Cased (`Invalid License Type`, `Invalid
+  Cost Amount`, ...). Fixed to `Invalid License Key`; updated
+  `tests/code_review_141.test.js`.
+- **`src/routes/assets.js` — asset-tag format message trailing-period outlier (LOW, consistency).**
+  The only validation flash with `.` in the file; all siblings (`must be at
+  most`, `Invalid X`, `required`) carry none. Dropped the period.
+- **`views/pages/projects/show.ejs` — quick-status select missing accessible name (LOW, a11y).**
+  Sibling add-task/add-member inputs all carry `aria-label`s (pass 164). Added
+  `aria-label="Task status for <%= t.title %>"`.
+- **`views/pages/vendors/index.ejs` — rating stars missing AT wrapper (LOW, a11y).**
+  Show page wraps with `role="img" aria-label="N out of 5 stars"` and hides
+  icons; index rendered bare icons. Mirrored the show pattern.
+- **`views/pages/tickets/show.ejs` — satisfaction stars missing `aria-hidden` + wrapper (LOW, a11y).**
+  Added `aria-hidden="true"` to both loops and a `role="img"` wrapper with
+  `aria-label`, mirroring `vendors/show.ejs`.
+- **`tests/templates.test.js` — `recentTickets` fixture omitted `assigned_to` (LOW, test completeness).**
+  Same gap pass 164 fixed for `owner_id`. Route always selects the column and
+  the template gates on it; the fixture passed only via the admin bypass.
+  Added `assigned_to: 1`.
+- **`README.md` — structure/config gaps (LOW, docs).**
+  Tree omitted `.editorconfig`/`.gitignore`; `DB_PATH` default read as
+  CWD-relative while code anchors to the repo root. Added both tree lines and
+  clarified the default.
+- **`CODE_REVIEW.md` — normalized 143rd/144th/145th headings to the undated format (LOW, docs).**
+- **`tests/code_review_165.test.js` — 11 regression tests.**
+  Source pins for the task guard, date labels, trim, casing, period, and
+  reactivate redirect; render pins for the select label and both star wrappers.
+
+Deliberately unchanged: staff/show assigned-ticket/asset links stay ungated —
+the show route only renders for privileged viewers (who can open anything) or
+self (whose assigned items trivially satisfy `canAccessResource`), so gating
+would be dead code; self-denial guardrails (own role/deactivate/password-reset)
+write no `access_denied` audit by design (user errors, not boundary probing —
+privileged-escalation denials already audit per pass 164); the vendors
+active-delete workflow guard stays unaudited (workflow enforcement, not an
+access denial); the systemic decorative-`<i>` sweep was deferred (pass 164
+covered all labelled/interactive controls; remaining icons are pure decoration).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **930 passed / 930 total** (46 suites, +11 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
@@ -666,7 +742,9 @@ surfaces.
 
 ---
 
-## Review cycle 2026-08-24 (145th pass)
+## Review cycle (145th pass)
+
+**Date:** 2026-08-24
 
 An independent pass (full re-read of all 12 route modules, both middleware
 modules, utils, constants, models, seed, app.js, all EJS views,
@@ -687,7 +765,9 @@ hint text that the 140th pass had standardized across every sibling surface.
 
 ---
 
-## Review cycle 2026-08-24 (144th pass)
+## Review cycle (144th pass)
+
+**Date:** 2026-08-24
 
 An independent pass (full re-read of all 12 route modules, both middleware
 modules, utils, constants, models, seed, app.js, all EJS views,
@@ -708,7 +788,9 @@ mark where appropriate) and every short label is left without one.
 
 ---
 
-## Review cycle 2026-08-24 (143rd pass)
+## Review cycle (143rd pass)
+
+**Date:** 2026-08-24
 
 An independent pass (full re-read of all 12 route modules, both middleware
 modules, utils, constants, models, seed, app.js, all EJS views,

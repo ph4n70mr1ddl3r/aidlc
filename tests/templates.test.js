@@ -223,7 +223,7 @@ describe('templates render without ReferenceError', () => {
       myTickets: [{ id: 1, ticket_number: 'TK-DASH-MY', title: 'My active ticket', priority: 'high', status: 'open', created_at: '2024-01-01 09:00' }],
       staffWorkload: [{ id: 2, name: 'Alice Workload', role: 'staff', open_tickets: 2 }],
       upcomingChanges: [{ id: 1, title: 'Upcoming change alpha', scheduled_start: '2099-01-01 10:00' }],
-      recentTickets: [{ id: 3, ticket_number: 'TK-DASH-RECENT', title: 'Recent ticket', category: 'network', priority: 'low', status: 'open', assigned_name: 'Bob', created_at: '2024-01-02 09:00' }],
+      recentTickets: [{ id: 3, ticket_number: 'TK-DASH-RECENT', title: 'Recent ticket', category: 'network', priority: 'low', status: 'open', assigned_to: 1, assigned_name: 'Bob', created_at: '2024-01-02 09:00' }],
       ticketsByCategory: [{ category: 'network', count: 3 }]
     });
     // My Active Tickets

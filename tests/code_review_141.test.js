@@ -309,7 +309,7 @@ describe('licenses update — non-string license_key is rejected (regression)', 
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid license key');
+      expect(errorFlash(flashCalls)).toBe('Invalid License Key');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });
