@@ -48,7 +48,7 @@
                </div>
              </a><% } else { %><div class="flex items-center gap-2"><div class="user-avatar" style="width:28px;height:28px;font-size:11px;"><%= (s.first_name || '?')[0] %><%= (s.last_name || '?')[0] %></div><span style="font-weight:600;"><%= s.first_name %> <%= s.last_name %></span></div><% } %></td>
              <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? s.email : 'Restricted' %></td>
-             <td><span class="badge badge-<%= badgeClass(s.role, ROLE_BADGE) %>"><%= titleCase(s.role) %></span></td>
+              <td><span class="badge badge-<%= badgeClass(s.role || 'staff', ROLE_BADGE) %>"><%= titleCase(s.role || 'staff') %></span></td>
              <% // Department mirrors the email column's redaction marker: the route
                 // nulls department on rows the viewer may not see PII for. %>
              <td class="text-sm"><%= isPrivileged(user) || Number(user.id) === Number(s.id) ? (s.department || '-') : 'Restricted' %></td>

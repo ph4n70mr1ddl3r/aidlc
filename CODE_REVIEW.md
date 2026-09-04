@@ -4,8 +4,42 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (167 consecutive hardening commits) was
+Jest suite. Prior review history (168 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (169th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Two consistency defects — `badgeClass` calls
+without nullable fallbacks in two staff-related list views, and a missing read
+audit on the profile show route — were closed.
+
+### Fixes applied
+- **`views/pages/staff/index.ejs` — `badgeClass(s.role, ROLE_BADGE)` missing
+  `|| 'staff'` fallback (LOW, consistency).** Every other list view in the app
+  passes a fallback to `badgeClass` (e.g. `a.condition_rating || 'good'`,
+  `c.change_type || 'maintenance'`). A NULL role would flow through as the raw
+  value, producing `badge-null` — an invalid CSS class that silently renders as
+  unstyled text. Added `|| 'staff'` to both the `badgeClass` call and the
+  `titleCase` display, matching the convention used on `staff/show.ejs`
+  (`staffUser.role || 'staff'`).
+- **`views/pages/reports/staff.ejs` — same `badgeClass(p.role, ROLE_BADGE)` gap
+  (LOW, consistency).** Identical fix: added `|| 'staff'` fallback to both the
+  badge mapping and the `titleCase` call.
+- **`src/routes/auth.js` — `GET /profile` missing read audit (LOW, completeness).**
+  Every other show route audits its read action (`req.audit('read', ...)`), but
+  the profile GET handler did not. Added `audit({ req, action: 'read', entity:
+  'user', entityId: req.session.user.id, details: 'Viewed own profile' })` so
+  profile views leave an audit trail consistent with all other read surfaces.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **974 passed / 974 total** (49 suites, +5 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
