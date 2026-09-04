@@ -896,7 +896,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');
       req.flash('error', 'You do not have permission to comment on this ticket.');
-      return res.redirect(`/tickets/${id}`);
+      return res.redirect('/tickets');
     }
     console.error('Ticket comment error:', err.message);
     req.flash('error', 'Error adding comment. Please try again.');

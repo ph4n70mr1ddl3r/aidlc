@@ -4,8 +4,33 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (165 consecutive hardening commits) was
+Jest suite. Prior review history (167 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (168th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW correctness defect — a remaining
+double-denial redirect on the tickets comment ACCESS_DENIED handler — was
+closed. The fix mirrors the convention established in pass 166 for edit/update/
+quick-status.
+
+### Fixes applied
+- **`src/routes/tickets.js` — ACCESS_DENIED on comment redirected to detail
+  (LOW, correctness).** The comment handler's ACCESS_DENIED catch redirected
+  to `/tickets/${id}`, triggering the same `canAccessResource` gate on the
+  show route and producing a double denial (two flashes + two audits). Changed
+  to redirect to `/tickets`, matching the convention applied to edit/update/
+  quick-status in pass 166.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **969 passed / 969 total** (48 suites, +1 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

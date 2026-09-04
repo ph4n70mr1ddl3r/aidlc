@@ -157,6 +157,31 @@ describe('code review 166: consistency/completeness/correctness', () => {
       expect(denied).toBeGreaterThanOrEqual(3);
       expect(src).not.toMatch(/Unauthorized edit attempt on ticket[\s\S]{0,200}return res\.redirect\(`\/tickets\/\$\{id\}`\)/);
     });
+    it('tickets comment denial goes to /tickets (not detail — avoids double denial)', () => {
+      const src = readSrc('src/routes/tickets.js');
+      // The comment handler's ACCESS_DENIED catch must redirect to the list,
+      // not the detail page — a detail redirect would re-trigger canAccessResource
+      // and produce a second flash + audit entry on routine navigation.
+      expect(src).toContain('Unauthorized comment attempt on ticket');
+      expect(src).not.toMatch(/Unauthorized comment attempt on ticket[\s\S]{0,200}return res\.redirect\(`\/tickets\/\$\{id\}`\)/);
+      // Verify it redirects to the list instead (the ACCESS_DENIED block
+      // for comments must end with /tickets, not /tickets/${id}).
+      const lines = src.split('\n');
+      let foundCommentDenied = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes("err.message === 'ACCESS_DENIED'") && lines[i + 1] && lines[i + 1].includes('Unauthorized comment attempt on ticket')) {
+          // Look at the next few lines for the redirect.
+          for (let j = i; j < Math.min(i + 5, lines.length); j++) {
+            if (lines[j].includes("return res.redirect('/tickets')")) {
+              foundCommentDenied = true;
+              break;
+            }
+          }
+          break;
+        }
+      }
+      expect(foundCommentDenied).toBe(true);
+    });
     it('knowledge edit/update denials go to /knowledge', () => {
       const src = readSrc('src/routes/knowledge.js');
       // Denial flashes must redirect to the list (show would re-deny for
