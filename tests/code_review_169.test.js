@@ -114,7 +114,9 @@ describe('code review 169: badgeClass fallbacks + profile read audit', () => {
           query: {}
         };
         const res = {
-          render: (template, data) => { Object.assign(renderedPage, data); },
+          render: (template, data) => {
+            Object.assign(renderedPage, data);
+          },
           redirect: () => {},
           status: () => res,
           json: () => {}
