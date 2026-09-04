@@ -123,6 +123,10 @@ document.addEventListener('click', function (e) {
   const sidebar = document.getElementById('sidebar');
   if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !e.target.closest('.mobile-menu-toggle')) {
     sidebar.classList.remove('open');
+    const toggle = document.querySelector('[data-toggle="sidebar"]');
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', 'false');
+    }
   }
 });
 
@@ -134,7 +138,22 @@ document.addEventListener('click', function (e) {
   if (toggle) {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) {
-      sidebar.classList.toggle('open');
+      const open = sidebar.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    }
+  }
+});
+
+// Close the mobile sidebar with Escape so keyboard/AT users are not trapped.
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && sidebar.classList.contains('open')) {
+      sidebar.classList.remove('open');
+      const toggle = document.querySelector('[data-toggle="sidebar"]');
+      if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+      }
     }
   }
 });

@@ -320,6 +320,16 @@ router.get('/:id', (req, res) => {
     return res.redirect('/staff');
   }
 
+  // Fetch first so a non-existent id reports NOT_FOUND (not ACCESS_DENIED):
+  // the access gate below would otherwise audit an enumeration probe against
+  // an id that does not exist as an access denial, mirroring the fetch-first
+  // convention in tickets/assets/projects show routes.
+  const staffUser = _showStaffStmt.get(id);
+  if (!staffUser) {
+    req.flash('error', 'Staff member not found');
+    return res.redirect('/staff');
+  }
+
   // PII disclosure control: only privileged users (admin/manager) or the user
   // themselves may view a staff profile. A regular staff member enumerating
   // IDs must not be able to read other employees' email/phone/department.
@@ -329,13 +339,7 @@ router.get('/:id', (req, res) => {
     // attempt against staff PII is exactly the probing the audit log exists
     // to surface (mirrors tickets/assets/projects/changes/knowledge).
     req.audit('access_denied', 'user', id, 'Unauthorized staff profile view attempt');
-    req.flash('error', 'You do not have permission to view that staff member.');
-    return res.redirect('/staff');
-  }
-
-  const staffUser = _showStaffStmt.get(id);
-  if (!staffUser) {
-    req.flash('error', 'Staff member not found');
+    req.flash('error', 'You do not have permission to view this staff member.');
     return res.redirect('/staff');
   }
 

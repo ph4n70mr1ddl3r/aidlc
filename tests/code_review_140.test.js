@@ -479,7 +479,8 @@ describe('source-level guards (regression)', () => {
     // enforced; a sub-60s idle window falsely expired continuously-active
     // users because lastAccess can be up to 60s stale.
     const appSrc = read('src/app.js');
-    expect(appSrc).toMatch(/SESSION_IDLE_TIMEOUT_SECONDS = Math\.max\(_LAST_ACCESS_THROTTLE_MS \/ 1000, _parsePositiveSeconds\(/);
+    expect(appSrc).toMatch(/SESSION_IDLE_TIMEOUT_SECONDS = Math\.max\(_LAST_ACCESS_THROTTLE_MS \/ 1000,/);
+    expect(appSrc).toContain('_rawIdleSeconds');
   });
 
   it('vendors.js no longer gates the show route through the ownership-field helper', () => {

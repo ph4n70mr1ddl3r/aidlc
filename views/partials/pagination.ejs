@@ -21,7 +21,7 @@
     <% if (_page > 1) { %>
       <a href="<%= buildUrl(_page - 1) %>" aria-label="Previous page"><i class="fas fa-chevron-left" aria-hidden="true"></i></a>
     <% } else { %>
-      <span class="disabled" aria-hidden="true"><i class="fas fa-chevron-left"></i></span>
+      <span class="disabled" aria-hidden="true"><i class="fas fa-chevron-left" aria-hidden="true"></i></span>
     <% } %>
 
     <% const start = Math.max(1, _page - 2); %>
@@ -45,7 +45,7 @@
     <% if (_page < _totalPages) { %>
       <a href="<%= buildUrl(_page + 1) %>" aria-label="Next page"><i class="fas fa-chevron-right" aria-hidden="true"></i></a>
     <% } else { %>
-      <span class="disabled" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+      <span class="disabled" aria-hidden="true"><i class="fas fa-chevron-right" aria-hidden="true"></i></span>
     <% } %>
   </div>
   </nav>

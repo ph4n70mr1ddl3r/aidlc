@@ -1,14 +1,14 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Software Licenses <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Licenses</div></div><% if (isPrivileged(user)) { %><a href="/licenses/new" class="btn btn-primary"><i class="fas fa-plus"></i> New License</a><% } %></div>
+<div class="page-header"><div><h2>Software Licenses <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Licenses</div></div><% if (isPrivileged(user)) { %><a href="/licenses/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> New License</a><% } %></div>
 <form method="GET" action="/licenses" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search licenses..." aria-label="Search licenses" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="license_type" aria-label="Filter by license type"><option value="">All Types</option><% CONSTANTS.LICENSE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.license_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %></select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/licenses" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (licenses.length === 0) { %><div class="empty-state"><i class="fas fa-key"></i><h3>No licenses found</h3><p>Add your first license or adjust filters</p></div>
+  <% if (licenses.length === 0) { %><div class="empty-state"><i class="fas fa-key" aria-hidden="true"></i><h3>No licenses found</h3><p>Add your first license or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
     <tbody><% licenses.forEach(l => { 
@@ -22,9 +22,9 @@
     %><tr>
       <td><% if (isPrivileged(user)) { %><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a><% } else { %><span style="font-weight:600;"><%= l.software_name %></span><% } %></td>
       <td class="text-sm"><%= l.vendor || '-' %></td>
-       <td><span class="badge badge-<%= badgeClass(l.license_type, LICENSE_TYPE_BADGE) %>"><%= titleCase(l.license_type) %></span></td>
+       <td><span class="badge badge-<%= badgeClass(l.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(l.license_type) %></span></td>
       <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
-      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= _usagePct %>% seat usage" style="width:80px;display:inline-block;vertical-align:middle;">
+      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= l.software_name %>: <%= _usagePct %>% seat usage" style="width:80px;display:inline-block;vertical-align:middle;">
         <div class="progress-fill <%= _usagePct > 90 ? 'red' : _usagePct > 70 ? 'orange' : 'green' %>" style="width:<%= _usagePct %>%"></div>
       </div> <span class="text-sm"><%= _usagePct %>%</span></td>
       <td class="text-sm" style="<%= _expSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? formatDate(l.expiry_date) : 'Perpetual' %></td>

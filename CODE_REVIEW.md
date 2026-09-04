@@ -1,11 +1,141 @@
 # Code Review Notes
 
-**Date:** 2026-09-03
+**Date:** 2026-09-04
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (164 consecutive hardening commits) was
+Jest suite. Prior review history (165 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (166th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Two correctness defects, one invalid-HTML
+defect, two consistency defects, and fourteen LOW a11y/docs/test completeness
+defects were closed.
+
+### Fixes applied
+- **`src/models/database.js` — `close()` defined before `_nativeClose` (LOW, correctness/TDZ).**
+  `function close() { _nativeClose.call(db); }` appeared above the
+  `const _nativeClose = db.close.bind(db)` declaration, relying on deferred
+  call semantics; moved the binding above the wrapper so the reference is
+  initialized before any caller can observe it.
+- **`src/utils.js` — `safeId` silently truncated floats (LOW, correctness).**
+  `parseInt(3.5)` returns `3`, which would target a different record than the
+  caller wrote. Added an explicit `Number.isInteger` guard for numeric inputs,
+  mirroring `isPresentInvalidId`.
+- **`src/utils.js` — `parseBooleanFlag` ignored JSON `true`/`1` (LOW, correctness).**
+  Callers that send `true`/`1` (as opposed to `'true'`/`'1'`/`'on'`) silently
+  got `0` with a success flash. Extended the function to also map JSON booleans
+  and numbers to their expected int values.
+- **`jest.setup.js` — locale pin dropped formatting options (LOW, correctness).**
+  The previous override captured only `locales`, dropping the second argument
+  (e.g. `{ style: 'currency' }`). Now forwards `options` through so future
+  options-bearing calls do not silently lose them.
+- **`src/utils.js` + `src/app.js` — `PAGE_SIZE` clamp and `SESSION_IDLE_TIMEOUT` floor
+  were silent (LOW, completeness).**
+  Added `console.warn` when `PAGE_SIZE` exceeds the max, and when
+  `SESSION_IDLE_TIMEOUT_SECONDS` is raised to the 60s floor.
+- **`views/pages/projects/show.ejs` — budget exposed to non-privileged owners
+  (LOW, correctness).**
+  The index page gates the budget line behind `isPrivileged`, but the show
+  page did not — allowing staff owners (who can reach show via
+  `canAccessResource`) to read financial data they cannot see on index. Added
+  the `isPrivileged` gate.
+- **`views/pages/projects/show.ejs` — task-hint text impossible for staff + missing
+  members empty-state (LOW, completeness).**
+  The empty-state paragraph said "No tasks yet. Add one above." unconditionally;
+  staff users without add-task access cannot add one. Split into privileged /
+  non-privileged strings. Added a members empty-state paragraph.
+- **`views/pages/projects/show.ejs` — invalid HTML: members empty-state nested inside
+  `<select>` (MEDIUM, correctness).**
+  The `<% if (!members.length) %>` block was emitted inside the task-status
+  `<select>`, producing malformed markup. Moved the paragraph outside the
+  `</select>` into the Team card body.
+- **`src/routes/tickets.js` — ACCESS_DENIED on edit/update/quick-status redirected to
+  detail (LOW, correctness).**
+  Redirecting to `/tickets/${id}` triggers the same `canAccessResource` gate on
+  the show route, producing a double denial (two flashes + two audits).
+  Changed all three to redirect to `/tickets`.
+- **`src/routes/knowledge.js` — ACCESS_DENIED on edit/update redirected to detail
+  (LOW, correctness).**
+  Same double-denial pattern as tickets. Changed all three handlers to
+  redirect to `/knowledge`.
+- **`src/routes/staff.js` — show checked access before existence (LOW, correctness).**
+  A missing id produced `access_denied` instead of `not_found`, confusing
+  enumeration probes with privilege escalations. Reordered to fetch first,
+  then check access.
+- **`src/routes/auth.js` — flash sentence trailing-period outlier (LOW, consistency).**
+  Three required-field flashes omitted periods (`Current password is required`
+  etc.) while every other flash carried one. Added trailing periods.
+- **`src/middleware/auth.js` — corrupt-uid redirect missed `reason=session_expired`
+  (LOW, completeness).**
+  The `user.id == null` branch redirected to `/login` without a reason
+  parameter; added `/login?reason=session_expired` to mirror the intentional
+  expiry path.
+- **Views — 12 decorative `<i>` icons missing `aria-hidden` (LOW, a11y).**
+  Systemic sweep across nav partial (flash icons, pagination disabled chevrons),
+  projects/show (Edit/Delete/Task/Team icons), licenses/show (Edit/Delete icons),
+  and tickets/show (satisfaction stars). All now carry `aria-hidden="true"`.
+- **`views/partials/nav.ejs` — sidebar toggle missing `aria-expanded`/`aria-controls`
+  + Escape key (LOW, a11y).**
+  Added `aria-expanded="false"` and `aria-controls="sidebar"` to the toggle
+  button; `public/js/app.js` now syncs `aria-expanded` on toggle and close
+  (click-outside + Escape key).
+- **`views/pages/knowledge/index.ejs` — featured star/check missing accessible name
+  (LOW, a11y).**
+  Added `sr-only` inline label `(featured)` next to the icon.
+- **`views/pages/dashboard.ejs` + `licenses/index.ejs` — progressbar labels lacked
+  context (LOW, a11y).**
+  Added `<span class="sr-only">` prefixes so screen readers announce e.g.
+  `"Williams, J: 40%"` instead of just `"40%"`.
+- **`views/pages/licenses/show.ejs` — key display missing `aria-live` (LOW, a11y).**
+  The reveal-button updates the masked key span dynamically; added
+  `aria-live="polite"` so AT announces the change.
+- **`views/pages/reports/assets.ejs` — double `badgeClass` call + red-for-unknown (LOW,
+  correctness).**
+  The condition rating was passed twice (once with fallback, once without) and
+  unknown ratings rendered as red. Deduplicated to a single call with a
+  `|| 'good'` fallback and removed the separate red branch.
+- **Views — nullable badge values missing fallbacks (LOW, consistency).**
+  `assets/index`, `knowledge/index`, `changes/index`, `licenses/index` all
+  passed potentially-null enum values to `badgeClass`. Added `|| 'default'`
+  fallbacks matching each entity's most common value.
+- **`views/pages/licenses/form.ejs` + `knowledge/form.ejs` + `tickets/show.ejs` —
+  checkbox labels missing `for`/`id` association (LOW, a11y).**
+  Added `id` attributes to the checkboxes and matching `for` attributes on
+  their `<label>` elements.
+- **`public/css/app.css` — missing `.sr-only` + `button:focus-visible` (LOW, a11y).**
+  Added screen-reader-only utility and a `button:focus-visible` rule so keyboard
+  focus is visible on interactive elements.
+- **`README.md` — `bcrypt` → `bcryptjs`, real clone URL, structure gaps (LOW, docs).**
+  Updated Tech Stack and Security rows to match the actual dependency; added
+  the real repo URL; added `.github/workflows/ci.yml` to the project tree;
+  expanded the gitignore description; updated Rate Limiting bullet.
+- **`tests/code_review_166.test.js` — 21 regression tests.**
+  Source pins for DB_PATH anchoring, safeId float rejection, parseBooleanFlag
+  JSON support, jest.setup options forwarding, clamp/floor warnings, projects
+  budget gate, denial redirects, staff fetch-first, flash periods, middleware
+  reason param, a11y properties, badge fallbacks, checkbox labels, and docs.
+
+Deliberately unchanged: the license key last-four display to privileged users
+stays (audited only on read; full reveal goes through a separate AJAX endpoint
+and the limiter); the ticket asset search-link acts as a deliberate existence
+oracle for staff who already have show access; the no-op
+`resetCachedStatements` stubs in route modules are left as API-consistency
+markers (the real cache lives in `utils.js` and is cleared there); the
+systemic `<i>` sweep covers all decorative icons found in this pass — remaining
+icons in the app are on labelled/interactive controls that already carry
+`aria-hidden`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **956 passed / 956 total** (47 suites, +21 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

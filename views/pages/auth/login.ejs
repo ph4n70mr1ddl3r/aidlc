@@ -3,28 +3,28 @@
 <div class="login-container">
   <div class="login-card">
     <div style="text-align:center;margin-bottom:24px;">
-      <i class="fas fa-server" style="font-size:40px;color:var(--primary);"></i>
+      <i class="fas fa-server" aria-hidden="true" style="font-size:40px;color:var(--primary);"></i>
     </div>
     <h1 style="text-align:center;">IT Department Manager</h1>
     <p style="text-align:center;">Sign in to your account</p>
     
     <% if (flash.error && flash.error.length) { flash.error.forEach(m => { %>
-      <div class="flash error" role="alert"><i class="fas fa-exclamation-circle"></i> <%= m %></div>
+      <div class="flash error" role="alert"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> <%= m %></div>
     <% }) } %>
     <% if (typeof reason !== 'undefined' && reason === 'deactivated') { %>
-      <div class="flash error" role="alert"><i class="fas fa-exclamation-circle"></i> Your account has been deactivated. Contact your administrator.</div>
+      <div class="flash error" role="alert"><i class="fas fa-exclamation-circle" aria-hidden="true"></i> Your account has been deactivated. Contact your administrator.</div>
     <% } else if (typeof reason !== 'undefined' && reason === 'password_changed') { %>
-      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session has expired because your password was changed. Please log in again.</div>
+      <div class="flash info" role="status"><i class="fas fa-info-circle" aria-hidden="true"></i> Your session has expired because your password was changed. Please log in again.</div>
     <% } else if (typeof reason !== 'undefined' && reason === 'session_idle') { %>
-      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session expired due to inactivity. Please log in again.</div>
+      <div class="flash info" role="status"><i class="fas fa-info-circle" aria-hidden="true"></i> Your session expired due to inactivity. Please log in again.</div>
     <% } else if (typeof reason !== 'undefined' && reason === 'session_expired') { %>
-      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> Your session has expired after reaching its maximum lifetime. Please log in again.</div>
+      <div class="flash info" role="status"><i class="fas fa-info-circle" aria-hidden="true"></i> Your session has expired after reaching its maximum lifetime. Please log in again.</div>
     <% } %>
     <% if (flash.success && flash.success.length) { flash.success.forEach(m => { %>
-      <div class="flash success" role="alert"><i class="fas fa-check-circle"></i> <%= m %></div>
+      <div class="flash success" role="alert"><i class="fas fa-check-circle" aria-hidden="true"></i> <%= m %></div>
     <% }) } %>
     <% if (flash.info && flash.info.length) { flash.info.forEach(m => { %>
-      <div class="flash info" role="status"><i class="fas fa-info-circle"></i> <%= m %></div>
+      <div class="flash info" role="status"><i class="fas fa-info-circle" aria-hidden="true"></i> <%= m %></div>
     <% }) } %>
 
     <form action="/login" method="POST">
@@ -38,7 +38,7 @@
         <input type="password" name="password" id="password" class="form-control" placeholder="Enter password" required autocomplete="current-password" maxlength="<%= CONSTANTS.MAX_PASSWORD %>">
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;">
-        <i class="fas fa-sign-in-alt"></i> Sign In
+        <i class="fas fa-sign-in-alt" aria-hidden="true"></i> Sign In
       </button>
     </form>
     <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-light);">

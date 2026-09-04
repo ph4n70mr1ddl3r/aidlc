@@ -114,15 +114,15 @@ app.set('query parser', 'simple');
 // needed and have been associated with cross-protocol/cross-site tracing
 // attacks; dropping them at the edge is cheap defense-in-depth.
 const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
-const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
-const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE';
+const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE']);
 // Methods a POST may be overridden to via `_method`. Restricted to the write
-// verbs the app actually uses (PUT/DELETE/PATCH). An allowlist — rather than
-// passing the raw `_method` string straight through — restores the
-// disallowed-methods guarantee: exotic `_method` values (TRACE/CONNECT/etc.)
-// are rejected, preventing a POST from being downgraded to GET (which would
-// skip CSRF validation).
-const _OVERRIDE_METHODS = new Set(['PUT', 'DELETE', 'PATCH']);
+// verbs the app actually uses (PUT/DELETE). An allowlist — rather than passing
+// the raw `_method` string straight through — restores the disallowed-methods
+// guarantee: exotic `_method` values (TRACE/CONNECT/etc.) are rejected,
+// preventing a POST from being downgraded to GET (which would skip CSRF
+// validation). PATCH is excluded because no route handles it.
+const _OVERRIDE_METHODS = new Set(['PUT', 'DELETE']);
 app.use((req, res, next) => {
   if (_DISALLOWED_METHODS.has(req.method)) {
     return res.status(405).set('Allow', _ALLOWED_METHODS).end();
@@ -289,7 +289,11 @@ function _parsePositiveSeconds(raw, fallback) {
 // marker is up to 60s old. The absolute timeout has no such coupling and takes
 // any positive value.
 const _LAST_ACCESS_THROTTLE_MS = 60_000;
-const SESSION_IDLE_TIMEOUT_SECONDS = Math.max(_LAST_ACCESS_THROTTLE_MS / 1000, _parsePositiveSeconds(process.env.SESSION_IDLE_TIMEOUT_SECONDS, 15 * 60)); // 15 minutes
+const _rawIdleSeconds = _parsePositiveSeconds(process.env.SESSION_IDLE_TIMEOUT_SECONDS, 15 * 60);
+if (process.env.SESSION_IDLE_TIMEOUT_SECONDS !== undefined && process.env.SESSION_IDLE_TIMEOUT_SECONDS !== '' && _rawIdleSeconds < _LAST_ACCESS_THROTTLE_MS / 1000) {
+  console.warn(`WARNING: SESSION_IDLE_TIMEOUT_SECONDS "${process.env.SESSION_IDLE_TIMEOUT_SECONDS}" is below the 60s lastAccess write-throttle floor — raised to 60.`);
+}
+const SESSION_IDLE_TIMEOUT_SECONDS = Math.max(_LAST_ACCESS_THROTTLE_MS / 1000, _rawIdleSeconds); // 15 minutes
 const SESSION_ABSOLUTE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS, 8 * 60 * 60); // 8 hours
 
 // Re-evaluate secure flag at session-config time so it is always correct

@@ -2,7 +2,14 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'itmanager.db');
+// DB_PATH may be absolute, ':memory:' (tests), or relative. A relative value is
+// resolved against the repo root (not process.cwd()) so launching from a
+// different working directory (systemd, Docker, cron) cannot silently create a
+// second database file. Absolute paths and ':memory:' pass through unchanged.
+const _rawDbPath = process.env.DB_PATH || path.join(__dirname, '..', '..', 'data', 'itmanager.db');
+const DB_PATH = (_rawDbPath === ':memory:' || path.isAbsolute(_rawDbPath))
+  ? _rawDbPath
+  : path.join(__dirname, '..', '..', _rawDbPath);
 
 // Ensure data directory exists
 const dir = path.dirname(DB_PATH);
@@ -426,6 +433,13 @@ try {
   process.exit(1);
 }
 
+// Save a reference to the native close before we attach our wrapper to exports,
+// so the wrapper can invoke it without recursing (module.exports = db means the
+// exports object IS the Database instance; assigning .close on it would shadow
+// the native method and cause infinite recursion). Declared before `close()`
+// (not after) so the binding is initialized before any call can observe it.
+const _nativeClose = db.close.bind(db);
+
 /**
  * Close the database connection and clean up resources.
  * Exported so callers (e.g. tests, seed script) can perform graceful shutdown.
@@ -433,11 +447,6 @@ try {
 function close() {
   _nativeClose.call(db);
 }
-// Save a reference to the native close before we attach our wrapper to exports,
-// so the wrapper can invoke it without recursing (module.exports = db means the
-// exports object IS the Database instance; assigning .close on it would shadow
-// the native method and cause infinite recursion).
-const _nativeClose = db.close.bind(db);
 
 module.exports = db;
 module.exports.db = db;

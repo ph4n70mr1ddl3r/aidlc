@@ -15,7 +15,8 @@
     "lint:fix": "eslint . --fix",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --runInBand --coverage",
+    "test:ci": "jest --runInBand --coverage"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -59,7 +60,20 @@
   "jest": {
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
-    ]
+    ],
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/"
+    ],
+    "coverageThresholds": {
+      "global": {
+        "statements": 60,
+        "branches": 55,
+        "functions": 60,
+        "lines": 60
+      }
+    }
   },
   "bugs": {
     "url": "https://github.com/ph4n70mr1ddl3r/aidlc/issues"

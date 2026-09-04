@@ -18,24 +18,30 @@ afterAll(() => {
 // uses Number(x).toLocaleString() in templates, which in V8 delegates to
 // Intl.NumberFormat(locales, ...).format(x) with locales undefined — forcing
 // any locale-less construction to the shared en-US formatter pins the output.
-const enUsNumberFormat = new Intl.NumberFormat('en-US');
+// Formatting options (second arg, e.g. { style: 'currency' }) are forwarded so
+// a future options-bearing call does not silently lose them.
 const NativeNumberFormat = Intl.NumberFormat;
 Intl.NumberFormat = function (...args) {
-  const [locales] = args;
+  const [locales, options] = args;
   const locale = Array.isArray(locales) ? locales[0] : locales;
-  return (locale === undefined || locale === 'en-US') ? enUsNumberFormat : new NativeNumberFormat(...args);
+  if (locale === undefined || locale === 'en-US') {
+    return new NativeNumberFormat('en-US', options);
+  }
+  return new NativeNumberFormat(...args);
 };
 Intl.NumberFormat.prototype = NativeNumberFormat.prototype;
 
 // Pin date formatting the same way: templates render dates via
 // toLocaleDateString/toLocaleString (Intl.DateTimeFormat with undefined locale),
 // so a non-en-US host would break date assertions. Force locale-less
-// constructions to en-US for determinism.
-const enUsDateTimeFormat = new Intl.DateTimeFormat('en-US');
+// constructions to en-US for determinism, forwarding options.
 const NativeDateTimeFormat = Intl.DateTimeFormat;
 Intl.DateTimeFormat = function (...args) {
-  const [locales] = args;
+  const [locales, options] = args;
   const locale = Array.isArray(locales) ? locales[0] : locales;
-  return (locale === undefined || locale === 'en-US') ? enUsDateTimeFormat : new NativeDateTimeFormat(...args);
+  if (locale === undefined || locale === 'en-US') {
+    return new NativeDateTimeFormat('en-US', options);
+  }
+  return new NativeDateTimeFormat(...args);
 };
 Intl.DateTimeFormat.prototype = NativeDateTimeFormat.prototype;

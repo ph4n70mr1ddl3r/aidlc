@@ -24,7 +24,7 @@
     </div>
     <div class="form-group"><label for="notes">Notes</label><textarea name="notes" id="notes" class="form-control" maxlength="<%= CONSTANTS.MAX_NOTES %>"><%= vendor.notes || '' %></textarea></div>
     <div style="margin-top:20px;display:flex;gap:12px;">
-      <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update' : 'Create' %></button>
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save" aria-hidden="true"></i> <%= isEdit ? 'Update' : 'Create' %></button>
       <a href="/vendors" class="btn btn-secondary">Cancel</a>
     </div>
   </form>

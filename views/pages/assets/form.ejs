@@ -15,7 +15,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label for="asset_tag">Asset Tag *</label>
-          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" required <% if (!isEdit) { %>readonly style="background:var(--bg);cursor:not-allowed;"<% } %>>
+          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" <% if (!isEdit) { %>disabled style="background:var(--bg);cursor:not-allowed;"<% } else { %>required<% } %>>
           <% if (!isEdit) { %><small class="text-muted">Auto-generated when the asset is created.</small><% } %>
         </div>
         <div class="form-group">
@@ -89,7 +89,7 @@
         <textarea name="notes" id="notes" class="form-control" maxlength="<%= CONSTANTS.MAX_NOTES %>"><%= asset.notes || '' %></textarea>
       </div>
       <div style="margin-top:20px;display:flex;gap:12px;">
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> <%= isEdit ? 'Update Asset' : 'Create Asset' %></button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save" aria-hidden="true"></i> <%= isEdit ? 'Update Asset' : 'Create Asset' %></button>
         <a href="/assets" class="btn btn-secondary">Cancel</a>
       </div>
     </form>

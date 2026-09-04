@@ -72,7 +72,7 @@ function _verifySessionUser(req, res) {
   try {
     const uid = req.session.user.id;
     if (uid == null) {
-      destroySessionAndRedirect(req, res, '/login', 'Session verification failed. Please log in again.');
+      destroySessionAndRedirect(req, res, '/login?reason=session_expired', 'Session verification failed. Please log in again.');
       return false;
     }
     const row = _getAuthCheckStmt().get(uid);

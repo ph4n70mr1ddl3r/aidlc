@@ -11,9 +11,9 @@
        // because this page can also render for requests that errored BEFORE the
        // res.locals middleware ran (same reason header.ejs guards csrfToken). %>
     <% if (typeof user !== 'undefined' && user) { %>
-      <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home"></i> Go to Dashboard</a>
+      <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home" aria-hidden="true"></i> Go to Dashboard</a>
     <% } else { %>
-      <a href="/login" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+      <a href="/login" class="btn btn-primary"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Go to Login</a>
     <% } %>
   </div>
 </div>

@@ -159,10 +159,13 @@ tr:last-child td { border-bottom: none; }
   text-decoration: none; border: 1px solid transparent; cursor: pointer;
   transition: all 0.2s; line-height: 1.4; font-family: inherit;
 }
-.btn:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible {
+.btn:focus-visible, a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+/* Screen-reader-only text for semantic icons (e.g. featured stars) — visually
+   hidden but announced by assistive technology. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .btn-sm { padding: 5px 12px; font-size: 13px; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-dark); }

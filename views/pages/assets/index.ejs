@@ -7,7 +7,7 @@
     <div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Assets</div>
   </div>
   <% if (isPrivileged(user)) { %>
-  <a href="/assets/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Asset</a>
+  <a href="/assets/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> New Asset</a>
   <% } %>
 </div>
 
@@ -33,14 +33,14 @@
     <% }) %>
   </select>
   <% } %>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/assets" class="btn btn-sm btn-outline">Clear</a>
 </form>
 
 <div class="card">
   <div class="card-body" style="padding:0;">
     <% if (assets.length === 0) { %>
-      <div class="empty-state"><i class="fas fa-box"></i><h3>No assets found</h3><p>Add your first asset or adjust filters</p></div>
+      <div class="empty-state"><i class="fas fa-box" aria-hidden="true"></i><h3>No assets found</h3><p>Add your first asset or adjust filters</p></div>
     <% } else { %>
     <div class="table-responsive">
       <table>
@@ -57,7 +57,7 @@
             <td><%= a.manufacturer %> <%= a.name %></td>
             <td class="text-sm"><%= titleCase(a.category) %></td>
             <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
-            <td><span class="badge badge-<%= badgeClass(a.condition_rating, CONDITION_BADGE) %>"><%= titleCase(a.condition_rating) %></span></td>
+            <td><span class="badge badge-<%= badgeClass(a.condition_rating || 'good', CONDITION_BADGE) %>"><%= titleCase(a.condition_rating) %></span></td>
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
             <td class="actions-cell">

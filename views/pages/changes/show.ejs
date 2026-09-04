@@ -4,13 +4,13 @@
   <div><h2><%= change.title %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/changes">Changes</a> / <%= change.title %></div></div>
   <% if (isPrivileged(user)) { %>
   <div class="flex gap-2">
-    <a href="/changes/<%= change.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this change?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <a href="/changes/<%= change.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit" aria-hidden="true"></i> Edit</a>
+    <form action="/changes/<%= change.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this change?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button></form>
   </div>
   <% } %>
 </div>
 <div class="card"><div class="card-body">
-  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(change.change_type, CHANGE_TYPE_BADGE) %>"><%= titleCase(change.change_type) %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(change.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(change.change_type) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= change.status %>"><%= titleCase(change.status) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= change.priority %>"><%= titleCase(change.priority) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= change.assigned_name || '-' %></div></div>

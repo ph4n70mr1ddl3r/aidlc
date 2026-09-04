@@ -7,22 +7,22 @@
   %>
   <% if (canManageArticle) { %>
   <div class="flex gap-2">
-    <a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
-    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this article?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button></form>
+    <a href="/knowledge/<%= article.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit" aria-hidden="true"></i> Edit</a>
+    <form action="/knowledge/<%= article.id %>?_method=DELETE" method="POST" style="display:inline;" data-confirm="Delete this article?"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="btn btn-danger"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button></form>
   </div>
   <% } %>
 </div>
 <div class="card mb-3"><div class="card-body" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
   <span class="badge badge-<%= article.status %>"><%= titleCase(article.status) %></span>
-  <span class="badge badge-<%= badgeClass(article.category, KB_CATEGORY_BADGE) %>"><%= titleCase(article.category) %></span>
+  <span class="badge badge-<%= badgeClass(article.category || 'other', KB_CATEGORY_BADGE) %>"><%= titleCase(article.category) %></span>
   <span class="text-sm text-muted">By <strong><%= article.author_name %></strong></span>
-  <span class="text-sm text-muted"><i class="fas fa-eye"></i> <%= article.views %> views</span>
-  <span class="text-sm text-muted"><i class="fas fa-clock"></i> Updated <%= formatDateTime(article.updated_at) %></span>
-  <% if (article.tags) { %><span class="text-sm text-muted"><i class="fas fa-tags"></i> <%= article.tags %></span><% } %>
+  <span class="text-sm text-muted"><i class="fas fa-eye" aria-hidden="true"></i> <%= article.views %> views</span>
+  <span class="text-sm text-muted"><i class="fas fa-clock" aria-hidden="true"></i> Updated <%= formatDateTime(article.updated_at) %></span>
+  <% if (article.tags) { %><span class="text-sm text-muted"><i class="fas fa-tags" aria-hidden="true"></i> <%= article.tags %></span><% } %>
 </div></div>
 <div class="card"><div class="card-body">
   <% if (typeof markedFallback !== 'undefined' && markedFallback) { %>
-  <div class="alert alert-warning mb-3"><i class="fas fa-exclamation-triangle"></i> Markdown rendering is unavailable. Article content is shown as plain text.</div>
+  <div class="alert alert-warning mb-3"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Markdown rendering is unavailable. Article content is shown as plain text.</div>
   <% } %>
   <div class="article-content" style="font-size:15px;line-height:1.8;"><%- article.renderedContent %></div>
 </div></div>

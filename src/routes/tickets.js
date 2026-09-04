@@ -443,7 +443,10 @@ router.get('/:id/edit', (req, res) => {
   if (!canAccessResource(req, ticket)) {
     req.audit('access_denied', 'ticket', id, 'Unauthorized edit attempt on ticket');
     req.flash('error', 'You can only edit tickets assigned to you.');
-    return res.redirect(`/tickets/${id}`);
+    // Redirect to the list, not the detail page: the show route enforces the
+    // same canAccessResource gate, so redirecting to detail would trigger a
+    // second access_denied flash + audit on routine navigation.
+    return res.redirect('/tickets');
   }
 
   // Redact end-user (requester) PII for non-privileged viewers on the edit
@@ -778,7 +781,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized update attempt on ticket');
       req.flash('error', 'You can only update tickets assigned to you.');
-      return res.redirect(`/tickets/${id}`);
+      return res.redirect('/tickets');
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
       req.flash('error', 'Selected assignee is not available');
@@ -968,7 +971,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized quick-status update attempt on ticket');
       req.flash('error', 'You can only update status of tickets assigned to you.');
-      return res.redirect(`/tickets/${id}`);
+      return res.redirect('/tickets');
     }
     console.error('Ticket status update error:', err.message);
     req.flash('error', 'Error updating status. Please try again.');

@@ -11,12 +11,12 @@
     const canDeleteTicket = isPrivileged(user);
   %>
   <div class="flex gap-2">
-    <% if (canEditTicket) { %><a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a><% } %>
+    <% if (canEditTicket) { %><a href="/tickets/<%= ticket.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit" aria-hidden="true"></i> Edit</a><% } %>
     <% if (canDeleteTicket) { %>
     <form action="/tickets/<%= ticket.id %>?_method=DELETE" method="POST" style="display:inline;"
           data-confirm="Are you sure you want to delete this ticket?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <button type="submit" class="btn btn-danger"><i class="fas fa-trash"></i> Delete</button>
+      <button type="submit" class="btn btn-danger"><i class="fas fa-trash" aria-hidden="true"></i> Delete</button>
     </form>
     <% } %>
   </div>
@@ -62,7 +62,7 @@
   <!-- Ticket Details -->
   <div>
     <div class="card mb-3">
-      <div class="card-header"><h3><i class="fas fa-info-circle" style="margin-right:8px;color:var(--primary)"></i>Details</h3></div>
+      <div class="card-header"><h3><i class="fas fa-info-circle" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Details</h3></div>
       <div class="card-body">
         <h4 style="margin-bottom:12px;"><%= ticket.title %></h4>
         <div style="white-space:pre-wrap;font-size:14px;color:var(--text-light);margin-bottom:20px;">
@@ -93,7 +93,7 @@
     <!-- Comments -->
     <div class="card">
       <!-- "N+" when the 500-comment cap was hit — the list is a capped subset. -->
-      <div class="card-header"><h3><i class="fas fa-comments" style="margin-right:8px;color:var(--primary)"></i>Comments (<%= comments.length %><%= comments.length >= CONSTANTS.COMMENT_LIST_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-comments" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Comments (<%= comments.length %><%= comments.length >= CONSTANTS.COMMENT_LIST_CAP ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% comments.forEach(c => { %>
         <div class="comment <%= c.is_internal ? 'internal' : '' %>">
@@ -118,11 +118,11 @@
           </div>
           <div class="flex items-center gap-2">
             <% if (isPrivileged(user)) { %>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" name="is_internal" value="1"> Internal note (visible to IT staff only)
+            <label for="is_internal" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" name="is_internal" id="is_internal" value="1"> Internal note (visible to IT staff only)
             </label>
             <% } %>
-            <button type="submit" class="btn btn-primary" style="margin-left:auto;"><i class="fas fa-paper-plane"></i> Add Comment</button>
+            <button type="submit" class="btn btn-primary" style="margin-left:auto;"><i class="fas fa-paper-plane" aria-hidden="true"></i> Add Comment</button>
           </div>
         </form>
       </div>
@@ -132,7 +132,7 @@
   <!-- Sidebar Info -->
   <div>
     <div class="card mb-2">
-      <div class="card-header"><h3><i class="fas fa-clipboard-list" style="margin-right:8px;color:var(--primary)"></i>Properties</h3></div>
+      <div class="card-header"><h3><i class="fas fa-clipboard-list" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Properties</h3></div>
       <div class="card-body" style="padding:0;">
         <div class="detail-row"><div class="detail-label">Ticket #</div><div class="detail-value" style="font-weight:600;"><%= ticket.ticket_number %></div></div>
         <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= ticket.priority %>"><%= titleCase(ticket.priority) %></span></div></div>
@@ -153,7 +153,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-user" style="margin-right:8px;color:var(--primary)"></i>Requester</h3></div>
+      <div class="card-header"><h3><i class="fas fa-user" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Requester</h3></div>
       <div class="card-body" style="padding:0;">
         <div class="detail-row"><div class="detail-label">Name</div><div class="detail-value"><%= ticket.requester_name %></div></div>
         <div class="detail-row"><div class="detail-label">Email</div><div class="detail-value"><% if (ticket.requester_email && isValidEmail(ticket.requester_email)) { %><a href="mailto:<%= ticket.requester_email %>"><%= ticket.requester_email %></a><% } else if (ticket.requester_email) { %><%= ticket.requester_email %><% } else { %>-<% } %></div></div>

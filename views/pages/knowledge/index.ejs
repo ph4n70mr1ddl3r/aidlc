@@ -1,6 +1,6 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Knowledge Base <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Knowledge Base</div></div><a href="/knowledge/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Article</a></div>
+<div class="page-header"><div><h2>Knowledge Base <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Knowledge Base</div></div><a href="/knowledge/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> New Article</a></div>
 <form method="GET" action="/knowledge" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search articles..." aria-label="Search articles" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="category" aria-label="Filter by category">
@@ -17,23 +17,23 @@
       <% } %>
     <% }) %>
   </select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/knowledge" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (articles.length === 0) { %><div class="empty-state"><i class="fas fa-book"></i><h3>No articles found</h3><p>Write your first article or adjust filters</p></div>
+  <% if (articles.length === 0) { %><div class="empty-state"><i class="fas fa-book" aria-hidden="true"></i><h3>No articles found</h3><p>Write your first article or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Title</th><th>Category</th><th>Author</th><th>Status</th><th>Views</th><th>Featured</th><th>Updated</th><th>Actions</th></tr></thead>
     <tbody><% articles.forEach(a => { %><tr>
       <td><a href="/knowledge/<%= a.id %>" style="color:var(--text);font-weight:600;text-decoration:none;">
-        <% if (a.is_featured) { %><i class="fas fa-star" style="color:var(--warning);margin-right:4px;font-size:12px;"></i><% } %>
+        <% if (a.is_featured) { %><i class="fas fa-star" style="color:var(--warning);margin-right:4px;font-size:12px;" aria-hidden="true"></i><span class="sr-only">(featured)</span><% } %>
         <%= a.title %>
       </a></td>
-      <td><span class="badge badge-<%= badgeClass(a.category, KB_CATEGORY_BADGE) %>"><%= titleCase(a.category) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(a.category || 'other', KB_CATEGORY_BADGE) %>"><%= titleCase(a.category) %></span></td>
       <td class="text-sm"><%= a.author_name || '-' %></td>
       <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
       <td class="text-sm"><%= a.views %></td>
-      <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)"></i><% } else { %>-<% } %></td>
+      <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)" aria-hidden="true"></i><span class="sr-only">Yes</span><% } else { %><span aria-hidden="true">-</span><% } %></td>
       <td class="text-sm"><%= formatDateTime(a.updated_at) %></td>
       <td class="actions-cell"><a href="/knowledge/<%= a.id %>" class="btn btn-sm btn-outline" aria-label="View article"><i class="fas fa-eye" aria-hidden="true"></i></a></td>
     </tr><% }) %></tbody>

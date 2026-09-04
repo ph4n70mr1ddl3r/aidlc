@@ -1,6 +1,6 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
-<div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (isPrivileged(user)) { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Change</a><% } %></div>
+<div class="page-header"><div><h2>Change Log <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Changes</div></div><% if (isPrivileged(user)) { %><a href="/changes/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> New Change</a><% } %></div>
 <form method="GET" action="/changes" class="filter-bar">
   <input type="text" name="search" class="search-input" autocomplete="off" placeholder="Search changes..." aria-label="Search changes" value="<%= filters.search || '' %>" maxlength="<%= CONSTANTS.MAX_SEARCH %>">
   <select name="status" aria-label="Filter by status">
@@ -9,16 +9,16 @@
   <select name="change_type" aria-label="Filter by type"><option value="">All Types</option><% CONSTANTS.CHANGE_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.change_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %></select>
   <select name="priority" aria-label="Filter by priority"><option value="">All Priority</option><% CONSTANTS.CHANGE_PRIORITIES.forEach(p => { %><option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option><% }) %></select>
   <select name="assigned_to" aria-label="Filter by assignee"><option value="">All Assignees</option><% if (typeof staff !== 'undefined') { staff.forEach(s => { %><option value="<%= s.id %>" <%= Number(filters.assigned_to) === Number(s.id) ? 'selected' : '' %>><%= s.first_name %> <%= s.last_name %></option><% }); } %></select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/changes" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (changes.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No changes found</h3><p>Add your first change or adjust filters</p></div>
+  <% if (changes.length === 0) { %><div class="empty-state"><i class="fas fa-history" aria-hidden="true"></i><h3>No changes found</h3><p>Add your first change or adjust filters</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
     <tbody><% changes.forEach(c => { %><tr>
       <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
-      <td><span class="badge badge-<%= badgeClass(c.change_type, CHANGE_TYPE_BADGE) %>"><%= titleCase(c.change_type) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(c.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(c.change_type) %></span></td>
       <td><span class="badge badge-<%= c.priority %>"><%= titleCase(c.priority) %></span></td>
       <td><span class="badge badge-<%= c.status %>"><%= titleCase(c.status) %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? formatDateTime(c.scheduled_start) : '-' %></td>

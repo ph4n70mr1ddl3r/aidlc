@@ -505,7 +505,11 @@ router.get('/:id/edit', kbReadLimiter, (req, res) => {
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You do not have permission to edit this article.');
-    return res.redirect(`/knowledge/${id}`);
+    // Redirect to the list, not the detail page: the show route denies
+    // non-owners on non-published articles, so redirecting to detail would
+    // trigger a second access_denied flash + audit. Mirrors the delete-denial
+    // redirect on this route.
+    return res.redirect('/knowledge');
   }
 
   res.render('pages/knowledge/form', { title: 'Edit Article', article, isEdit: true });
@@ -539,7 +543,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
     req.flash('error', 'You do not have permission to edit this article.');
-    return res.redirect(`/knowledge/${id}`);
+    return res.redirect('/knowledge');
   }
 
   const title = trim(safeQueryValue(req.body.title));
@@ -663,7 +667,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article (concurrent ownership change)');
       req.flash('error', 'You do not have permission to edit this article.');
-      return res.redirect(`/knowledge/${id}`);
+      return res.redirect('/knowledge');
     }
     console.error('Article update error:', err.message);
     req.flash('error', 'Error updating article. Please try again.');

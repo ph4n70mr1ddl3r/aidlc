@@ -253,7 +253,7 @@ describe('every template renders without error (regression)', () => {
     description: 'Paper jam', category: 'hardware', priority: 'high', status: 'in_progress',
     requester_name: 'Lisa Park', requester_email: 'l.park@company.com', requester_department: 'Marketing',
     requester_phone: '555-0101', assigned_to: 3, assigned_name: 'Maya Patel', due_date: '2099-01-01',
-    asset_name: 'HP LaserJet', asset_tag: 'AST-007', created_at: '2026-01-01 09:00',
+    asset_id: null, asset_name: 'HP LaserJet', asset_tag: 'AST-007', created_at: '2026-01-01 09:00',
     updated_at: '2026-01-02 10:00', resolved_at: null, satisfaction_rating: 0, resolution_notes: null
   };
   const comment = {

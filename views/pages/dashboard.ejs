@@ -4,7 +4,7 @@
 <!-- Stats Cards -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-icon blue"><i class="fas fa-ticket"></i></div>
+    <div class="stat-icon blue"><i class="fas fa-ticket" aria-hidden="true"></i></div>
     <div>
       <!-- "Active" matches the app-wide definition used by My Active Tickets,
            Team Workload, and Active Tickets by Category: open + in_progress +
@@ -14,21 +14,21 @@
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon <%= ticketStats.critical_open > 0 ? 'red' : 'green' %>"><i class="fas fa-exclamation-triangle"></i></div>
+    <div class="stat-icon <%= ticketStats.critical_open > 0 ? 'red' : 'green' %>"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i></div>
     <div>
       <div class="stat-value"><%= ticketStats.critical_open %></div>
       <div class="stat-label">Critical Open</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon green"><i class="fas fa-box"></i></div>
+    <div class="stat-icon green"><i class="fas fa-box" aria-hidden="true"></i></div>
     <div>
       <div class="stat-value"><%= assetStats.total %></div>
       <div class="stat-label">Active Assets</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon purple"><i class="fas fa-project-diagram"></i></div>
+    <div class="stat-icon purple"><i class="fas fa-project-diagram" aria-hidden="true"></i></div>
     <div>
       <% // planning + in_progress + on_hold — the app-wide definition of an
          // active project (see staff.js ownership-clearing and the projects
@@ -39,14 +39,14 @@
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon cyan"><i class="fas fa-users"></i></div>
+    <div class="stat-icon cyan"><i class="fas fa-users" aria-hidden="true"></i></div>
     <div>
       <div class="stat-value"><%= staffCount.total %></div>
       <div class="stat-label">IT Staff</div>
     </div>
   </div>
   <div class="stat-card">
-    <div class="stat-icon orange"><i class="fas fa-wrench"></i></div>
+    <div class="stat-icon orange"><i class="fas fa-wrench" aria-hidden="true"></i></div>
     <div>
       <div class="stat-value"><%= assetStats.in_repair %></div>
       <div class="stat-label">In Repair</div>
@@ -57,21 +57,21 @@
 <!-- Alerts -->
 <% if (ticketStats.critical_open > 0) { %>
   <div class="alert-card danger">
-    <h4><i class="fas fa-exclamation-triangle"></i> Critical Tickets Alert</h4>
+    <h4><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Critical Tickets Alert</h4>
     <p><%= ticketStats.critical_open %> critical ticket(s) require immediate attention</p>
   </div>
 <% } %>
 
 <% if (Array.isArray(expiringWarranties) && expiringWarranties.length > 0) { %>
   <div class="alert-card">
-    <h4><i class="fas fa-shield-alt"></i> Warranty Expiring Soon</h4>
+    <h4><i class="fas fa-shield-alt" aria-hidden="true"></i> Warranty Expiring Soon</h4>
     <p><%= typeof expiringWarrantiesCount === 'number' ? expiringWarrantiesCount : expiringWarranties.length %> asset(s) with a warranty expired or expiring within 30 days</p>
   </div>
 <% } %>
 
 <% if (Array.isArray(licenseAlerts) && licenseAlerts.length > 0) { %>
   <div class="alert-card">
-    <h4><i class="fas fa-key"></i> License Expiring Soon</h4>
+    <h4><i class="fas fa-key" aria-hidden="true"></i> License Expiring Soon</h4>
     <p><%= typeof licenseAlertsCount === 'number' ? licenseAlertsCount : licenseAlerts.length %> software license(s) expired or expiring within 30 days</p>
   </div>
 <% } %>
@@ -80,13 +80,13 @@
   <!-- My Tickets -->
   <div class="card">
     <div class="card-header">
-      <h3><i class="fas fa-user-clock" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets</h3>
+      <h3><i class="fas fa-user-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets</h3>
       <a href="/tickets?assigned_to=<%= user.id %>" class="btn btn-sm btn-outline">View All</a>
     </div>
     <div class="card-body" style="padding:0;">
       <% if (!Array.isArray(myTickets) || myTickets.length === 0) { %>
         <div class="empty-state" style="padding:30px;">
-          <i class="fas fa-check-circle" style="color:var(--success)"></i>
+          <i class="fas fa-check-circle" aria-hidden="true" style="color:var(--success)"></i>
           <h3>All caught up!</h3>
           <p>No active tickets assigned to you</p>
         </div>
@@ -115,7 +115,7 @@
   <div>
     <!-- Staff Workload -->
     <div class="card mb-2">
-      <div class="card-header"><h3><i class="fas fa-chart-bar" style="margin-right:8px;color:var(--primary)"></i>Team Workload</h3></div>
+      <div class="card-header"><h3><i class="fas fa-chart-bar" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team Workload</h3></div>
       <div class="card-body">
         <% if (Array.isArray(staffWorkload)) { staffWorkload.forEach(s => { %>
           <div style="margin-bottom:12px;">
@@ -123,24 +123,25 @@
               <span class="text-sm"><%= s.name %></span>
               <span class="text-sm text-muted"><%= s.open_tickets %> tickets</span>
             </div>
-            <div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(s.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.open_tickets %> open tickets" >
+            <div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(s.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= s.name %>: <%= s.open_tickets %> open tickets" >
               <div class="progress-fill <%= s.open_tickets > CONSTANTS.WORKLOAD_RED_THRESHOLD ? 'red' : s.open_tickets > CONSTANTS.WORKLOAD_ORANGE_THRESHOLD ? 'orange' : 'green' %>"
                    style="width: <%= Math.min(s.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>%"></div>
             </div>
           </div>
         <% }) } %>
+        <% if (!Array.isArray(staffWorkload) || staffWorkload.length === 0) { %><p class="text-muted text-sm">No workload data</p><% } %>
       </div>
     </div>
 
     <!-- Upcoming Changes -->
     <% if (Array.isArray(upcomingChanges) && upcomingChanges.length > 0) { %>
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-calendar" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes</h3></div>
+      <div class="card-header"><h3><i class="fas fa-calendar" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes</h3></div>
       <div class="card-body">
         <% upcomingChanges.forEach(c => { %>
           <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
             <div class="text-sm" style="font-weight:600;"><%= c.title %></div>
-            <div class="text-sm text-muted"><i class="fas fa-clock"></i> <%= formatDateTime(c.scheduled_start) %></div>
+            <div class="text-sm text-muted"><i class="fas fa-clock" aria-hidden="true"></i> <%= formatDateTime(c.scheduled_start) %></div>
           </div>
         <% }) %>
       </div>
@@ -153,13 +154,13 @@
      matching the "active" definition used by every other widget on this page. -->
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-clock" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets</h3>
+    <h3><i class="fas fa-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets</h3>
     <a href="/tickets" class="btn btn-sm btn-outline">View All</a>
   </div>
   <div class="card-body" style="padding:0;">
     <% if (!Array.isArray(recentTickets) || recentTickets.length === 0) { %>
       <div class="empty-state" style="padding:30px;">
-        <i class="fas fa-check-circle" style="color:var(--success)"></i>
+        <i class="fas fa-check-circle" aria-hidden="true" style="color:var(--success)"></i>
         <h3>No open tickets</h3>
         <p>No unresolved tickets in the system</p>
       </div>
@@ -190,7 +191,7 @@
 <!-- Active Tickets by Category -->
 <% if (Array.isArray(ticketsByCategory) && ticketsByCategory.length > 0) { %>
 <div class="card mt-3">
-  <div class="card-header"><h3><i class="fas fa-chart-pie" style="margin-right:8px;color:var(--primary)"></i>Active Tickets by Category</h3></div>
+  <div class="card-header"><h3><i class="fas fa-chart-pie" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Active Tickets by Category</h3></div>
   <div class="card-body">
     <div class="grid-3" style="gap:12px;">
       <% const catTotal = ticketsByCategory.reduce((a, b) => a + b.count, 0); %>

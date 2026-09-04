@@ -24,7 +24,7 @@ Enterprise IT Department Management Application — a full-stack web app for man
 | Framework | Express 4 |
 | Database | SQLite (better-sqlite3, WAL mode) |
 | Templates | EJS |
-| Auth | Session-based with bcrypt + CSRF protection |
+| Auth | Session-based with bcryptjs + CSRF protection |
 | Security | Helmet, rate limiting, CSP, httpOnly cookies |
 
 ## Prerequisites
@@ -36,7 +36,7 @@ Enterprise IT Department Management Application — a full-stack web app for man
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/ph4n70mr1ddl3r/aidlc.git
 cd aidlc
 
 # Install dependencies
@@ -59,7 +59,7 @@ Open http://localhost:3000 in your browser.
 
 `npm run seed` does **not** use fixed default passwords. It generates strong
 random passwords (one for the admin account, one shared by the manager/staff
-accounts), hashes them with bcrypt before storing, and does **not** print them
+accounts), hashes them with bcryptjs before storing, and does **not** print them
 by default. To display the generated passwords, run the seed with
 `SEED_VERBOSE=1`:
 
@@ -76,7 +76,7 @@ Default login credentials:
 
 Copy the printed passwords from the seed output to sign in. Without
 `SEED_VERBOSE=1` the passwords are never displayed and cannot be recovered
-from the stored bcrypt hashes — you would have to re-seed.
+from the stored bcryptjs hashes — you would have to re-seed.
 
 To use fixed passwords instead (e.g. for a shared dev/CI environment), set them
 in `.env` **before** seeding:
@@ -94,7 +94,7 @@ SEED_PASSWORD=<your-strong-staff-password>
 ```
 ├── .editorconfig             # Editor style (2-space indent, LF endings)
 ├── .env.example            # Environment template (copy to .env)
-├── .gitignore              # Ignores node_modules, data/, .env, coverage/
+├── .gitignore              # Ignores node_modules, data/, .env, coverage/, *.db*, *.log, certs
 ├── .nvmrc                  # Pinned Node.js version
 ├── CODE_REVIEW.md          # Review history
 ├── eslint.config.js        # ESLint config
@@ -131,8 +131,10 @@ SEED_PASSWORD=<your-strong-staff-password>
 │       ├── reports.js      # Analytics & reports
 │       └── audit.js        # Audit log viewer
 ├── tests/                  # Jest test suite
+├── .github/workflows/
+│   └── ci.yml              # CI: lint + test + audit on master/pull
 └── views/
-    ├── partials/            # Header, footer, nav, nav-close, pagination
+    ├── partials/            # header, footer, nav, nav-close, pagination
     └── pages/               # EJS page templates
         ├── auth/
         ├── assets/
@@ -157,7 +159,7 @@ Environment variables (set in `.env`):
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | HTTP port (must be `1`–`65535`; non-numeric/invalid values fall back to `3000`, and the server exits with code `1` when run as the entry point) |
-| `DB_PATH` | `./data/itmanager.db` (resolved relative to repo root) | SQLite database path |
+| `DB_PATH` | `./data/itmanager.db` (resolved relative to repo root) | SQLite database path (absolute paths and `:memory:` pass through; relative paths resolve against the repo root, not the process working directory — use an absolute path in production) |
 | `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
 | `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
 | `NODE_ENV` | `development` | `development` or `production` |
@@ -166,9 +168,9 @@ Environment variables (set in `.env`):
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0`; set to `0` to disable periodic pruning (invalid values fall back to `86400000`) |
 | `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
-| `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; values below 60 are raised to 60 (lastAccess write-throttle floor) |
+| `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; invalid values fall back to `900`; values below 60 are raised to 60 (lastAccess write-throttle floor) with a warning |
 | `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
-| `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100`; invalid values fall back to `25` with a warning |
+| `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100` with a warning; invalid values fall back to `25` with a warning |
 | `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` |
 | `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` |
 | `SEED_VERBOSE` | `0` | Set to `1`/`true` to print auto-generated seed passwords |
@@ -180,8 +182,8 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 
 - **CSRF protection** on all state-changing requests
 - **Helmet** for security headers (CSP, X-Frame-Options, etc.)
-- **Rate limiting** on login (10 attempts per 15 min)
-- **bcrypt** password hashing (12 salt rounds)
+- **Rate limiting** on login (10 attempts per 15 min), dashboard (10/min), health (30/min), and writes (100 per 15 min)
+- **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
 - **HTML sanitization** on user-generated markdown content

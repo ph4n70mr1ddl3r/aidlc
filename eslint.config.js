@@ -73,6 +73,6 @@ module.exports = [
     }
   },
   {
-    ignores: ['node_modules/', 'views/', 'data/', 'coverage/', '*.md', 'package-lock.json', 'public/css/']
+    ignores: ['node_modules/', 'views/', 'data/', 'coverage/', '**/*.md', 'package-lock.json', 'public/css/']
   }
 ];

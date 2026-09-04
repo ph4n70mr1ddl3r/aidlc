@@ -409,12 +409,11 @@ describe('Method override — query-string _method on POST forms (regression)', 
     expect(await res.json()).toEqual({ dispatched: 'POST', id: '7' });
   });
 
-  it('still honors an allowlisted override via the body channel (PATCH/lowercase)', async () => {
-    // Sanity: the allowlist accepts the documented write verbs and is
-    // case-insensitive (methodOverride uppercases). Register a throwaway PATCH
-    // handler, then override a POST to it.
+  it('rejects a non-allowlisted override (PATCH) and falls through to POST', async () => {
+    // PATCH is not a verb the app handles; the override is rejected at the
+    // _OVERRIDE_METHODS allowlist and the request stays POST.
     const ticketsRouter = require('../src/routes/tickets');
-    ticketsRouter.patch('/method-test/:id', (req, res) => res.json({ dispatched: 'PATCH', id: req.params.id }));
+    ticketsRouter.post('/method-test/:id', (req, res) => res.json({ dispatched: 'POST', id: req.params.id }));
     const { cookies, token } = await getCsrf();
     const body = new URLSearchParams({ _csrf: token, _method: 'patch' }).toString();
     const res = await fetch(`http://localhost:${port}/tickets/method-test/7`, {
@@ -423,7 +422,7 @@ describe('Method override — query-string _method on POST forms (regression)', 
       body
     });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ dispatched: 'PATCH', id: '7' });
+    expect(await res.json()).toEqual({ dispatched: 'POST', id: '7' });
   });
 });
 
@@ -435,7 +434,7 @@ describe('Disallowed HTTP methods — TRACE/TRACK rejection', () => {
     const express = require('express');
     const freshApp = express();
     const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
-    const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
+    const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE';
     freshApp.use((req, res, next) => {
       if (_DISALLOWED_METHODS.has(req.method)) {
         return res.status(405).set('Allow', _ALLOWED_METHODS).end();
@@ -469,7 +468,7 @@ describe('Disallowed HTTP methods — TRACE/TRACK rejection', () => {
     const express = require('express');
     const freshApp = express();
     const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
-    const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, PATCH';
+    const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE';
     freshApp.use((req, res, next) => {
       if (_DISALLOWED_METHODS.has(req.method)) {
         return res.status(405).set('Allow', _ALLOWED_METHODS).end();

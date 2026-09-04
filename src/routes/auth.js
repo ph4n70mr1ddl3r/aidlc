@@ -543,7 +543,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   const confirm_password = safeQueryValue(req.body.confirm_password);
 
   if (!current_password) {
-    req.flash('error', 'Current password is required');
+    req.flash('error', 'Current password is required.');
     return res.redirect('/profile');
   }
 
@@ -555,7 +555,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   }
 
   if (typeof new_password !== 'string' || !new_password) {
-    req.flash('error', 'New password is required');
+    req.flash('error', 'New password is required.');
     return res.redirect('/profile');
   }
   if (Buffer.byteLength(new_password, 'utf8') > MAX_PASSWORD_BYTES) {
@@ -564,7 +564,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   }
 
   if (typeof confirm_password !== 'string' || !confirm_password) {
-    req.flash('error', 'Password confirmation is required');
+    req.flash('error', 'Password confirmation is required.');
     return res.redirect('/profile');
   }
   if (Buffer.byteLength(confirm_password, 'utf8') > MAX_PASSWORD_BYTES) {

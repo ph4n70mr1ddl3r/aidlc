@@ -9,11 +9,11 @@
     <option value="">All Entities</option>
     <% CONSTANTS.ALLOWED_ENTITY_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.entity_type === t ? 'selected' : '' %>><%= t.replace(/_/g, ' ') %></option><% }) %></select>
   <select name="sort" aria-label="Sort order"><option value="newest" <%= filters.sort === 'newest' || !filters.sort ? 'selected' : '' %>>Newest First</option><option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option></select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/audit" class="btn btn-sm btn-outline">Clear</a>
 </form>
 <div class="card"><div class="card-body" style="padding:0;">
-  <% if (entries.length === 0) { %><div class="empty-state"><i class="fas fa-history"></i><h3>No audit entries found</h3><p>Adjust filters or clear them to see all entries</p></div>
+  <% if (entries.length === 0) { %><div class="empty-state"><i class="fas fa-history" aria-hidden="true"></i><h3>No audit entries found</h3><p>Adjust filters or clear them to see all entries</p></div>
   <% } else { %><div class="table-responsive"><table>
     <thead><tr><th>Date/Time</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>IP Address</th><th>Details</th></tr></thead>
     <tbody><% entries.forEach(e => { %><tr>

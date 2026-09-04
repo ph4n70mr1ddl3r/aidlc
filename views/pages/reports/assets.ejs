@@ -3,9 +3,9 @@
 <div class="page-header"><div><h2>Asset Report</h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/reports">Reports</a> / Assets</div></div></div>
 
 <div class="stats-grid">
-  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Active Assets</div></div></div>
-  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '-' %></div><div class="stat-label">Total Value</div></div></div>
-  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Ending (90d)</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box" aria-hidden="true"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Active Assets</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign" aria-hidden="true"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '-' %></div><div class="stat-label">Total Value</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt" aria-hidden="true"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Ending (90d)</div></div></div>
 </div>
 
 <div class="grid-2">
@@ -16,6 +16,7 @@
       <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category) %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '-' %></span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.category) %>: <%= c.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
+    <% if (!byCategory.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
   </div></div>
   <div class="card"><div class="card-header"><h3>By Status</h3></div><div class="card-body">
     <% const statusTotal = byStatus.reduce((a,b) => a + b.count, 0); %>
@@ -24,14 +25,16 @@
       <div class="flex justify-between text-sm mb-1"><span><%= titleCase(s.status) %></span><span><%= s.count %> (<%= pct %>%)</span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(s.status) %>: <%= s.count %> assets"><div class="progress-fill green" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
+    <% if (!byStatus.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
   </div></div>
   <div class="card"><div class="card-header"><h3>By Condition</h3></div><div class="card-body">
     <% const condTotal = byCondition.reduce((a,b) => a + b.count, 0); %>
-    <% byCondition.forEach(c => { const pct = condTotal > 0 ? Math.round(c.count/condTotal*100) : 0; %>
+    <% byCondition.forEach(c => { const pct = condTotal > 0 ? Math.round(c.count/condTotal*100) : 0; const _bc = badgeClass(c.condition_rating || 'good', CONDITION_BADGE); %>
     <div style="margin-bottom:12px;">
       <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.condition_rating) %></span><span><%= c.count %> (<%= pct %>%)</span></div>
-      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.condition_rating) %>: <%= c.count %> assets">      <div class="progress-fill <%= badgeClass(c.condition_rating, CONDITION_BADGE) === 'low' ? 'green' : badgeClass(c.condition_rating, CONDITION_BADGE) === 'medium' ? 'orange' : 'red' %>" style="width:<%= pct %>%"></div></div>
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.condition_rating) %>: <%= c.count %> assets">      <div class="progress-fill <%= _bc === 'low' ? 'green' : _bc === 'medium' ? 'orange' : 'red' %>" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
+    <% if (!byCondition.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
   </div></div>
   <div class="card"><div class="card-header"><h3>Age Distribution</h3></div><div class="card-body">
     <% const ageTotal = ageDistribution.reduce((x,y) => x + y.count, 0); %>
@@ -40,6 +43,7 @@
       <div class="flex justify-between text-sm mb-1"><span><%= a.age_group %></span><span><%= a.count %> (<%= pct %>%)</span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= a.age_group %>: <%= a.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
+    <% if (!ageDistribution.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
   </div></div>
 </div>
 

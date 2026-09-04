@@ -16,9 +16,9 @@
        // local genuinely undefined rather than null.
        %>
     <% if (typeof user !== 'undefined' && user) { %>
-      <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home"></i> Go to Dashboard</a>
+      <a href="/dashboard" class="btn btn-primary"><i class="fas fa-home" aria-hidden="true"></i> Go to Dashboard</a>
     <% } else { %>
-      <a href="/login" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i> Go to Login</a>
+      <a href="/login" class="btn btn-primary"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Go to Login</a>
     <% } %>
   </div>
 </div>

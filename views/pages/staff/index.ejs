@@ -4,7 +4,7 @@
 <div class="page-header">
   <div><h2>Staff <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Staff</div></div>
   <% if (isPrivileged(user)) { %>
-  <a href="/staff/new" class="btn btn-primary"><i class="fas fa-plus"></i> Add Staff</a>
+  <a href="/staff/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> Add Staff</a>
   <% } %>
 </div>
 
@@ -25,14 +25,14 @@
     <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>
     <option value="inactive" <%= filters.status === 'inactive' ? 'selected' : '' %>>Inactive</option>
   </select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/staff" class="btn btn-sm btn-outline">Clear</a>
 </form>
 
 <div class="card">
   <div class="card-body" style="padding:0;">
     <% if (staff.length === 0) { %>
-    <div class="empty-state"><i class="fas fa-users"></i><h3>No staff found</h3><p>Adjust filters or clear them to see all staff</p></div>
+    <div class="empty-state"><i class="fas fa-users" aria-hidden="true"></i><h3>No staff found</h3><p>Adjust filters or clear them to see all staff</p></div>
     <% } else { %>
     <div class="table-responsive">
       <table>

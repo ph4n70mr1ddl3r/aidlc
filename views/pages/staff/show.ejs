@@ -10,7 +10,7 @@
       // be privileged in the first branch. %>
    <% if (user.role === 'admin' || (user.role === 'manager' && staffUser.role === 'staff')) { %>
   <div class="flex gap-2">
-    <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit"></i> Edit</a>
+    <a href="/staff/<%= staffUser.id %>/edit" class="btn btn-secondary"><i class="fas fa-edit" aria-hidden="true"></i> Edit</a>
   </div>
   <% } %>
 </div>
@@ -22,7 +22,7 @@
     <div class="card mb-3">
       <!-- The parenthesized count shows "N+" when the sidebar query's LIMIT cap
            was hit — the displayed rows are a capped subset, not the total. -->
-      <div class="card-header"><h3><i class="fas fa-ticket" style="margin-right:8px;color:var(--primary)"></i>Assigned Tickets (<%= assignedTickets.length %><%= assignedTickets.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-ticket" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Assigned Tickets (<%= assignedTickets.length %><%= assignedTickets.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
       <div class="card-body" style="padding:0;">
         <% if (assignedTickets.length) { %>
         <div class="table-responsive"><table>
@@ -39,7 +39,7 @@
 
     <!-- Active Tasks -->
     <div class="card mb-3">
-      <div class="card-header"><h3><i class="fas fa-tasks" style="margin-right:8px;color:var(--primary)"></i>Active Tasks (<%= assignedTasks.length %><%= assignedTasks.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-tasks" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Active Tasks (<%= assignedTasks.length %><%= assignedTasks.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% assignedTasks.forEach(t => {
           const canViewTaskProject = isPrivileged(user) || Number(t.owner_id) === Number(user.id); %>
@@ -98,21 +98,21 @@
     <% if (user.role === 'admin' && Number(staffUser.id) !== Number(user.id)) { %>
     <!-- Admin Actions -->
     <div class="card mb-2">
-      <div class="card-header"><h3><i class="fas fa-shield-alt" style="margin-right:8px;color:var(--danger)"></i>Admin Actions</h3></div>
+      <div class="card-header"><h3><i class="fas fa-shield-alt" aria-hidden="true" style="margin-right:8px;color:var(--danger)"></i>Admin Actions</h3></div>
       <div class="card-body">
         <% if (!staffUser.is_active) { %>
         <form action="/staff/<%= staffUser.id %>/reactivate?_method=PUT" method="POST" style="margin-bottom:12px;" data-confirm="Reactivate this account?">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn btn-sm btn-success" style="width:100%;"><i class="fas fa-check-circle"></i> Reactivate Account</button>
+          <button type="submit" class="btn btn-sm btn-success" style="width:100%;"><i class="fas fa-check-circle" aria-hidden="true"></i> Reactivate Account</button>
         </form>
         <% } else { %>
         <form action="/staff/<%= staffUser.id %>?_method=DELETE" method="POST" style="margin-bottom:12px;" data-confirm="Deactivate this account? Open tickets will be unassigned.">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn btn-sm btn-outline" style="width:100%;color:var(--danger);border-color:var(--danger);"><i class="fas fa-user-slash"></i> Deactivate Account</button>
+          <button type="submit" class="btn btn-sm btn-outline" style="width:100%;color:var(--danger);border-color:var(--danger);"><i class="fas fa-user-slash" aria-hidden="true"></i> Deactivate Account</button>
         </form>
         <% } %>
         <details>
-          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px;"><i class="fas fa-key"></i> Reset Password</summary>
+          <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--danger);margin-bottom:8px;"><i class="fas fa-key" aria-hidden="true"></i> Reset Password</summary>
           <form action="/staff/<%= staffUser.id %>/reset-password?_method=PUT" method="POST" data-confirm="Reset password for this user?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <div class="form-group">
@@ -123,7 +123,7 @@
               <label for="new_password">New Password</label>
               <input type="password" name="new_password" id="new_password" class="form-control" required minlength="<%= CONSTANTS.MIN_PASSWORD %>" maxlength="<%= CONSTANTS.MAX_PASSWORD %>" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{<%= CONSTANTS.MIN_PASSWORD %>,}" title="Minimum <%= CONSTANTS.MIN_PASSWORD %> characters with uppercase, lowercase, number, and special character" autocomplete="new-password">
             </div>
-            <button type="submit" class="btn btn-sm btn-danger" style="width:100%;"><i class="fas fa-key"></i> Reset Password</button>
+            <button type="submit" class="btn btn-sm btn-danger" style="width:100%;"><i class="fas fa-key" aria-hidden="true"></i> Reset Password</button>
           </form>
         </details>
       </div>

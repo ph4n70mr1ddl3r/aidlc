@@ -16,10 +16,10 @@
 
 <div class="stats-grid">
   <% const ticketTotal = byCategory.reduce((a,b) => a + b.count, 0); %>
-  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-ticket"></i></div><div><div class="stat-value"><%= ticketTotal %></div><div class="stat-label">Total Tickets</div></div></div>
-  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div><div class="stat-value"><%= slaStats.total_resolved || 0 %></div><div class="stat-label">Resolved</div></div></div>
-  <div class="stat-card"><div class="stat-icon cyan"><i class="fas fa-clock"></i></div><div><div class="stat-value"><%= avgResolution.avg_days != null ? Number(avgResolution.avg_days).toFixed(1) + 'd' : 'N/A' %></div><div class="stat-label">Avg Resolution</div></div></div>
-  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-chart-line"></i></div><div><div class="stat-value"><%= slaStats.total_resolved > 0 ? Math.round((slaStats.within_3d / slaStats.total_resolved) * 100) : 0 %>%</div><div class="stat-label">SLA (3-day)</div></div></div>
+  <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-ticket" aria-hidden="true"></i></div><div><div class="stat-value"><%= ticketTotal %></div><div class="stat-label">Total Tickets</div></div></div>
+  <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle" aria-hidden="true"></i></div><div><div class="stat-value"><%= slaStats.total_resolved || 0 %></div><div class="stat-label">Resolved</div></div></div>
+  <div class="stat-card"><div class="stat-icon cyan"><i class="fas fa-clock" aria-hidden="true"></i></div><div><div class="stat-value"><%= avgResolution.avg_days != null ? Number(avgResolution.avg_days).toFixed(1) + 'd' : 'N/A' %></div><div class="stat-label">Avg Resolution</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-chart-line" aria-hidden="true"></i></div><div><div class="stat-value"><%= slaStats.total_resolved > 0 ? Math.round((slaStats.within_3d / slaStats.total_resolved) * 100) : 0 %>%</div><div class="stat-label">SLA (3-day)</div></div></div>
 </div>
 
 <div class="grid-2">

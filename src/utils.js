@@ -22,6 +22,11 @@ function _derivePageSize() {
     );
   }
   const env = (Number.isFinite(p) && p > 0) ? Math.min(p, MAX_PAGE_SIZE) : null;
+  if (env !== null && Number.isFinite(p) && p > MAX_PAGE_SIZE) {
+    console.warn(
+      `WARNING: PAGE_SIZE "${raw}" exceeds max ${MAX_PAGE_SIZE} — clamped to ${MAX_PAGE_SIZE}.`
+    );
+  }
   return env || DEFAULT_PAGE_SIZE;
 }
 
@@ -273,8 +278,12 @@ function safeId(value) {
   if (typeof value === 'string') {
     return /^[1-9]\d*$/.test(value.trim()) ? parseInt(value, 10) : null;
   }
-  const n = parseInt(value, 10);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  // Numbers must be integers — parseInt(3.5) would silently truncate to 3 and
+  // target a different record than the caller wrote. Mirrors isPresentInvalidId.
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+  return null;
 }
 
 /**
@@ -1064,6 +1073,15 @@ function parseBooleanFlag(value, allowSet = true) {
   // When allowSet is false the caller is unprivileged — reject ALL inputs
   // (including '1') so that privilege checks gate the ability to set the flag.
   if (!allowSet) {
+    return 0;
+  }
+  // Accept JSON booleans/numbers as well as form strings — API callers may send
+  // `true`/`1` instead of `'1'`/`'true'`/`'on'`. Previously these collapsed to
+  // 0 with a success flash, silently ignoring the caller's intent.
+  if (value === true || value === 1) {
+    return 1;
+  }
+  if (value === false || value === 0 || value === null || value === undefined) {
     return 0;
   }
   return (value === '1' || value === 'true' || value === 'on') ? 1 : 0;

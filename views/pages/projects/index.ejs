@@ -4,7 +4,7 @@
 <div class="page-header">
   <div><h2>Projects <span class="text-sm text-muted" style="font-weight:normal;">(<%= total %> total)</span></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / Projects</div></div>
   <% if (isPrivileged(user)) { %>
-  <a href="/projects/new" class="btn btn-primary"><i class="fas fa-plus"></i> New Project</a>
+  <a href="/projects/new" class="btn btn-primary"><i class="fas fa-plus" aria-hidden="true"></i> New Project</a>
   <% } %>
 </div>
 
@@ -22,7 +22,7 @@
       <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option>
     <% }) %>
   </select>
-  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search"></i> Filter</button>
+  <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/projects" class="btn btn-sm btn-outline">Clear</a>
 </form>
 
@@ -48,12 +48,12 @@
         <div class="progress-fill <%= (p.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (p.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (p.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= p.progress || 0 %>%"></div>
       </div>
       <div class="flex justify-between text-sm text-muted">
-        <span><i class="fas fa-user"></i> <%= p.owner_name || 'Unassigned' %></span>
-        <span><i class="fas fa-tasks"></i> <%= p.done_count || 0 %>/<%= p.task_count || 0 %> tasks</span>
+        <span><i class="fas fa-user" aria-hidden="true"></i> <%= p.owner_name || 'Unassigned' %></span>
+        <span><i class="fas fa-tasks" aria-hidden="true"></i> <%= p.done_count || 0 %>/<%= p.task_count || 0 %> tasks</span>
       </div>
       <% if (p.start_date || p.end_date) { %>
       <div class="text-sm text-muted mt-1">
-        <i class="fas fa-calendar"></i> <%= p.start_date ? formatDate(p.start_date) : '?' %> — <%= p.end_date ? formatDate(p.end_date) : '?' %>
+        <i class="fas fa-calendar" aria-hidden="true"></i> <%= p.start_date ? formatDate(p.start_date) : '?' %> — <%= p.end_date ? formatDate(p.end_date) : '?' %>
       </div>
       <% } %>
       <% // Budget/spent are financial data gated to privileged users — the same
@@ -61,14 +61,14 @@
          // license list route is requireAdminOrManager for exactly this reason). %>
       <% if (isPrivileged(user) && p.budget != null && p.budget > 0) { %>
       <div class="text-sm text-muted mt-1">
-        <i class="fas fa-dollar-sign"></i> <%= p.spent != null ? '$' + Number(p.spent).toLocaleString() : '-' %> / $<%= Number(p.budget).toLocaleString() %>
+        <i class="fas fa-dollar-sign" aria-hidden="true"></i> <%= p.spent != null ? '$' + Number(p.spent).toLocaleString() : '-' %> / $<%= Number(p.budget).toLocaleString() %>
       </div>
       <% } %>
     </div>
   </div>
   <% }) %>
   <% if (projects.length === 0) { %>
-    <div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-project-diagram"></i><h3>No projects found</h3><p>Create your first project or adjust filters</p></div>
+    <div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-project-diagram" aria-hidden="true"></i><h3>No projects found</h3><p>Create your first project or adjust filters</p></div>
   <% } %>
 </div>
 
