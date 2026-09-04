@@ -832,7 +832,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
 
   const trimmedComment = trim(comment) || '';
   if (!trimmedComment) {
-    req.flash('error', 'Comment cannot be empty');
+    req.flash('error', 'Comment cannot be empty.');
     return res.redirect(`/tickets/${id}`);
   }
   if (trimmedComment.length > MAX_DESC) {
