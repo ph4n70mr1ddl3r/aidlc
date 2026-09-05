@@ -4,8 +4,34 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (170 consecutive hardening commits) was
+Jest suite. Prior review history (171 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (172nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One consistency gap — a nullable
+`project_status` used directly as a CSS badge class in the staff show page
+was closed.
+
+### Fixes applied
+- **`views/pages/staff/show.ejs` — `badge badge-<%= pm.project_status %>`
+  missing null fallback (LOW, consistency).** Every other badge rendering
+  across the app either uses `badgeClass(value || 'fallback', MAPPING)` or a
+  ternary (`is_active ? 'low' : 'critical'`). A null `pm.project_status`
+  would produce `badge-badge-` — an invalid CSS class that silently renders
+  as unstyled text. Added `|| 'planning'` to both the class and the
+  `titleCase` display, matching the convention used for every other nullable
+  enum value in the template layer.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **995 passed / 995 total** (50 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
