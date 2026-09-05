@@ -29,7 +29,7 @@
         <div class="detail-row"><div class="detail-label">Model</div><div class="detail-value"><%= asset.model || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Serial Number</div><div class="detail-value" style="font-family:monospace;"><%= asset.serial_number || '-' %></div></div>
         <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= asset.status %>"><%= titleCase(asset.status) %></span></div></div>
-        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= badgeClass(asset.condition_rating || 'good', CONDITION_BADGE) %>"><%= titleCase(asset.condition_rating) %></span></div></div>
+        <div class="detail-row"><div class="detail-label">Condition</div><div class="detail-value"><span class="badge badge-<%= badgeClass(asset.condition_rating || 'good', CONDITION_BADGE) %>"><%= titleCase(asset.condition_rating || 'good') %></span></div></div>
         <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(asset.purchase_date) %></div></div>
         <% // `> 0` guard: create defaults an unpriced asset to 0, which is
            // indistinguishable from "free" — render '-' instead (projects pages

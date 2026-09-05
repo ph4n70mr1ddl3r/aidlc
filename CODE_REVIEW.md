@@ -4,8 +4,45 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (173 consecutive hardening commits) was
+Jest suite. Prior review history (174 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (175th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Four template consistency gaps —
+`titleCase()` calls missing the same nullable fallback that `badgeClass()`
+already used in the same row — were closed across four show/detail pages.
+
+### Fixes applied
+- **`views/pages/assets/show.ejs` — `titleCase(asset.condition_rating)` missing
+  fallback (LOW, consistency).** The badge mapping already passed
+  `asset.condition_rating || 'good'` but the text display passed the raw value.
+  A null condition would render an unstyled empty badge cell while the class
+  correctly showed "Good". Added `|| 'good'` to the `titleCase` call, matching
+  the badge convention and the pattern used on `assets/index.ejs`.
+- **`views/pages/changes/show.ejs` — same `titleCase(change.change_type)` gap
+  (LOW, consistency).** Identical fix: added `|| 'maintenance'` to
+  `titleCase()`.
+- **`views/pages/licenses/show.ejs` — same `titleCase(license.license_type)`
+  gap (LOW, consistency).** Identical fix: added `|| 'perpetual'` to
+  `titleCase()`.
+- **`views/pages/reports/assets.ejs` — `titleCase(c.condition_rating)` in
+  aria-label missing fallback (LOW, consistency).** The text span on the
+  previous line already used `c.condition_rating || 'good'` but the
+  progress-bar `aria-label` passed the raw value. A null rating would render
+  `"null: N assets"` as the accessible label while the visible text showed
+  "Good". Added `|| 'good'` to the aria-label so the accessible name matches
+  the visual label.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1003 passed / 1003 total** (51 suites, +8 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

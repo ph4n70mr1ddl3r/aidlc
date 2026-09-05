@@ -10,7 +10,7 @@
   <% } %>
 </div>
 <div class="card"><div class="card-body">
-  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(change.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(change.change_type) %></span></div></div>
+  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(change.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(change.change_type || 'maintenance') %></span></div></div>
   <div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge badge-<%= change.status %>"><%= titleCase(change.status) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Priority</div><div class="detail-value"><span class="badge badge-<%= change.priority %>"><%= titleCase(change.priority) %></span></div></div>
   <div class="detail-row"><div class="detail-label">Assigned To</div><div class="detail-value"><%= change.assigned_name || '-' %></div></div>
