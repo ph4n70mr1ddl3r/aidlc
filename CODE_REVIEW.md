@@ -4,8 +4,28 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (171 consecutive hardening commits) was
+Jest suite. Prior review history (172 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (173rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. All read-audit, HPP-guard, and badge-fallback
+gaps identified in prior passes remain closed. The project update route's
+outer submitted-date range check (`sEnd < sStart`) and inner resolved-date
+range check (`resolvedEnd < resolvedStart`) were confirmed correct: the outer
+check rejects malformed simultaneous submissions, while the inner check
+catches partial edits that would preserve a stored end date earlier than a
+moved-forward start date. No code changes required.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **995 passed / 995 total** (50 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
