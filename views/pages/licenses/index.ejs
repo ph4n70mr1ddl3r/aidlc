@@ -22,7 +22,7 @@
     %><tr>
       <td><% if (isPrivileged(user)) { %><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a><% } else { %><span style="font-weight:600;"><%= l.software_name %></span><% } %></td>
       <td class="text-sm"><%= l.vendor || '-' %></td>
-       <td><span class="badge badge-<%= badgeClass(l.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(l.license_type) %></span></td>
+       <td><span class="badge badge-<%= badgeClass(l.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(l.license_type || 'perpetual') %></span></td>
       <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
       <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= l.software_name %>: <%= _usagePct %>% seat usage" style="width:80px;display:inline-block;vertical-align:middle;">
         <div class="progress-fill <%= _usagePct > 90 ? 'red' : _usagePct > 70 ? 'orange' : 'green' %>" style="width:<%= _usagePct %>%"></div>

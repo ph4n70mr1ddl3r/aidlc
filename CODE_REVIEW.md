@@ -4,23 +4,52 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (172 consecutive hardening commits) was
+Jest suite. Prior review history (173 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (173rd pass)
+## Review cycle (174th pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
 docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
-error-leakage defects were found. All read-audit, HPP-guard, and badge-fallback
-gaps identified in prior passes remain closed. The project update route's
-outer submitted-date range check (`sEnd < sStart`) and inner resolved-date
-range check (`resolvedEnd < resolvedStart`) were confirmed correct: the outer
-check rejects malformed simultaneous submissions, while the inner check
-catches partial edits that would preserve a stored end date earlier than a
-moved-forward start date. No code changes required.
+error-leakage defects were found. Six template consistency gaps —
+`titleCase()` calls missing the same nullable fallback that `badgeClass()`
+already used — were closed, and one progress-bar width inconsistency was
+normalized.
+
+### Fixes applied
+- **`views/pages/knowledge/index.ejs` — `titleCase(a.category)` missing
+  fallback (LOW, consistency).** The badge mapping already passed
+  `a.category || 'other'` but the text display passed the raw value. A null
+  category would render an unstyled empty badge cell while the class
+  correctly showed "Other". Added `|| 'other'` to the `titleCase` call,
+  matching the badge convention and the pattern used on
+  `knowledge/show.ejs`.
+- **`views/pages/knowledge/show.ejs` — same `titleCase(article.category)`
+  gap (LOW, consistency).** Identical fix: added `|| 'other'` to
+  `titleCase()`.
+- **`views/pages/assets/index.ejs` — `titleCase(a.condition_rating)` missing
+  fallback (LOW, consistency).** The badge mapping used `|| 'good'` but the
+  text did not. Added the fallback to `titleCase()` so both render the same
+  string regardless of database state.
+- **`views/pages/reports/assets.ejs` — `titleCase(c.condition_rating)`
+  missing fallback (LOW, consistency).** The `_bc` variable computed with
+  `c.condition_rating || 'good'` but the label used the raw value. Added
+  `|| 'good'` to match.
+- **`views/pages/changes/index.ejs` — `titleCase(c.change_type)` missing
+  fallback (LOW, consistency).** The badge mapping used `|| 'maintenance'`
+  but the text did not. Added the fallback to `titleCase()`.
+- **`views/pages/licenses/index.ejs` — `titleCase(l.license_type)` missing
+  fallback (LOW, consistency).** The badge mapping used `|| 'perpetual'`
+  but the text did not. Added the fallback to `titleCase()`.
+- **`views/pages/reports/staff.ejs` — fixed-width progress bar (LOW,
+  consistency).** The team workload bar used `style="width:100px;display:inline-block;vertical-align:middle;"`
+  while every other progress bar in the app (dashboard, tickets report,
+  assets report) uses `flex:1` to fill its column. Changed to `flex:1` so
+  the bar scales with the table column rather than being a rigid 100px
+  strip that overflows or underflows on narrow screens.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).

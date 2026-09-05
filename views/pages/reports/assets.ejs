@@ -31,7 +31,7 @@
     <% const condTotal = byCondition.reduce((a,b) => a + b.count, 0); %>
     <% byCondition.forEach(c => { const pct = condTotal > 0 ? Math.round(c.count/condTotal*100) : 0; const _bc = badgeClass(c.condition_rating || 'good', CONDITION_BADGE); %>
     <div style="margin-bottom:12px;">
-      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.condition_rating) %></span><span><%= c.count %> (<%= pct %>%)</span></div>
+      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.condition_rating || 'good') %></span><span><%= c.count %> (<%= pct %>%)</span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.condition_rating) %>: <%= c.count %> assets">      <div class="progress-fill <%= _bc === 'low' ? 'green' : _bc === 'medium' ? 'orange' : 'red' %>" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
     <% if (!byCondition.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>

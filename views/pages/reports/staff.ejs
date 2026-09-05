@@ -24,9 +24,7 @@
       <td class="text-center"><%= p.resolved_tickets || 0 %></td>
       <td class="text-center"><%= p.resolved_tickets > 0 ? Number(p.avg_resolution_days).toFixed(1) + ' days' : 'N/A' %></td>
       <td class="text-center"><%= p.completed_tasks || 0 %></td>
-      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(p.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.open_tickets %> open tickets" style="width:100px;display:inline-block;vertical-align:middle;">
-        <div class="progress-fill <%= p.open_tickets > CONSTANTS.WORKLOAD_RED_THRESHOLD ? 'red' : p.open_tickets > CONSTANTS.WORKLOAD_ORANGE_THRESHOLD ? 'orange' : 'green' %>" style="width:<%= Math.min(p.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>%"></div>
-      </div></td>
+      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.min(p.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= p.open_tickets %> open tickets" style="flex:1;"><div class="progress-fill <%= p.open_tickets > CONSTANTS.WORKLOAD_RED_THRESHOLD ? 'red' : p.open_tickets > CONSTANTS.WORKLOAD_ORANGE_THRESHOLD ? 'orange' : 'green' %>" style="width:<%= Math.min(p.open_tickets * CONSTANTS.WORKLOAD_MULTIPLIER, 100) %>%"></div></div></td>
     </tr><% }); } %>
     <% if (typeof performance === 'undefined' || performance.length === 0) { %><tr><td colspan="7" class="text-center text-muted text-sm" style="padding:24px;">No active staff to report on</td></tr><% } %></tbody>
   </table></div>

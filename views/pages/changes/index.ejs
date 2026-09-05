@@ -18,7 +18,7 @@
     <thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>Scheduled</th><th>Assigned To</th><th>Actions</th></tr></thead>
     <tbody><% changes.forEach(c => { %><tr>
       <td><a href="/changes/<%= c.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= c.title %></a></td>
-      <td><span class="badge badge-<%= badgeClass(c.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(c.change_type) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(c.change_type || 'maintenance', CHANGE_TYPE_BADGE) %>"><%= titleCase(c.change_type || 'maintenance') %></span></td>
       <td><span class="badge badge-<%= c.priority %>"><%= titleCase(c.priority) %></span></td>
       <td><span class="badge badge-<%= c.status %>"><%= titleCase(c.status) %></span></td>
       <td class="text-sm"><%= c.scheduled_start ? formatDateTime(c.scheduled_start) : '-' %></td>

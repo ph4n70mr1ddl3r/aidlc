@@ -29,7 +29,7 @@
         <% if (a.is_featured) { %><i class="fas fa-star" style="color:var(--warning);margin-right:4px;font-size:12px;" aria-hidden="true"></i><span class="sr-only">(featured)</span><% } %>
         <%= a.title %>
       </a></td>
-      <td><span class="badge badge-<%= badgeClass(a.category || 'other', KB_CATEGORY_BADGE) %>"><%= titleCase(a.category) %></span></td>
+      <td><span class="badge badge-<%= badgeClass(a.category || 'other', KB_CATEGORY_BADGE) %>"><%= titleCase(a.category || 'other') %></span></td>
       <td class="text-sm"><%= a.author_name || '-' %></td>
       <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
       <td class="text-sm"><%= a.views %></td>
