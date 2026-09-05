@@ -4,8 +4,32 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (174 consecutive hardening commits) was
+Jest suite. Prior review history (175 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (176th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. All template `titleCase()` / `badgeClass()`
+nullable fallbacks are consistent across every show/list/detail page. The
+audit log details column already uses `<%= %>` (escaped) for the cell body
+and `<%- escapeHtml() %>` for the `title` tooltip — both paths correctly
+prevent XSS. All write routes carry CSRF protection (POST/PUT/DELETE are
+never skipped by `skipCsrfProtection`), rate limits, HPP guards, and
+transaction-scoped TOCTOU safety.
+
+### Fixes applied
+None — all previously identified issues were already committed in cycles
+174–175 and verified present in the working tree.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1003 passed / 1003 total** (51 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
