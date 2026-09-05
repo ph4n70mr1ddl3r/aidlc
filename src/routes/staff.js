@@ -80,6 +80,7 @@ const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE
 
 // List staff (paginated)
 router.get('/', (req, res) => {
+  req.audit('read', 'user', null, 'Viewed staff list');
   const { page: requestedPage, limit } = paginate(req);
 
   // Whitelist known departments from DB
@@ -637,6 +638,14 @@ const reactivateLimiter = rateLimit({
 });
 
 router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/staff');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');
@@ -815,6 +824,14 @@ const deactivateLimiter = rateLimit({
 
 // Delete staff (soft delete — deactivate)
 router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/staff');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid staff ID');

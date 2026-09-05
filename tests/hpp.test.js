@@ -528,4 +528,110 @@ describe('HPP array rejection (regression — fail closed)', () => {
       expect(jsonCalls[0].data.error).toBe('Invalid license ID');
     });
   });
+
+  describe('delete routes (fail-closed HPP)', () => {
+    it('rejects array id on asset delete', () => {
+      const assetsRouter = require('../src/routes/assets');
+      const h = lastHandlerFor(assetsRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on change delete', () => {
+      const changesRouter = require('../src/routes/changes');
+      const h = lastHandlerFor(changesRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on knowledge article delete', () => {
+      const kbRouter = require('../src/routes/knowledge');
+      const h = lastHandlerFor(kbRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on license delete', () => {
+      const licensesRouter = require('../src/routes/licenses');
+      const h = lastHandlerFor(licensesRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on project delete', () => {
+      const projectsRouter = require('../src/routes/projects');
+      const h = lastHandlerFor(projectsRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array projectId/taskId on task delete', () => {
+      const projectsRouter = require('../src/routes/projects');
+      const h = lastHandlerFor(projectsRouter, 'delete', '/:projectId/tasks/:taskId');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { projectId: ['1', '2'], taskId: '3' });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id/memberId on member delete', () => {
+      const projectsRouter = require('../src/routes/projects');
+      const h = lastHandlerFor(projectsRouter, 'delete', '/:id/members/:memberId');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: '1', memberId: ['2', '3'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on staff reactivate', () => {
+      const staffRouter = require('../src/routes/staff');
+      const h = lastHandlerFor(staffRouter, 'put', '/:id/reactivate');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on staff delete', () => {
+      const staffRouter = require('../src/routes/staff');
+      const h = lastHandlerFor(staffRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on ticket delete', () => {
+      const ticketsRouter = require('../src/routes/tickets');
+      const h = lastHandlerFor(ticketsRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on vendor deactivate', () => {
+      const vendorsRouter = require('../src/routes/vendors');
+      const h = lastHandlerFor(vendorsRouter, 'put', '/:id/deactivate');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on vendor reactivate', () => {
+      const vendorsRouter = require('../src/routes/vendors');
+      const h = lastHandlerFor(vendorsRouter, 'put', '/:id/reactivate');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+
+    it('rejects array id on vendor delete', () => {
+      const vendorsRouter = require('../src/routes/vendors');
+      const h = lastHandlerFor(vendorsRouter, 'delete', '/:id');
+      const { redirectedTo, flashCalls } = runHandler(h, {}, { id: ['1', '2'] });
+      expect(redirectedTo).not.toBeNull();
+      expect(flashCalls.some(([t]) => t === 'error')).toBe(true);
+    });
+  });
 });

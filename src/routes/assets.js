@@ -75,6 +75,7 @@ const SORT_MAP = Object.freeze({
 
 // List assets (paginated)
 router.get('/', (req, res) => {
+  req.audit('read', 'asset', null, 'Viewed assets list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
@@ -665,6 +666,14 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
 
 // Delete asset
 router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/assets');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid asset ID');

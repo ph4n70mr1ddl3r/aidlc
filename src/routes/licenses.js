@@ -99,6 +99,7 @@ const _licenseUpdateStmt = db.prepare(`
 // meaningless. `notes` is intentionally not selected — the index template
 // never renders it (mirrors the dashboard's minimal-column convention).
 router.get('/', requireAdminOrManager, (req, res) => {
+  req.audit('read', 'license', null, 'Viewed licenses list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qLicenseType = safeQueryValue(req.query.license_type);
@@ -532,6 +533,14 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
 
 // Delete license
 router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/licenses');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid license ID');

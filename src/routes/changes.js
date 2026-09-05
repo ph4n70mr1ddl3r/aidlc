@@ -74,6 +74,7 @@ const _changeUpdateStmt = db.prepare(`
 
 // List changes (paginated)
 router.get('/', (req, res) => {
+  req.audit('read', 'change', null, 'Viewed change log list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
@@ -535,6 +536,14 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 
 // Delete change
 router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/changes');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid change ID');

@@ -122,6 +122,7 @@ const SORT_MAP = Object.freeze({
 
 // List projects (paginated)
 router.get('/', (req, res) => {
+  req.audit('read', 'project', null, 'Viewed projects list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
@@ -619,6 +620,14 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
 // Delete project (with tasks & members in transaction)
 router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/projects');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid project ID');
@@ -1026,6 +1035,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
 
 // Delete task
 router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['projectId', 'taskId']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/projects');
+  }
+
   const projectId = safeId(req.params.projectId);
   const taskId = safeId(req.params.taskId);
   if (!projectId || !taskId) {
@@ -1150,6 +1167,14 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
 
 // Remove member from project
 router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id', 'memberId']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/projects');
+  }
+
   const id = safeId(req.params.id);
   const memberId = safeId(req.params.memberId);
   if (!id || !memberId) {

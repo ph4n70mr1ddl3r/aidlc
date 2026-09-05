@@ -154,6 +154,7 @@ const _vendorInsertStmt = db.prepare(`
 // closed for licenses. Every write route below is already privileged, so this
 // makes the whole module a coherent admin/manager surface.
 router.get('/', requireAdminOrManager, (req, res) => {
+  req.audit('read', 'vendor', null, 'Viewed vendors list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
@@ -669,6 +670,14 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
 // Deactivate vendor (dedicated route — mirrors staff pattern)
 router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -711,6 +720,14 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
 
 // Reactivate vendor
 router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');
@@ -753,6 +770,14 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
 
 // Delete vendor (must be deactivated first to prevent accidental data loss)
 router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid vendor ID');

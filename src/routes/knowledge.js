@@ -271,6 +271,7 @@ function sanitizeKnowledgeInput(title, content, tags) {
 
 // List articles (paginated)
 router.get('/', kbReadLimiter, (req, res) => {
+  req.audit('read', 'knowledge_article', null, 'Viewed knowledge base list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
@@ -677,6 +678,14 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
 
 // Delete article
 router.delete('/:id', kbWriteLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors the
+  // array-rejection guards on every other write route in the app.
+  const hppErrors = rejectHppArrays(req, ['id']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/knowledge');
+  }
+
   const id = safeId(req.params.id);
   if (!id) {
     req.flash('error', 'Invalid article ID');

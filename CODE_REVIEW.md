@@ -1,11 +1,69 @@
 # Code Review Notes
 
-**Date:** 2026-09-04
+**Date:** 2026-09-05
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (168 consecutive hardening commits) was
+Jest suite. Prior review history (170 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (171st pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Two consistency gaps — missing read audits
+on eight paginated list routes, and missing HPP array-rejection guards on
+twelve DELETE and special-PUT write routes — were closed.
+
+### Fixes applied
+- **`src/routes/assets.js`, `changes.js`, `knowledge.js`, `licenses.js`,
+  `projects.js`, `staff.js`, `tickets.js`, `vendors.js` — list routes
+  missing read audits (LOW, completeness).** Every `router.get('/')` that
+  renders a paginated collection now calls `req.audit('read', ...)` so that
+  viewing a collection leaves an audit trail consistent with individual show
+  routes and the dashboard. The reports index (`GET /reports`) was left
+  unchanged — it is a pure navigation landing page with no data fetch.
+- **`src/routes/assets.js`, `changes.js`, `knowledge.js`, `licenses.js`,
+  `projects.js` (3 routes), `staff.js` (2 routes), `tickets.js`,
+  `vendors.js` (3 routes) — delete and special-PUT routes missing HPP
+  guards (LOW, correctness).** All `router.delete('/:id')` handlers and
+  special action PUT routes (`/:id/reactivate`, `/:id/deactivate`,
+  `/:projectId/tasks/:taskId`, `/:id/members/:memberId`) now call
+  `rejectHppArrays(req, ['id'])` (or the full param set) before reading
+  params. This mirrors the fail-closed HPP convention already present on
+  every create, update, comment, status-update, and satisfaction route in
+  the app.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **995 passed / 995 total** (50 suites, +21 net: 13 HPP
+  delete regression tests + 8 list-route audit regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
+## Review cycle (170th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW correctness defect — a missing
+trailing period on a comment-empty validation error flash — was closed.
+
+### Fixes applied
+- **`src/routes/tickets.js` — comment empty validation flash missing
+  trailing period (LOW, consistency).** The flash message
+  `"Comment text is required"` omitted the period that every other required-
+  field flash carries (e.g. `"Title is required."`, `"Description is
+  required."`). Added the trailing period to match the app-wide convention.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **974 passed / 974 total** (49 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
