@@ -24,7 +24,7 @@
       <td class="text-sm"><%= l.vendor || '-' %></td>
        <td><span class="badge badge-<%= badgeClass(l.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(l.license_type || 'perpetual') %></span></td>
       <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
-      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= l.software_name %>: <%= _usagePct %>% seat usage" style="width:80px;display:inline-block;vertical-align:middle;">
+      <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= l.software_name %>: <%= _usagePct %>% seat usage" style="flex:1;">
         <div class="progress-fill <%= _usagePct > 90 ? 'red' : _usagePct > 70 ? 'orange' : 'green' %>" style="width:<%= _usagePct %>%"></div>
       </div> <span class="text-sm"><%= _usagePct %>%</span></td>
       <td class="text-sm" style="<%= _expSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? formatDate(l.expiry_date) : 'Perpetual' %></td>

@@ -4,8 +4,38 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (175 consecutive hardening commits) was
+Jest suite. Prior review history (176 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (177th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Two progress-bar width inconsistencies — a
+fixed 150px strip in the tickets analytics report and a fixed 80px strip in
+the licenses list — were normalized to `flex:1` so the bars scale with their
+table columns instead of being rigid on narrow screens.
+
+### Fixes applied
+- **`views/pages/reports/tickets.ejs` — fixed-width progress bar (LOW,
+  consistency).** The top-resolvers table used
+  `style="width:150px;display:inline-block;vertical-align:middle;"` while
+  every other progress bar in the app (dashboard, tickets report time-axis,
+  assets report, staff report, projects lists) uses `flex:1` to fill its
+  column. Changed to `flex:1` so the bar scales with the table column rather
+  than being a rigid 150px strip that overflows or underflows on narrow
+  screens.
+- **`views/pages/licenses/index.ejs` — fixed-width progress bar (LOW,
+  consistency).** Identical fix: changed `width:80px;display:inline-block;
+  vertical-align:middle;` to `flex:1` to match the app-wide convention.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1003 passed / 1003 total** (51 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

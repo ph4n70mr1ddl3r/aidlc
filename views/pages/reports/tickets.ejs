@@ -69,7 +69,7 @@
       <tbody><% const maxResolved = topResolvers.length > 0 ? Math.max(...topResolvers.map(x => x.resolved || 0)) : 1; topResolvers.forEach(r => { %><tr>
         <td style="font-weight:600;"><%= r.name %></td>
         <td><%= r.resolved %></td>
-        <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.round(r.resolved/maxResolved*100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= r.resolved %> tickets resolved" style="width:150px;display:inline-block;vertical-align:middle;"><div class="progress-fill green" style="width:<%= Math.round(r.resolved/maxResolved*100) %>%"></div></div></td>
+        <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= Math.round(r.resolved/maxResolved*100) %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= r.resolved %> tickets resolved" style="flex:1;"><div class="progress-fill green" style="width:<%= Math.round(r.resolved/maxResolved*100) %>%"></div></div></td>
       </tr><% }) %>
       <% if (!topResolvers.length) { %><tr><td colspan="3" class="text-center text-muted text-sm" style="padding:24px;">No resolutions recorded in this period</td></tr><% } %></tbody>
     </table></div>
