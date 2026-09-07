@@ -73,7 +73,10 @@
         "functions": 60,
         "lines": 60
       }
-    }
+    },
+    "setupFiles": [
+      "<rootDir>/tests/jest.setup.js"
+    ]
   },
   "bugs": {
     "url": "https://github.com/ph4n70mr1ddl3r/aidlc/issues"
