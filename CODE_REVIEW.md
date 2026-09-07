@@ -2392,3 +2392,28 @@ defects were found.** Two minor consistency/DRY improvements applied:
 - **Vendor rename syncs `licenses.vendor` by case-insensitive text match**:
   `licenses.vendor` is free text (not a FK); normalized vendor FK would be a
   larger refactor, not a bug fix.
+
+## Review cycle 2026-09-07 (179th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, EJS views, `public/js/app.js`, and the test suite).
+**No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage defects were
+found.** One test-isolation fix applied:
+
+### Fixes applied
+- **`tests/jest.setup.js` — `sanitize-html` mock promoted to global setupFile
+  (LOW, test cleanliness).** `sanitize-html@2.17.7` depends on `htmlparser2@12`
+  which is ESM-only; Jest's CJS runtime cannot load it. The per-file
+  `jest.mock('sanitize-html', …)` in `tests/knowledge.test.js` only applied
+  within that file — other tests (e.g. `tests/hpp.test.js`) that require
+  `knowledge.js` fell through to the real module, hit knowledge.js's
+  fallback-path `console.error`, and produced noisy output. Promoted the mock
+  to `tests/jest.setup.js` (registered as a jest `setupFiles` entry so it runs
+  before every test file's module graph is built) and removed the redundant
+  per-file mock from `knowledge.test.js`. All 1003 tests pass, lint is clean,
+  and console.error noise is eliminated.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1003 passed / 1003 total** (51 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
