@@ -1,11 +1,39 @@
 # Code Review Notes
 
-**Date:** 2026-09-05
+**Date:** 2026-09-07
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (176 consecutive hardening commits) was
+Jest suite. Prior review history (177 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (178th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW a11y defect — a decorative `fa-bell`
+icon on the nav "My Tickets" quick-link whose destination is the tickets list
+— was normalized to `fa-ticket` so the icon semantically matches the linked
+page (every other ticket surface in the app uses `fa-ticket`).
+
+### Fixes applied
+- **`views/partials/nav.ejs` — `fa-bell` icon mismatch on "My Tickets" nav link
+  (LOW, a11y).** The icon-only quick-link to `/tickets?assigned_to=...` used
+  `fa-bell` (a notification bell) while its href, title, and aria-label all
+  reference tickets. Every other ticket-referencing surface in the app
+  (dashboard stat card, ticket index empty state, ticket report stat card,
+  staff show assigned-tickets header, asset show related-tickets header, and
+  the main Tickets nav item) uses `fa-ticket`. Changed to `fa-ticket` so the
+  icon's semantics match the destination and the visual language stays
+  consistent across the entire app.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1003 passed / 1003 total** (51 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
