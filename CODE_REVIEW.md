@@ -4,8 +4,36 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (180 consecutive hardening commits) was
+Jest suite. Prior review history (184 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (184th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW test-completeness defect — the
+`sanitize-html` mock in `tests/jest.setup.js` carried a stray `'nl'` entry in
+its `allowedTags` array between `'ol'` and `'li'` (both `nl` and `li` are valid
+list-item tags in no known HTML spec; `li` was already present immediately
+after it) — was closed by removing the duplicate. Two regression tests pin
+the fix so future copy-paste drift cannot reintroduce it.
+
+### Fixes applied
+- **`tests/jest.setup.js` — stray `'nl'` in `allowedTags` (LOW, test completeness).**
+  The mock's `defaults.allowedTags` array listed `'nl'` between `'ol'` and
+  `'li'`. `nl` is not a valid HTML tag and had no purpose here; `'li'` was
+  already present on the next element, making `'nl'` a transparent copy-paste
+  typo. Removed the stray entry so the mock's tag allowlist is free of invalid
+  names. Pinned with a source-code assertion (`expect(allowedTags).toContain('li'); expect(allowedTags).not.toContain('nl')`) and a render pin verifying that `<li>` is preserved while an unknown `<nl>` tag is stripped.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1071 passed / 1071 total** (57 suites, +2 net: 2
+  allowedTags regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
