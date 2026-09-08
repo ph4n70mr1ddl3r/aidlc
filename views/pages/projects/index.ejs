@@ -53,7 +53,7 @@
       </div>
       <% if (p.start_date || p.end_date) { %>
       <div class="text-sm text-muted mt-1">
-        <i class="fas fa-calendar" aria-hidden="true"></i> <%= p.start_date ? formatDate(p.start_date) : '?' %> — <%= p.end_date ? formatDate(p.end_date) : '?' %>
+        <i class="fas fa-calendar" aria-hidden="true"></i> <%= p.start_date ? formatDate(p.start_date) : '-' %> — <%= p.end_date ? formatDate(p.end_date) : '-' %>
       </div>
       <% } %>
       <% // Budget/spent are financial data gated to privileged users — the same

@@ -43,7 +43,9 @@ const reportLimiter = rateLimit({
   max: 30,
   keyGenerator: authKeyGenerator,
   handler: (req, res) => {
-    req.flash('error', 'Too many report requests. Please try again later.');
+    if (typeof req.flash === 'function') {
+      req.flash('error', 'Too many report requests. Please try again later.');
+    }
     return res.redirect('/reports');
   },
   standardHeaders: true,

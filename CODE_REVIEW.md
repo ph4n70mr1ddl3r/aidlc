@@ -4,12 +4,60 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (179 consecutive hardening commits) was
+Jest suite. Prior review history (180 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (180th pass)
+## Review cycle (181st pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Four LOW consistency defects — a nullable
+`author_name` display field on the knowledge show page, and `'?'` fallbacks
+for contract/project dates on the vendors show and projects index pages
+(inconsistent with the app-wide `'-'` convention) — were closed. One LOW
+correctness defect — the reports rate-limit handler called `req.flash()`
+without guarding against an absent flash function, unlike the dashboard
+limiter which guards with `typeof req.flash === 'function'` — was also
+closed.
+
+### Fixes applied
+- **`views/pages/knowledge/show.ejs` — nullable `author_name` display
+  (LOW, consistency).** The show page rendered `<strong><%= article.author_name %></strong>`
+  without a null guard. When an article's `author_id` references a deleted
+  user the LEFT JOIN returns NULL and the template would emit empty text
+  between the `<strong>` tags. The index page already used `a.author_name ||
+  '-'`. Added `|| '-'` to match the index and every other nullable display
+  field in the app.
+- **`views/pages/vendors/show.ejs` — contract date fallback `'?'` vs `'-'`
+  (LOW, consistency).** The contract row used `'?'` as the missing-date
+  fallback (`vendor.contract_start ? formatDate(...) : '?'`) while every
+  other date display in the app uses `'-'` (e.g. tickets show, assets show,
+  changes index/show). Changed to `'-'` for consistency.
+- **`views/pages/projects/index.ejs` — project date fallback `'?'` vs `'-'`
+  (LOW, consistency).** Identical fix: the project date line used `'?'`
+  instead of `'-'`. Changed to `'-'` to match the convention used on the
+  projects show page and every other list/show template.
+- **`src/routes/reports.js` — reportLimiter handler missing `req.flash`
+  guard (LOW, correctness).** The rate-limit handler unconditionally called
+  `req.flash('error', ...)` before redirecting. If the session middleware
+  had not yet run (or the session was destroyed), `req.flash` would be
+  undefined and throw. The dashboard limiter already guards with
+  `typeof req.flash === 'function'`. Added the same guard so both limiters
+  behave identically.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1045 passed / 1045 total** (54 suites, +5 net: 1 knowledge
+  author_name render regression + 2 vendor/project date fallback regressions
+  + 1 reports limiter guard regression + 1 source-code assertion for the
+  guard).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
 
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
