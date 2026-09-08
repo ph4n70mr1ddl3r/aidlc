@@ -4,8 +4,42 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (184 consecutive hardening commits) was
+Jest suite. Prior review history (185 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (185th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW consistency defect —
+`views/pages/staff/show.ejs` used bare `user.role === 'admin'` comparisons
+instead of the app-wide `isPrivileged(user)` helper that null-safely gates
+privileged actions — was closed on two inline role gates (the edit-button
+gate and the admin-actions gate). Four regression tests pin the fix so future
+drift cannot reintroduce raw role equality checks.
+
+### Fixes applied
+- **`views/pages/staff/show.ejs` — direct `user.role` equality on edit/admin
+  gates (LOW, consistency).** Lines 11 and 98 compared `user.role` directly
+  (`user.role === 'admin'` / `user.role === 'manager'`) instead of using the
+  `isPrivileged(user)` helper that every other template uses for privilege
+  checks. A null role from a corrupt DB row would silently short-circuit the
+  checks to false (safe, but inconsistent with the established convention).
+  Changed line 11 to
+  `isPrivileged(user) && (user.role === 'admin' || staffUser.role === 'staff')`
+  and line 98 to
+  `isPrivileged(user) && user.role === 'admin' && Number(staffUser.id) !== Number(user.id)`
+  so both gates follow the same null-safe privilege pattern used everywhere
+  else in the app.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1075 passed / 1075 total** (58 suites, +4 net: 3 render
+  regressions for null/manager role gates + 1 source-code assertion).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
