@@ -81,6 +81,14 @@ const _departmentsStmt = db.prepare('SELECT DISTINCT department FROM users WHERE
 // List staff (paginated)
 router.get('/', (req, res) => {
   req.audit('read', 'user', null, 'Viewed staff list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'status', 'role', 'department']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/staff');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   // Whitelist known departments from DB

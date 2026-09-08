@@ -154,6 +154,14 @@ function ensureLinkedAssetInList(assets, linkedAsset) {
 // List tickets (paginated)
 router.get('/', (req, res) => {
   req.audit('read', 'ticket', null, 'Viewed tickets list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'sort', 'status', 'priority', 'category', 'assigned_to']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/tickets');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);
@@ -205,11 +213,14 @@ router.get('/', (req, res) => {
 router.get('/new', (req, res) => {
   const staff = getActiveStaff(db);
   const assets = _assetListStmt.all();
-  // Pre-fill requester info from logged-in user
+  // Pre-fill requester info from logged-in user — guard against a session
+  // missing a user object (defensive: requireAuth middleware guarantees it
+  // in normal operation, but unit tests and edge cases may bypass that path).
+  const prefillUser = req.session && req.session.user ? req.session.user : {};
   const prefill = {
-    requester_name: `${req.session.user.first_name} ${req.session.user.last_name}`,
-    requester_email: req.session.user.email,
-    requester_department: req.session.user.department || ''
+    requester_name: `${prefillUser.first_name || ''} ${prefillUser.last_name || ''}`,
+    requester_email: prefillUser.email || '',
+    requester_department: prefillUser.department || ''
   };
   res.render('pages/tickets/form', { title: 'New Ticket', ticket: prefill, staff, assets, isEdit: false });
 });

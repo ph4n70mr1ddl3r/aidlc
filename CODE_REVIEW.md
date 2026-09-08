@@ -9,6 +9,77 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (183rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One MEDIUM correctness defect — `badgeClass()`
+returned the raw unmapped value as a CSS class name, so a future DB enum value
+not yet covered by the mapping would produce `badge-badge-<unexpected>`; now
+falls back to `'medium'`. One LOW correctness defect — `req.session.user` was
+dereferenced without a null guard on `GET /tickets/new`, which could throw a
+`TypeError` in edge-case test harnesses; now guards with optional chaining.
+Eight LOW completeness defects — list GET routes on assets, tickets, projects,
+staff, vendors, knowledge, changes, and licenses lacked the explicit
+`rejectHppArrays()` guard on query params that every write route and
+`GET /audit` already carried — were closed. One LOW consistency defect —
+vendor category templates used a ternary (`v.category ? titleCase(...) : '-'`)
+instead of the app-wide `|| 'other'` pattern — was normalized.
+
+### Fixes applied
+- **`src/utils.js` — `badgeClass()` no fallback for unmapped values (MEDIUM,
+  correctness).** The function returned the raw value when not found in the
+  mapping, producing invalid CSS classes like `badge-badge-futureEnum` if the
+  database ever carried an unexpected enum. Changed the fallback to `'medium'`
+  so unrecognized values always render as a styled badge instead of leaking raw
+  database content into the DOM as a class name.
+- **`src/routes/tickets.js` — `GET /new` prefill dereferences `req.session.user`
+  without a null guard (LOW, correctness).** The ticket form prefill accessed
+  `req.session.user.first_name`, `.last_name`, `.email`, and `.department`
+  directly; while `requireAuth` middleware guarantees the user object in normal
+  operation, unit-test harnesses and edge cases may bypass that path, causing a
+  `TypeError` and 500 error. Added a safe accessor that falls back to empty
+  strings when the user object is missing.
+- **`src/routes/assets.js` — list GET missing HPP guard (LOW, completeness).**
+  Added `rejectHppArrays(req, ['search', 'sort', 'status', 'category',
+  'assigned_to'])` with a flash-and-redirect fail-closed response, matching
+  the convention on `GET /audit` and every write route in the app.
+- **`src/routes/tickets.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'sort', 'status',
+  'priority', 'category', 'assigned_to']`.
+- **`src/routes/projects.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'sort', 'status',
+  'priority']`.
+- **`src/routes/staff.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'status', 'role',
+  'department']`.
+- **`src/routes/vendors.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'category', 'is_active']`.
+- **`src/routes/knowledge.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'category', 'status']`.
+- **`src/routes/changes.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'status', 'change_type',
+  'priority', 'assigned_to']`.
+- **`src/routes/licenses.js` — list GET missing HPP guard (LOW, completeness).**
+  Identical fix: added `rejectHppArrays` on `['search', 'license_type']`.
+- **`views/pages/vendors/index.ejs` — category ternary vs `||` pattern
+  (LOW, consistency).** Changed `<%= v.category ? titleCase(v.category) : '-' %>`
+  to `<span class="badge badge-<%= v.category || 'other' %>"><%= titleCase(v.category || 'other') %></span>`
+  to match the consistent pattern used by every other entity's category display
+  across the app.
+- **`views/pages/vendors/show.ejs` — same category ternary fix (LOW,
+  consistency).** Identical normalization to the `|| 'other'` + badge pattern.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1069 passed / 1069 total** (56 suites, +14 net: 9 list-route
+  HPP regression tests + 4 badgeClass fallback tests + 1 tickets/new prefill
+  regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
 ## Review cycle (182nd pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,

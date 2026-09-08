@@ -75,6 +75,14 @@ const _changeUpdateStmt = db.prepare(`
 // List changes (paginated)
 router.get('/', (req, res) => {
   req.audit('read', 'change', null, 'Viewed change log list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'status', 'change_type', 'priority', 'assigned_to']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/changes');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);

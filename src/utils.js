@@ -1109,12 +1109,14 @@ function isPrivileged(user) {
 }
 
 /**
- * Map a value to a badge severity class using a whitelist mapping.
- * Falls back to the value itself if not found in the mapping.
- * Used in EJS templates to keep badge severity logic DRY.
- */
+  * Map a value to a badge severity class using a whitelist mapping.
+  * Falls back to 'medium' if the value is not found in the mapping, preventing
+  * raw enum values (including future DB values not yet covered by the mapping)
+  * from leaking into CSS class names as `badge-badge-<rawValue>`.
+  * Used in EJS templates to keep badge severity logic DRY.
+  */
 function badgeClass(value, mapping) {
-  return (mapping && Object.hasOwn(mapping, value)) ? mapping[value] : value;
+  return (mapping && Object.hasOwn(mapping, value)) ? mapping[value] : 'medium';
 }
 
 /**

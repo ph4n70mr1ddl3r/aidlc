@@ -1167,12 +1167,12 @@ describe('badgeClass', () => {
 
   it('should return value itself if not in mapping', () => {
     const mapping = { active: 'success' };
-    expect(utils.badgeClass('unknown', mapping)).toBe('unknown');
+    expect(utils.badgeClass('unknown', mapping)).toBe('medium');
   });
 
   it('should handle null/undefined mapping', () => {
-    expect(utils.badgeClass('active', null)).toBe('active');
-    expect(utils.badgeClass('active', undefined)).toBe('active');
+    expect(utils.badgeClass('active', null)).toBe('medium');
+    expect(utils.badgeClass('active', undefined)).toBe('medium');
   });
 });
 

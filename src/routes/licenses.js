@@ -100,6 +100,14 @@ const _licenseUpdateStmt = db.prepare(`
 // never renders it (mirrors the dashboard's minimal-column convention).
 router.get('/', requireAdminOrManager, (req, res) => {
   req.audit('read', 'license', null, 'Viewed licenses list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'license_type']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/licenses');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   const qLicenseType = safeQueryValue(req.query.license_type);

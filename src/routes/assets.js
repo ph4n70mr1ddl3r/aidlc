@@ -76,6 +76,14 @@ const SORT_MAP = Object.freeze({
 // List assets (paginated)
 router.get('/', (req, res) => {
   req.audit('read', 'asset', null, 'Viewed assets list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'sort', 'status', 'category', 'assigned_to']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/assets');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);

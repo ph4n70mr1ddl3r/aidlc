@@ -155,6 +155,14 @@ const _vendorInsertStmt = db.prepare(`
 // makes the whole module a coherent admin/manager surface.
 router.get('/', requireAdminOrManager, (req, res) => {
   req.audit('read', 'vendor', null, 'Viewed vendors list');
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['search', 'category', 'is_active']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors');
+  }
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);
