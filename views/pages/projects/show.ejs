@@ -19,8 +19,8 @@
   <div class="card-body">
     <div class="flex justify-between items-center mb-2">
       <div>
-        <span class="badge badge-<%= project.status %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.status) %></span>
-        <span class="badge badge-<%= project.priority %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.priority) %></span>
+        <span class="badge badge-<%= project.status || 'planning' %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.status || 'planning') %></span>
+        <span class="badge badge-<%= project.priority || 'medium' %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.priority || 'medium') %></span>
       </div>
       <div class="text-sm text-muted">
         Owner: <strong><%= project.owner_name || 'Unassigned' %></strong> | 
@@ -89,7 +89,7 @@
               <% } %>
             <% } %>
           </span>
-          <span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span>
+          <span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= formatDate(t.due_date) %></span><% } %>
         </form>
         <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">
@@ -125,7 +125,7 @@
         <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border);">
           <div>
             <div class="text-sm" style="font-weight:600;"><%= m.member_name %></div>
-            <div class="text-sm text-muted"><%= titleCase(m.role) %></div>
+            <div class="text-sm text-muted"><%= titleCase(m.role || 'member') %></div>
           </div>
           <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/members/<%= m.id %>?_method=DELETE" method="POST" data-confirm="Remove this member from the project?">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">

@@ -13,7 +13,7 @@
     <% const assetTotal = byCategory.reduce((a,b) => a + b.count, 0); %>
     <% byCategory.forEach(c => { const pct = assetTotal > 0 ? Math.round(c.count/assetTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
-      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category) %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '-' %></span></div>
+      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(c.category || 'other') %></span><span><%= c.count %> · <%= c.total_value ? '$' + Number(c.total_value).toLocaleString() : '-' %></span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(c.category) %>: <%= c.count %> assets"><div class="progress-fill blue" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
     <% if (!byCategory.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>
@@ -22,7 +22,7 @@
     <% const statusTotal = byStatus.reduce((a,b) => a + b.count, 0); %>
     <% byStatus.forEach(s => { const pct = statusTotal > 0 ? Math.round(s.count/statusTotal*100) : 0; %>
     <div style="margin-bottom:12px;">
-      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(s.status) %></span><span><%= s.count %> (<%= pct %>%)</span></div>
+      <div class="flex justify-between text-sm mb-1"><span><%= titleCase(s.status || 'in_storage') %></span><span><%= s.count %> (<%= pct %>%)</span></div>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= pct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= titleCase(s.status) %>: <%= s.count %> assets"><div class="progress-fill green" style="width:<%= pct %>%"></div></div>
     </div><% }) %>
     <% if (!byStatus.length) { %><p class="text-muted text-sm">No data for this period</p><% } %>

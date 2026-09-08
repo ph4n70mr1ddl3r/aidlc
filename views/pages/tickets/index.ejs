@@ -68,9 +68,9 @@
             <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a><% } else { %><span style="font-weight:600;"><%= t.ticket_number %></span><% } %></td>
             <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a><% } else { %><%= t.title %><% } %></td>
             <td class="text-sm"><%= t.requester_name %></td>
-            <td class="text-sm"><%= titleCase(t.category) %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
+            <td class="text-sm"><%= titleCase(t.category || 'other') %></td>
+            <td><span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span></td>
+            <td><span class="badge badge-<%= t.status || 'open' %>"><%= titleCase(t.status || 'open') %></span></td>
             <td class="text-sm"><% if (t.assigned_name) { %><%= t.assigned_name %><% } else { %><span class="text-muted">Unassigned</span><% } %></td>
             <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
             <td class="actions-cell">

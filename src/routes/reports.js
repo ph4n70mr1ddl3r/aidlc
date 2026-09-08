@@ -226,7 +226,7 @@ router.get('/tickets', reportLimiter, (req, res) => {
     const slaStats = stmts.slaStats.get(period);
     const topResolvers = stmts.topResolvers.all(period);
 
-    req.audit('read', 'ticket', null, 'Viewed ticket analytics report');
+    req.audit('read', 'ticket', null, `Viewed ticket analytics report (period: ${period} days)`);
 
     res.render('pages/reports/tickets', {
       title: 'Ticket Analytics', ticketsByDay, byCategory, byPriority,
@@ -271,7 +271,7 @@ router.get('/staff', reportLimiter, (req, res) => {
     // (open_tickets is an unwindowed current snapshot — see the statement).
     const performance = stmts.staffPerformance.all(period, period);
 
-    req.audit('read', 'user', null, 'Viewed staff performance report');
+    req.audit('read', 'user', null, `Viewed staff performance report (period: ${period} days)`);
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {

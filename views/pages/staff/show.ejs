@@ -30,8 +30,8 @@
           <tbody><% assignedTickets.forEach(t => { %><tr>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><%= t.title %></td>
-            <td><span class="badge badge-<%= t.priority %>"><%= titleCase(t.priority) %></span></td>
-            <td><span class="badge badge-<%= t.status %>"><%= titleCase(t.status) %></span></td>
+            <td><span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span></td>
+            <td><span class="badge badge-<%= t.status || 'open' %>"><%= titleCase(t.status || 'open') %></span></td>
           </tr><% }) %></tbody>
         </table></div><% } else { %><p class="text-muted text-sm" style="padding:16px;">No assigned tickets</p><% } %>
       </div>
@@ -89,7 +89,7 @@
       <div class="card-header"><h3>Assets</h3></div>
       <div class="card-body">
         <% assignedAssets.forEach(a => { %>
-        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></div>
+        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= a.status || 'in_storage' %>"><%= titleCase(a.status || 'in_storage') %></span></div>
         <% }) %>
         <% if (!assignedAssets.length) { %><p class="text-muted text-sm">No assets assigned</p><% } %>
       </div>

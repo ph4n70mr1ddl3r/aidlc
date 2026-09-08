@@ -480,12 +480,12 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   if (safeRole !== 'staff' && req.session.user.role !== 'admin') {
     req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${safeRole})`);
     req.flash('error', 'Only administrators can assign the manager or admin role.');
-    return res.redirect(`/staff/${id}/edit`);
+    return res.redirect('/staff');
   }
   // Prevent admin from changing their own role (would lock themselves out)
   if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
     req.flash('error', 'You cannot change your own role.');
-    return res.redirect(`/staff/${id}/edit`);
+    return res.redirect('/staff');
   }
   // Managers cannot edit or deactivate admin accounts, nor other managers
   // (only admins may manage manager accounts).

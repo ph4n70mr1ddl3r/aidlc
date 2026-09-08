@@ -4,8 +4,103 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (178 consecutive hardening commits) was
+Jest suite. Prior review history (179 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (180th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One LOW correctness defect — a double-denial
+redirect on the staff update privileged-role and self-role guards that sent the
+user to the edit form (which re-ran the same access gate) — was closed. Thirty
+LOW consistency defects — nullable enum values passed directly to
+`titleCase()` / used as inline `badge-<%= %>` classes across 15 templates — were
+closed by adding the same `|| 'default'` fallbacks already established in prior
+passes. Two LOW completeness defects — reports sub-route read audits omitted the
+queried `period`, and the assets index rendered a leading space when
+`manufacturer` was null — were also closed.
+
+### Fixes applied
+- **`src/routes/staff.js` — privileged-role assignment denial redirected to
+  edit form (LOW, correctness).** `PUT /:id` line 483 redirected to
+  `/staff/${id}/edit` on the "only admins can assign manager/admin" guard,
+  guaranteeing a second `access_denied` audit + flash when the edit route
+  re-checked the same gate. Changed to `/staff`, matching the convention used
+  by every other access-denial redirect in the app.
+- **`src/routes/staff.js` — self-role-change denial redirected to edit form
+  (LOW, correctness).** Identical fix on line 488: changed `/staff/${id}/edit`
+  to `/staff` so the self-preservation guard also lands on the list instead of
+  re-triggering the edit-route access check.
+- **`views/pages/dashboard.ejs` — 6 nullable enum fields missing fallbacks
+  (LOW, consistency).** `t.priority`, `t.status`, `t.category` in my-tickets
+  rows; `t.category`, `t.priority`, `t.status` in recent-tickets rows;
+  `c.category` in active-tickets-by-category card. Added `|| 'medium'` /
+  `|| 'open'` / `|| 'other'` to every `titleCase()` and inline `badge-` class
+  call, matching the pattern established in passes 174–176.
+- **`views/pages/staff/show.ejs` — 3 nullable enum fields missing fallbacks
+  (LOW, consistency).** `t.priority`, `t.status` in assigned-tickets rows and
+  `a.status` in assigned-assets rows. Added `|| 'medium'` / `|| 'open'` /
+  `|| 'in_storage'`.
+- **`views/pages/reports/tickets.ejs` — 2 nullable enum fields + aria-label
+  (LOW, consistency/a11y).** `c.category` and `p.priority` in the by-category
+  and by-priority bars got `|| 'other'` / `|| 'medium'`. The time-series
+  progress-bar aria-label was rephrased from `"X tickets on <date>"` to
+  `"Tickets on <date>: X"` so the entity name leads and the count尾s, consistent
+  with every other progress-bar label in the app.
+- **`views/pages/reports/assets.ejs` — 2 nullable enum fields missing
+  fallbacks (LOW, consistency).** `c.category` and `s.status` in the by-category
+  and by-status bars. Added `|| 'other'` / `|| 'in_storage'`.
+- **`views/pages/knowledge/index.ejs` — `a.status` missing fallback (LOW,
+  consistency).** Added `|| 'draft'`.
+- **`views/pages/knowledge/show.ejs` — `article.status` missing fallback
+  (LOW, consistency).** Added `|| 'draft'`.
+- **`views/pages/tickets/index.ejs` — 3 nullable enum fields missing
+  fallbacks (LOW, consistency).** `t.category`, `t.priority`, `t.status`. Added
+  `|| 'other'` / `|| 'medium'` / `|| 'open'`.
+- **`views/pages/tickets/show.ejs` — 5 nullable enum fields missing
+  fallbacks (LOW, consistency).** `ticket.status` (×2 — quick-status display
+  and sidebar), `ticket.priority`, `ticket.category`. Added `|| 'open'` /
+  `|| 'medium'` / `|| 'other'`.
+- **`views/pages/changes/index.ejs` — 2 nullable enum fields missing
+  fallbacks (LOW, consistency).** `c.priority`, `c.status`. Added `|| 'medium'`
+  / `|| 'scheduled'`.
+- **`views/pages/changes/show.ejs` — 2 nullable enum fields missing
+  fallbacks (LOW, consistency).** `change.status`, `change.priority`. Added
+  `|| 'scheduled'` / `|| 'medium'`.
+- **`views/pages/assets/index.ejs` — 2 nullable enum fields + cosmetic
+  (LOW, consistency/cosmetic).** `a.category`, `a.status` got fallbacks
+  (`|| 'other'` / `|| 'in_storage'`). Manufacturer/name concatenation changed
+  from `<%= a.manufacturer %> <%= a.name %>` to
+  `<%= a.manufacturer ? a.manufacturer + ' ' : '' %><%= a.name %>` to avoid a
+  leading space when manufacturer is null.
+- **`views/pages/assets/show.ejs` — 4 nullable enum fields missing
+  fallbacks (LOW, consistency).** `asset.category`, `asset.status`,
+  `t.priority`, `t.status` in related-tickets rows. Added fallbacks.
+- **`views/pages/projects/index.ejs` — `p.status` missing fallback (LOW,
+  consistency).** Added `|| 'planning'`.
+- **`views/pages/projects/show.ejs` — 3 nullable enum fields missing
+  fallbacks (LOW, consistency).** `project.status`, `project.priority`,
+  `t.priority` in task rows, `m.role` in member rows. Added `|| 'planning'` /
+  `|| 'medium'` / `|| 'member'`.
+- **`views/pages/auth/profile.ejs` — `profileUser.role` missing fallback
+  (LOW, consistency).** Added `|| 'staff'`.
+- **`src/routes/reports.js` — read-audit details omit period (LOW,
+  completeness).** Ticket-analytics and staff-performance audits now include
+  the queried period in the details string (e.g. `"Viewed ticket analytics
+  report (period: 30 days)"`) so the audit trail records what window was
+  inspected.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1040 passed / 1040 total** (53 suites, +30 net: 24 template
+  fallback render regressions + 2 staff double-denial redirect regressions +
+  2 reports-period-audit regressions + 1 assets-leading-space regression +
+  1 reports-tickets-aria-label regression).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

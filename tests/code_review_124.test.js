@@ -148,7 +148,7 @@ describe('staff routes — self-check uses Number() coercion (regression)', () =
     const { redirectCalls, flashCalls } = runHandler(h, {
       email: 'a@b.co', first_name: 'A', last_name: 'B', role: 'manager'
     }, { id: '1' }, { id: 1, role: 'admin' });
-    expect(redirectCalls).toEqual(['/staff/1/edit']);
+    expect(redirectCalls).toEqual(['/staff']);
     expect(errorFlash(flashCalls)).toBe('You cannot change your own role.');
   });
 

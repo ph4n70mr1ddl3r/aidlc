@@ -54,9 +54,9 @@
           const canView = isPrivileged(user) || Number(a.assigned_to) === Number(user.id); %>
           <tr>
             <td><% if (canView) { %><a href="/assets/<%= a.id %>" style="color:var(--primary);font-weight:600;text-decoration:none;"><%= a.asset_tag %></a><% } else { %><span style="font-weight:600;"><%= a.asset_tag %></span><% } %></td>
-            <td><%= a.manufacturer %> <%= a.name %></td>
-            <td class="text-sm"><%= titleCase(a.category) %></td>
-            <td><span class="badge badge-<%= a.status %>"><%= titleCase(a.status) %></span></td>
+            <td><%= a.manufacturer ? a.manufacturer + ' ' : '' %><%= a.name %></td>
+            <td class="text-sm"><%= titleCase(a.category || 'other') %></td>
+            <td><span class="badge badge-<%= a.status || 'in_storage' %>"><%= titleCase(a.status || 'in_storage') %></span></td>
             <td><span class="badge badge-<%= badgeClass(a.condition_rating || 'good', CONDITION_BADGE) %>"><%= titleCase(a.condition_rating || 'good') %></span></td>
             <td class="text-sm"><%= a.assigned_name || '-' %></td>
             <td class="text-sm"><%= a.location || '-' %></td>
