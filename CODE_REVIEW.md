@@ -9,6 +9,42 @@ cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (182nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. Four LOW a11y defects — nullable enum
+values (`category` and `status`) passed directly to `titleCase()` in the
+`aria-label` attribute of progress bars on the tickets and assets report
+pages, producing `"null: N tickets/assets"` when a row carried a null enum —
+were closed. One LOW consistency defect — `titleCase(user.role)` in the nav
+partial missing the same `|| 'staff'` fallback already used everywhere else
+the user role is displayed — was also closed.
+
+### Fixes applied
+- **`views/pages/reports/tickets.ejs` — category aria-label missing fallback
+  (LOW, a11y).** The by-category progress bar announced `"<%= titleCase(c.category) %>: <%= c.count %> tickets"`; a null category rendered `"null: N tickets"` to assistive technology while the visible label already used `c.category || 'other'`. Added `|| 'other'` to the aria-label so the accessible name matches the visible text.
+- **`views/pages/reports/tickets.ejs` — priority aria-label missing fallback
+  (LOW, a11y).** Identical fix for the by-priority bar: added `|| 'medium'` to
+  `titleCase(p.priority)` in the `aria-label`.
+- **`views/pages/reports/assets.ejs` — category aria-label missing fallback
+  (LOW, a11y).** The by-category progress bar announced `"<%= titleCase(c.category) %>: <%= c.count %> assets"` with no fallback. Added `|| 'other'` to match the visible label on the preceding line.
+- **`views/pages/reports/assets.ejs` — status aria-label missing fallback
+  (LOW, a11y).** Identical fix: added `|| 'in_storage'` to
+  `titleCase(s.status)` in the by-status bar aria-label.
+- **`views/partials/nav.ejs` — `titleCase(user.role)` missing fallback
+  (LOW, consistency).** The nav rendered `<%= titleCase(user.role) %>` directly; every other role display in the app uses `|| 'staff'` (e.g. `auth/profile.ejs`, `staff/index.ejs`, `staff/show.ejs`). A null role would render `"null"` as the nav badge. Added `|| 'staff'` to match the convention.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1055 passed / 1055 total** (55 suites, +10 net: 4 template
+  aria-label/render regressions + 1 nav-role render regression + 5
+  source-code assertions for the fallback strings).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
 ## Review cycle (181st pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
