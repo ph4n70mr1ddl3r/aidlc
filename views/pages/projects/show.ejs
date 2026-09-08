@@ -30,7 +30,7 @@
     <% if (project.description) { %><p class="text-sm" style="margin-bottom:16px;"><%= project.description %></p><% } %>
     <div class="flex items-center gap-2">
       <span class="text-sm"><strong>Progress: <%= project.progress || 0 %>%</strong></span>
-      <div class="progress-bar" role="progressbar" aria-valuenow="<%= project.progress || 0 %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= project.progress || 0 %>%" style="flex:1;">
+      <div class="progress-bar" role="progressbar" aria-valuenow="<%= project.progress || 0 %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= project.name %>: <%= project.progress || 0 %>%" style="flex:1;">
         <div class="progress-fill <%= (project.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (project.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (project.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= project.progress || 0 %>%"></div>
       </div>
       <% // Budget/spent are financial data gated to privileged users — mirrors

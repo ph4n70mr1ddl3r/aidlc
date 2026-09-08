@@ -119,4 +119,15 @@ describe('list route read audits', () => {
     expect(audit).toHaveBeenCalledTimes(1);
     expect(audit).toHaveBeenCalledWith('read', 'vendor', null, 'Viewed vendors list');
   });
+
+  it('reports index logs a read audit', () => {
+    const reportsRouter = require('../src/routes/reports');
+    const handler = findListRoute(reportsRouter);
+    const audit = jest.fn();
+    const req = { session: { user: { id: 1 } }, audit, query: {} };
+    const res = { render: jest.fn() };
+    handler(req, res, () => {});
+    expect(audit).toHaveBeenCalledTimes(1);
+    expect(audit).toHaveBeenCalledWith('read', 'report', null, 'Viewed reports index');
+  });
 });

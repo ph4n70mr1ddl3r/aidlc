@@ -210,6 +210,7 @@ const stmts = {
 
 // Reports dashboard
 router.get('/', (req, res) => {
+  req.audit('read', 'report', null, 'Viewed reports index');
   res.render('pages/reports/index', { title: 'Reports' });
 });
 

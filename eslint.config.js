@@ -73,6 +73,17 @@ module.exports = [
     }
   },
   {
+    files: ['tests/jest.setup.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest
+      }
+    },
+    rules: {
+      'no-redeclare': 'off'
+    }
+  },
+  {
     ignores: ['node_modules/', 'views/', 'data/', 'coverage/', '**/*.md', 'package-lock.json', 'public/css/']
   }
 ];

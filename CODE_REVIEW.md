@@ -1,11 +1,60 @@
 # Code Review Notes
 
-**Date:** 2026-09-07
+**Date:** 2026-09-08
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (177 consecutive hardening commits) was
+Jest suite. Prior review history (178 consecutive hardening commits) was
 cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (179th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. One MEDIUM completeness defect — the
+reports index route omitted a read audit — and five LOW a11y defects —
+progress-bar `aria-label` values missing entity names on four pages and a
+non-featured knowledge cell invisible to assistive technology — were closed.
+
+### Fixes applied
+- **`src/routes/reports.js` — `/reports` index missing read audit (MEDIUM,
+  completeness).** Every other list and show route in the app calls
+  `req.audit('read', ...)` before rendering. The reports index was the sole
+  exception, leaving privileged admin navigation through the reports landing
+  page untraceable. Added `req.audit('read', 'report', null, 'Viewed reports index')`
+  so the index view leaves an audit trail consistent with every other read
+  surface.
+- **`views/pages/reports/staff.ejs` — progress-bar aria-label missing staff
+  name (LOW, a11y).** The bar announced only `"X open tickets"` which is
+  ambiguous when a screen reader navigates a table where multiple rows share
+  the same count. Changed to `"<%= p.name %>: <%= p.open_tickets %> open
+  tickets"` to match the dashboard's workload-bar convention.
+- **`views/pages/reports/tickets.ejs` — top-resolver progress-bar aria-label
+  missing resolver name (LOW, a11y).** Identical fix: changed to
+  `"<%= r.name %>: <%= r.resolved %> tickets resolved"` so each row has a
+  unique accessible name.
+- **`views/pages/projects/index.ejs` — progress-bar aria-label missing project
+  name (LOW, a11y).** All cards on the index shared the label
+  `"Project progress: X%"`. Changed to
+  `"Project progress: <%= p.name %>: <%= p.progress || 0 >%"` for uniqueness.
+- **`views/pages/projects/show.ejs` — progress-bar aria-label missing project
+  name (LOW, a11y).** Same fix: included `project.name` in the label for
+  consistency with the index and other report pages.
+- **`views/pages/knowledge/index.ejs` — non-featured cell invisible to AT
+  (LOW, a11y).** Non-featured articles rendered `<span aria-hidden="true">-</span>`,
+  producing silence for screen readers while featured articles announced
+  `"Yes"`. Changed to `<span class="sr-only">No</span>` so the accessible
+  experience is symmetric: `"Yes"` for featured, `"No"` for non-featured.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1010 passed / 1010 total** (52 suites, +7 net: 1 reports-index
+  audit regression + 6 a11y render regressions + 1 list-route-audit regression
+  for reports).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
