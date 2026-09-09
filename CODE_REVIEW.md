@@ -1,11 +1,38 @@
 # Code Review Notes
 
-**Date:** 2026-09-08
+**Date:** 2026-09-09
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
-**Method:** Manual line-by-line review of all source files plus ESLint and the
-Jest suite. Prior review history (185 consecutive hardening commits) was
-cross-checked to confirm findings were not already addressed.
+**Method:** Manual line-by-line review of all source files plus ESLint, Jest
+coverage, and `npm audit`. Prior review history (186 consecutive hardening
+commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (186th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, seed, app.js, all EJS views, `public/js/app.js`, and the
+docs. No new SQL injection, CSRF, XSS, auth-bypass, rate-limit, or
+error-leakage defects were found. The only finding was a moderate severity
+dependency vulnerability in `morgan` (< 1.12.0) — Log Forging via unescaped
+Unicode line separators (GHSA-jxfw-x594-9x9m) — which was resolved by running
+`npm audit fix`. No source changes were needed; the fix is a pure dependency
+upgrade.
+
+### Fixes applied
+- **`node_modules/morgan` — Log Forging via unescaped Unicode line separators
+  (MODERATE, security).** `morgan` < 1.12.0 allowed crafted log lines to
+  inject newline characters into access logs, potentially corrupting log
+  parsing or enabling log injection attacks. Resolved by `npm audit fix`, which
+  bumped `morgan` from `1.11.0` to `1.12.0` and `js-yaml` from `3.15.1` to
+  `3.15.2`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1075 passed / 1075 total** (58 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities** (was 1
+  moderate: `morgan < 1.12.0`, now resolved).
 
 ---
 
