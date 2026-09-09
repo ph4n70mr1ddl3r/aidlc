@@ -4,8 +4,44 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (186 consecutive hardening
+coverage, and `npm audit`. Prior review history (187 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (188th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** Two consistency/a11y gaps closed: the license key reveal button's
+`aria-label` did not toggle between "Reveal" and "Hide" states (AT announced
+the wrong action on the second click), and the audit log action column used
+`titleCase(e.action)` without a null fallback (the middleware validates
+against `ALLOWED_ACTIONS` so this never fires in practice, but the pattern
+is now defensive).
+
+### Fixes applied
+- **`public/js/app.js` — license reveal button `aria-label` not toggled (LOW, a11y).**
+  When the user clicked the eye-icon button to reveal the key, the JavaScript
+  updated the display text and the icon class (`fa-eye` → `fa-eye-slash`) but
+  left the button's `aria-label` as `"Reveal license key"` — on the next click
+  (to hide) assistive technology would announce "Reveal license key" while the
+  action was actually "Hide". Added two `btn.setAttribute('aria-label', ...)`
+  calls: one on the show path (`'Hide license key'`) and one on the hide path
+  (`'Reveal license key'`), so AT always announces the correct opposite action.
+- **`views/pages/audit/index.ejs` — `titleCase(e.action)` missing null guard (LOW, consistency).**
+  The action cell rendered `<%= titleCase(e.action) %>` directly. While
+  `audit.js` validates against `ALLOWED_ACTIONS` before writing and the
+  database schema enforces `NOT NULL`, defensive coding convention across the
+  app is to add `|| 'unknown'` to any nullable template expression that feeds
+  into `titleCase()`. Changed to `titleCase(e.action || 'unknown')` to match
+  the pattern used by every other enum display in the codebase.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1080 passed / 1080 total** (59 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

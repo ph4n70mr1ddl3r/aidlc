@@ -196,6 +196,9 @@ document.addEventListener('click', function (e) {
     if (icon) {
       icon.className = 'fas fa-eye';
     }
+    // Restore the reveal aria-label so assistive technology announces the
+    // correct action on the next click.
+    btn.setAttribute('aria-label', 'Reveal license key');
   } else {
     // Fetch key via AJAX on first reveal
     // Use POST with CSRF token (GET is not CSRF-protected)
@@ -225,6 +228,8 @@ document.addEventListener('click', function (e) {
         if (icon) {
           icon.className = 'fas fa-eye-slash';
         }
+        // Update aria-label so AT announces the toggle action correctly.
+        btn.setAttribute('aria-label', 'Hide license key');
       })
       .catch(function (err) {
         display.textContent = 'Error loading key';
