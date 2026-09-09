@@ -765,7 +765,7 @@ server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`ERROR: Port ${PORT} is already in use. Is another instance running?`);
   } else {
-    console.error('Server error:', err.message);
+    console.error('Server error:', (err && err.message) || String(err));
   }
   process.exit(1);
 });
@@ -801,7 +801,7 @@ function shutdown(signal, exitCode = 0) {
       server.closeAllConnections();
     }
   } catch (err) {
-    console.error('Error closing idle connections:', err.message);
+    console.error('Error closing idle connections:', (err && err.message) || String(err));
   }
   const forceExitTimer = setTimeout(() => process.exit(exitCode), 10000);
   forceExitTimer.unref();
@@ -812,7 +812,7 @@ function shutdown(signal, exitCode = 0) {
     try {
       db.close();
     } catch (err) {
-      console.error('Error closing database:', err.message);
+      console.error('Error closing database:', (err && err.message) || String(err));
       dbClosed = false;
     }
     if (dbClosed) {

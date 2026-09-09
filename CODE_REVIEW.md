@@ -4,12 +4,40 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (187 consecutive hardening
+coverage, and `npm audit`. Prior review history (189 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (188th pass)
+## Review cycle (190th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** One consistency gap closed: three `console.error` calls in
+`app.js` used `err.message` directly without the `(err && err.message) ||
+String(err)` null guard that the other four error-handling sites in the same
+file already use. While the callers are all catch blocks or Node.js event
+handlers where `err` is typically an Error object, the inconsistent pattern
+leaves a latent crash risk if a non-Error value ever slips through.
+
+### Fixes applied
+- **`src/app.js` — three `console.error(err.message)` calls lack null guard
+  (LOW, consistency).** Lines 768, 804, and 815 accessed `err.message`
+  directly. The other error-handling sites in `app.js` (lines 672 and 835)
+  already use `(err && err.message) || String(err)`. Unified the pattern
+  across all five sites so a stray non-Error throw cannot crash the logger.
+  Changed to `(err && err.message) || String(err)` on each of the three
+  sites.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1083 passed / 1083 total** (60 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
+## Review cycle (189th pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, EJS views, `public/js/app.js`, and the test suite.
