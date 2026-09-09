@@ -99,8 +99,8 @@
               <tr>
                 <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
                 <td><%= t.title %></td>
-                <td><span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span></td>
-                <td><span class="badge badge-<%= t.status || 'open' %>"><%= titleCase(t.status || 'open') %></span></td>
+                <td><span class="badge badge-<%= badgeClass(t.priority || 'medium', TICKET_PRIORITY_BADGE) %>"><%= titleCase(t.priority || 'medium') %></span></td>
+                <td><span class="badge badge-<%= badgeClass(t.status || 'open', TICKET_STATUS_BADGE) %>"><%= titleCase(t.status || 'open') %></span></td>
                 <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
               </tr>
         <% }); %>
@@ -175,8 +175,8 @@
              <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a><% } else { %><span style="font-weight:600;"><%= t.ticket_number %></span><% } %></td>
              <td><% if (canView) { %><a href="/tickets/<%= t.id %>" style="color:var(--text);text-decoration:none;"><%= t.title %></a><% } else { %><%= t.title %><% } %></td>
               <td class="text-sm"><%= titleCase(t.category || 'other') %></td>
-              <td><span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span></td>
-              <td><span class="badge badge-<%= t.status || 'open' %>"><%= titleCase(t.status || 'open') %></span></td>
+              <td><span class="badge badge-<%= badgeClass(t.priority || 'medium', TICKET_PRIORITY_BADGE) %>"><%= titleCase(t.priority || 'medium') %></span></td>
+              <td><span class="badge badge-<%= badgeClass(t.status || 'open', TICKET_STATUS_BADGE) %>"><%= titleCase(t.status || 'open') %></span></td>
              <td class="text-sm"><%= t.assigned_name || 'Unassigned' %></td>
              <td class="text-sm"><%= formatDateTime(t.created_at) %></td>
            </tr>

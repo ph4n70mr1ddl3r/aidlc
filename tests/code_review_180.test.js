@@ -28,6 +28,16 @@ function baseLocals() {
     MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
     KB_CATEGORY_BADGE: constants.KB_CATEGORY_BADGE,
     LICENSE_TYPE_BADGE: constants.LICENSE_TYPE_BADGE,
+    TICKET_STATUS_BADGE: constants.TICKET_STATUS_BADGE,
+    TICKET_PRIORITY_BADGE: constants.TICKET_PRIORITY_BADGE,
+    ASSET_STATUS_BADGE: constants.ASSET_STATUS_BADGE,
+    PROJECT_STATUS_BADGE: constants.PROJECT_STATUS_BADGE,
+    PROJECT_PRIORITY_BADGE: constants.PROJECT_PRIORITY_BADGE,
+    TASK_PRIORITY_BADGE: constants.TASK_PRIORITY_BADGE,
+    CHANGE_STATUS_BADGE: constants.CHANGE_STATUS_BADGE,
+    CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
+    KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
+    VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
     CONSTANTS: constants
   };
 }
@@ -70,7 +80,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       const html = render('dashboard.ejs', locals);
       expect(html).toContain('badge-medium');
       expect(html).not.toContain('badge-null');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
     });
 
     it('renders valid category/priority/status when null in recent tickets', () => {
@@ -82,7 +92,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       const html = render('dashboard.ejs', locals);
       expect(html).toContain('<td class="text-sm">Other</td>');
       expect(html).toContain('badge-medium');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
     });
 
     it('renders valid category when null in tickets by category', () => {
@@ -109,7 +119,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('staff/show.ejs', locals);
       expect(html).toContain('badge-medium');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
 
@@ -124,7 +134,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         projectMemberships: []
       };
       const html = render('staff/show.ejs', locals);
-      expect(html).toContain('badge-in_storage');
+      expect(html).toContain('badge-low');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -212,7 +222,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         filters: {}
       };
       const html = render('knowledge/index.ejs', locals);
-      expect(html).toContain('badge-draft');
+      expect(html).toContain('badge-medium');
       expect(html).toContain('>Draft<');
       expect(html).not.toContain('badge-null');
     });
@@ -226,7 +236,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         article: { id: 1, title: 'Test', category: 'how_to', status: null, views: 0, is_featured: 0, updated_at: null, author_name: 'Ada', tags: null, renderedContent: 'content' }
       };
       const html = render('knowledge/show.ejs', locals);
-      expect(html).toContain('badge-draft');
+      expect(html).toContain('badge-medium');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -243,7 +253,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('tickets/index.ejs', locals);
       expect(html).toContain('badge-medium');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
       expect(html).toContain('>Other<');
       expect(html).not.toContain('badge-null');
     });
@@ -259,7 +269,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         isEdit: false
       };
       const html = render('tickets/show.ejs', locals);
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
 
@@ -274,7 +284,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       const html = render('tickets/show.ejs', locals);
       expect(html).toContain('badge-medium');
       expect(html).toContain('>Other<');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -291,7 +301,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('changes/index.ejs', locals);
       expect(html).toContain('badge-medium');
-      expect(html).toContain('badge-scheduled');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -304,7 +314,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         change: { id: 1, title: 'Test', change_type: 'maintenance', status: null, priority: null, scheduled_start: null, scheduled_end: null, actual_start: null, actual_end: null, impact: null, description: null, assigned_name: null }
       };
       const html = render('changes/show.ejs', locals);
-      expect(html).toContain('badge-scheduled');
+      expect(html).toContain('badge-high');
       expect(html).toContain('badge-medium');
       expect(html).not.toContain('badge-null');
     });
@@ -322,7 +332,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('assets/index.ejs', locals);
       expect(html).toContain('>Other<');
-      expect(html).toContain('badge-in_storage');
+      expect(html).toContain('badge-low');
       expect(html).not.toContain('badge-null');
     });
 
@@ -351,7 +361,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('assets/show.ejs', locals);
       expect(html).toContain('>Other<');
-      expect(html).toContain('badge-in_storage');
+      expect(html).toContain('badge-low');
       expect(html).toContain('badge-low');
       expect(html).not.toContain('badge-null');
     });
@@ -365,7 +375,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       const html = render('assets/show.ejs', locals);
       expect(html).toContain('badge-medium');
-      expect(html).toContain('badge-open');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -380,7 +390,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         filters: {}
       };
       const html = render('projects/index.ejs', locals);
-      expect(html).toContain('badge-planning');
+      expect(html).toContain('badge-high');
       expect(html).not.toContain('badge-null');
     });
   });
@@ -395,7 +405,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
         members: []
       };
       const html = render('projects/show.ejs', locals);
-      expect(html).toContain('badge-planning');
+      expect(html).toContain('badge-high');
       expect(html).toContain('badge-medium');
       expect(html).not.toContain('badge-null');
     });

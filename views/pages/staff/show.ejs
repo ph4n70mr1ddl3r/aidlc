@@ -30,8 +30,8 @@
           <tbody><% assignedTickets.forEach(t => { %><tr>
             <td><a href="/tickets/<%= t.id %>" style="color:var(--primary);text-decoration:none;font-weight:600;"><%= t.ticket_number %></a></td>
             <td><%= t.title %></td>
-            <td><span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span></td>
-            <td><span class="badge badge-<%= t.status || 'open' %>"><%= titleCase(t.status || 'open') %></span></td>
+            <td><span class="badge badge-<%= badgeClass(t.priority || 'medium', TICKET_PRIORITY_BADGE) %>"><%= titleCase(t.priority || 'medium') %></span></td>
+            <td><span class="badge badge-<%= badgeClass(t.status || 'open', TICKET_STATUS_BADGE) %>"><%= titleCase(t.status || 'open') %></span></td>
           </tr><% }) %></tbody>
         </table></div><% } else { %><p class="text-muted text-sm" style="padding:16px;">No assigned tickets</p><% } %>
       </div>
@@ -78,7 +78,7 @@
       <div class="card-body">
         <% projectMemberships.forEach(pm => {
           const canViewProject = isPrivileged(user) || Number(pm.owner_id) === Number(user.id); %>
-          <div style="padding:4px 0;"><% if (canViewProject) { %><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a><% } else { %><span style="font-size:13px;"><%= pm.project_name %></span><% } %> <span class="badge badge-<%= pm.project_status || 'planning' %>" style="margin-left:4px;"><%= titleCase(pm.project_status || 'planning') %></span> <span class="badge badge-<%= badgeClass(pm.project_role || 'member', MEMBER_ROLE_BADGE) %>"><%= titleCase(pm.project_role || 'member') %></span></div>
+          <div style="padding:4px 0;"><% if (canViewProject) { %><a href="/projects/<%= pm.project_id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= pm.project_name %></a><% } else { %><span style="font-size:13px;"><%= pm.project_name %></span><% } %> <span class="badge badge-<%= badgeClass(pm.project_status || 'planning', PROJECT_STATUS_BADGE) %>" style="margin-left:4px;"><%= titleCase(pm.project_status || 'planning') %></span> <span class="badge badge-<%= badgeClass(pm.project_role || 'member', MEMBER_ROLE_BADGE) %>"><%= titleCase(pm.project_role || 'member') %></span></div>
         <% }) %>
         <% if (!projectMemberships.length) { %><p class="text-muted text-sm">Not in any projects</p><% } %>
       </div>
@@ -89,7 +89,7 @@
       <div class="card-header"><h3>Assets</h3></div>
       <div class="card-body">
         <% assignedAssets.forEach(a => { %>
-        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= a.status || 'in_storage' %>"><%= titleCase(a.status || 'in_storage') %></span></div>
+        <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= badgeClass(a.status || 'in_storage', ASSET_STATUS_BADGE) %>"><%= titleCase(a.status || 'in_storage') %></span></div>
         <% }) %>
         <% if (!assignedAssets.length) { %><p class="text-muted text-sm">No assets assigned</p><% } %>
       </div>

@@ -19,8 +19,8 @@
   <div class="card-body">
     <div class="flex justify-between items-center mb-2">
       <div>
-        <span class="badge badge-<%= project.status || 'planning' %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.status || 'planning') %></span>
-        <span class="badge badge-<%= project.priority || 'medium' %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.priority || 'medium') %></span>
+        <span class="badge badge-<%= badgeClass(project.status || 'planning', PROJECT_STATUS_BADGE) %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.status || 'planning') %></span>
+        <span class="badge badge-<%= badgeClass(project.priority || 'medium', PROJECT_PRIORITY_BADGE) %>" style="font-size:14px;padding:6px 16px;"><%= titleCase(project.priority || 'medium') %></span>
       </div>
       <div class="text-sm text-muted">
         Owner: <strong><%= project.owner_name || 'Unassigned' %></strong> | 
@@ -31,7 +31,7 @@
     <div class="flex items-center gap-2">
       <span class="text-sm"><strong>Progress: <%= project.progress || 0 %>%</strong></span>
       <div class="progress-bar" role="progressbar" aria-valuenow="<%= project.progress || 0 %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= project.name %>: <%= project.progress || 0 %>%" style="flex:1;">
-        <div class="progress-fill <%= (project.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (project.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (project.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= project.progress || 0 %>%"></div>
+        <div class="progress-fill <%= (project.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (project.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (project.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= Math.min(project.progress || 0, 100) %>%"></div>
       </div>
       <% // Budget/spent are financial data gated to privileged users — mirrors
          // projects/index.ejs (which gates the same line behind isPrivileged).
@@ -89,7 +89,7 @@
               <% } %>
             <% } %>
           </span>
-          <span class="badge badge-<%= t.priority || 'medium' %>"><%= titleCase(t.priority || 'medium') %></span>
+          <span class="badge badge-<%= badgeClass(t.priority || 'medium', TASK_PRIORITY_BADGE) %>"><%= titleCase(t.priority || 'medium') %></span>
           <% if (t.due_date) { %><span class="text-sm text-muted"><%= formatDate(t.due_date) %></span><% } %>
         </form>
         <% if (isPrivileged(user)) { %><form action="/projects/<%= project.id %>/tasks/<%= t.id %>?_method=DELETE" method="POST" data-confirm="Delete task?">

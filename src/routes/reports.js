@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { safeInt, safeQueryValue, authKeyGenerator } = require('../utils');
+const { safeInt, safeQueryValue, authKeyGenerator, rejectHppArrays } = require('../utils');
 
 /**
  * Parse the `period` report query parameter, clamps to [1, 365], and fails
@@ -218,6 +218,14 @@ router.get('/', (req, res) => {
 
 // Ticket Analytics
 router.get('/tickets', reportLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['period']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/reports');
+  }
   try {
     const period = resolveReportPeriod(req.query.period);
 
@@ -243,6 +251,14 @@ router.get('/tickets', reportLimiter, (req, res) => {
 
 // Asset Report
 router.get('/assets', reportLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, []);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/reports');
+  }
   try {
     const byCategory = stmts.assetsByCategory.all();
     const byStatus = stmts.assetsByStatus.all();
@@ -267,6 +283,14 @@ router.get('/assets', reportLimiter, (req, res) => {
 
 // Staff Performance
 router.get('/staff', reportLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['period']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/reports');
+  }
   try {
     const period = resolveReportPeriod(req.query.period);
     // Two ? placeholders: resolved_tickets period, completed_tasks period

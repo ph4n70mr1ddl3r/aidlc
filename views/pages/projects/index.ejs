@@ -37,7 +37,7 @@
     <div class="card-body">
       <div class="flex justify-between items-center mb-1">
         <% if (canView) { %><a href="/projects/<%= p.id %>" style="font-size:16px;font-weight:600;color:var(--text);text-decoration:none;"><%= p.name %></a><% } else { %><span style="font-size:16px;font-weight:600;"><%= p.name %></span><% } %>
-        <span class="badge badge-<%= p.status || 'planning' %>"><%= titleCase(p.status || 'planning') %></span>
+        <span class="badge badge-<%= badgeClass(p.status || 'planning', PROJECT_STATUS_BADGE) %>"><%= titleCase(p.status || 'planning') %></span>
       </div>
       <p class="text-sm text-muted mb-2"><%= (p.description || '').substring(0, CONSTANTS.DESC_TRUNCATION_LEN) %><%= (p.description || '').length > CONSTANTS.DESC_TRUNCATION_LEN ? '...' : '' %></p>
       <div class="flex justify-between items-center mb-1">
@@ -45,7 +45,7 @@
         <span class="text-sm" style="font-weight:600"><%= p.progress || 0 %>%</span>
       </div>
       <div class="progress-bar mb-2" role="progressbar" aria-valuenow="<%= p.progress || 0 %>" aria-valuemin="0" aria-valuemax="100" aria-label="Project progress: <%= p.name %>: <%= p.progress || 0 %>%" style="flex:1;">
-        <div class="progress-fill <%= (p.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (p.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (p.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= p.progress || 0 %>%"></div>
+        <div class="progress-fill <%= (p.progress || 0) >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : (p.progress || 0) >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : (p.progress || 0) >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= Math.min(p.progress || 0, 100) %>%"></div>
       </div>
       <div class="flex justify-between text-sm text-muted">
         <span><i class="fas fa-user" aria-hidden="true"></i> <%= p.owner_name || 'Unassigned' %></span>

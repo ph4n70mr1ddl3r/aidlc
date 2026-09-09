@@ -116,6 +116,32 @@ const KB_CATEGORY_BADGE = Object.freeze({ how_to: 'medium', troubleshooting: 'me
 // types are organizational, not severity-indicating. Mirrors the KB_CATEGORY
 // uniform-badge convention.
 const LICENSE_TYPE_BADGE = Object.freeze({ perpetual: 'medium', subscription: 'medium', volume: 'medium', oem: 'medium', academic: 'medium' });
+// Ticket statuses — open/in_progress warrant attention (high/critical),
+// waiting is informational (medium), resolved/closed are benign (low/green).
+const TICKET_STATUS_BADGE = Object.freeze({ open: 'high', in_progress: 'critical', waiting: 'medium', resolved: 'low', closed: 'low' });
+// Ticket priorities — mirror the severity semantics used by the badge-color
+// CSS classes across all templates.
+const TICKET_PRIORITY_BADGE = Object.freeze({ critical: 'critical', high: 'high', medium: 'medium', low: 'low' });
+// Asset statuses — in_use/in_repair need attention, in_storage/reserved are
+// benign, disposed is a terminal state rendered as low severity.
+const ASSET_STATUS_BADGE = Object.freeze({ in_use: 'high', in_storage: 'low', in_repair: 'critical', disposed: 'low', reserved: 'low' });
+// Project statuses — in_progress and planning are active states (high/critical),
+// on_hold is informational, completed/cancelled are terminal (low).
+const PROJECT_STATUS_BADGE = Object.freeze({ planning: 'high', in_progress: 'critical', on_hold: 'medium', completed: 'low', cancelled: 'low' });
+// Project / task priorities — consistent with TICKET_PRIORITY_BADGE.
+const PROJECT_PRIORITY_BADGE = Object.freeze({ critical: 'critical', high: 'high', medium: 'medium', low: 'low' });
+const TASK_PRIORITY_BADGE = Object.freeze({ high: 'high', medium: 'medium', low: 'low' });
+// Change statuses — scheduled/in_progress need attention, completed/failed are
+// terminal, cancelled is benign.
+const CHANGE_STATUS_BADGE = Object.freeze({ scheduled: 'high', in_progress: 'critical', completed: 'low', failed: 'critical', cancelled: 'low' });
+const CHANGE_PRIORITY_BADGE = Object.freeze({ critical: 'critical', high: 'high', medium: 'medium', low: 'low' });
+// KB article statuses — published is the healthy state (low), draft/archived
+// are non-public (medium) since they indicate the article is not yet ready.
+const KB_STATUS_BADGE = Object.freeze({ draft: 'medium', published: 'low', archived: 'medium' });
+// Vendor categories — organizational, not severity-indicating; uniform medium
+// keeps the list columns from getting noisy with color. Mirrors KB_CATEGORY /
+// LICENSE_TYPE conventions.
+const VENDOR_CATEGORY_BADGE = Object.freeze({ hardware: 'medium', cloud: 'medium', security: 'medium', network: 'medium', maintenance: 'medium', software: 'medium', consulting: 'medium', telecom: 'medium', other: 'medium' });
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
@@ -158,6 +184,12 @@ module.exports = {
   BCRYPT_SALT_ROUNDS,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
   KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
+  TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE,
+  ASSET_STATUS_BADGE,
+  PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE,
+  CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE,
+  KB_STATUS_BADGE,
+  VENDOR_CATEGORY_BADGE,
   DESC_TRUNCATION_LEN,
   PROGRESS_GREEN_THRESHOLD, PROGRESS_BLUE_THRESHOLD, PROGRESS_ORANGE_THRESHOLD,
   WORKLOAD_MULTIPLIER, WORKLOAD_RED_THRESHOLD, WORKLOAD_ORANGE_THRESHOLD,

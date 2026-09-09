@@ -9,6 +9,73 @@ commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (187th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, EJS views, `public/js/app.js`, and the test suite).
+**No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage defects were
+found.** Three consistency gaps closed: raw enum values leaking into CSS badge
+class names across all list/show templates, two unclamped progress-bar widths,
+and missing HPP guards on report sub-routes.
+
+### Fixes applied
+- **`src/constants.js` — 10 missing badge mappings added (LOW, consistency).**
+  `TICKET_STATUS_BADGE`, `TICKET_PRIORITY_BADGE`, `ASSET_STATUS_BADGE`,
+  `PROJECT_STATUS_BADGE`, `PROJECT_PRIORITY_BADGE`, `TASK_PRIORITY_BADGE`,
+  `CHANGE_STATUS_BADGE`, `CHANGE_PRIORITY_BADGE`, `KB_STATUS_BADGE`, and
+  `VENDOR_CATEGORY_BADGE` were absent, so templates that wanted to use
+  `badgeClass()` had no mapping to pass. All ten are now frozen objects with
+  sensible severity assignments (e.g. `open→high`, `in_progress→critical`,
+  `scheduled→high`, `draft→medium`, all vendor categories → `medium`).
+  Exported from `constants.js`, re-exported from `utils.js`, and wired into
+  `res.locals` + `TEMPLATE_CONSTANTS` in `app.js`.
+- **All EJS templates — status/priority/category badges now use `badgeClass()`
+  (HIGH, correctness).** Every instance of `badge-<%= rawEnum %>` across
+  `tickets/index.ejs`, `tickets/show.ejs`, `assets/index.ejs`, `assets/show.ejs`,
+  `projects/index.ejs`, `projects/show.ejs`, `changes/index.ejs`,
+  `changes/show.ejs`, `knowledge/index.ejs`, `knowledge/show.ejs`,
+  `vendors/index.ejs`, `vendors/show.ejs`, `dashboard.ejs`, and
+  `staff/show.ejs` was updated to call `badgeClass(value, MAPPING)` so unknown
+  enum values fall back to `'medium'` instead of leaking into CSS class names
+  as `badge-<rawValue>`.
+- **`views/pages/projects/index.ejs` and `views/pages/projects/show.ejs` —
+  progress bar width clamped to 100% (LOW, correctness).** The
+  `style="width:<%= p.progress || 0 %>%"` expression allowed overflow when
+  `progress` exceeded 100 (data corruption or upstream bug). Both now use
+  `Math.min(p.progress || 0, 100)`, matching the convention everywhere else in
+  the codebase.
+- **`views/pages/audit/index.ejs` — replaced `.replace(/_/g, ' ')` with
+  `titleCase()` (LOW, consistency).** Four instances across the filter options
+  and badge rows were using a naive underscore-to-space swap, which broke
+  acronym rendering (e.g. `sop` → `"sop"` instead of `"SOP"`). Updated to
+  `titleCase()`, consistent with every other template in the app.
+- **`views/pages/licenses/index.ejs` — progress bar color thresholds now use
+  `CONSTANTS.*_THRESHOLD` (LOW, consistency).** The license seat-usage bar used
+  hardcoded `> 90` / `> 70` ternary checks while every other progress bar in
+  the app referenced `CONSTANTS.PROGRESS_GREEN_THRESHOLD`,
+  `CONSTANTS.PROGRESS_BLUE_THRESHOLD`, and `CONSTANTS.PROGRESS_ORANGE_THRESHOLD`.
+  Updated to use the shared constants.
+- **`src/routes/reports.js` — added `rejectHppArrays` to all three sub-routes
+  (LOW, defense-in-depth).** `/reports/tickets`, `/reports/assets`, and
+  `/reports/staff` did not call `rejectHppArrays`, unlike every other route
+  module. Added the guard to each handler so a future developer adding a new
+  query param gets the same array-rejection safety net.
+- **`views/partials/nav.ejs` — added `role="navigation"` (LOW, a11y).** The
+  sidebar `<nav>` already had `aria-label="Main navigation"` but lacked an
+  explicit `role="navigation"`, which some assistive technologies prefer for
+  landmark recognition.
+- **`tests/utils.test.js` — added `ensureAssigneeInList` happy-path regression
+  tests (LOW, test coverage).** Two tests cover: (1) a deactivated assignee
+  missing from the active-staff list is fetched from the DB and prepended, and
+  (2) an assignee already present in the active list is not duplicated.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1077 passed / 1077 total** (58 suites, +2 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
 ## Review cycle (186th pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,

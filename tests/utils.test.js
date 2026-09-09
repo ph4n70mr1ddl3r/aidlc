@@ -2047,3 +2047,38 @@ describe('ensureAssigneeInList edge cases', () => {
     expect(result).toBe(staff);
   });
 });
+
+/**
+ * Test for ensureAssigneeInList happy path — inactive assignee is fetched and
+ * prepended so the edit form can still render them as selected.
+ */
+describe('ensureAssigneeInList happy path', () => {
+  beforeEach(() => {
+    utils.resetCachedStatements();
+  });
+
+  it('should prepend a deactivated assignee that is missing from the active-staff list', () => {
+    const staff = [{ id: 1, first_name: 'Active', last_name: 'User' }];
+    const db = {
+      prepare: jest.fn((_sql) => ({
+        get: jest.fn(() => ({ id: 2, first_name: 'Deactivated', last_name: 'User' }))
+      }))
+    };
+    const result = utils.ensureAssigneeInList(staff, 2, db);
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe(2);
+    expect(result[0].first_name).toBe('Deactivated');
+    expect(result[1].id).toBe(1);
+    expect(db.prepare).toHaveBeenCalledWith('SELECT id, first_name, last_name FROM users WHERE id = ?');
+  });
+
+  it('should not duplicate an assignee already present in the active-staff list', () => {
+    const staff = [{ id: 1, first_name: 'Active', last_name: 'User' }];
+    const db = {
+      prepare: jest.fn(() => ({ get: jest.fn() }))
+    };
+    const result = utils.ensureAssigneeInList(staff, 1, db);
+    expect(result).toBe(staff);
+    expect(db.prepare).not.toHaveBeenCalled();
+  });
+});

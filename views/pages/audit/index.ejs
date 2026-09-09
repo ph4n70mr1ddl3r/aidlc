@@ -4,10 +4,10 @@
 <form method="GET" action="/audit" class="filter-bar">
   <select name="action" aria-label="Filter by action">
     <option value="">All Actions</option>
-    <% CONSTANTS.ALLOWED_ACTIONS.forEach(a => { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= a.replace(/_/g, ' ') %></option><% }) %></select>
+    <% CONSTANTS.ALLOWED_ACTIONS.forEach(a => { %><option value="<%= a %>" <%= filters.action === a ? 'selected' : '' %>><%= titleCase(a) %></option><% }) %></select>
   <select name="entity_type" aria-label="Filter by entity type">
     <option value="">All Entities</option>
-    <% CONSTANTS.ALLOWED_ENTITY_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.entity_type === t ? 'selected' : '' %>><%= t.replace(/_/g, ' ') %></option><% }) %></select>
+    <% CONSTANTS.ALLOWED_ENTITY_TYPES.forEach(t => { %><option value="<%= t %>" <%= filters.entity_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %></select>
   <select name="sort" aria-label="Sort order"><option value="newest" <%= filters.sort === 'newest' || !filters.sort ? 'selected' : '' %>>Newest First</option><option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option></select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/audit" class="btn btn-sm btn-outline">Clear</a>
@@ -24,8 +24,8 @@
          // they are the rows an investigator scans for, and previously
          // login_blocked rendered with the same "medium" badge as routine
          // reads. %>
-      <td><span class="badge badge-<%= ['delete', 'login_failed', 'login_blocked', 'login_rate_limited', 'access_denied'].includes(e.action) ? 'critical' : e.action === 'create' ? 'low' : 'medium' %>"><%= e.action.replace(/_/g, ' ') %></span></td>
-      <td><%= e.entity_type ? e.entity_type.replace(/_/g, ' ') : '-' %></td>
+      <td><span class="badge badge-<%= ['delete', 'login_failed', 'login_blocked', 'login_rate_limited', 'access_denied'].includes(e.action) ? 'critical' : e.action === 'create' ? 'low' : 'medium' %>"><%= titleCase(e.action) %></span></td>
+      <td><%= e.entity_type ? titleCase(e.entity_type) : '-' %></td>
       <td><%= e.entity_id || '-' %></td>
       <td class="text-sm"><%= e.ip_address || '-' %></td>
       <td class="text-sm" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="<%- escapeHtml(e.details || '') %>"><%= e.details || '-' %></td>

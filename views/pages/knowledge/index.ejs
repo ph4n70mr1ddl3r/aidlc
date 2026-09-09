@@ -31,7 +31,7 @@
       </a></td>
       <td><span class="badge badge-<%= badgeClass(a.category || 'other', KB_CATEGORY_BADGE) %>"><%= titleCase(a.category || 'other') %></span></td>
       <td class="text-sm"><%= a.author_name || '-' %></td>
-      <td><span class="badge badge-<%= a.status || 'draft' %>"><%= titleCase(a.status || 'draft') %></span></td>
+      <td><span class="badge badge-<%= badgeClass(a.status || 'draft', KB_STATUS_BADGE) %>"><%= titleCase(a.status || 'draft') %></span></td>
       <td class="text-sm"><%= a.views %></td>
       <td><% if (a.is_featured) { %><i class="fas fa-check" style="color:var(--success)" aria-hidden="true"></i><span class="sr-only">Yes</span><% } else { %><span class="sr-only">No</span><% } %></td>
       <td class="text-sm"><%= formatDateTime(a.updated_at) %></td>
