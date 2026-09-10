@@ -382,7 +382,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       req.flash('error', 'Selected asset does not exist');
       return res.redirect('/tickets/new');
     }
-    console.error('Ticket create error:', err.message);
+    console.error('Ticket create error:', (err && err.message) || String(err));
     req.flash('error', 'Error creating ticket. Please try again.');
     return res.redirect('/tickets/new');
   }
@@ -812,7 +812,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
       return res.redirect(`/tickets/${id}/edit`);
     }
-    console.error('Ticket update error:', err.message);
+    console.error('Ticket update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating ticket. Please try again.');
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -910,7 +910,7 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       req.flash('error', 'You do not have permission to comment on this ticket.');
       return res.redirect('/tickets');
     }
-    console.error('Ticket comment error:', err.message);
+    console.error('Ticket comment error:', (err && err.message) || String(err));
     req.flash('error', 'Error adding comment. Please try again.');
     return res.redirect(`/tickets/${id}`);
   }
@@ -985,7 +985,7 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
       req.flash('error', 'You can only update status of tickets assigned to you.');
       return res.redirect('/tickets');
     }
-    console.error('Ticket status update error:', err.message);
+    console.error('Ticket status update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating status. Please try again.');
     return res.redirect(`/tickets/${id}`);
   }
@@ -1056,7 +1056,7 @@ router.put('/:id/satisfaction', requireAdminOrManager, satisfactionLimiter, (req
       req.flash('error', 'Can only rate resolved or closed tickets.');
       return res.redirect(`/tickets/${id}`);
     }
-    console.error('Ticket satisfaction error:', err.message);
+    console.error('Ticket satisfaction error:', (err && err.message) || String(err));
     req.flash('error', 'Error submitting rating.');
   }
   return res.redirect(`/tickets/${id}`);
@@ -1098,7 +1098,7 @@ router.delete('/:id', requireAdminOrManager, ticketWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Ticket delete error:', err.message);
+    console.error('Ticket delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting ticket.');
   }
   return res.redirect('/tickets');

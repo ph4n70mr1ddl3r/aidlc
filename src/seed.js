@@ -409,7 +409,7 @@ if (require.main === module) {
       console.log('One or more seed passwords were auto-generated. Re-run with SEED_VERBOSE=1 to display them.\n');
     }
   } catch (err) {
-    console.error('Seeding failed:', err.message);
+    console.error('Seeding failed:', (err && err.message) || String(err));
     process.exitCode = 1;
   } finally {
     db.close();

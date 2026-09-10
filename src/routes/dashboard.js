@@ -220,7 +220,7 @@ function getDashboardData(user) {
 
       dashboardCache = { timestamp: now, data: shared };
     } catch (err) {
-      console.error('Dashboard cache refresh error:', err.message);
+      console.error('Dashboard cache refresh error:', (err && err.message) || String(err));
       // On DB error, re-use previous cache if available (stale data is better
       // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
       // there is no prior cache at all (first-request failure).
@@ -235,7 +235,7 @@ function getDashboardData(user) {
   try {
     myTickets = stmts.myTickets.all(user.id);
   } catch (err) {
-    console.error('Dashboard myTickets query error:', err.message);
+    console.error('Dashboard myTickets query error:', (err && err.message) || String(err));
   }
 
   // Deep-merge defaults to avoid shared nested object references between cache

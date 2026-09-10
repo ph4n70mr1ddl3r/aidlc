@@ -1,5 +1,5 @@
 const db = require('../models/database');
-const { isPrivileged } = require('../utils');
+const { isPrivileged, logError } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS } = require('../constants');
 const { audit } = require('./audit');
 
@@ -17,7 +17,7 @@ function destroySessionAndRedirect(req, res, redirectUrl, errMsg) {
   }
   req.session.destroy((err) => {
     if (err) {
-      console.error(errMsg, err.message);
+      console.error(errMsg, (err && err.message) || String(err));
     }
     try {
       // Match the full cookie options (including `secure`) used when the
@@ -98,12 +98,12 @@ function _verifySessionUser(req, res) {
       // waiting for the next response cycle's resave.
       req.session.save((err) => {
         if (err) {
-          console.error('Session save error:', err.message);
+          console.error('Session save error:', (err && err.message) || String(err));
         }
       });
     }
   } catch (err) {
-    console.error('Auth DB check error:', err.message);
+    logError('Auth DB check error:', err);
     req.flash('error', 'Session verification failed. Please log in again.');
     res.redirect('/login');
     return false;

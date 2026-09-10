@@ -260,7 +260,7 @@ if (process.env.SESSION_STORE) {
     const Store = typeof StoreModule === 'function' ? StoreModule(session) : StoreModule;
     sessionStore = new Store();
   } catch (err) {
-    console.error(`ERROR: Failed to load session store "${process.env.SESSION_STORE}": ${err.message}`);
+    console.error(`ERROR: Failed to load session store "${process.env.SESSION_STORE}": ${(err && err.message) || String(err)}`);
     process.exit(1);
   }
 } else if (process.env.NODE_ENV === 'production') {

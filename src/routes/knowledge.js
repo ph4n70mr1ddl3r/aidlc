@@ -11,7 +11,7 @@ let markedFallback = false;
 try {
   marked = require('marked');
 } catch (err) {
-  console.error(`ERROR: marked package failed to load: ${err.message}. Run \`npm install\` to ensure marked ^15.0.7 is installed (CJS compatible).`);
+  console.error(`ERROR: marked package failed to load: ${(err && err.message) || String(err)}. Run \`npm install\` to ensure marked ^15.0.7 is installed (CJS compatible).`);
   console.error('Falling back to plain-text rendering for knowledge articles.');
   marked = { parse: (content) => content };
   markedFallback = true;
@@ -29,7 +29,7 @@ const sanitizeHtml = (() => {
           throw new Error('unexpected sanitize-html shape');
         })());
   } catch (err) {
-    console.error(`ERROR: sanitize-html package failed to load: ${err.message}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
+    console.error(`ERROR: sanitize-html package failed to load: ${(err && err.message) || String(err)}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
     // Fail closed: escape all HTML instead of passing it through unsanitized
     // (a no-op fallback would turn renderMarkdown into a stored-XSS surface).
     // Mirrors the marked fallback above, which degrades to plain text.
@@ -228,11 +228,11 @@ function renderMarkdown(content) {
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
-    console.error('Markdown render error:', err.message);
+    console.error('Markdown render error:', (err && err.message) || String(err));
     try {
       return `<div>Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(content || '')}</pre>`;
     } catch (innerErr) {
-      console.error('Secondary escape error:', innerErr.message);
+      console.error('Secondary escape error:', (innerErr && innerErr.message) || String(innerErr));
       return '<div>Article content could not be rendered.</div>';
     }
   }
@@ -430,7 +430,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     return res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
-    console.error('Article create error:', err.message);
+    console.error('Article create error:', (err && err.message) || String(err));
     req.flash('error', 'Error creating article. Please try again.');
     return res.redirect('/knowledge/new');
   }
@@ -477,7 +477,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     try {
       _viewCountStmt.run(id);
     } catch (err) {
-      console.error('View count update error:', err.message);
+      console.error('View count update error:', (err && err.message) || String(err));
     }
     // Append the new article id and cap the tracking set with slice(-MAX),
     // which evicts the OLDEST-viewed entry from the front. Use concat
@@ -678,7 +678,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       req.flash('error', 'You do not have permission to edit this article.');
       return res.redirect('/knowledge');
     }
-    console.error('Article update error:', err.message);
+    console.error('Article update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating article. Please try again.');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -745,7 +745,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
       req.flash('error', 'You do not have permission to delete this article.');
     } else {
-      console.error('Article delete error:', err.message);
+      console.error('Article delete error:', (err && err.message) || String(err));
       req.flash('error', 'Error deleting article.');
     }
   }

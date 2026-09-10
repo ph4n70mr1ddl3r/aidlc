@@ -327,7 +327,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Selected owner is not available');
       return res.redirect('/projects/new');
     }
-    console.error('Project create error:', err.message);
+    console.error('Project create error:', (err && err.message) || String(err));
     req.flash('error', 'Error creating project. Please try again.');
     return res.redirect('/projects/new');
   }
@@ -592,7 +592,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     try {
       recalcProjectProgress(db, id);
     } catch (err) {
-      console.error(`Progress recalculation error for project #${id}:`, err.message);
+      console.error(`Progress recalculation error for project #${id}:`, (err && err.message) || String(err));
     }
 
     req.audit('update', 'project', id, `Updated project ${name}`);
@@ -620,7 +620,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       req.flash('error', 'Invalid Description');
       return res.redirect(`/projects/${id}/edit`);
     }
-    console.error('Project update error:', err.message);
+    console.error('Project update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating project. Please try again.');
     return res.redirect(`/projects/${id}/edit`);
   }
@@ -659,7 +659,7 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Project delete error:', err.message);
+    console.error('Project delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting project.');
   }
   return res.redirect('/projects');
@@ -764,7 +764,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     try {
       recalcProjectProgress(db, projectId);
     } catch (err) {
-      console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+      console.error(`Progress recalculation error for project #${projectId}:`, (err && err.message) || String(err));
     }
 
     req.audit('create', 'project_task', taskId, `Added task "${title}" to project #${projectId}`);
@@ -783,7 +783,7 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       req.flash('error', 'Invalid Due Date');
       return res.redirect(`/projects/${projectId}`);
     }
-    console.error('Project task add error:', err.message);
+    console.error('Project task add error:', (err && err.message) || String(err));
     req.flash('error', 'Error adding task. Please try again.');
   }
   return res.redirect(`/projects/${projectId}`);
@@ -858,7 +858,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         try {
           recalcProjectProgress(db, projectId);
         } catch (err) {
-          console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+          console.error(`Progress recalculation error for project #${projectId}:`, (err && err.message) || String(err));
         }
         // Audit the quick-status change — previously this path silently skipped
         // audit logging, so a task toggled to 'done' via the project page left
@@ -873,7 +873,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       if (err.message === 'NOT_FOUND') {
         req.flash('error', 'Task not found');
       } else {
-        console.error('Project task quick-status error:', err.message);
+        console.error('Project task quick-status error:', (err && err.message) || String(err));
         req.flash('error', 'Error updating task. Please try again.');
       }
       return res.redirect(`/projects/${projectId}`);
@@ -1011,7 +1011,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     try {
       recalcProjectProgress(db, projectId);
     } catch (err) {
-      console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+      console.error(`Progress recalculation error for project #${projectId}:`, (err && err.message) || String(err));
     }
 
     req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
@@ -1035,7 +1035,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       req.flash('error', 'Invalid Description');
       return res.redirect(`/projects/${projectId}`);
     }
-    console.error('Project task update error:', err.message);
+    console.error('Project task update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating task. Please try again.');
     return res.redirect(`/projects/${projectId}`);
   }
@@ -1075,7 +1075,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
       try {
         recalcProjectProgress(db, result.affectedProject);
       } catch (err) {
-        console.error(`Progress recalculation error for project #${result.affectedProject}:`, err.message);
+        console.error(`Progress recalculation error for project #${result.affectedProject}:`, (err && err.message) || String(err));
       }
     }
 
@@ -1088,7 +1088,7 @@ router.delete('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLi
     }
     return res.redirect(`/projects/${projectId}`);
   } catch (err) {
-    console.error('Project task delete error:', err.message);
+    console.error('Project task delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting task.');
     return res.redirect(`/projects/${projectId}`);
   }
@@ -1167,7 +1167,7 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       req.flash('error', 'Selected user is not available');
       return res.redirect(`/projects/${id}`);
     }
-    console.error('Project member add error:', err.message);
+    console.error('Project member add error:', (err && err.message) || String(err));
     req.flash('error', 'Error adding member. Please try again.');
   }
   return res.redirect(`/projects/${id}`);
@@ -1230,7 +1230,7 @@ router.delete('/:id/members/:memberId', requireAdminOrManager, projectWriteLimit
       req.flash('error', 'Cannot remove the last lead member of the project.');
       return res.redirect(`/projects/${id}`);
     }
-    console.error('Project member remove error:', err.message);
+    console.error('Project member remove error:', (err && err.message) || String(err));
     req.flash('error', 'Error removing member. Please try again.');
   }
   return res.redirect(`/projects/${id}`);

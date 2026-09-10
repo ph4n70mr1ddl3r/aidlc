@@ -362,7 +362,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       req.flash('error', 'A vendor with this name already exists');
       return res.redirect('/vendors/new');
     } else {
-      console.error('Vendor create error:', err.message);
+      console.error('Vendor create error:', (err && err.message) || String(err));
       req.flash('error', 'Error creating vendor. Please try again.');
     }
     return res.redirect('/vendors/new');
@@ -670,7 +670,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       req.flash('error', `Invalid ${titleCase(fieldName)}`);
       return res.redirect(`/vendors/${id}/edit`);
     }
-    console.error('Vendor update error:', err.message);
+    console.error('Vendor update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating vendor. Please try again.');
     return res.redirect(`/vendors/${id}/edit`);
   }
@@ -720,7 +720,7 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     req.flash('success', 'Vendor deactivated.');
     invalidateDashboardCache();
   } catch (err) {
-    console.error('Vendor deactivate error:', err.message);
+    console.error('Vendor deactivate error:', (err && err.message) || String(err));
     req.flash('error', 'Error deactivating vendor.');
   }
   return res.redirect(`/vendors/${id}`);
@@ -770,7 +770,7 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
     req.flash('success', 'Vendor reactivated.');
     invalidateDashboardCache();
   } catch (err) {
-    console.error('Vendor reactivate error:', err.message);
+    console.error('Vendor reactivate error:', (err && err.message) || String(err));
     req.flash('error', 'Error reactivating vendor.');
   }
   return res.redirect(`/vendors/${id}`);
@@ -829,7 +829,7 @@ router.delete('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Vendor delete error:', err.message);
+    console.error('Vendor delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting vendor.');
   }
   return res.redirect('/vendors');

@@ -1,11 +1,45 @@
 # Code Review Notes
 
-**Date:** 2026-09-09
+**Date:** 2026-09-10
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (189 consecutive hardening
+coverage, and `npm audit`. Prior review history (191 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (191st pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** One consistency gap closed: pass 190 fixed `console.error(err.message)`
+null guards in `app.js` but left 62+ identical unguarded calls across every
+route module, both middleware modules, `database.js`, and `seed.js`. While callers
+are all catch blocks or Node.js event handlers where `err` is typically an Error
+object, the inconsistent pattern leaves a latent crash risk if a non-Error value
+ever slips through.
+
+### Fixes applied
+- **`src/utils.js` — added `logError(...args)` null-safe logger (LOW, consistency).**
+  New helper that transforms the last argument from `err.message` to
+  `(err && err.message) || String(err)`, mirroring the convention established in
+  pass 190. Exported alongside existing helpers.
+- **All 12 route modules, both middleware modules, `src/models/database.js`,
+  and `src/seed.js` — unified `console.error(err.message)` → `logError(..., err)`
+  or inline `(err && err.message) || String(err)` (LOW, consistency).** 66 call
+  sites across the codebase now use the same null-safe pattern. No functional
+  change in normal operation; defensive against a stray non-Error throw.
+- **`tests/code_review_191.test.js` — 8 regression tests.** Source pins for
+  `logError` behavior (Error message extraction, non-string fallback, undefined,
+  null), plus assertions that every route/middleware/database file uses the
+  guarded pattern.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1091 passed / 1091 total** (61 suites, +8 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

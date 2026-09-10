@@ -139,7 +139,7 @@ router.get('/new', requireAdminOrManager, (req, res) => {
     const previewRow = _assetCounterPreviewStmt.get();
     previewTag = ASSET_TAG_PREFIX + String(previewRow.next_seq).padStart(3, '0');
   } catch (err) {
-    console.error('Asset counter preview error:', err.message);
+    console.error('Asset counter preview error:', (err && err.message) || String(err));
   }
   res.render('pages/assets/form', { title: 'New Asset', asset: { asset_tag: previewTag }, staff, isEdit: false });
 });
@@ -311,7 +311,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An asset with this tag already exists');
     } else {
-      console.error('Asset create error:', err.message);
+      console.error('Asset create error:', (err && err.message) || String(err));
       req.flash('error', 'Error creating asset. Please try again.');
     }
     return res.redirect('/assets/new');
@@ -665,7 +665,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       req.flash('error', 'An asset with this tag already exists');
       return res.redirect(`/assets/${id}/edit`);
     } else {
-      console.error('Asset update error:', err.message);
+      console.error('Asset update error:', (err && err.message) || String(err));
       req.flash('error', 'Error updating asset. Please try again.');
       return res.redirect(`/assets/${id}/edit`);
     }
@@ -706,7 +706,7 @@ router.delete('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Asset delete error:', err.message);
+    console.error('Asset delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting asset.');
   }
   return res.redirect('/assets');

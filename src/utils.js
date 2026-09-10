@@ -1157,6 +1157,22 @@ function authKeyGenerator(req) {
 }
 
 /**
+ * Log an error with a null-safe message, mirroring the convention used by the
+ * app.js error handlers. Catch blocks may receive non-Error values (e.g. a
+ * thrown string), so `err.message` is guarded the same way app.js guards its
+ * five logging sites (pass 190). This helper exists so every caller across the
+ * app shares a single idiom instead of repeating the inline guard.
+ * @param {...*} args
+ */
+function logError(...args) {
+  const last = args[args.length - 1];
+  if (last !== undefined && last !== null) {
+    args[args.length - 1] = (last && last.message) || String(last);
+  }
+  console.error(...args);
+}
+
+/**
  * Reset module-level cached prepared statements (test use only).
  * Ensures test isolation when using mock db instances.
  */
@@ -1233,5 +1249,8 @@ module.exports = {
   // Shared across vendors.js, licenses.js, projects.js, and changes.js for
   // absent-vs-empty partial-update resolution; also tested directly in
   // utils.test.js for regression coverage.
-  resolveOptionalField
+  resolveOptionalField,
+  // Null-safe error logger. Every catch block across the app uses this so a
+  // stray non-Error throw cannot crash the logger with a TypeError on .message.
+  logError
 };

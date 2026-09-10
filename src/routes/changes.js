@@ -266,7 +266,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Selected assignee is not available');
       return res.redirect('/changes/new');
     }
-    console.error('Change create error:', err.message);
+    console.error('Change create error:', (err && err.message) || String(err));
     req.flash('error', 'Error creating change. Please try again.');
     return res.redirect('/changes/new');
   }
@@ -536,7 +536,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Invalid Impact');
       return res.redirect(`/changes/${id}/edit`);
     }
-    console.error('Change update error:', err.message);
+    console.error('Change update error:', (err && err.message) || String(err));
     req.flash('error', 'Error updating change. Please try again.');
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -578,7 +578,7 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Change delete error:', err.message);
+    console.error('Change delete error:', (err && err.message) || String(err));
     req.flash('error', 'Error deleting change.');
   }
   return res.redirect('/changes');

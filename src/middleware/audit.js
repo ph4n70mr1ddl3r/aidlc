@@ -1,6 +1,6 @@
 const db = require('../models/database');
 const { ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES, MAX_AUDIT_DETAILS } = require('../constants');
-const { normalizeIp } = require('../utils');
+const { normalizeIp, logError } = require('../utils');
 
 // Cache the prepared statement — audit() is called on every write route
 // and prepare() is relatively expensive. Lazily initialized so tests can
@@ -66,7 +66,7 @@ function audit({ req, action, entity, entityId, details }) {
     _getAuditStmt().run(uid, action, entity, safeEntityId, safeDetails, ip);
   } catch (err) {
     // Audit logging should never crash the request
-    console.error('Audit log error:', err.message);
+    logError('Audit log error:', err);
   }
 }
 

@@ -296,7 +296,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
     passwordMatch = await bcrypt.compare(password, hashToCompare);
   } catch (err) {
     // bcrypt.compare can throw on unexpected input (e.g. malformed hash, OOM).
-    console.error('bcrypt.compare error during login:', err.message);
+    console.error('bcrypt.compare error during login:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred during login. Please try again.');
     return res.redirect('/login');
   }
@@ -340,7 +340,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   try {
     await _regenerateSession(req.session);
   } catch (err) {
-    console.error('Session regeneration error during login:', err.message);
+    console.error('Session regeneration error during login:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred during login. Please try again.');
     return res.redirect('/login');
   }
@@ -363,7 +363,7 @@ router.post('/logout', (req, res) => {
   }
   req.session.destroy((err) => {
     if (err) {
-      console.error('Session destroy error:', err.message);
+      console.error('Session destroy error:', (err && err.message) || String(err));
     }
     try {
       // Match the full cookie options (including `secure`) used when the
@@ -496,7 +496,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     try {
       await _regenerateSession(req.session);
     } catch (regErr) {
-      console.error('Session regeneration error during profile update:', regErr.message);
+      console.error('Session regeneration error during profile update:', (regErr && regErr.message) || String(regErr));
       req.flash('error', 'An error occurred. Please try again.');
       return res.redirect('/profile');
     }
@@ -599,7 +599,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   try {
     passwordMatch = await bcrypt.compare(current_password, user.password);
   } catch (err) {
-    console.error('bcrypt.compare error during password change:', err.message);
+    console.error('bcrypt.compare error during password change:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect('/profile');
   }
@@ -612,7 +612,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   try {
     hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
   } catch (err) {
-    console.error('bcrypt.hash error during password change:', err.message);
+    console.error('bcrypt.hash error during password change:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect('/profile');
   }
@@ -632,7 +632,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   try {
     await _regenerateSession(req.session);
   } catch (err) {
-    console.error('Session regeneration error during password change:', err.message);
+    console.error('Session regeneration error during password change:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect('/profile');
   }

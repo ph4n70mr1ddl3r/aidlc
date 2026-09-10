@@ -96,7 +96,7 @@ router.get('/', (req, res) => {
   try {
     departments = _departmentsStmt.all().map(r => r.department);
   } catch (err) {
-    console.error('Staff departments query error:', err.message);
+    console.error('Staff departments query error:', (err && err.message) || String(err));
   }
   const qStatus = safeQueryValue(req.query.status);
   const qRole = safeQueryValue(req.query.role);
@@ -314,7 +314,7 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An account with this username or email address already exists');
     } else {
-      console.error('Staff create error:', err.message);
+      console.error('Staff create error:', (err && err.message) || String(err));
       req.flash('error', 'Error creating staff member. Please try again.');
     }
     return res.redirect('/staff/new');
@@ -628,7 +628,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An account with this email address already exists');
     } else {
-      console.error('Staff update error:', err.message);
+      console.error('Staff update error:', (err && err.message) || String(err));
       req.flash('error', 'Error updating staff member. Please try again.');
     }
     return res.redirect(`/staff/${id}/edit`);
@@ -703,7 +703,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
     invalidateDashboardCache();
     req.flash('success', 'Account reactivated successfully.');
   } catch (err) {
-    console.error('Staff reactivate error:', err.message);
+    console.error('Staff reactivate error:', (err && err.message) || String(err));
     req.flash('error', 'Error reactivating account.');
   }
   return res.redirect(`/staff/${id}`);
@@ -770,7 +770,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   try {
     passwordMatch = await bcrypt.compare(current_password, adminUser.password);
   } catch (err) {
-    console.error('bcrypt.compare error during staff password reset:', err.message);
+    console.error('bcrypt.compare error during staff password reset:', (err && err.message) || String(err));
     req.flash('error', 'An error occurred. Please try again.');
     return res.redirect(`/staff/${id}`);
   }
@@ -801,7 +801,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
       return res.redirect('/staff');
     }
   } catch (err) {
-    console.error('Staff password reset DB error:', err.message);
+    console.error('Staff password reset DB error:', (err && err.message) || String(err));
     req.flash('error', 'Error resetting password. Please try again.');
     return res.redirect(`/staff/${id}`);
   }
@@ -900,7 +900,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
         try {
           recalcProjectProgress(db, projectId);
         } catch (err) {
-          console.error(`Progress recalculation error for project #${projectId}:`, err.message);
+          console.error(`Progress recalculation error for project #${projectId}:`, (err && err.message) || String(err));
         }
       }
 
@@ -919,7 +919,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Staff deactivate error:', err.message);
+    console.error('Staff deactivate error:', (err && err.message) || String(err));
     req.flash('error', 'Error deactivating staff.');
   }
   return res.redirect('/staff');

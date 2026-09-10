@@ -1,6 +1,7 @@
 const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
+const { logError } = require('../utils');
 
 // DB_PATH may be absolute, ':memory:' (tests), or relative. A relative value is
 // resolved against the repo root (not process.cwd()) so launching from a
@@ -16,7 +17,7 @@ const dir = path.dirname(DB_PATH);
 try {
   fs.mkdirSync(dir, { recursive: true });
 } catch (err) {
-  console.error(`ERROR: Cannot create database directory "${dir}": ${err.message}`);
+  logError(`ERROR: Cannot create database directory "${dir}":`, err);
   process.exit(1);
 }
 
@@ -24,7 +25,7 @@ let db;
 try {
   db = new Database(DB_PATH);
 } catch (err) {
-  console.error(`ERROR: Cannot open database at "${DB_PATH}": ${err.message}`);
+  logError(`ERROR: Cannot open database at "${DB_PATH}":`, err);
   process.exit(1);
 }
 
@@ -49,7 +50,7 @@ function _restrictDbFilePermissions() {
       }
     }
   } catch (err) {
-    console.warn(`WARNING: Could not restrict database file permissions to 0o640: ${err.message}`);
+    logError('WARNING: Could not restrict database file permissions to 0o640:', err);
   }
 }
 _restrictDbFilePermissions();
@@ -429,7 +430,7 @@ function initSchema() {
 try {
   initSchema();
 } catch (err) {
-  console.error(`FATAL: Schema initialization failed: ${err.message}`);
+  logError('FATAL: Schema initialization failed:', err);
   process.exit(1);
 }
 
