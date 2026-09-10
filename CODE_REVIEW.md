@@ -4,8 +4,52 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (193 consecutive hardening
+coverage, and `npm audit`. Prior review history (194 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (194th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** Two consistency defects closed: `_commentExistsStmt` in
+`tickets.js` still selected the unused `assigned_to` column (a dead-column
+drift from a previously-described fix that was never actually applied), and
+`auth.js` used `"Invalid Username Or Password"` which broke the app-wide
+`"Invalid <Credential>"` title-case convention used by every other error
+message.
+
+### Fixes applied
+- **`src/routes/tickets.js` — `_commentExistsStmt` selected an unused column
+  (LOW, consistency).** The comment handler only checks row existence
+  (`if (!ticket) throw new Error('NOT_FOUND')`) and never reads
+  `assigned_to`. The column added unnecessary bytes to every comment-check
+  query. Removed it from the SELECT so the statement reads
+  `SELECT id FROM tickets WHERE id = ?`, matching the minimal-shape convention
+  used by every other existence-check statement in the app.
+- **`src/routes/auth.js` — `"Invalid Username Or Password"` inconsistent with
+  the `Invalid <Credential>` convention (LOW, consistency).** Every other error
+  message across all routes follows the `Invalid <FieldName>` pattern
+  (`Invalid Category`, `Invalid Status`, `Invalid Assignee`, etc.). The login
+  handler used `"Invalid Username Or Password"` with a spaced conjunction that
+  broke this pattern and was visually distinct from the uniform title-case
+  form used everywhere else. Changed all three occurrences to
+  `"Invalid Login Credentials"`, a single-concept message that matches the
+  established convention.
+- **`tests/code_review_194.test.js` — added 4 regression tests (net +4 tests).**
+  A source-code pin asserts that `_commentExistsStmt` contains only `id` in the
+  SELECT clause and no `assigned_to`. Two source-code pins assert that `auth.js`
+  no longer contains the old `"Invalid Username Or Password"` string and does
+  contain the new `"Invalid Login Credentials"` string (count ≥ 3). One
+  handler-level test verifies that a wrong-password login redirects to `/login`
+  with the consistent flash message.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1100 passed / 1100 total** (63 suites, +4 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
