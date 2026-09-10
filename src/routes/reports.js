@@ -251,6 +251,14 @@ router.get('/tickets', reportLimiter, (req, res) => {
 
 // Asset Report
 router.get('/assets', reportLimiter, (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads on query
+  // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
+  // convention used by every write route in the app.
+  const hppErrors = rejectHppArrays(req, ['period']);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/reports');
+  }
   try {
     const byCategory = stmts.assetsByCategory.all();
     const byStatus = stmts.assetsByStatus.all();

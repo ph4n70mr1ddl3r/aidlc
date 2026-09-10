@@ -420,7 +420,7 @@ router.get('/profile', requireAuth, (req, res) => {
     req.flash('error', 'Profile not found');
     return res.redirect('/login');
   }
-  audit({ req, action: 'read', entity: 'user', entityId: req.session.user.id, details: 'Viewed own profile' });
+  req.audit('read', 'user', req.session.user.id, 'Viewed own profile');
   res.render('pages/auth/profile', { title: 'My Profile', profileUser });
 });
 

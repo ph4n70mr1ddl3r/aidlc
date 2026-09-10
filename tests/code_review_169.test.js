@@ -92,12 +92,14 @@ describe('code review 169: badgeClass fallbacks + profile read audit', () => {
   });
 
   describe('auth.js GET /profile audits the read action', () => {
-    it('calls audit with action=read on successful profile view', async () => {
-      // Re-mock audit to capture calls
-      const auditMock = jest.fn();
+    it('calls req.audit with action=read on successful profile view', async () => {
+      // Re-mock audit middleware so req.audit is wired up for the handler.
       jest.doMock('../src/middleware/audit', () => ({
-        audit: auditMock,
-        auditMiddleware: (req, res, next) => next()
+        audit: jest.fn(),
+        auditMiddleware: (req, res, next) => {
+          req.audit = jest.fn();
+          next();
+        }
       }));
 
       // Re-mock database so profile SELECT returns a user
@@ -118,10 +120,14 @@ describe('code review 169: badgeClass fallbacks + profile read audit', () => {
 
         const h = lastHandlerFor(authRouter, 'get', '/profile');
         const renderedPage = {};
+        const auditCalls = [];
         const req = {
           session: { user: { id: 1, role: 'admin' } },
           flash: () => {},
-          query: {}
+          query: {},
+          audit: (...args) => {
+            auditCalls.push(args);
+          }
         };
         const res = {
           render: (template, data) => {
@@ -133,12 +139,11 @@ describe('code review 169: badgeClass fallbacks + profile read audit', () => {
         };
         await h(req, res, () => {});
 
-        expect(auditMock).toHaveBeenCalledWith(expect.objectContaining({
-          action: 'read',
-          entity: 'user',
-          entityId: 1,
-          details: expect.stringMatching(/profile/i)
-        }));
+        expect(auditCalls.length).toBeGreaterThan(0);
+        const readCall = auditCalls.find((c) => c[0] === 'read' && c[1] === 'user');
+        expect(readCall).toBeDefined();
+        expect(readCall[2]).toBe(1);
+        expect(readCall[3]).toBe('Viewed own profile');
       } finally {
         dbMock.prepare = originalPrepare;
         jest.dontMock('../src/middleware/audit');

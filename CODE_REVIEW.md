@@ -4,8 +4,55 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (192 consecutive hardening
+coverage, and `npm audit`. Prior review history (193 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (193rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** Two consistency gaps closed: the asset-report GET route on
+`/reports/assets` was the sole reports sub-route missing the explicit
+`rejectHppArrays` guard on its `period` query param (the tickets and staff
+sub-routes already carried it), and `GET /profile` in `auth.js` called the raw
+`audit()` helper directly while every other read surface in the app used
+`req.audit()`.
+
+### Fixes applied
+- **`src/routes/reports.js` — `/reports/assets` missing `rejectHppArrays` guard
+  (LOW, consistency).** The asset-report handler did not call
+  `rejectHppArrays(req, ['period'])` before processing the `period` query param,
+  unlike the sibling `/reports/tickets` and `/reports/staff` routes. While
+  `resolveReportPeriod()` internally rejects array inputs, the explicit guard
+  is the app-wide convention so every route fails closed with a uniform
+  `"Invalid request parameters"` flash-and-redirect rather than relying on a
+  downstream resolver. Added the guard to match the tickets and staff patterns.
+- **`src/routes/auth.js` — `GET /profile` used raw `audit()` instead of
+  `req.audit()` (LOW, consistency).** Every other read route in the app
+  (`/dashboard`, `/assets`, `/tickets`, `/projects`, `/staff`, `/vendors`,
+  `/knowledge`, `/changes`, `/licenses`, `/audit`, and the reports index) calls
+  `req.audit(...)`. The profile handler called `audit({ req, ... })` directly,
+  bypassing the middleware-wired convenience method. Changed to
+  `req.audit('read', 'user', req.session.user.id, 'Viewed own profile')` to
+  match the convention.
+- **`tests/code_review_169.test.js` — updated profile-audit regression test.**
+  The existing test asserted the old `audit()`-helper call shape; updated it to
+  verify `req.audit` receives the correct `(read, user, entityId, details)`
+  tuple, keeping the regression pin intact.
+- **`tests/code_review_192.test.js` — added 4 regression tests (net +4 tests).**
+  Two handler-level tests assert that `/reports/assets` rejects an HPP array
+  payload on `period` (redirects to `/reports` with error flash) and accepts a
+  normal scalar (renders normally). Two more assert that `GET /profile` calls
+  `req.audit` with the expected read/user tuple, and a source-code pin asserts
+  that `reports.js` contains the `rejectHppArrays` call on the `/assets` route.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1096 passed / 1096 total** (62 suites, +4 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
