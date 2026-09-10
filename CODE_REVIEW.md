@@ -4,8 +4,38 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (191 consecutive hardening
+coverage, and `npm audit`. Prior review history (192 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (192nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were
+found.** One consistency gap closed: `createAuditLogPruner` in `utils.js` used
+`err.message` directly without the `(err && err.message) || String(err)` null
+guard that every other catch-block logger in the app carries. While the prune
+callback is always an internal DB operation where `err` is an Error, the same
+stray-non-Error-throw risk pass 191 targeted remains — and `createAuditLogPruner`
+is the single call site still using the unguarded form after pass 191's unification.
+
+### Fixes applied
+- **`src/utils.js` — `createAuditLogPruner` catch block missing null guard (LOW, consistency).**
+  Line 887 called `logger.error('Audit log pruning error:', err.message)` directly.
+  While the prune function receives an internal callback where `err` is almost always
+  an Error object, the inconsistent pattern leaves a latent crash if a non-Error
+  value (e.g. a thrown string) reaches the catch. Changed to
+  `logger.error('Audit log pruning error:', (err && err.message) || String(err))`,
+  matching the convention used at all other logging sites across the codebase.
+- **`tests/code_review_191.test.js` — added source-pin regression for utils.js**
+  (net +1 tests). Asserts that `utils.js` contains the inline guard pattern.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1091 passed / 1091 total** (61 suites, +1 regression test).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

@@ -88,4 +88,9 @@ describe('code review 191 — logError null safety', () => {
     const hasInlineGuard = src.includes('(err && err.message) || String(err)');
     expect(usesLogError || hasInlineGuard).toBe(true);
   });
+
+  it('utils.js createAuditLogPruner null-guards err.message', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils.js'), 'utf8');
+    expect(src).toContain('(err && err.message) || String(err)');
+  });
 });

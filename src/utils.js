@@ -884,7 +884,7 @@ function createAuditLogPruner(pruneFn, { days, logger = console } = {}) {
         logger.log(`Pruned ${pruned} audit log entries older than ${days} days`);
       }
     } catch (err) {
-      logger.error('Audit log pruning error:', err.message);
+      logger.error('Audit log pruning error:', (err && err.message) || String(err));
       if (!firstRunDone) {
         logger.warn('Initial audit log prune failed — will retry on next interval');
       }
