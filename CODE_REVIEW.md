@@ -4,8 +4,44 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (195 consecutive hardening
+coverage, and `npm audit`. Prior review history (196 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (197th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. Four source-code
+assertion regression tests were added to pin these invariants so future drift
+cannot reintroduce them.
+
+### Fixes applied
+None — all previously identified issues were already committed in cycles
+186–196 and verified present in the working tree.
+
+### Regression tests added
+- **`tests/code_review_197.test.js`** — 4 source-code pin tests (+4 tests):
+  1. Middleware modules have no unguarded `err.message` access (strips comments
+     and string literals, verifies every remaining `.message` is inside a guard).
+  2. Every route module that reads `req.body` or `req.query` carries at least
+     one `rejectHppArrays` guard.
+  3. No template uses `badge-<%= ... %>` without either `badgeClass()` or an
+     `||` fallback.
+  4. No template calls `titleCase()` on a nullable DB-field property access
+     without an `||` fallback.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1104 passed / 1104 total** (64 suites, +4 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
