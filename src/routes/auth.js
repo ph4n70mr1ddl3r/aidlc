@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
@@ -487,7 +487,7 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   try {
     const updateResult = _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
     if (updateResult.changes === 0) {
-      console.error('Profile update: user not found (possibly deleted concurrently)');
+      logError('Profile update: user not found (possibly deleted concurrently)');
       req.flash('error', 'User not found. Please log in again.');
       return res.redirect('/login');
     }
@@ -618,7 +618,7 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   }
   const updateResult = _getPasswordUpdateStmt().run(hashed, req.session.user.id);
   if (updateResult.changes === 0) {
-    console.error('Password change: user not found (possibly deleted concurrently)');
+    logError('Password change: user not found (possibly deleted concurrently)');
     req.flash('error', 'User not found. Please log in again.');
     return res.redirect('/login');
   }

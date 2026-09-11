@@ -239,7 +239,7 @@ describe('Session idle timeout middleware', () => {
 describe('Session absolute timeout middleware', () => {
   let ctx;
   beforeAll(async () => {
-    ctx = await startServer(buildMiniApp({ idleMs: 60000, absoluteMs: 300 }));
+    ctx = await startServer(buildMiniApp({ idleMs: 60000, absoluteMs: 1000 }));
   });
   afterAll(async () => {
     await new Promise(resolve => ctx.server.close(resolve));
@@ -248,10 +248,13 @@ describe('Session absolute timeout middleware', () => {
   it('redirects with reason=session_expired once the absolute lifetime is exceeded', async () => {
     const setRes = await fetch(`${ctx.base}/set`, { redirect: 'manual' });
     const cookie = extractCookies(setRes.headers.getSetCookie());
-    await sleep(200);
+    // Wait 400ms — comfortably inside the 1s absolute window even under Jest
+    // parallel-worker load, so the first /touch must still succeed.
+    await sleep(400);
     const within = await fetch(`${ctx.base}/touch`, { redirect: 'manual', headers: { Cookie: cookie } });
     expect(within.status).toBe(200);
-    await sleep(250);
+    // Wait another 700ms — pushes total elapsed past the 1s absolute timeout.
+    await sleep(700);
     const res = await fetch(`${ctx.base}/touch`, { redirect: 'manual', headers: { Cookie: cookie } });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/login?reason=session_expired');

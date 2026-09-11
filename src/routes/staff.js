@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -796,7 +796,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
     const hashed = await bcrypt.hash(new_password, BCRYPT_SALT_ROUNDS);
     const result = _passwordResetStmt.run(hashed, id);
     if (result.changes === 0) {
-      console.error('Staff password reset: user not found (possibly deleted concurrently)');
+      logError('Staff password reset: user not found (possibly deleted concurrently)');
       req.flash('error', 'Staff member not found');
       return res.redirect('/staff');
     }
