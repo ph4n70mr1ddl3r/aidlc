@@ -687,7 +687,7 @@ function _getProgressSelectStmt(db) {
 }
 function _getProgressUpdateStmt(db) {
   if (!_progressUpdateStmt) {
-    _progressUpdateStmt = db.prepare("UPDATE projects SET progress = ?, updated_at = datetime('now') WHERE id = ?");
+    _progressUpdateStmt = db.prepare('UPDATE projects SET progress = ?, updated_at = datetime(\'now\') WHERE id = ?');
   }
   return _progressUpdateStmt;
 }
@@ -851,7 +851,7 @@ function pruneAuditLog(db, retentionDays) {
     return 0;
   }
   if (!_pruneCutoffStmt) {
-    _pruneCutoffStmt = db.prepare("SELECT datetime('now', ? || ' days') AS cutoff");
+    _pruneCutoffStmt = db.prepare('SELECT datetime(\'now\', ? || \' days\') AS cutoff');
   }
   if (!_pruneDeleteStmt) {
     _pruneDeleteStmt = db.prepare('DELETE FROM audit_log WHERE created_at < ?');

@@ -127,7 +127,7 @@ const stmts = {
   assetsByCondition: db.prepare(`
     SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC
   `),
-  assetsTotalValue: db.prepare("SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets WHERE status != 'disposed'"),
+  assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets WHERE status != \'disposed\''),
   // Also include already-expired warranties — they are more urgent than expiring-soon.
   // Exclude disposed assets: a disposed asset's warranty is no longer actionable,
   // so surfacing it in the "expiring soon" alert/list is noise. Same disposed-asset

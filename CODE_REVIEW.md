@@ -4,8 +4,37 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (198 consecutive hardening
+coverage, and `npm audit`. Prior review history (199 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (200th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 91
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One low-severity
+consistency defect closed: three `db.prepare()` calls still used double-quoted
+strings (with single quotes inside) instead of the uniform single-quoted style
+with escaped internal quotes that every other statement in the project follows.
+
+### Fixes applied
+- **`src/routes/reports.js:130`** — Replaced double-quoted SQL string with
+  single-quoted string (with escaped internal quotes) to match the project's
+  uniform style for all other `db.prepare()` calls.
+- **`src/utils.js:690`** — Identical fix for `_progressUpdateStmt`.
+- **`src/utils.js:854`** — Identical fix for `_pruneCutoffStmt`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
