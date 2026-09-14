@@ -4,8 +4,37 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (200 consecutive hardening
+coverage, and `npm audit`. Prior review history (201 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (202nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 91
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One low-severity
+consistency defect closed: the view-tracking guard in `knowledge.js` still
+carried a redundant `req.session &&` check that could not fail after the
+session-initialisation block above it.
+
+### Fixes applied
+- **`src/routes/knowledge.js:476`** — Removed the redundant `req.session &&`
+  guard from the view-count condition. The preceding block (line 472) already
+  verified `req.session` exists and initialised `req.session[VIEWED_KEY]`, so
+  the additional `req.session &&` on line 476 was dead defensive plumbing
+  that added noise without safety.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
