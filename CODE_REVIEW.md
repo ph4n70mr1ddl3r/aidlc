@@ -14,7 +14,7 @@ commits) was cross-checked to confirm findings were not already addressed.
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, EJS views, `public/js/app.js`, and the test suite.
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
-were found.** The codebase remains at the same hardening plateau — all 90
+were found.** The codebase remains at the same hardening plateau — all 91
 `console.error` sites use the `(err && err.message) || String(err)` null guard
 (or log a static string), all form-processing routes carry `rejectHppArrays`
 guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
@@ -28,7 +28,7 @@ None — all previously identified issues were already committed in cycles
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1104 passed / 1104 total** (64 suites, +0 net).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
