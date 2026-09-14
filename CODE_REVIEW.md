@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-09-12
+**Date:** 2026-09-14
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
@@ -3174,4 +3174,29 @@ found.** One test-isolation fix applied:
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1003 passed / 1003 total** (51 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-14 (198th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, or error-leakage
+defects were found.** Two consistency improvements applied:
+
+### Fixes applied
+- **`public/js/app.js` — `console.error('License key fetch error:', err)` used
+  raw error object instead of null-safe message access (LOW, consistency).**
+  The server-side convention across all 71+ catch blocks is
+  `(err && err.message) || String(err)` to guard against non-Error throws.
+  Applied the same pattern client-side so a thrown string or unusual error
+  shape logs a readable message rather than `[object Object]`.
+- **`tests/code_review_198.test.js` — added regression suite pinning the
+  enforced invariants from this pass** (null-safe `console.error` on client
+  JS, HPP guards on every route module that reads `req.body`/`req.query`,
+  `badgeClass()` on every template badge expression, `titleCase()` with
+  `||` fallback on every nullable DB-field argument).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +4 regression tests).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

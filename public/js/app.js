@@ -233,7 +233,7 @@ document.addEventListener('click', function (e) {
       })
       .catch(function (err) {
         display.textContent = 'Error loading key';
-        console.error('License key fetch error:', err);
+        console.error('License key fetch error:', (err && err.message) || String(err));
       });
   }
 });
