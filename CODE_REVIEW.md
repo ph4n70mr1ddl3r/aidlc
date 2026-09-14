@@ -4,8 +4,43 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (197 consecutive hardening
+coverage, and `npm audit`. Prior review history (198 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (199th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** Four minor issues were identified and fixed: dead `return null`
+in `safeId()`, missing `req.session` / `req.session.user` null guards in
+`knowledge.js` and `auth.js`, and a double-quoted SQL string in `projects.js`.
+The codebase remains at the same hardening plateau — all 91 `console.error`
+sites use the `(err && err.message) || String(err)` null guard (or log a static
+string), all form-processing routes carry `rejectHppArrays` guards, badge
+rendering across all 39 EJS templates uses `badgeClass()` with enum-specific
+fallbacks, and all nullable enum values passed to `titleCase()` in templates
+carry the established `|| 'default'` guard.
+
+### Fixes applied
+- **`src/utils.js:286`** — Removed unreachable `return null` after exhaustive
+  type guards in `safeId()`.
+- **`src/routes/knowledge.js:472,476`** — Added `req.session` and
+  `req.session.user` null guards around session-based view-tracking logic to
+  prevent `TypeError` when called outside the normal middleware pipeline.
+- **`src/middleware/auth.js:183`** — Added `req` and `req.session` null guards
+  to `canAccessResource()` so it returns `false` gracefully instead of throwing
+  when invoked without a fully-formed request.
+- **`src/routes/projects.js:102`** — Replaced double-quoted SQL string with
+  single-quoted string (with escaped internal quotes) to match the project's
+  uniform style for all other `db.prepare()` calls.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

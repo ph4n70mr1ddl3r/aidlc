@@ -469,11 +469,11 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // Use an array (not an object) so eviction removes the oldest-viewed article —
   // Object.keys() on integer-like keys returns numeric order, which would evict
   // the lowest-ID article instead of the oldest viewed.
-  if (!req.session[VIEWED_KEY]) {
+  if (!req.session || !req.session[VIEWED_KEY]) {
     req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
-  if (!viewed.includes(id) && Number(article.author_id) !== Number(req.session.user.id)) {
+  if (!viewed.includes(id) && req.session && req.session.user && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       _viewCountStmt.run(id);
     } catch (err) {

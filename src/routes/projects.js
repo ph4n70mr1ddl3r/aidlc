@@ -99,7 +99,7 @@ const _taskDeleteGetStmt = db.prepare('SELECT title FROM project_tasks WHERE id 
 const _memberInsertStmt = db.prepare('INSERT OR IGNORE INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)');
 const _memberDeleteStmt = db.prepare('DELETE FROM project_members WHERE id = ? AND project_id = ?');
 const _memberByIdStmt = db.prepare('SELECT id, role FROM project_members WHERE id = ? AND project_id = ?');
-const _leadMemberCountStmt = db.prepare("SELECT COUNT(*) as lead_count FROM project_members WHERE project_id = ? AND role = 'lead'");
+const _leadMemberCountStmt = db.prepare('SELECT COUNT(*) as lead_count FROM project_members WHERE project_id = ? AND role = \'lead\'');
 
 // Cached prepared statement for project select by ID (used in edit route)
 const _selectProjectByIdStmt = db.prepare('SELECT id, name, description, status, priority, start_date, end_date, budget, spent, progress, owner_id, created_at, updated_at FROM projects WHERE id = ?');

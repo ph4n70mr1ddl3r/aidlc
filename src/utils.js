@@ -283,7 +283,6 @@ function safeId(value) {
   if (typeof value === 'number') {
     return Number.isInteger(value) && value > 0 ? value : null;
   }
-  return null;
 }
 
 /**

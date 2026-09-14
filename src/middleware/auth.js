@@ -180,7 +180,7 @@ function requireAdmin(req, res, next) {
  * @returns {boolean}
  */
 function canAccessResource(req, resource) {
-  if (!req.session.user || !resource) {
+  if (!req || !req.session || !req.session.user || !resource) {
     return false;
   }
   if (isPrivileged(req.session.user)) {
