@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -396,7 +396,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const sanitized = sanitizeKnowledgeInput(title, content, tags);
   if (sanitized.error) {
-    console.error('HTML sanitization error:', sanitized.error);
+    logError('HTML sanitization error:', sanitized.error);
     req.flash('error', 'Error processing input. Please try again.');
     return res.redirect('/knowledge/new');
   }
@@ -612,7 +612,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // Sanitize tags, title, and content for defense-in-depth (templates escape with <%=, but strip HTML at input too)
   const sanitized = sanitizeKnowledgeInput(title, content, tags);
   if (sanitized.error) {
-    console.error('HTML sanitization error:', sanitized.error);
+    logError('HTML sanitization error:', sanitized.error);
     req.flash('error', 'Error processing input. Please try again.');
     return res.redirect(`/knowledge/${id}/edit`);
   }

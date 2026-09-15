@@ -9,6 +9,42 @@ commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (204th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 91
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One low-severity
+consistency defect closed: two `console.error` calls in `knowledge.js` logged
+`sanitized.error` directly instead of using the app-wide `logError()` helper
+that every other route module uses for the same pattern.
+
+### Fixes applied
+- **`src/routes/knowledge.js:399,615`** — Replaced `console.error('HTML sanitization error:', sanitized.error)` with
+  `logError('HTML sanitization error:', sanitized.error)` at both call sites.
+  While `sanitized.error` is already a string (never an Error object), the
+  `logError()` helper is the app-wide convention for all error logging across
+  route modules, providing a single idiom that handles both Error objects and
+  plain strings uniformly. Added `logError` to the utils import.
+
+### Regression tests added
+- **`tests/code_review_204.test.js`** — 3 source-code pin tests (+3 tests):
+  1. `knowledge.js` imports `logError` from utils.
+  2. Both HTML sanitization error sites use `logError()`.
+  3. No raw `console.error` with `sanitized.error` argument remains.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1111 passed / 1111 total** (66 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
 ## Review cycle (203rd pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
