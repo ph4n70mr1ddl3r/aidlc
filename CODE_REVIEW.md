@@ -4,8 +4,45 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (202 consecutive hardening
+coverage, and `npm audit`. Prior review history (205 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (206th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 89
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One pre-existing test
+flakiness fixed: the session absolute-timeout integration test used a 1-second
+window with 400 ms + 700 ms sleeps that occasionally failed under parallel
+Jest-worker contention. Bumped the window to 2 seconds and the second sleep
+to 1 600 ms to restore a comfortable margin.
+
+### Fixes applied
+- **`tests/session_timeout.test.js` — absolute-timeout test flaky under parallel
+  Jest load (LOW, test reliability).** The 1 s `absoluteMs` window plus a
+  400 ms / 700 ms two-phase sleep sat right on the timing edge; when other
+  test suites contended for the event loop the first request sometimes
+  arrived after the absolute timeout had already fired, making the "within
+  window" assertion fail with a 302 instead of 200. Increased
+  `absoluteMs` to 2 000 and the post-within sleep to 1 600 ms so both phases
+  have ample margin regardless of scheduler pressure.
+
+### Regression tests added
+None — the fix is a timing-margin adjustment, not a behavior change. The
+existing test asserts the same invariants (200 within window, 302 after).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1111 passed / 1111 total** (66 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
