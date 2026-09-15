@@ -3367,3 +3367,37 @@ defects were found.** Two consistency improvements applied:
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1108 passed / 1108 total** (65 suites, +4 regression tests).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-15 (204th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+console.error sites use null-safe message access, all form-processing routes
+carry rejectHppArrays guards, badge rendering across all EJS templates uses
+badgeClass() with enum-specific fallbacks, all nullable enum values passed to
+titleCase() carry the established || 'default' guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. Three minor consistency improvements applied:
+
+### Fixes applied
+- **`src/routes/knowledge.js:399,615`** — `console.error('HTML sanitization
+  error:', sanitized.error)` used `sanitized.error` directly. While this is
+  always a string in practice (returned from sanitizeKnowledgeInput), applying
+  the established `(val && val.message) || String(val)` null-guard pattern for
+  consistency with the 71+ other catch blocks across the app.
+- **`src/routes/dashboard.js:242`** — Added JSDoc comment clarifying why the
+  deep-merge uses spread operators instead of Object.assign, preventing future
+  maintainers from "optimizing" it back to a shallow merge that would mutate
+  cached nested objects.
+- **`tests/code_review_204.test.js`** — Added regression suite pinning the
+  enforced invariants from this pass (null-safe console.error, HPP guards,
+  badgeClass consistency, titleCase fallbacks, audit logging on all write
+  routes, dashboard cache invalidation on all write routes, asyncHandler on
+  all async routes).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
