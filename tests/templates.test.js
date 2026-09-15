@@ -52,6 +52,8 @@ function baseLocals() {
     CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
     KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
     VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
+    TASK_DEADLINE_BADGE: constants.TASK_DEADLINE_BADGE,
+    WARRANTY_DEADLINE_BADGE: constants.WARRANTY_DEADLINE_BADGE,
     CONSTANTS: constants
   };
 }
@@ -83,6 +85,12 @@ describe('res.locals wiring guards', () => {
       expect(typeof utils[name]).toBe('object');
       expect(appSrc).toMatch(new RegExp(`res\\.locals\\.${name}\\s*=`));
     }
+    // TASK_DEADLINE_BADGE and WARRANTY_DEADLINE_BADGE are consumed by
+    // projects/show.ejs and assets/show.ejs respectively. They live only in
+    // constants.js (not re-exported from utils.js), so the check is scoped to
+    // the res.locals wiring rather than the utils-membership check above.
+    expect(appSrc).toMatch(/res\.locals\.TASK_DEADLINE_BADGE\s*=/);
+    expect(appSrc).toMatch(/res\.locals\.WARRANTY_DEADLINE_BADGE\s*=/);
     // CONSTANTS is hoisted from constants module
     expect(appSrc).toMatch(/res\.locals\.CONSTANTS\s*=/);
   });
@@ -166,6 +174,76 @@ describe('templates render without ReferenceError', () => {
       members: [], staff: []
     });
     expect(html).toContain('Migrate the database');
+  });
+
+  it('projects/show renders overdue and due-soon task deadline badges (regression: TASK_DEADLINE_BADGE must be in res.locals)', () => {
+    // Pin the reference date so the deadlines are deterministic regardless of
+    // when the test suite is run. '2026-09-15' makes the overdue date 3 days
+    // in the past and the due_soon date 2 days in the future.
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+    const html = render('projects/show.ejs', {
+      ...baseLocals(),
+      title: 'Project',
+      project: {
+        id: 1, name: 'Migration', status: 'in_progress', priority: 'high',
+        progress: 10, owner_name: 'Ada', budget: 1000, spent: 100,
+        start_date: null, end_date: null, description: ''
+      },
+      tasks: [
+        { id: 1, title: 'Overdue task', status: 'in_progress', priority: 'high', due_date: '2026-09-12', assigned_name: 'Ada' },
+        { id: 2, title: 'Due soon task', status: 'todo', priority: 'medium', due_date: '2026-09-17', assigned_name: 'Ada' },
+        { id: 3, title: 'Far-out task', status: 'todo', priority: 'low', due_date: '2027-01-01', assigned_name: 'Ada' }
+      ],
+      members: [], staff: []
+    });
+    jest.useRealTimers();
+    // overdue badge class and text
+    expect(html).toContain('badge-critical');
+    expect(html).toContain('Overdue');
+    // due_soon badge class and text
+    expect(html).toContain('badge-high');
+    expect(html).toContain('Due soon');
+    // far-out task should have no deadline badge
+    expect(html).not.toMatch(/Due soon.*Far-out/);
+  });
+
+  it('assets/show renders expired and expiring-soon warranty badges (regression: WARRANTY_DEADLINE_BADGE must be in res.locals)', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+    const html = render('assets/show.ejs', {
+      ...baseLocals(),
+      title: 'Asset',
+      asset: {
+        id: 1, name: 'MacBook Pro', asset_tag: 'AST-001',
+        status: 'in_use', condition_rating: 'good', category: 'laptop',
+        warranty_expiry: '2026-09-10', purchase_date: '2020-01-01',
+        purchase_price: 1999, assigned_name: 'Ada', assigned_email: 'ada@company.com'
+      },
+      relatedTickets: []
+    });
+    jest.useRealTimers();
+    expect(html).toContain('badge-critical');
+    expect(html).toContain('Expired');
+  });
+
+  it('assets/show renders expiring-soon warranty badge within 90 days', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+    const html = render('assets/show.ejs', {
+      ...baseLocals(),
+      title: 'Asset',
+      asset: {
+        id: 2, name: 'Dell Monitor', asset_tag: 'AST-002',
+        status: 'in_storage', condition_rating: 'new', category: 'monitor',
+        warranty_expiry: '2026-11-01', purchase_date: '2024-01-01',
+        purchase_price: 400, assigned_name: null, assigned_email: null
+      },
+      relatedTickets: []
+    });
+    jest.useRealTimers();
+    expect(html).toContain('badge-high');
+    expect(html).toContain('days left');
   });
 
   it('changes/form renders stored datetimes into datetime-local inputs with a T separator (regression: space format blanked the field on edit)', () => {

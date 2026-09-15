@@ -4,8 +4,51 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (205 consecutive hardening
+coverage, and `npm audit`. Prior review history (206 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (207th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, or error-leakage defects were found.**
+One correctness defect closed: two badge constants (`TASK_DEADLINE_BADGE` and
+`WARRANTY_DEADLINE_BADGE`) were included in `TEMPLATE_CONSTANTS` (available via
+`res.locals.CONSTANTS`) but were never individually wired into `res.locals`.
+Every other badge constant consumed by templates was correctly wired; these two
+were silently missed because the existing `res.locals` wiring guard in
+`templates.test.js` only checked the 16 badge constants that are also exported
+from `utils.js` — `TASK_DEADLINE_BADGE` and `WARRANTY_DEADLINE_BADGE` live only
+in `constants.js` and were not part of that set. The result: any project show
+page with an overdue or due-soon task, or any asset show page with an expired
+or expiring warranty, would crash at render time with `ReferenceError`.
+
+### Fixes applied
+- **`src/app.js` — `TASK_DEADLINE_BADGE` and `WARRANTY_DEADLINE_BADGE` not
+  wired to `res.locals` (HIGH, correctness).** Added both to the
+  `constantsModule` destructuring and to the per-request `res.locals` wiring
+  block so every template can reference them as bare identifiers, matching the
+  convention used by all 16 other badge constants.
+
+### Regression tests added
+- **`tests/templates.test.js` — three new tests (+3 tests):**
+  1. `projects/show` renders overdue and due-soon task deadline badges.
+  2. `assets/show` renders expired warranty badge.
+  3. `assets/show` renders expiring-soon warranty badge (within 90 days).
+- **`tests/templates.test.js` — wiring guard extended (+0 net tests, but stronger
+  invariant):** Added explicit assertions that `res.locals.TASK_DEADLINE_BADGE`
+  and `res.locals.WARRANTY_DEADLINE_BADGE` are assigned in `app.js` (they are
+  not exported from `utils.js`, so the existing `utils[name]` check in the
+  loop did not cover them). Also added both to `baseLocals()` so the new
+  render tests execute against a faithful replica of the real `res.locals`
+  surface.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1114 passed / 1114 total** (66 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
