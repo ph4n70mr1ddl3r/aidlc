@@ -38,8 +38,8 @@
         <div class="detail-row"><div class="detail-label">Warranty Expiry</div><div class="detail-value"><% if (asset.warranty_expiry) { %>
           <% const _wDays = daysUntil(asset.warranty_expiry); %>
           <%= formatDate(asset.warranty_expiry) %>
-          <% if (_wDays !== null && _wDays < 0) { %><span class="badge badge-critical" style="margin-left:8px;">Expired</span>
-          <% } else if (_wDays !== null && _wDays <= 90) { %><span class="badge badge-high" style="margin-left:8px;"><%= _wDays %> days left</span>
+          <% if (_wDays !== null && _wDays < 0) { %><span class="badge badge-<%= badgeClass('expired', WARRANTY_DEADLINE_BADGE) %>" style="margin-left:8px;">Expired</span>
+          <% } else if (_wDays !== null && _wDays <= 90) { %><span class="badge badge-<%= badgeClass('expiring_soon', WARRANTY_DEADLINE_BADGE) %>" style="margin-left:8px;"><%= _wDays %> days left</span>
           <% } %>
         <% } else { %>-<% } %></div></div>
         <div class="detail-row"><div class="detail-label">Location</div><div class="detail-value"><%= asset.location || '-' %></div></div>

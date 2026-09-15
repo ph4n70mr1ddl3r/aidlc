@@ -835,15 +835,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         if (!existing) {
           throw new Error('NOT_FOUND');
         }
-        const safeStatus = VALID_TASK_STATUSES.includes(status) ? status : existing.status;
-        if (safeStatus === existing.status) {
+        if (existing.status === status) {
           return { unchanged: true };
         }
-        const result = _taskQuickStatusStmt.run(safeStatus, safeStatus === 'done' ? 1 : 0, taskId, projectId);
+        const result = _taskQuickStatusStmt.run(status, status === 'done' ? 1 : 0, taskId, projectId);
         if (result.changes === 0) {
           throw new Error('NOT_FOUND');
         }
-        return { unchanged: false, status: safeStatus };
+        return { unchanged: false, status: status };
       });
       const result = updateTask();
 

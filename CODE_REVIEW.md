@@ -1,11 +1,62 @@
 # Code Review Notes
 
-**Date:** 2026-09-14
+**Date:** 2026-09-15
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (201 consecutive hardening
+coverage, and `npm audit`. Prior review history (202 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (203rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 91
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. Four low-severity
+consistency defects closed: a missing `|| ''` fallback on a disabled form field,
+redundant CSS `text-transform` alongside `titleCase()`, dead `safeStatus` code
+in the task quick-status transaction, and two places where computed urgency
+badges (task deadline, warranty expiry) used hardcoded CSS classes instead of
+the centralized `badgeClass()` helper with constant mappings.
+
+### Fixes applied
+- **`views/pages/staff/form.ejs:16`** — Added `|| ''` fallback to the disabled
+  username input value. Without it, a missing `staffMember.username` would
+  render `value="undefined"` in the HTML attribute. Mirrors the established
+  convention used by every other form field on the page.
+- **`views/pages/dashboard.ejs:201`** — Removed redundant
+  `style="text-transform:capitalize;"` from the category label. The
+  `titleCase()` call already performs casing; the CSS was dead style that
+  conflicted with the app-wide convention of relying solely on `titleCase()`.
+- **`src/routes/projects.js:838-841`** — Removed the dead `safeStatus`
+  assignment and its three downstream references. The status value was already
+  validated on lines 825–828 (`VALID_TASK_STATUSES.includes(status)`), so the
+  ternary could never take the `existing.status` branch. Replaced with the
+  directly-validated `status` variable.
+- **`views/pages/projects/show.ejs:87-88`** — Replaced hardcoded
+  `badge-critical` / `badge-high` classes with `badgeClass('overdue',
+  TASK_DEADLINE_BADGE)` / `badgeClass('due_soon', TASK_DEADLINE_BADGE)`.
+- **`views/pages/assets/show.ejs:41-42`** — Replaced hardcoded
+  `badge-critical` / `badge-high` classes with `badgeClass('expired',
+  WARRANTY_DEADLINE_BADGE)` / `badgeClass('expiring_soon',
+  WARRANTY_DEADLINE_BADGE)`.
+- **`src/constants.js`** — Added `TASK_DEADLINE_BADGE` and
+  `WARRANTY_DEADLINE_BADGE` constant mappings to keep computed urgency badges
+  in the same centralized constants as all other badge mappings.
+- **`src/app.js`** — Exposed the two new badge constants via `res.locals` so
+  templates can access them.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

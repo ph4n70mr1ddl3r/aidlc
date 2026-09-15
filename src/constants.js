@@ -131,6 +131,12 @@ const PROJECT_STATUS_BADGE = Object.freeze({ planning: 'high', in_progress: 'cri
 // Project / task priorities — consistent with TICKET_PRIORITY_BADGE.
 const PROJECT_PRIORITY_BADGE = Object.freeze({ critical: 'critical', high: 'high', medium: 'medium', low: 'low' });
 const TASK_PRIORITY_BADGE = Object.freeze({ high: 'high', medium: 'medium', low: 'low' });
+// Task deadline urgency — computed from daysUntil(), not a stored enum. Kept
+// in constants so templates stay consistent with the badgeClass() convention.
+const TASK_DEADLINE_BADGE = Object.freeze({ overdue: 'critical', due_soon: 'high' });
+// Warranty expiry urgency — same pattern as TASK_DEADLINE_BADGE, computed at
+// render time from the expiry date relative to today.
+const WARRANTY_DEADLINE_BADGE = Object.freeze({ expired: 'critical', expiring_soon: 'high' });
 // Change statuses — scheduled/in_progress need attention, completed/failed are
 // terminal, cancelled is benign.
 const CHANGE_STATUS_BADGE = Object.freeze({ scheduled: 'high', in_progress: 'critical', completed: 'low', failed: 'critical', cancelled: 'low' });
@@ -186,7 +192,7 @@ module.exports = {
   KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
   TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE,
   ASSET_STATUS_BADGE,
-  PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE,
+  PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE,   TASK_PRIORITY_BADGE, TASK_DEADLINE_BADGE, WARRANTY_DEADLINE_BADGE,
   CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE,
   KB_STATUS_BADGE,
   VENDOR_CATEGORY_BADGE,
