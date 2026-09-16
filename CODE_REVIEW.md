@@ -4,8 +4,53 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (206 consecutive hardening
+coverage, and `npm audit`. Prior review history (207 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (208th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all 91
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One LOW completeness
+defect closed: the self-role-change denial in `staff.js` PUT /:id wrote no
+`access_denied` audit entry, unlike every other privilege-boundary denial in
+the same handler (privileged-role assignment, admin-protection). An admin
+probing the self-role gate left no trail, which was inconsistent with the
+audit convention.
+
+### Fixes applied
+- **`src/routes/staff.js:494-497` — self-role-change denial omitted access_denied audit (LOW, completeness).**
+  The `PUT /:id` handler's privileged-role guard (line 489) and admin-protection
+  guard (line 501) both recorded `access_denied` when the condition fired, but
+  the self-role-change guard (line 494) only flashed and redirected — the
+  identical denial condition without a trail. Added
+  `req.audit('access_denied', 'user', id, 'Unauthorized self-role-change attempt')`
+  before the flash so the denial leaves an audit entry consistent with the
+  sibling privilege gates in the same handler.
+
+### Regression tests added
+- **`tests/code_review_208.test.js` — 2 regression tests (+2 tests):**
+  1. Handler-level: `PUT /:id` with an admin whose id matches the session user
+     and a different `safeRole` redirects to `/staff`, flashes the self-role
+     denial message, AND records an `access_denied` audit entry with the
+     exact `'Unauthorized self-role-change attempt'` details string.
+  2. Source-code pin: asserts that `staff.js` contains the
+     `self-role-change attempt` audit string and that it appears after the
+     `Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role`
+     guard (not after the privileged-role guard above it).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1116 passed / 1116 total** (67 suites, +2 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

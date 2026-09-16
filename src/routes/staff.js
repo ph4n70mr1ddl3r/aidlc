@@ -490,8 +490,13 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'Only administrators can assign the manager or admin role.');
     return res.redirect('/staff');
   }
-  // Prevent admin from changing their own role (would lock themselves out)
+  // Prevent admin from changing their own role (would lock themselves out).
+  // Audit the denial so the attempt leaves a trail — mirrors the access_denied
+  // audits on the privileged-role guard above and the admin-protection guard
+  // below. Self-role changes are benign but must not silently disappear from
+  // the audit log.
   if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
+    req.audit('access_denied', 'user', id, 'Unauthorized self-role-change attempt');
     req.flash('error', 'You cannot change your own role.');
     return res.redirect('/staff');
   }
