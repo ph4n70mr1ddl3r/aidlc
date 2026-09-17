@@ -46,7 +46,7 @@ describe('code review 209 — logError consistency across all route modules', ()
     // pattern that was previously used.
     expect(src).not.toMatch(/console\.error\(errMsg.*String\(err\)\)/);
     expect(src).not.toMatch(/console\.error\('Session save error:'.*String\(err\)\)/);
-    expect(src).toContain("logError(errMsg, err)");
+    expect(src).toContain('logError(errMsg, err)');
     expect(src).toContain("logError('Session save error:', err)");
   });
 });
