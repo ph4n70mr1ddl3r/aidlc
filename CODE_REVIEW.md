@@ -3585,3 +3585,33 @@ wrapped in asyncHandler. Three minor consistency improvements applied:
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1108 passed / 1108 total** (65 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-18 (210th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+console.error sites use null-safe message access, all form-processing routes
+carry rejectHppArrays guards, badge rendering across all EJS templates uses
+badgeClass() with enum-specific fallbacks, all nullable enum values passed to
+titleCase() carry the established || 'default' guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One LOW completeness defect closed: the staff password
+reset route (`PUT /:id/reset-password`) updated the user's password but did not
+call `invalidateDashboardCache()`, leaving a stale dashboard cache that could
+show outdated staff data for up to the TTL window after an admin reset.
+
+### Fixes applied
+- **`src/routes/staff.js:823` — password reset route omitted `invalidateDashboardCache` (LOW, completeness).**
+  The `PUT /:id/reset-password` handler updated the password and cleared login
+  lockout but never invalidated the dashboard cache. Every other staff write
+  route (create, update, reactivate, deactivate) calls
+  `invalidateDashboardCache()` so the dashboard reflects the new state
+  immediately. Added the missing call so password resets are consistent with
+  the rest of the staff module.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1119 passed / 1119 total** (68 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

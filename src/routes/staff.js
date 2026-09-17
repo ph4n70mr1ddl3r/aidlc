@@ -821,6 +821,7 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
   // locked-out user. IP lockouts are only cleared at login success.
 
   req.audit('update', 'user', id, `Password reset by admin${targetUser.username ? ` (cleared login lockout for ${targetUser.username})` : ''}`);
+  invalidateDashboardCache();
   req.flash('success', 'Password reset successfully.');
   return res.redirect(`/staff/${id}`);
 }));
