@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { authKeyGenerator } = require('../utils');
+const { authKeyGenerator, logError } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 // Key rate-limiting by authenticated user id (per-account, shared utils helper)
@@ -220,7 +220,7 @@ function getDashboardData(user) {
 
       dashboardCache = { timestamp: now, data: shared };
     } catch (err) {
-      console.error('Dashboard cache refresh error:', (err && err.message) || String(err));
+      logError('Dashboard cache refresh error:', err);
       // On DB error, re-use previous cache if available (stale data is better
       // than an empty/broken dashboard). Only fall back to EMPTY_DEFAULTS if
       // there is no prior cache at all (first-request failure).
@@ -235,7 +235,7 @@ function getDashboardData(user) {
   try {
     myTickets = stmts.myTickets.all(user.id);
   } catch (err) {
-    console.error('Dashboard myTickets query error:', (err && err.message) || String(err));
+    logError('Dashboard myTickets query error:', err);
   }
 
   // Deep-merge defaults to avoid shared nested object references between cache

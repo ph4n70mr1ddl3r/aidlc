@@ -17,7 +17,7 @@ function destroySessionAndRedirect(req, res, redirectUrl, errMsg) {
   }
   req.session.destroy((err) => {
     if (err) {
-      console.error(errMsg, (err && err.message) || String(err));
+      logError(errMsg, err);
     }
     try {
       // Match the full cookie options (including `secure`) used when the
@@ -98,7 +98,7 @@ function _verifySessionUser(req, res) {
       // waiting for the next response cycle's resave.
       req.session.save((err) => {
         if (err) {
-          console.error('Session save error:', (err && err.message) || String(err));
+          logError('Session save error:', err);
         }
       });
     }

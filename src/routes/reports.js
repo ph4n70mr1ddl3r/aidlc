@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { safeInt, safeQueryValue, authKeyGenerator, rejectHppArrays } = require('../utils');
+const { safeInt, safeQueryValue, authKeyGenerator, rejectHppArrays, logError } = require('../utils');
 
 /**
  * Parse the `period` report query parameter, clamps to [1, 365], and fails
@@ -243,7 +243,7 @@ router.get('/tickets', reportLimiter, (req, res) => {
       avgResolution, slaStats, topResolvers, period
     });
   } catch (err) {
-    console.error('Ticket report error:', (err && err.message) || String(err));
+    logError('Ticket report error:', err);
     req.flash('error', 'Error generating ticket report.');
     return res.redirect('/reports');
   }
@@ -275,7 +275,7 @@ router.get('/assets', reportLimiter, (req, res) => {
       totalValue, warrantyCount, warrantyExpiring, ageDistribution
     });
   } catch (err) {
-    console.error('Asset report error:', (err && err.message) || String(err));
+    logError('Asset report error:', err);
     req.flash('error', 'Error generating asset report.');
     return res.redirect('/reports');
   }
@@ -301,7 +301,7 @@ router.get('/staff', reportLimiter, (req, res) => {
 
     res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
   } catch (err) {
-    console.error('Staff report error:', (err && err.message) || String(err));
+    logError('Staff report error:', err);
     req.flash('error', 'Error generating staff report.');
     return res.redirect('/reports');
   }

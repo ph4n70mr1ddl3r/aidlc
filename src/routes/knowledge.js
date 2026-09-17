@@ -228,11 +228,11 @@ function renderMarkdown(content) {
     }
     return sanitizeHtml(html, SANITIZE_HTML_OPTIONS);
   } catch (err) {
-    console.error('Markdown render error:', (err && err.message) || String(err));
+    logError('Markdown render error:', err);
     try {
       return `<div>Article content could not be rendered. Showing plain text:</div><pre>${escapeHtml(content || '')}</pre>`;
     } catch (innerErr) {
-      console.error('Secondary escape error:', (innerErr && innerErr.message) || String(innerErr));
+      logError('Secondary escape error:', innerErr);
       return '<div>Article content could not be rendered.</div>';
     }
   }
@@ -430,7 +430,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     return res.redirect(`/knowledge/${result.lastInsertRowid}`);
   } catch (err) {
-    console.error('Article create error:', (err && err.message) || String(err));
+    logError('Article create error:', err);
     req.flash('error', 'Error creating article. Please try again.');
     return res.redirect('/knowledge/new');
   }
@@ -477,7 +477,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
     try {
       _viewCountStmt.run(id);
     } catch (err) {
-      console.error('View count update error:', (err && err.message) || String(err));
+      logError('View count update error:', err);
     }
     // Append the new article id and cap the tracking set with slice(-MAX),
     // which evicts the OLDEST-viewed entry from the front. Use concat
@@ -678,7 +678,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       req.flash('error', 'You do not have permission to edit this article.');
       return res.redirect('/knowledge');
     }
-    console.error('Article update error:', (err && err.message) || String(err));
+    logError('Article update error:', err);
     req.flash('error', 'Error updating article. Please try again.');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -745,7 +745,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
       req.flash('error', 'You do not have permission to delete this article.');
     } else {
-      console.error('Article delete error:', (err && err.message) || String(err));
+      logError('Article delete error:', err);
       req.flash('error', 'Error deleting article.');
     }
   }

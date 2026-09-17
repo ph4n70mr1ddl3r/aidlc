@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator, logError } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -258,7 +258,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     invalidateDashboardCache();
     return res.redirect('/licenses');
   } catch (err) {
-    console.error('License create error:', (err && err.message) || String(err));
+    logError('License create error:', err);
     req.flash('error', 'Error creating license. Please try again.');
     return res.redirect('/licenses/new');
   }
@@ -310,7 +310,7 @@ router.post('/:id/key', requireAdminOrManager, licenseKeyLimiter, (req, res) => 
     // No manual HTML escaping is needed — the response is JSON, not HTML.
     res.json({ key: license.license_key || '' });
   } catch (err) {
-    console.error('License key reveal error:', (err && err.message) || String(err));
+    logError('License key reveal error:', err);
     res.status(500).json({ error: 'Error retrieving license key' });
   }
 });
@@ -533,7 +533,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       req.flash('error', `Invalid ${titleCase(err.message.replace('INVALID_', ''))}`);
       return res.redirect(`/licenses/${id}/edit`);
     }
-    console.error('License update error:', (err && err.message) || String(err));
+    logError('License update error:', err);
     req.flash('error', 'Error updating license. Please try again.');
     return res.redirect(`/licenses/${id}/edit`);
   }
@@ -575,7 +575,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('License delete error:', (err && err.message) || String(err));
+    logError('License delete error:', err);
     req.flash('error', 'Error deleting license.');
   }
   return res.redirect('/licenses');

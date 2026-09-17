@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, isPrivileged, logError } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -266,7 +266,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Selected assignee is not available');
       return res.redirect('/changes/new');
     }
-    console.error('Change create error:', (err && err.message) || String(err));
+    logError('Change create error:', err);
     req.flash('error', 'Error creating change. Please try again.');
     return res.redirect('/changes/new');
   }
@@ -536,7 +536,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       req.flash('error', 'Invalid Impact');
       return res.redirect(`/changes/${id}/edit`);
     }
-    console.error('Change update error:', (err && err.message) || String(err));
+    logError('Change update error:', err);
     req.flash('error', 'Error updating change. Please try again.');
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -578,7 +578,7 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       invalidateDashboardCache();
     }
   } catch (err) {
-    console.error('Change delete error:', (err && err.message) || String(err));
+    logError('Change delete error:', err);
     req.flash('error', 'Error deleting change.');
   }
   return res.redirect('/changes');
