@@ -3767,3 +3767,28 @@ None — the fix is a comment-only correction with no behavior change.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1121 passed / 1121 total** (69 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-18 (215th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. No actionable defects were identified in this pass.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1124 passed / 1124 total** (70 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
