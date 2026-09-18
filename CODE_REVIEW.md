@@ -3615,3 +3615,36 @@ show outdated staff data for up to the TTL window after an admin reset.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1119 passed / 1119 total** (68 suites).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-18 (211th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+console.error sites use null-safe message access, all form-processing routes
+carry rejectHppArrays guards, badge rendering across all EJS templates uses
+badgeClass() with enum-specific fallbacks, all nullable enum values passed to
+titleCase() carry the established || 'default' guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One completeness gap closed: the code review 210 commit
+recorded the source fix (adding `invalidateDashboardCache()` to the staff
+password-reset route) but was missing the corresponding regression test suite,
+leaving the invariant unpin-checked by the test harness. Two regression tests
+added to close the gap.
+
+### Regression tests added
+- **`tests/code_review_210.test.js` — 2 regression tests (+2 tests):**
+  1. Runtime: a successful `PUT /:id/reset-password` (real in-memory SQLite DB,
+     mocked bcrypt/audit/dashboard) must call `invalidateDashboardCache()` exactly
+     once, ensuring the dashboard is not served stale cached data after an admin
+     password reset.
+  2. Source-code pin: asserts that `invalidateDashboardCache()` in `staff.js`
+     appears after both the `_passwordResetStmt.run(...)` call and the audit
+     entry, confirming it fires only on the success path (not on validation
+     failures or early returns).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1121 passed / 1121 total** (69 suites, +2 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
