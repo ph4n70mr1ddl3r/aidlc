@@ -4,8 +4,53 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (212 consecutive hardening
+coverage, and `npm audit`. Prior review history (213 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (214th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One LOW completeness defect closed: the reports index
+route (`GET /reports`) logged its read audit with entity type `'report'`, but
+that string was absent from `ALLOWED_ENTITY_TYPES` in constants.js. The audit
+middleware catches the thrown `Error("Invalid audit entity: \"report\"")`
+silently, so the reports index view was leaving no trail in the audit log.
+Added `'report'` to the allowlist so the index audit fires correctly.
+
+### Fixes applied
+- **`src/constants.js:62` — `ALLOWED_ENTITY_TYPES` missing `'report'` (LOW, completeness).**
+  The reports index route (`GET /reports`) called `req.audit('read', 'report',
+  null, 'Viewed reports index')`, but `'report'` was not listed in the frozen
+  `ALLOWED_ENTITY_TYPES` array. The audit middleware validates every entity
+  against the allowlist and throws on mismatch; the throw is swallowed by the
+  middleware's own try/catch, so the read audit was silently dropped with no
+  error surfacing to the operator. Added `'report'` to the allowlist so the
+  index audit entry is written correctly.
+
+### Regression tests added
+- **`tests/code_review_214.test.js` — 3 regression tests (+3 tests):**
+  1. Source-code pin: parses all `req.audit()` calls in `reports.js` and asserts
+     each entity type is present in `ALLOWED_ENTITY_TYPES`.
+  2. Source-code pin: asserts `ALLOWED_ENTITY_TYPES` includes `'report'`.
+  3. Full-audit sweep: iterates every route module, extracts all entity types
+     from `req.audit()` calls, and asserts every one is in
+     `ALLOWED_ENTITY_TYPES` (and every action is in `ALLOWED_ACTIONS`).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1124 passed / 1124 total** (70 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
