@@ -182,7 +182,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 
 - **CSRF protection** on all state-changing requests
 - **Helmet** for security headers (CSP, X-Frame-Options, etc.)
-- **Rate limiting** on login (10 attempts per 15 min), dashboard (10/min), health (30/min), and writes (100 per 15 min)
+- **Rate limiting** on login (10 requests per 15 min per IP, with a separate 5-failure lockout for 15 min), dashboard (10/min), health (30/min), and writes (100 per 15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries

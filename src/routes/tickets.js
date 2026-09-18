@@ -240,7 +240,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  for (const field of ['description', 'requester_department']) {
+  for (const field of ['description', 'requester_department', 'status', 'priority']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -962,6 +962,10 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
         throw new Error('ACCESS_DENIED');
       }
 
+      if (ticket.status === status) {
+        return { unchanged: true };
+      }
+
       const isNowResolved = status === 'resolved' || status === 'closed';
       const stmt = isNowResolved ? _statusResolveStmt : _statusUnresolveStmt;
       const result = stmt.run(status, id);
@@ -969,11 +973,14 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
     });
-    updateStatus();
-
-    req.audit('update', 'ticket', id, `Status changed to ${status}`);
-    req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}.`);
-    invalidateDashboardCache();
+    const result = updateStatus();
+    if (result && result.unchanged) {
+      req.flash('info', 'Status unchanged.');
+    } else {
+      req.audit('update', 'ticket', id, `Status changed to ${status}`);
+      req.flash('success', `Ticket status updated to ${status.replace(/_/g, ' ')}.`);
+      invalidateDashboardCache();
+    }
     return res.redirect(`/tickets/${id}`);
   } catch (err) {
     if (err.message === 'NOT_FOUND') {

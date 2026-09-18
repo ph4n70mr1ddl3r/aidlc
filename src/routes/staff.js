@@ -690,7 +690,7 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
       return res.redirect('/staff');
     }
     if (result.alreadyActive) {
-      req.flash('info', 'Account is already active.');
+      req.flash('info', 'Staff member is already active.');
       return res.redirect(`/staff/${id}`);
     }
 
@@ -895,7 +895,7 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
     if (result.notFound) {
       req.flash('error', 'Staff member not found');
     } else if (result.alreadyInactive) {
-      req.flash('info', 'Account is already inactive.');
+      req.flash('info', 'Staff member is already inactive.');
     } else {
       // Recalculate project progress outside the transaction so SQLite's
       // write lock is not held across multiple sequential queries. The

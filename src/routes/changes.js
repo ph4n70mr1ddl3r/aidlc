@@ -173,7 +173,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
   // priority is included because the enum check below is validate-when-present:
   // a non-string collapses to '' and would silently fall back to the default.
-  for (const field of ['description', 'impact', 'priority']) {
+  for (const field of ['description', 'impact', 'priority', 'status']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
