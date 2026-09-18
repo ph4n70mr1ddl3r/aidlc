@@ -499,7 +499,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // A present, non-empty contract date that fails to parse must be rejected
   // (fail closed) rather than silently stored as NULL — the same malformed-date
   // default-to-NULL pattern checked in the create route and across all other
-  // sibling update routes (assets, projects, licenses). An empty contract date
+  // sibling update routes (assets, projects, licenses, changes). An empty contract date
   // is still allowed to fall back to the stored value.
   if (contract_start !== undefined && contract_start !== null && contract_start !== '' && sContractStart === null) {
     req.flash('error', 'Invalid Contract Start Date');

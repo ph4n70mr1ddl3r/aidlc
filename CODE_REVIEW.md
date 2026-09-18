@@ -1,10 +1,10 @@
 # Code Review Notes
 
-**Date:** 2026-09-15
+**Date:** 2026-09-18
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (207 consecutive hardening
+coverage, and `npm audit`. Prior review history (211 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
 ---
@@ -3647,4 +3647,39 @@ added to close the gap.
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1121 passed / 1121 total** (69 suites, +2 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-18 (212th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or
+error-leakage defects were found.** The codebase remains at the same hardening
+plateau — all console.error sites use null-safe message access, all form-processing
+routes carry rejectHppArrays guards, badge rendering across all EJS templates uses
+badgeClass() with enum-specific fallbacks, all nullable enum values passed to
+titleCase() carry the established || 'default' guard, all write routes audit their
+operations and invalidate the dashboard cache, and all async routes are wrapped in
+asyncHandler. One LOW consistency defect closed: the date-range validation comment
+on `src/routes/vendors.js` line 502 referenced "the create route and every other
+sibling update route" but only cited assets, projects, and licenses — changes.js
+was omitted from the inline citation. The semantics are already consistent
+(changes.js validates contract dates identically), so only the comment was
+corrected to keep the cross-reference complete.
+
+### Fixes applied
+- **`src/routes/vendors.js:499-501` — stale comment omitting changes.js from
+  date-validation cross-reference (LOW, consistency).** The validate-when-present
+  comment for `contract_start` and `contract_end` listed assets, projects, and
+  licenses as siblings but did not mention changes.js, which already implements
+  the same `_resolveDateTimeField` absent-vs-empty convention. Added
+  `changes.js` to the list so the comment accurately reflects the full set of
+  sibling routes sharing the pattern.
+
+### Regression tests added
+None — the fix is a comment-only correction with no behavior change.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1121 passed / 1121 total** (69 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
