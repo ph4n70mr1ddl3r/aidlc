@@ -4,8 +4,47 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (211 consecutive hardening
+coverage, and `npm audit`. Prior review history (212 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (213th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, and all nullable enum values passed to `titleCase()`
+in templates carry the established `|| 'default'` guard. One LOW consistency
+defect closed: the comment on the vendors.js update-route contract-start date
+validation referenced sibling routes `(assets, projects, licenses)` but omitted
+`changes`, which also shares the identical malformed-date fail-closed pattern
+via `_resolveClearableDate`. Updated the cross-reference to enumerate all four
+sibling update routes that enforce the same contract.
+
+### Fixes applied
+- **`src/routes/vendors.js:502` — date-validation cross-reference missing `changes` (LOW, consistency).**
+  The comment on the contract-start validation guard enumerated
+  `(assets, projects, licenses)` as the sibling update routes sharing the
+  malformed-date fail-closed pattern, but `changes.js` also uses the identical
+  `_resolveClearableDate` contract for its scheduled/actual datetime fields.
+  Added `, changes` to the cross-reference so the comment accurately reflects
+  all four sibling routes.
+
+### Regression tests added
+None — the fix is a comment update only, not a behavior change. The existing
+source-code pin assertions in `tests/code_review_197.test.js` (which verify the
+fail-closed date-validation pattern is present on every update route) remain
+valid and unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1121 passed / 1121 total** (69 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
