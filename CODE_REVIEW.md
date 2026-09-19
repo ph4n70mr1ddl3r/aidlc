@@ -4,8 +4,49 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (220 consecutive hardening
+coverage, and `npm audit`. Prior review history (221 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (222nd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, EJS views (34 templates), `public/js/app.js`, the test suite,
+and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at the
+same hardening plateau — all `console.error` sites use the `(err && err.message)
+|| String(err)` null guard (or log a static string), all form-processing routes
+carry `rejectHppArrays` guards, badge rendering across all 34 EJS templates uses
+`badgeClass()` with enum-specific fallbacks, all nullable enum values passed to
+`titleCase()` in templates carry the established `|| 'default'` guard, all write
+routes audit their operations and invalidate the dashboard cache, and all async
+routes are wrapped in asyncHandler. Automated cross-references verified: every
+badge mapping in `constants.js` covers all its corresponding enum exactly (16
+mappings checked, zero missing/extra keys), every template `badgeClass()` call
+references an existing mapping key (all resolved), `ALLOWED_ACTIONS` exactly
+matches the union of all emitted audit actions across the codebase (13 emitted
+actions, zero gaps), and `ALLOWED_ENTITY_TYPES` exactly matches all entity values
+used in audit calls (13 emitted entities, zero gaps). All 15 modules (12 routes +
+2 middleware + utils) export `resetCachedStatements` as required by the
+API-contract test. Cross-cutting consistency checks confirmed: all EJS templates
+have balanced tag pairs (1575 total tags, zero mismatches), all POST/mutate forms
+carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE` overrides),
+all redirect targets are same-origin pathnames (no open-redirect vectors), and
+all form action URLs are relative. One LOW completeness improvement: regression
+tests from pass 221 now pin every cross-reference assertion so the full
+consistency matrix is enforced automatically on every CI run.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
