@@ -4,8 +4,63 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (216 consecutive hardening
+coverage, and `npm audit`. Prior review history (217 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (218th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One LOW consistency defect closed: the audit log index
+page rendered action badges with an inline ternary (`['delete', 'login_failed',
+...]`) rather than the app-wide `badgeClass()` convention used by all other 38
+templates. This broke the single-source-of-truth pattern — adding a new audit
+action in the future would require updating both `ALLOWED_ACTIONS` and the
+template ternary, inviting silent drift. Added an `ACTION_BADGE` mapping
+constant to `constants.js` and switched the template to `badgeClass(e.action,
+CONSTANTS.ACTION_BADGE)` so severity logic lives alongside every other badge
+mapping.
+
+### Fixes applied
+- **`src/constants.js` — added `ACTION_BADGE` constant (LOW, consistency).**
+  New frozen mapping: `delete/login_failed/login_blocked/login_rate_limited/
+  access_denied → 'critical'`, `create → 'low'`, everything else falls through
+  to the `badgeClass()` default `'medium'`. Mirrors the same severity model
+  used by all existing badge mappings.
+- **`src/app.js` — exposed `ACTION_BADGE` via `TEMPLATE_CONSTANTS` and
+  `res.locals` (consistency).** Templates can now reference
+  `CONSTANTS.ACTION_BADGE` just like every other badge mapping.
+- **`views/pages/audit/index.ejs:27` — replaced inline ternary with
+  `badgeClass(e.action || 'unknown', CONSTANTS.ACTION_BADGE)` (LOW,
+  consistency).** The audit page now follows the same badge rendering
+  convention as all other templates, ensuring future action additions only
+  require updating `constants.js`.
+
+### Regression tests added
+- **`tests/code_review_218.test.js` — 4 regression tests (+4 tests):**
+  1. Source-code pin: asserts `constants.js` exports `ACTION_BADGE`.
+  2. Value pin: asserts `delete/login_failed/login_blocked/login_rate_limited/
+     access_denied` map to `'critical'` and `create` maps to `'low'`.
+  3. Template pin: asserts `audit/index.ejs` uses `badgeClass(e.action ||
+     'unknown', CONSTANTS.ACTION_BADGE)` and no longer contains the old inline
+     ternary.
+  4. Wiring pin: asserts `app.js` passes `ACTION_BADGE` through both
+     `TEMPLATE_CONSTANTS` and `res.locals`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1131 passed / 1131 total** (72 suites, +4 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

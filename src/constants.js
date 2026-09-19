@@ -148,6 +148,13 @@ const KB_STATUS_BADGE = Object.freeze({ draft: 'medium', published: 'low', archi
 // keeps the list columns from getting noisy with color. Mirrors KB_CATEGORY /
 // LICENSE_TYPE conventions.
 const VENDOR_CATEGORY_BADGE = Object.freeze({ hardware: 'medium', cloud: 'medium', security: 'medium', network: 'medium', maintenance: 'medium', software: 'medium', consulting: 'medium', telecom: 'medium', other: 'medium' });
+// Audit log actions — security-relevant events (lockouts, rate-limit trips,
+// access denials, failed logins) are critical; creates are benign operational
+// noise rendered as low severity; everything else (reads, updates, comments)
+// is medium by default. Mirrors the same deliberate severity model used by
+// all other badge mappings so the audit index page stays consistent with the
+// rest of the application's badge-class convention.
+const ACTION_BADGE = Object.freeze({ delete: 'critical', login_failed: 'critical', login_blocked: 'critical', login_rate_limited: 'critical', access_denied: 'critical', create: 'low' });
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
@@ -196,6 +203,7 @@ module.exports = {
   CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE,
   KB_STATUS_BADGE,
   VENDOR_CATEGORY_BADGE,
+  ACTION_BADGE,
   DESC_TRUNCATION_LEN,
   PROGRESS_GREEN_THRESHOLD, PROGRESS_BLUE_THRESHOLD, PROGRESS_ORANGE_THRESHOLD,
   WORKLOAD_MULTIPLIER, WORKLOAD_RED_THRESHOLD, WORKLOAD_ORANGE_THRESHOLD,
