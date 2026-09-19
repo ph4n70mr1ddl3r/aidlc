@@ -264,7 +264,7 @@ function sanitizeKnowledgeInput(title, content, tags) {
     // identically, so this only affects what is written to the DB).
     safeTags = safeTags ? safeTags.substring(0, MAX_LONG_STR) : null;
   } catch (sanitizeErr) {
-    return { safeTitle: '', safeContent: '', safeTags: null, error: sanitizeErr.message };
+    return { safeTitle: '', safeContent: '', safeTags: null, error: (sanitizeErr && sanitizeErr.message) || String(sanitizeErr) };
   }
   return { safeTitle, safeContent, safeTags, error: null };
 }

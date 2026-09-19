@@ -1,11 +1,54 @@
 # Code Review Notes
 
-**Date:** 2026-09-18
+**Date:** 2026-09-19
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (213 consecutive hardening
+coverage, and `npm audit`. Prior review history (216 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (217th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, and the test suite.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One LOW consistency defect closed: the
+`sanitizeKnowledgeInput` catch block in `knowledge.js` accessed
+`sanitizeErr.message` directly without the app-wide null guard. While
+`sanitizeErr` is almost always an Error object in practice (thrown by the
+`sanitize-html` library or JS engine), the inconsistent pattern leaves a latent
+crash risk if a non-Error value ever slips through. Changed to
+`(sanitizeErr && sanitizeErr.message) || String(sanitizeErr)` to match the
+convention used at all other logging sites across the codebase.
+
+### Fixes applied
+- **`src/routes/knowledge.js:267` — `sanitizeErr.message` missing null guard
+  (LOW, consistency).** The `sanitizeKnowledgeInput` catch block called
+  `sanitizeErr.message` directly, unlike the `(err && err.message) ||
+  String(err)` pattern used at all other error-handling sites. Unified the
+  pattern so a stray non-Error throw cannot crash the caller with a TypeError.
+
+### Regression tests added
+- **`tests/code_review_217.test.js` — 3 regression tests (+3 tests):**
+  1. Source-code pin: asserts that `knowledge.js` contains the inline guard
+     pattern `(sanitizeErr && sanitizeErr.message) || String(sanitizeErr)`.
+  2. Source-code pin: asserts the old bare `sanitizeErr.message` pattern is gone.
+  3. Handler-level: verifies `sanitizeKnowledgeInput()` returns the expected
+     shape for valid input (sanity check that the fix did not break happy path).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1127 passed / 1127 total** (71 suites, +3 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
