@@ -35,7 +35,7 @@ describe('code review 218 — ACTION_BADGE consistency', () => {
       path.join(__dirname, '..', 'src', 'app.js'),
       'utf8'
     );
-    expect(src).toContain("ACTION_BADGE: constantsModule.ACTION_BADGE");
-    expect(src).toContain("res.locals.ACTION_BADGE = ACTION_BADGE;");
+    expect(src).toContain('ACTION_BADGE: constantsModule.ACTION_BADGE');
+    expect(src).toContain('res.locals.ACTION_BADGE = ACTION_BADGE;');
   });
 });
