@@ -4,8 +4,55 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (218 consecutive hardening
+coverage, and `npm audit`. Prior review history (220 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (221st pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, EJS views, `public/js/app.js`, the test suite, and the `CODE_REVIEW.md`
+history. **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. Automated cross-references verified: every badge
+mapping in `constants.js` covers all its corresponding enum exactly (16 mappings
+checked, zero missing/extra keys), every template `badgeClass()` call references
+an existing mapping key (47 calls, all resolved), `ALLOWED_ACTIONS` exactly
+matches the union of all `req.audit()` and direct `audit()` calls across the
+codebase (13 emitted actions, zero gaps), and `ALLOWED_ENTITY_TYPES` exactly
+matches all entity values used in audit calls (13 emitted entities, zero gaps).
+All 15 modules (12 routes + 2 middleware + utils) export `resetCachedStatements`
+as required by the API-contract test. One LOW completeness improvement:
+`code_review_220.test.js` now pins the automated cross-reference assertions
+(badge enums, template keys, action/entity allowlists, module exports) so they
+are regression-tested on every CI run rather than relying on manual review alone.
+
+### Fixes applied
+None.
+
+### Regression tests added
+- **`tests/code_review_220.test.js` — 36 regression tests (+36 tests):**
+  1. Every badge mapping (`CONDITION_BADGE` through `VENDOR_CATEGORY_BADGE`) covers
+     its corresponding enum exactly — no missing keys and no extra dead keys.
+  2. Every `badgeClass()` call across all 39 EJS templates resolves to an existing
+     constant mapping — no typo'd or stale keys can slip through.
+  3. `ALLOWED_ACTIONS` is the exact union of all emitted audit actions across the
+     codebase — no unlisted action can be emitted and no listed action is dead.
+  4. `ALLOWED_ENTITY_TYPES` is the exact union of all emitted audit entity types —
+     same tight contract as actions.
+  5. All 15 core modules export `resetCachedStatements` as a non-throwing function.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +36 regression tests).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
