@@ -239,7 +239,11 @@ describe('Session idle timeout middleware', () => {
 describe('Session absolute timeout middleware', () => {
   let ctx;
   beforeAll(async () => {
-    ctx = await startServer(buildMiniApp({ idleMs: 60000, absoluteMs: 2000 }));
+    // Use a short absolute timeout (500ms) with generous sleep margin (100ms +
+    // 1000ms = 1100ms total) so the test is robust under parallel-Jest load
+    // where the event loop can delay setTimeout resolution enough to push a
+    // 2000ms-bound test just over or just under the threshold.
+    ctx = await startServer(buildMiniApp({ idleMs: 60000, absoluteMs: 500 }));
   });
   afterAll(async () => {
     await new Promise(resolve => ctx.server.close(resolve));
@@ -248,13 +252,13 @@ describe('Session absolute timeout middleware', () => {
   it('redirects with reason=session_expired once the absolute lifetime is exceeded', async () => {
     const setRes = await fetch(`${ctx.base}/set`, { redirect: 'manual' });
     const cookie = extractCookies(setRes.headers.getSetCookie());
-    // Wait 400ms — comfortably inside the 2s absolute window even under Jest
-    // parallel-worker load, so the first /touch must still succeed.
-    await sleep(400);
+    // Wait 100ms — well inside the 500ms absolute window.
+    await sleep(100);
     const within = await fetch(`${ctx.base}/touch`, { redirect: 'manual', headers: { Cookie: cookie } });
     expect(within.status).toBe(200);
-    // Wait another 1600ms — pushes total elapsed past the 2s absolute timeout.
-    await sleep(1600);
+    // Wait another 1000ms — pushes total elapsed past the 500ms absolute timeout
+    // with 600ms of headroom, making the result deterministic under any load.
+    await sleep(1000);
     const res = await fetch(`${ctx.base}/touch`, { redirect: 'manual', headers: { Cookie: cookie } });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/login?reason=session_expired');

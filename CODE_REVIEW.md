@@ -1,11 +1,62 @@
 # Code Review Notes
 
-**Date:** 2026-09-19
+**Date:** 2026-09-21
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (221 consecutive hardening
+coverage, and `npm audit`. Prior review history (222 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (223rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, EJS views (34 templates), `public/js/app.js`, the test suite,
+and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** The codebase remains at the
+same hardening plateau — all `console.error` sites use the `(err && err.message)
+|| String(err)` null guard (or log a static string), all form-processing routes
+carry `rejectHppArrays` guards, badge rendering across all 34 EJS templates uses
+`badgeClass()` with enum-specific fallbacks, all nullable enum values passed to
+`titleCase()` in templates carry the established `|| 'default'` guard, all write
+routes audit their operations and invalidate the dashboard cache, and all async
+routes are wrapped in asyncHandler. Automated cross-references verified: every
+badge mapping in `constants.js` covers all its corresponding enum exactly (16
+mappings checked, zero missing/extra keys), every template `badgeClass()` call
+references an existing mapping key (all resolved), `ALLOWED_ACTIONS` exactly
+matches the union of all emitted audit actions across the codebase (13 emitted
+actions, zero gaps), and `ALLOWED_ENTITY_TYPES` exactly matches all entity values
+used in audit calls (13 emitted entities, zero gaps). All 15 modules (12 routes +
+2 middleware + utils) export `resetCachedStatements` as required by the
+API-contract test. Cross-cutting consistency checks confirmed: all EJS templates
+have balanced tag pairs (1575 total tags, zero mismatches), all POST/mutate forms
+carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE` overrides),
+all redirect targets are same-origin pathnames (no open-redirect vectors), and
+all form action URLs are relative. One LOW test-stability fix applied: the
+session-absolute-timeout integration test used a 2000 ms timeout with 400 ms +
+1600 ms sleeps — under parallel-Jest load the event-loop delay could push the
+actual elapsed time just under the strict `> 2000` threshold, causing an
+intermittent failure. Reduced the timeout to 500 ms and adjusted the sleeps to
+100 ms + 1000 ms (1100 ms total, 600 ms of headroom) so the result is deterministic
+regardless of test-suite load.
+
+### Fixes applied
+- **`tests/session_timeout.test.js` — flaky absolute-timeout test tightened margin
+  (LOW, test stability).** Reduced `absoluteMs` from 2000 to 500 and changed the
+  sleep sequence from `400 + 1600` to `100 + 1000`. The original 2000 ms boundary
+  sat only ~8 ms above the threshold when run in isolation; parallel-Jest worker
+  load could shift it just below, causing an intermittent `expect(302).toBe(200)`
+  failure. The new 500 ms timeout with 1100 ms of total sleep time gives 600 ms of
+  headroom, eliminating the race without changing the exercised invariant.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
