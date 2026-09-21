@@ -55,8 +55,6 @@ None.
 
 ## Review cycle (223rd pass)
 
-## Review cycle (223rd pass)
-
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, models, EJS views (34 templates), `public/js/app.js`, the test suite,
 and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
@@ -4184,7 +4182,7 @@ suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leak
 defects were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
 (or log a static string), all form-processing routes carry `rejectHppArrays`
-guards, badge rendering across all 39 EJS templates uses `badgeClass()` with
+guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
 enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
 templates carry the established `|| 'default'` guard, all write routes audit
 their operations and invalidate the dashboard cache, and all async routes are
@@ -4202,4 +4200,43 @@ None.
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1167 passed / 1167 total** (73 suites, +43 net from #224).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-09-21 (226th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
+enum-specific fallbacks (with one documented deviation in `reports/assets.ejs`
+for a 3-tier computed warranty urgency that the 2-key `WARRANTY_DEADLINE_BADGE`
+mapping cannot express), all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+ wrapped in asyncHandler. Fixes applied in this pass: removed a duplicate heading
+ artifact in the 223rd-pass entry of `CODE_REVIEW.md`, corrected the stale
+"39 EJS templates" count in the 225th-pass entry to the actual 34, and added an
+inline comment to `reports/assets.ejs` explaining the deliberate inline ternary
+for warranty-day badges. No new actionable defects were identified in this pass.
+
+### Fixes applied
+- `CODE_REVIEW.md`: Removed duplicate `## Review cycle (223rd pass)` heading in the
+  223rd-pass entry (copy-paste artifact).
+- `CODE_REVIEW.md`: Corrected stale "39 EJS templates" → "34 EJS templates" in the
+  225th-pass entry summary paragraph.
+- `views/pages/reports/assets.ejs`: Added an inline comment documenting the
+  deliberate deviation from the `badgeClass()` convention for the warranty-day
+  badge (the 3-tier urgency map `critical≤30 / high≤60 / medium≤90` cannot be
+  expressed by the 2-key `WARRANTY_DEADLINE_BADGE` mapping used by
+  `assets/show.ejs`).
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

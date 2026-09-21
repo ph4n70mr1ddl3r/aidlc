@@ -59,6 +59,11 @@
       <td><%= a.name %></td>
       <td><%= formatDate(a.warranty_expiry) %></td>
       <td><% if (days === null) { %>-<% } else { %><span class="badge badge-<%= days <= 30 ? 'critical' : days <= 60 ? 'high' : 'medium' %>"><%= days < 0 ? 'Expired ' + Math.abs(days) + ' days ago' : days + ' days' %></span><% } %></td>
+      <% /* Deliberately uses an inline ternary instead of badgeClass(WARRANTY_DEADLINE_BADGE).
+           The report shows assets within a 90-day window and needs 3 urgency tiers
+           (critical ≤30d, high 31-60d, medium 61-90d) for actionable filtering, while
+           WARRANTY_DEADLINE_BADGE only has 2 keys ('expired', 'expiring_soon').
+           Mirrors the same 3-tier intent used by CONDITION_BADGE on the progress bars above. */ %>
     </tr><% }) %></tbody>
   </table></div>
 </div></div><% } %>
