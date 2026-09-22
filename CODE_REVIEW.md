@@ -4,12 +4,12 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (230 consecutive hardening
+coverage, and `npm audit`. Prior review history (231 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (231st pass)
+## Review cycle (232nd pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, models, EJS views (39 templates: 34 page + 5 partial),
