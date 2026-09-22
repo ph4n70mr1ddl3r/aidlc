@@ -8,7 +8,7 @@ const { describe, it, expect } = require('@jest/globals');
 const { createAuditLogPruner } = require('../src/utils');
 
 function makeLogger() {
-  return { log: jest.fn(), error: jest.fn(), warn: jest.fn() };
+  return { info: jest.fn(), error: jest.fn(), warn: jest.fn() };
 }
 
 describe('createAuditLogPruner', () => {
@@ -19,7 +19,7 @@ describe('createAuditLogPruner', () => {
     runPrune();
     expect(pruneAuditLog).toHaveBeenCalledWith(365);
     expect(logger.warn).not.toHaveBeenCalled();
-    expect(logger.log).not.toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
   });
 
   it('logs a count message when the first prune deletes rows', () => {
@@ -27,7 +27,7 @@ describe('createAuditLogPruner', () => {
     const logger = makeLogger();
     const runPrune = createAuditLogPruner(pruneAuditLog, { days: 365, logger });
     runPrune();
-    expect(logger.log).toHaveBeenCalledWith('Pruned 42 audit log entries older than 365 days');
+    expect(logger.info).toHaveBeenCalledWith('Pruned 42 audit log entries older than 365 days');
     expect(logger.warn).not.toHaveBeenCalled();
   });
 

@@ -880,7 +880,7 @@ function createAuditLogPruner(pruneFn, { days, logger = console } = {}) {
     try {
       const pruned = pruneFn(days);
       if (pruned > 0) {
-        logger.log(`Pruned ${pruned} audit log entries older than ${days} days`);
+        logger.info(`Pruned ${pruned} audit log entries older than ${days} days`);
       }
     } catch (err) {
       logger.error('Audit log pruning error:', (err && err.message) || String(err));
