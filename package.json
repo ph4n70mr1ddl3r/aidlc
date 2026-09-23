@@ -59,7 +59,8 @@
   "type": "commonjs",
   "jest": {
     "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
+      "<rootDir>/jest.setup.js",
+      "<rootDir>/tests/jest.setup.js"
     ],
     "testEnvironment": "node",
     "coveragePathIgnorePatterns": [
@@ -74,9 +75,7 @@
         "lines": 60
       }
     },
-    "setupFiles": [
-      "<rootDir>/tests/jest.setup.js"
-    ]
+    "setupFiles": []
   },
   "bugs": {
     "url": "https://github.com/ph4n70mr1ddl3r/aidlc/issues"
