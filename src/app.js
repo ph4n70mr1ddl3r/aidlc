@@ -203,7 +203,7 @@ app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // after method-override so any overridden request still requires a valid CSRF
 // token. Array values from HTTP parameter pollution are rejected (not a
 // string → no override), failing closed to the POST route. The overridden
-// value is validated against _OVERRIDE_METHODS (PUT/DELETE/PATCH) so an exotic
+// value is validated against _OVERRIDE_METHODS (PUT/DELETE) so an exotic
 // `_method` (TRACE/TRACK/CONNECT/…) cannot bypass the disallowed-methods
 // guard above or downgrade a POST to a CSRF-exempt GET.
 app.use(methodOverride((req) => {
