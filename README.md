@@ -199,7 +199,7 @@ npm run lint         # Lint with ESLint
 npm run lint:fix     # Lint and auto-fix
 npm test             # Run the Jest test suite
 npm run test:watch   # Run tests in watch mode
-npm run test:coverage # Run tests with coverage report
+npm run test:coverage  # Run tests with coverage report
 ```
 
 ## License
