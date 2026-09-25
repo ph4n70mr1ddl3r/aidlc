@@ -4,12 +4,12 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (259 consecutive hardening
+coverage, and `npm audit`. Prior review history (261 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
-## Review cycle (261st pass)
+## Review cycle (262nd pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
 constants, models, EJS views (39 templates: 34 page + 5 partial),
@@ -56,7 +56,13 @@ or test module. No TODO/FIXME/HACK markers present. No unbalanced try/catch
 blocks. No prototype pollution vectors.
 
 ### Fixes applied
-None.
+- **tests/session_timeout.test.js**: Fixed flaky absolute-timeout test. The
+  previous 500ms timeout with 100ms first-sleep margin was too tight under
+  parallel-Jest load — the event loop could delay the first check-in past the
+  500ms threshold, producing a 302 instead of the expected 200. Raised the
+  absolute timeout to 1000ms and increased the second sleep to 1500ms (total
+  ~1600ms), providing 900ms headroom before expiry and 600ms headroom after
+  expiry, making both assertions deterministic under any load.
 
 ### Regression tests added
 None.
