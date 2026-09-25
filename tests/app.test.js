@@ -87,6 +87,8 @@ jest.mock('../src/utils', () => ({
   CHANGE_PRIORITY_BADGE: {},
   KB_STATUS_BADGE: {},
   VENDOR_CATEGORY_BADGE: {},
+  ACTION_BADGE: {},
+  IS_ACTIVE_BADGE: {},
   pruneAuditLog: jest.fn(() => 0),
   // PRUNE_AUDIT_DAYS is unset in these tests, so the app wires up a no-op
   // pruner; the real createAuditLogPruner behavior is covered in

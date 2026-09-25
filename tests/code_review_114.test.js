@@ -345,6 +345,8 @@ describe('tickets form — requester PII fields gated for non-privileged editors
       CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
       KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
       VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
+      ACTION_BADGE: constants.ACTION_BADGE,
+      IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
       CONSTANTS: constants,
       ticket, staff: [], assets: [], isEdit
     };
@@ -420,6 +422,8 @@ describe('licenses index — expired licenses highlighted like expiring-soon one
       CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
       KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
       VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
+      ACTION_BADGE: constants.ACTION_BADGE,
+      IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
       CONSTANTS: constants,
       licenses: [{ id: 1, software_name: 'S', vendor: 'V', license_type: 'subscription', total_seats: 10, used_seats: 1, expiry_date, cost: 1 }],
       filters: {}, page: 1, limit: 25, totalPages: 1, total: 1, baseUrl: '/licenses'

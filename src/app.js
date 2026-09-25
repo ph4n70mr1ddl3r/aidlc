@@ -34,7 +34,7 @@ const changesRoutes = require('./routes/changes');
 const licensesRoutes = require('./routes/licenses');
 const reportsRoutes = require('./routes/reports');
 const auditRoutes = require('./routes/audit');
-const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE, KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE, TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE, ASSET_STATUS_BADGE, PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE, TASK_DEADLINE_BADGE, WARRANTY_DEADLINE_BADGE, CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE, KB_STATUS_BADGE, VENDOR_CATEGORY_BADGE, ACTION_BADGE } = constantsModule;
+const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE, KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE, TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE, ASSET_STATUS_BADGE, PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE, TASK_DEADLINE_BADGE, WARRANTY_DEADLINE_BADGE, CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE, KB_STATUS_BADGE, VENDOR_CATEGORY_BADGE, ACTION_BADGE, IS_ACTIVE_BADGE } = constantsModule;
 const { stopLoginFailureCleanup } = authRoutes;
 const { destroySessionAndRedirect } = authMiddleware;
 
@@ -509,7 +509,8 @@ const TEMPLATE_CONSTANTS = Object.freeze({
   CHANGE_PRIORITY_BADGE: constantsModule.CHANGE_PRIORITY_BADGE,
   KB_STATUS_BADGE: constantsModule.KB_STATUS_BADGE,
   VENDOR_CATEGORY_BADGE: constantsModule.VENDOR_CATEGORY_BADGE,
-  ACTION_BADGE: constantsModule.ACTION_BADGE
+  ACTION_BADGE: constantsModule.ACTION_BADGE,
+  IS_ACTIVE_BADGE: constantsModule.IS_ACTIVE_BADGE
 });
 
 app.use((req, res, next) => {
@@ -554,6 +555,7 @@ app.use((req, res, next) => {
   res.locals.KB_STATUS_BADGE = KB_STATUS_BADGE;
   res.locals.VENDOR_CATEGORY_BADGE = VENDOR_CATEGORY_BADGE;
   res.locals.ACTION_BADGE = ACTION_BADGE;
+  res.locals.IS_ACTIVE_BADGE = IS_ACTIVE_BADGE;
   res.locals.TASK_DEADLINE_BADGE = TASK_DEADLINE_BADGE;
   res.locals.WARRANTY_DEADLINE_BADGE = WARRANTY_DEADLINE_BADGE;
   // Reuse the hoisted CONSTANTS object shared across all requests.
@@ -707,7 +709,7 @@ app.use((err, req, res, _next) => {
         }
       }
     } catch { /* invalid URL, ignore */ }
-    return res.redirect('/');
+    return res.redirect('/login');
   }
 
   const errMsg = (err && err.message) || String(err);

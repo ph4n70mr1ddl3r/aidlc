@@ -54,6 +54,8 @@ function baseLocals() {
     CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
     KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
     VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
+    ACTION_BADGE: constants.ACTION_BADGE,
+    IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
     CONSTANTS: constants
   };
 }
@@ -127,10 +129,10 @@ describe('code review 163: consistency/completeness/correctness', () => {
     });
   });
 
-  describe('audit/index.ejs title single-escape', () => {
-    it('uses <%- with escapeHtml (no double-escape) and renders safely', () => {
+  describe('audit/index.ejs title attribute', () => {
+    it('uses auto-escaped <%= with no manual escapeHtml', () => {
       const src = fs.readFileSync(path.join(__dirname, '..', 'views', 'pages', 'audit', 'index.ejs'), 'utf8');
-      expect(src).toContain("title=\"<%- escapeHtml(e.details || '') %>\"");
+      expect(src).toContain("title=\"<%= e.details || '' %>\"");
       const html = render('audit/index.ejs', {
         ...baseLocals(),
         entries: [{

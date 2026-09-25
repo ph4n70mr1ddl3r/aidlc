@@ -437,6 +437,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // Allow empty status to preserve the existing value inside the transaction.
   // A present-but-invalid status is rejected; an absent field means "keep what's stored."
   const statusProvided = !!status;
+  const priorityProvided = !!priority;
   if (statusProvided && !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid Status');
     return res.redirect(`/projects/${id}/edit`);
@@ -492,7 +493,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('NOT_FOUND');
       }
       const effectiveStatus = statusProvided ? status : existingProject.status;
-      const effectivePriority = priority || existingProject.priority;
+      const effectivePriority = priorityProvided ? priority : existingProject.priority;
 
       // Resolve the owner against the transaction-consistent re-fetch using the
       // same absent-vs-empty convention as the dates on this route: an ABSENT

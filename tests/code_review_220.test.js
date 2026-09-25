@@ -26,7 +26,7 @@ describe('code review 220 — hardening plateau verification', () => {
     ['CHANGE_STATUS_BADGE', 'CHANGE_STATUSES'],
     ['CHANGE_PRIORITY_BADGE', 'CHANGE_PRIORITIES'],
     ['KB_STATUS_BADGE', 'KB_STATUSES'],
-    ['VENDOR_CATEGORY_BADGE', 'VENDOR_CATEGORIES']
+    ['VENDOR_CATEGORY_BADGE', 'VENDOR_CATEGORIES', 'IS_ACTIVE_BADGE']
   ]);
 
   for (const [badgeKey, enumKey] of badgeEnumPairs) {

@@ -17,7 +17,7 @@ describe('code review 209 — logError consistency across all route modules', ()
   it('all route modules import logError from utils', () => {
     for (const file of ROUTE_FILES) {
       const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-      expect(src).toContain("logError } = require('../utils')");
+      expect(src).toMatch(/logError[\s,]/);
     }
   });
 

@@ -32,8 +32,7 @@
     <span style="font-weight:600;margin-right:8px;">Quick Status:</span>
     <% CONSTANTS.TICKET_STATUSES.forEach(s => { %>
       <% if (s !== ticket.status) { %>
-        <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"
-              data-confirm="<%= ['resolved','closed'].includes(s) ? 'Mark this ticket as ' + s + '?' : '' %>" aria-label="Set status to <%= titleCase(s) %>">
+        <form action="/tickets/<%= ticket.id %>/status?_method=PUT" method="POST" style="display:inline;"<% if (['resolved','closed'].includes(s)) { %> data-confirm="Mark this ticket as <%= s %>?"<% } %> aria-label="Set status to <%= titleCase(s) %>">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="status" value="<%= s %>">
           <button type="submit" class="btn btn-sm btn-outline"><%= titleCase(s) %></button>

@@ -76,6 +76,8 @@ jest.mock('../src/utils', () => ({
   CHANGE_PRIORITY_BADGE: {},
   KB_STATUS_BADGE: {},
   VENDOR_CATEGORY_BADGE: {},
+  ACTION_BADGE: {},
+  IS_ACTIVE_BADGE: {},
   pruneAuditLog: jest.fn(() => 0),
   createAuditLogPruner: jest.fn(() => () => {}),
   prefersJson: jest.fn((req) => Boolean(req && typeof req.accepts === 'function') && req.accepts(['json', 'html']) === 'json')

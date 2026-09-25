@@ -4,8 +4,100 @@
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils, constants.
 **Method:** Manual line-by-line review of all source files plus ESLint, Jest
-coverage, and `npm audit`. Prior review history (263 consecutive hardening
+coverage, and `npm audit`. Prior review history (264 consecutive hardening
 commits) was cross-checked to confirm findings were not already addressed.
+
+---
+
+## Review cycle (265th pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string; the dev error handler at `app.js:676` intentionally
+logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
+form-processing routes carry `rejectHppArrays` guards, badge rendering across
+all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
+documented deviation in `reports/assets.ejs` for a 3-tier computed warranty
+urgency that the 2-key `WARRANTY_DEADLINE_BADGE` mapping cannot express), all
+nullable enum values passed to `titleCase()` in templates carry the established
+`|| 'default'` guard (or a ternary sentinel), all write routes audit their
+operations and invalidate the dashboard cache, and all async routes are wrapped
+in asyncHandler. Automated cross-references verified: every badge mapping in
+`constants.js` covers all its corresponding enum exactly (20 mappings checked,
+zero missing/extra keys), every template `badgeClass()` call references an
+existing mapping key (all resolved), `ALLOWED_ACTIONS` exactly matches the union
+of all emitted audit actions across the codebase (13 emitted actions, zero gaps),
+and `ALLOWED_ENTITY_TYPES` exactly matches all entity values used in audit calls
+(13 emitted entities, zero gaps). All 14 route/middleware modules export
+`resetCachedStatements` as required by the API-contract test. Cross-cutting
+consistency checks confirmed: all EJS templates have balanced tag pairs (zero
+mismatches; the `nav.ejs` partial opens `<div class="main-content">` and every
+page that includes it also includes `nav-close.ejs` which closes it, while
+login/404/error pages omit both and use self-contained div structures), all
+POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
+overrides), all redirect targets are same-origin pathnames (no open-redirect
+vectors — every `res.redirect()` uses either a hardcoded same-origin path or
+`safeld()`-validated numeric IDs interpolated into relative path strings), and
+all form action URLs are relative. Memory-leak surface bounded:
+`_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
+eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
+every 10 minutes and at capacity via stale-then-oldest eviction, KB view-
+tracking array capped at 200 entries. Session security verified: session
+regenerated on login, profile update, and password change; idle/absolute
+timeouts enforced via middleware; `secure` cookie flag correctly toggled by
+`NODE_ENV`. No `eval()`, `new Function()`, or dangerous template patterns
+(`innerHTML`, `document.write`, `javascript:` URLs) detected. All exported
+constants and utility functions are referenced in at least one route, middleware,
+or test module. No TODO/FIXME/HACK markers present (false positives: `TEMPLATE_CONSTANTS`
+substring match in app.js, `AST-XXX` format example in constants.js/assets.js).
+No unbalanced try/catch blocks. No prototype pollution vectors.
+
+### Fixes applied
+- **src/constants.js**: Added `IS_ACTIVE_BADGE` mapping (`1 → 'low'`, `0 → 'medium'`)
+  as the single source of truth for active/inactive badge severity.
+- **src/app.js**: Exported `IS_ACTIVE_BADGE` through `TEMPLATE_CONSTANTS` and
+  `res.locals` so all templates can reference it.
+- **views/partials/nav.ejs**: Guarded `csrfToken` reference with
+  `typeof csrfToken !== 'undefined' ? csrfToken : ''` to match the header.ejs
+  convention and prevent `undefined` output on edge-case error paths.
+- **views/pages/audit/index.ejs**: Replaced fragile `<%- escapeHtml(...)>` in the
+  `title` attribute with `<%= ... %>` auto-escaping, eliminating a potential
+  `ReferenceError` if `escapeHtml` were ever unavailable as an EJS local.
+- **views/pages/staff/index.ejs**: Replaced hardcoded `badge-<%= s.is_active ? 'low' : 'critical' %>`
+  with `badgeClass(s.is_active, IS_ACTIVE_BADGE)`. Also fixed invalid HTML5:
+  replaced `<div>` inside `<a>` with `<span>` to maintain inline context.
+- **views/pages/vendors/index.ejs**: Replaced hardcoded badge with `badgeClass(v.is_active, IS_ACTIVE_BADGE)`.
+- **views/pages/vendors/show.ejs**: Replaced hardcoded badge with `badgeClass(vendor.is_active, IS_ACTIVE_BADGE)`.
+- **views/pages/vendors/form.ejs**: Replaced hardcoded badge with `badgeClass(vendor.is_active, IS_ACTIVE_BADGE)`.
+- **views/pages/staff/show.ejs**: Replaced hardcoded badge with `badgeClass(staffUser.is_active, IS_ACTIVE_BADGE)`.
+- **views/pages/tickets/show.ejs**: Replaced empty `data-confirm=""` attribute
+  emission with a conditional so the attribute is omitted entirely when no
+  confirmation message is needed.
+- **src/app.js**: Changed CSRF error fallback redirect from `'/'` to `'/login'`
+  for consistency with other auth-failure redirects.
+- **src/routes/dashboard.js**: Added content-negotiated 429 response — JSON
+  when `Accept: application/json`, plain text otherwise — matching the pattern
+  used by the global error handler and 404 handler.
+- **src/routes/projects.js**: Replaced truthiness fallback `priority || existing`
+  with explicit `priorityProvided ? priority : existing` to match the
+  `statusProvided` convention and prevent latent weakness if validation is
+  ever relaxed.
+
+### Regression tests added
+- **tests/code_review_163.test.js**: Updated audit title-attribute test to
+  assert the new auto-escaped `<%= e.details || '' %>` pattern.
+- **tests/code_review_209.test.js**: Relaxed `logError` import regex to allow
+  additional named imports from `../utils` (e.g. `prefersJson`).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+- Coverage: **66.33% statements / 63.20% branches / 75.39% functions / 66.33% lines** — all above 60% threshold.
 
 ---
 

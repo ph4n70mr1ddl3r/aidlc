@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { authKeyGenerator, logError } = require('../utils');
+const { authKeyGenerator, logError, prefersJson } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 // Key rate-limiting by authenticated user id (per-account, shared utils helper)
@@ -22,7 +22,11 @@ const dashboardLimiter = rateLimit({
     if (typeof req.flash === 'function') {
       req.flash('error', 'Too many dashboard requests. Please wait a moment and try again.');
     }
-    res.status(429).send('Too many dashboard requests. Please wait a moment and try again.');
+    const msg = 'Too many dashboard requests. Please wait a moment and try again.';
+    if (prefersJson(req)) {
+      return res.status(429).json({ error: msg });
+    }
+    res.status(429).send(msg);
   },
   standardHeaders: true,
   legacyHeaders: false

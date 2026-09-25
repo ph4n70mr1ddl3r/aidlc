@@ -155,6 +155,9 @@ const VENDOR_CATEGORY_BADGE = Object.freeze({ hardware: 'medium', cloud: 'medium
 // all other badge mappings so the audit index page stays consistent with the
 // rest of the application's badge-class convention.
 const ACTION_BADGE = Object.freeze({ delete: 'critical', login_failed: 'critical', login_blocked: 'critical', login_rate_limited: 'critical', access_denied: 'critical', create: 'low' });
+// Active/inactive status — active is the healthy state (low), inactive is a
+// warning (medium) since it indicates the account is disabled but not permanently removed.
+const IS_ACTIVE_BADGE = Object.freeze({ 1: 'low', 0: 'medium' });
 
 // Pagination
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
@@ -204,6 +207,7 @@ module.exports = {
   KB_STATUS_BADGE,
   VENDOR_CATEGORY_BADGE,
   ACTION_BADGE,
+  IS_ACTIVE_BADGE,
   DESC_TRUNCATION_LEN,
   PROGRESS_GREEN_THRESHOLD, PROGRESS_BLUE_THRESHOLD, PROGRESS_ORANGE_THRESHOLD,
   WORKLOAD_MULTIPLIER, WORKLOAD_RED_THRESHOLD, WORKLOAD_ORANGE_THRESHOLD,

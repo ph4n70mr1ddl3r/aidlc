@@ -38,6 +38,8 @@ function baseLocals() {
     CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
     KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
     VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
+    ACTION_BADGE: constants.ACTION_BADGE,
+    IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
     CONSTANTS: constants
   };
 }
