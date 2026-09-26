@@ -154,7 +154,7 @@ const VENDOR_CATEGORY_BADGE = Object.freeze({ hardware: 'medium', cloud: 'medium
 // is medium by default. Mirrors the same deliberate severity model used by
 // all other badge mappings so the audit index page stays consistent with the
 // rest of the application's badge-class convention.
-const ACTION_BADGE = Object.freeze({ delete: 'critical', login_failed: 'critical', login_blocked: 'critical', login_rate_limited: 'critical', access_denied: 'critical', create: 'low' });
+const ACTION_BADGE = Object.freeze({ delete: 'critical', login_failed: 'critical', login_blocked: 'critical', login_rate_limited: 'critical', access_denied: 'critical', create: 'low', update: 'medium', read: 'medium', login: 'medium', logout: 'medium', deactivate: 'medium', reactivate: 'medium', comment: 'medium' });
 // Active/inactive status — active is the healthy state (low), inactive is a
 // warning (medium) since it indicates the account is disabled but not permanently removed.
 const IS_ACTIVE_BADGE = Object.freeze({ 1: 'low', 0: 'medium' });
