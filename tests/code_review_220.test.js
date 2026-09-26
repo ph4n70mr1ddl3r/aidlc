@@ -26,7 +26,7 @@ describe('code review 220 — hardening plateau verification', () => {
     ['CHANGE_STATUS_BADGE', 'CHANGE_STATUSES'],
     ['CHANGE_PRIORITY_BADGE', 'CHANGE_PRIORITIES'],
     ['KB_STATUS_BADGE', 'KB_STATUSES'],
-    ['VENDOR_CATEGORY_BADGE', 'VENDOR_CATEGORIES', 'IS_ACTIVE_BADGE']
+    ['VENDOR_CATEGORY_BADGE', 'VENDOR_CATEGORIES']
   ]);
 
   for (const [badgeKey, enumKey] of badgeEnumPairs) {
@@ -48,6 +48,18 @@ describe('code review 220 — hardening plateau verification', () => {
       }
     });
   }
+
+  // IS_ACTIVE_BADGE uses numeric keys (0/1) rather than string enum values,
+  // so it cannot be checked with the same badgeEnumPairs loop above. Verify
+  // it explicitly so the guarantee is testable, not just asserted by hand.
+  it('IS_ACTIVE_BADGE covers exactly the two is_active values (0 and 1)', () => {
+    const badge = constants.IS_ACTIVE_BADGE;
+    const keys = Object.keys(badge);
+    expect(keys).toEqual(expect.arrayContaining(['0', '1']));
+    expect(keys.length).toBe(2);
+    expect(badge[0]).toBe('medium');
+    expect(badge[1]).toBe('low');
+  });
 
   // ---------------------------------------------------------------------------
   // 2. Template badgeClass() calls: every reference in EJS templates resolves
