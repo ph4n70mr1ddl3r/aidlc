@@ -1,11 +1,11 @@
 const { describe, it, expect } = require('@jest/globals');
 
-// Regression test: every module in src/routes/ and src/middleware/ must export
-// resetCachedStatements so tests can isolate state between suites. Forgetting
-// the export causes cached prepared statements from one test to leak into the
-// next, producing flaky failures that are hard to diagnose. This test acts as
-// an API-contract guard — if a new module is added without the export, the
-// suite fails immediately rather than at runtime in an unrelated test.
+// Regression test: every module in src/routes/, src/middleware/, and src/utils
+// must export resetCachedStatements so tests can isolate state between suites.
+// Forgetting the export causes cached prepared statements from one test to leak
+// into the next, producing flaky failures that are hard to diagnose. This test
+// acts as an API-contract guard — if a new module is added without the export,
+// the suite fails immediately rather than at runtime in an unrelated test.
 describe('resetCachedStatements API contract', () => {
   const modules = [
     'src/middleware/audit',
@@ -21,7 +21,8 @@ describe('resetCachedStatements API contract', () => {
     'src/routes/reports',
     'src/routes/staff',
     'src/routes/tickets',
-    'src/routes/vendors'
+    'src/routes/vendors',
+    'src/utils'
   ];
 
   for (const modPath of modules) {
