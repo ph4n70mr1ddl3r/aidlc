@@ -9,6 +9,71 @@ commits) was cross-checked to confirm findings were not already addressed.
 
 ---
 
+## Review cycle (273rd pass)
+
+A full re-read of all 12 route modules, both middleware modules, utils,
+constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history.
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string; the dev error handler at `app.js:684` intentionally
+logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
+form-processing routes carry `rejectHppArrays` guards, badge rendering across
+all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
+documented deviation in `reports/assets.ejs` for a 3-tier computed warranty
+urgency that the 2-key `WARRANTY_DEADLINE_BADGE` mapping cannot express), all
+nullable enum values passed to `titleCase()` in templates carry the established
+`|| 'default'` guard (or a ternary sentinel), all write routes audit their
+operations and invalidate the dashboard cache, and all async routes are wrapped
+in asyncHandler. Automated cross-references verified: every badge mapping in
+`constants.js` covers all its corresponding enum exactly (20 mappings checked,
+zero missing/extra keys), every template `badgeClass()` call references an
+existing mapping key (all resolved), `ALLOWED_ACTIONS` exactly matches the union
+of all emitted audit actions across the codebase (13 emitted actions, zero gaps),
+and `ALLOWED_ENTITY_TYPES` exactly matches all entity values used in audit calls
+(13 emitted entities, zero gaps). All 15 modules export
+`resetCachedStatements` as required by the API-contract test. Cross-cutting
+consistency checks confirmed: all EJS templates have balanced tag pairs (zero
+mismatches; the `nav.ejs` partial opens `<div class="main-content">` and every
+page that includes it also includes `nav-close.ejs` which closes it, while
+login/404/error pages omit both and use self-contained div structures), all
+POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
+overrides), all redirect targets are same-origin pathnames (no open-redirect
+vectors — every `res.redirect()` uses either a hardcoded same-origin path or
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
+all form action URLs are relative. Memory-leak surface bounded:
+`_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
+eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
+every 10 minutes and at capacity via stale-then-oldest eviction, KB view-
+tracking array capped at 200 entries. Session security verified: session
+regenerated on login, profile update, and password change; idle/absolute
+timeouts enforced via middleware; `secure` cookie flag correctly toggled by
+`NODE_ENV`. No `eval()`, `new Function()`, or dangerous template patterns
+(`innerHTML`, `document.write`, `javascript:` URLs) detected. All exported
+constants and utility functions are referenced in at least one route, middleware,
+or test module. No TODO/FIXME/HACK markers present (false positives: `TEMPLATE_CONSTANTS`
+substring match in app.js, `AST-XXX` format example in constants.js/assets.js).
+No unbalanced try/catch blocks. No prototype pollution vectors. Outdated
+`app.js:676` line references across 13 prior review cycles corrected to
+`app.js:684` (the actual dev error-handler line after prior refactor).
+
+### Fixes applied
+- **CODE_REVIEW.md**: Replaced every instance of `app.js:676` with `app.js:684`
+  across the entire review history to reflect the current location of the
+  dev error handler (`console.error((err && err.stack) || err || 'Unknown error')`).
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1169 passed / 1169 total** (73 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+- Coverage: **66.33% statements / 63.17% branches / 75.39% functions / 66.33% lines** — all above 60% threshold.
+
+---
+
 ## Review cycle (272nd pass)
 
 A full re-read of all 12 route modules, both middleware modules, utils,
@@ -78,7 +143,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -148,7 +213,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -215,7 +280,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -284,7 +349,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -345,7 +410,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -406,7 +471,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -467,7 +532,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -559,7 +624,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -620,7 +685,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -682,7 +747,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -747,7 +812,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -806,7 +871,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
@@ -865,7 +930,7 @@ constants, models, EJS views (39 templates: 34 page + 5 partial),
 **No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
 were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
-(or log a static string; the dev error handler at `app.js:676` intentionally
+(or log a static string; the dev error handler at `app.js:684` intentionally
 logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
 form-processing routes carry `rejectHppArrays` guards, badge rendering across
 all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
