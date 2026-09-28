@@ -228,7 +228,7 @@ router.get('/new', (req, res) => {
 // Create ticket
 router.post('/', ticketWriteLimiter, (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads.
-  const hppErrors = rejectHppArrays(req, ['title', 'description', 'category', 'priority', 'assigned_to', 'asset_id', 'due_date', 'requester_name', 'requester_email', 'requester_department', 'requester_phone']);
+  const hppErrors = rejectHppArrays(req, ['title', 'description', 'category', 'priority', 'status', 'assigned_to', 'asset_id', 'due_date', 'requester_name', 'requester_email', 'requester_department', 'requester_phone']);
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/tickets/new');
