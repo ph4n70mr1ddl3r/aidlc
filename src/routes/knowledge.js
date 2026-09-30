@@ -257,8 +257,14 @@ function sanitizeKnowledgeInput(title, content, tags) {
     // value sitting exactly at the limit grow past it once sanitizeHtml escapes
     // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
     safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
-    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).substring(0, MAX_MEDIUM_STR);
-    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).substring(0, MAX_CONTENT);
+    // Trim whitespace from title and content AFTER sanitization (not before)
+    // so that a title consisting solely of HTML tags (e.g. "<b></b>") is first
+    // stripped to "" by sanitize-html, then safely trimmed. A title of only
+    // whitespace characters (e.g. "   ") would otherwise survive sanitization
+    // intact and pass the !safeTitle guard below, storing whitespace-only
+    // titles that render as blank in templates.
+    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).trim().substring(0, MAX_MEDIUM_STR);
+    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).trim().substring(0, MAX_CONTENT);
     // Normalize empty tags to null (the column is nullable and a NULL is
     // cleaner than a stored '' — searches and template rendering treat them
     // identically, so this only affects what is written to the DB).

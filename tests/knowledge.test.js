@@ -372,4 +372,16 @@ describe('sanitizeKnowledgeInput', () => {
     expect(result.safeContent).toBe('');
     expect(result.safeTags).toBeNull();
   });
+
+  it('trims leading/trailing whitespace from title and content', () => {
+    // Whitespace-only input must be rejected at the helper level so a title
+    // of only spaces/tabs/newlines cannot be stored and render as blank in
+    // the page title / breadcrumb. The route-level !safeTitle guard catches
+    // the empty-string result produced by trim().
+    const whitespaceResult = sanitizeKnowledgeInput('   \t\n', 'content', 'tags');
+    expect(whitespaceResult.safeTitle).toBe('');
+    const contentTrimResult = sanitizeKnowledgeInput('  title  ', '  content  ', 'tags');
+    expect(contentTrimResult.safeTitle).toBe('title');
+    expect(contentTrimResult.safeContent).toBe('content');
+  });
 });
