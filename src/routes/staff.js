@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
-const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
+const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS, ASSIGNED_ITEMS_CAP, MEMBER_LIST_CAP } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -17,7 +17,7 @@ const _assignedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE assigned_to = ?
     ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC
-    LIMIT 10
+    LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 const _assignedTasksStmt = db.prepare(`
     SELECT pt.id, pt.title, pt.due_date, p.name as project_name, p.id as project_id, p.owner_id
@@ -25,7 +25,7 @@ const _assignedTasksStmt = db.prepare(`
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
     ORDER BY pt.due_date ASC
-    LIMIT 10
+    LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 // Cap the result set — a user could be assigned many assets (unlike the
 // status-filtered ticket/task queries above), and this summary view must not
@@ -44,7 +44,7 @@ const _projectMembershipsStmt = db.prepare(`
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
     ORDER BY p.updated_at DESC
-    LIMIT 100
+    LIMIT ${MEMBER_LIST_CAP}
   `);
 const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');

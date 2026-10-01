@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator, logError } = require('../utils');
-const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX } = require('../constants');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -33,7 +33,7 @@ const _showStmt = db.prepare(`
   `);
 const _relatedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, assigned_to, created_at
-    FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT 10
+    FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 const _editStmt = db.prepare('SELECT id, asset_tag, name, category, manufacturer, model, serial_number, status, condition_rating, purchase_date, purchase_price, warranty_expiry, assigned_to, location, notes FROM assets WHERE id = ?');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL, updated_at = datetime(\'now\') WHERE asset_id = ?');

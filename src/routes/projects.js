@@ -8,7 +8,8 @@ const {
   TASK_STATUSES: VALID_TASK_STATUSES,
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
   MEMBER_ROLES: VALID_MEMBER_ROLES,
-  MAX_MEDIUM_STR, MAX_DESC
+  MAX_MEDIUM_STR, MAX_DESC,
+  TASK_LIST_CAP, MEMBER_LIST_CAP
 } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -38,7 +39,6 @@ const _showProjectStmt = db.prepare(`
 // Cap the task list on the show page to bound memory/render cost on large
 // projects — every other list/sidebar query in the app is capped (e.g.
 // tickets _assignedTicketsStmt LIMIT 10, assets _assetDropdownLimit).
-const _TASK_SHOW_LIMIT = 200;
 const _showTasksStmt = db.prepare(`
     SELECT pt.id, pt.title, pt.status, pt.priority, pt.due_date,
       u.first_name || ' ' || u.last_name as assigned_name
@@ -46,7 +46,7 @@ const _showTasksStmt = db.prepare(`
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
     ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
-    LIMIT ${_TASK_SHOW_LIMIT}
+    LIMIT ${TASK_LIST_CAP}
   `);
 const _showMembersStmt = db.prepare(`
     SELECT pm.id, pm.role, u.first_name || ' ' || u.last_name as member_name
@@ -54,7 +54,7 @@ const _showMembersStmt = db.prepare(`
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
     ORDER BY pm.id ASC
-    LIMIT 100
+    LIMIT ${MEMBER_LIST_CAP}
   `);
 // Loads the full set of columns the update transaction preserves on partial
 // submissions (budget/spent plus status/priority/dates/owner/description).
