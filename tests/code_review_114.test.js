@@ -462,7 +462,7 @@ describe('error page — displays the real status code instead of a hardcoded 50
     const file = path.join(__dirname, '..', 'views', 'pages', 'error.ejs');
     // The header partial requires csrfToken; in the app it is provided by the
     // global res.locals middleware that runs before the error handler.
-    return ejs.render(fs.readFileSync(file, 'utf8'), { csrfToken: 't', ...locals }, { filename: file });
+    return ejs.render(fs.readFileSync(file, 'utf8'), { csrfToken: 't', escapeHtml: require('../src/utils').escapeHtml, ...locals }, { filename: file });
   }
 
   it('shows 413 / Request Error for a 4xx status', () => {

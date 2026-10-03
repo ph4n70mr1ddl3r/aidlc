@@ -1737,7 +1737,49 @@ No unbalanced try/catch blocks. No prototype pollution vectors.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1169 passed / 1169 total** (73 suites, +1 net).
+- `npm test` — **1167 passed / 1167 total** (73 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-03 (298th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views, `public/js/app.js`, and the test
+suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string), all form-processing routes carry `rejectHppArrays`
+guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
+enum-specific fallbacks (with one documented deviation in `reports/assets.ejs`
+for a 3-tier computed warranty urgency that the 2-key `WARRANTY_DEADLINE_BADGE`
+mapping cannot express), all nullable enum values passed to `titleCase()` in
+templates carry the established `|| 'default'` guard, all write routes audit
+their operations and invalidate the dashboard cache, and all async routes are
+wrapped in asyncHandler. One LOW completeness defect closed: `views/pages/error.ejs`
+rendered `error.message` via unescaped `<%= ... %>` interpolation, which was the
+only template site not using `escapeHtml()` on a user-path-adjacent value — the
+app's error handler derives the message from `(err && err.message) || String(err)`
+and the production path always renders the static string "Something went wrong.",
+so the practical risk is low, but the template should still follow the same
+escape-everything convention as every other EJS site. A corresponding regression
+test was added to pin the escaped-output invariant.
+
+### Fixes applied
+- `views/pages/error.ejs:7` — added `escapeHtml()` around `error.message` so the
+  error-page template is consistent with the app-wide `<%= ... %>` escaping
+  convention and cannot leak HTML if a future caller passes a crafted message.
+- `tests/code_review_114.test.js` — `renderError` helper now passes
+  `escapeHtml` as a local so the regression test renders against the same
+  context the real app provides via the global `res.locals` middleware.
+
+### Regression tests added
+- **`tests/code_review_298.test.js` — 1 regression test (+1 test):**
+  1. Source-code pin: asserts that `views/pages/error.ejs` contains
+     `escapeHtml(error.message)` (not a bare `<%= error.message %>`) so a
+     future refactor cannot silently reintroduce the unescaped interpolation.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1171 passed / 1171 total** (74 suites, +1 regression test).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 - Coverage: **66.33% statements / 63.20% branches / 75.39% functions / 66.33% lines** — all above 60% threshold.
 
