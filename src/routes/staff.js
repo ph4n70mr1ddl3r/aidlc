@@ -27,14 +27,12 @@ const _assignedTasksStmt = db.prepare(`
     ORDER BY pt.due_date ASC
     LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
-// Cap the result set — a user could be assigned many assets (unlike the
-// status-filtered ticket/task queries above), and this summary view must not
-// load/render an unbounded number of rows. Mirrors the LIMIT on the sibling
-// _assignedTicketsStmt / _assignedTasksStmt queries.
+// Cap the result set like every sibling sidebar query in this module — a user
+// who is a member of many projects must not render an unbounded list.
 const _assignedAssetsStmt = db.prepare(`
     SELECT id, asset_tag, name, category, status
     FROM assets WHERE assigned_to = ?
-    LIMIT 50
+    LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 // Cap the result set like every sibling sidebar query in this module — a user
 // who is a member of many projects must not render an unbounded list.
