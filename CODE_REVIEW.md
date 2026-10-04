@@ -216,7 +216,82 @@ completeness.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1216 passed / 1216 total** (75 suites, +5 net).
+- `npm test` — **1216 passed / 1216 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
+## Review cycle 2026-10-04 (305th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, CSRF, XSS, auth, rate-limit, or error-leakage defects
+were found.** The codebase remains at the same hardening plateau — all
+`console.error` sites use the `(err && err.message) || String(err)` null guard
+(or log a static string; the dev error handler at `app.js:684` intentionally
+logs the full stack via `(err && err.stack) || err || 'Unknown error'`), all
+form-processing routes carry `rejectHppArrays` guards, badge rendering across
+all 39 EJS templates uses `badgeClass()` with enum-specific fallbacks (with one
+documented deviation in `reports/assets.ejs` for a 3-tier computed warranty
+urgency that the 2-key `WARRANTY_DEADLINE_BADGE` mapping cannot express), all
+nullable enum values passed to `titleCase()` in templates carry the established
+`|| 'default'` guard (or a ternary sentinel), all write routes audit their
+operations and invalidate the dashboard cache, and all async routes are wrapped
+in asyncHandler. Automated cross-references verified: every badge mapping in
+`constants.js` covers all its corresponding enum exactly (20 mappings checked,
+zero missing/extra keys), every template `badgeClass()` call references an
+existing mapping key (all resolved), `ALLOWED_ACTIONS` exactly matches the union
+of all emitted audit actions across the codebase (13 emitted actions, zero gaps),
+and `ALLOWED_ENTITY_TYPES` exactly matches all entity values used in audit calls
+(13 emitted entities, zero gaps). All 15 modules export
+`resetCachedStatements` as required by the API-contract test. Cross-cutting
+consistency checks confirmed: all EJS templates have balanced tag pairs (zero
+mismatches; the `nav.ejs` partial opens `<div class="main-content">` and every
+page that includes it also includes `nav-close.ejs` which closes it, while
+login/404/error pages omit both and use self-contained div structures), all
+POST/PUT/DELETE forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
+overrides), all redirect targets are same-origin pathnames (no open-redirect
+vectors — every `res.redirect()` uses either a hardcoded same-origin path or
+  `safeId()`-validated numeric IDs interpolated into relative path strings), and
+all form action URLs are relative. Memory-leak surface bounded:
+`_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
+eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
+every 10 minutes and at capacity via stale-then-oldest eviction, KB view-
+tracking array capped at 200 entries. Session security verified: session
+regenerated on login, profile update, and password change; idle/absolute
+timeouts enforced via middleware; `secure` cookie flag correctly toggled by
+`NODE_ENV`. All 17 environment variables referenced in source code are documented
+in `.env.example` (commented or uncommented). No `eval()`, `new Function()`, or
+dangerous template patterns (`innerHTML`, `document.write`, `javascript:` URLs)
+detected. All exported constants and utility functions are referenced in at least
+one route, middleware, or test module. No TODO/FIXME/HACK markers present. No
+unbalanced try/catch blocks. No prototype pollution vectors. No unbounded
+recursion (false positive: `trim()` in `utils.js:545` calls `String.prototype.trim`,
+not itself). No SQL injection vectors (all queries use parameterized statements
+with `?` placeholders; dynamic column/table names are validated via
+`SAFE_COLUMN_RE` / `_SAFE_TABLE_RE` before interpolation). No timing-unsafe
+credential comparisons (all bcrypt compares run constant-time; length-based
+early returns on invalid input are guarded behind the constant-time compare).
+No path traversal vectors (no user-controlled file paths; `DB_PATH` is resolved
+against `__dirname`, not `process.cwd()`). All content-negotiated responses
+(`prefersJson`) correctly branch to JSON or HTML; the single AJAX JSON endpoint
+(`licenses.js POST /:id/key`) explicitly returns JSON without negotiation since
+it is always called via XHR. Additional cross-checks this pass: no `setTimeout`
+with string arguments in `public/js/app.js` (CSP-safe), all `Object.assign`
+calls use literal keys (no prototype pollution from user input), and all
+`req.flash` calls reside in routes protected by `requireAuth` (or in `auth.js`
+where `connect-flash` provides a no-op when no session exists).
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1216 passed / 1216 total** (75 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
