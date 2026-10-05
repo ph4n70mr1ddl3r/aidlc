@@ -5,8 +5,57 @@
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (309 consecutive hardening reviews) was
+`npm audit`. Prior review history (310 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-05 (311th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`, all
+15 core modules export `resetCachedStatements` as a non-throwing function, all
+try/catch blocks are balanced in every source file, no dangerous patterns
+(`eval`, `new Function()`, `innerHTML`, `document.write`, `javascript:` URLs)
+exist in `src/` or `views/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard, every `process.env.*` reference is documented in
+`.env.example`, and every exported constant and utility from `constants.js` and
+`utils.js` is referenced somewhere in `src/`. Consistency checks confirmed:
+fail-closed input validation is uniform across all entities, the absent-vs-empty
+partial-update convention is applied via `resolveOptionalField` on every route
+that preserves stored values on omission, per-account rate-limit keys
+(`authKeyGenerator`) are used on every authenticated limiter, session idle
+(15 min) and absolute (8 h) timeouts are enforced via middleware, CSRF uses a
+separate secret from the session, Helmet enforces strict CSP with HSTS in
+production, the Express query parser is set to `'simple'` to block prototype
+pollution via bracket syntax, TRACE/TRACK are rejected at the middleware edge,
+database WAL mode and foreign-key integrity are asserted on startup, and
+database file permissions are restricted to `0o640`. The `public/js/app.js`
+client-side code uses only CSP-compliant `data-*` attribute event delegation
+with no inline handlers, re-fetches license keys on every reveal (never caches
+them in JS memory), and masks keys on `visibilitychange` / `pagehide` to
+mitigate bfcache exposure. All GET filter forms are correctly exempt from CSRF
+(evidenced by the explicit `method="GET"` on every list-page filter form; all
+POST/PUT/DELETE forms carry CSRF hidden inputs). No new actionable defects were
+identified in this pass.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1216 passed / 1216 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
