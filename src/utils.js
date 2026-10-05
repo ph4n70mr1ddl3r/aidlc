@@ -32,9 +32,10 @@ function _derivePageSize() {
 
 /**
  * Reset the env-derived PAGE_SIZE (test use only).
- * Called by resetCachedStatements(), but also exported separately so tests
- * that change process.env.PAGE_SIZE can re-derive it without clearing all
- * cached prepared statements.
+ * Exported separately so tests that change process.env.PAGE_SIZE can
+ * re-derive it without clearing all cached prepared statements. Not called
+ * by resetCachedStatements() — PAGE_SIZE is configuration state, not DB
+ * cache state, so the two reset paths are intentionally independent.
  */
 function _resetPageSize() {
   PAGE_SIZE = _derivePageSize();
