@@ -418,9 +418,6 @@ describe('code review 299 — hardening plateau verification', () => {
     const routesDir = path.join(__dirname, '..', 'src', 'routes');
     const files = fs.readdirSync(routesDir).filter(f => f.endsWith('.js'));
     for (const file of files) {
-      if (file === 'auth.js') {
-        continue;
-      } // auth.js login route has its own HPP handling
       const content = fs.readFileSync(path.join(routesDir, file), 'utf8');
       const hasWrite = /router\.(post|put|delete)\(/.test(content);
       if (hasWrite) {

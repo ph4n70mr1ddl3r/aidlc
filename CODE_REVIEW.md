@@ -5,8 +5,77 @@
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (317 consecutive hardening reviews) was
+`npm audit`. Prior review history (318 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-06 (319th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`, all
+15 core modules export `resetCachedStatements` as a non-throwing function, all
+try/catch blocks are balanced in every source file, no dangerous patterns
+(`eval`, `new Function()`, `innerHTML`, `document.write`, `javascript:` URLs)
+exist in `src/` or `views/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard (41 write routes all verified), every `process.env.*`
+reference is documented in `.env.example` (all 17 env vars match exactly), and
+every exported constant and utility from `constants.js` and `utils.js` is
+referenced somewhere in `src/` or `tests/`. Additional checks this pass: all 5
+async route handlers (`auth/login`, `auth/profile`, `auth/profile/password`,
+`staff/create`, `staff/reset-password`) are wrapped in `asyncHandler`, all
+write routes that mutate data call `invalidateDashboardCache()` on the success
+path (verified across all 41 write routes), all authenticated rate limiters use
+`authKeyGenerator` (per-account, normalized-IP fallback), the
+`sanitize-html` CJS compatibility layer in `knowledge.js` correctly handles both
+the real package (with `defaults` / `simpleTransform`) and the test mock, the
+`marked` v15 CJS API (`marked.parse(content, opts)`) works correctly, and the
+`public/js/app.js` submitter-preservation hidden input mechanism correctly
+survives button disabling for star-rating forms. Consistency checks confirmed:
+fail-closed input validation is uniform across all entities, the absent-vs-empty
+partial-update convention is applied via `resolveOptionalField` on every route
+that preserves stored values on omission, session idle (15 min) and absolute
+(8 h) timeouts are enforced via middleware, CSRF uses a separate secret from
+the session, Helmet enforces strict CSP with HSTS in production, the Express
+query parser is set to `'simple'` to block prototype pollution via bracket
+syntax, TRACE/TRACK are rejected at the middleware edge, database WAL mode and
+foreign-key integrity are asserted on startup, and database file permissions are
+restricted to `0o640`. All show routes enforce authorization
+(`canAccessResource` for ticket/asset/project/change, `requireAdminOrManager` for
+vendor/license, role+ownership checks for staff/knowledge). No timing-unsafe
+credential comparisons (all bcrypt compares run constant-time; length-based early
+returns on invalid input are guarded behind the constant-time compare). All
+bcrypt.compare sites are verified to not have an early return that would skip the
+comparison for existing users while still comparing for non-existing ones.
+One regression gap was closed: the `code_review_299` HPP-guards test had
+incorrectly excluded `auth.js` (commenting it out with "login route has its own
+HPP handling"), but all four auth.js write routes (`POST /login`, `POST /logout`,
+`PUT /profile`, `PUT /profile/password`) carry `rejectHppArrays` guards — the
+skip masked a potential regression vector. The exclusion was removed so all 12
+route modules are now uniformly checked. No new actionable defects were identified
+in this pass.
+
+### Fixes applied
+- `tests/code_review_299.test.js:421-423` — Removed the incorrect `auth.js`
+  exclusion from the "all write routes have rejectHppArrays guards" regression
+  check. All four auth.js write routes already carry `rejectHppArrays` guards
+  (verified); the skip was a false exemption that would have masked a regression
+  if any auth.js write route lost its HPP guard.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1216 passed / 1216 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
