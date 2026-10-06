@@ -352,6 +352,16 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
 router.post('/logout', (req, res) => {
+  // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors
+  // the array-rejection guards on every other write route in the app. The
+  // logout handler does not read body fields today, so a polluted payload
+  // cannot currently affect behavior — the guard is a regression-proofing
+  // measure in case body-field processing is added in the future.
+  const hppErrors = rejectHppArrays(req, []);
+  if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/login');
+  }
   if (req.session.user) {
     audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
   } else {
