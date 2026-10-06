@@ -581,19 +581,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
   return res.redirect('/licenses');
 });
 
-/**
- * Reset module-level cached prepared statements (test use only).
- * Ensures test isolation when using mock db instances — consistent with
- * the same-named export in middleware/auth.js, audit.js, utils.js, etc.
- */
-function resetCachedStatements() {
-  // All cached statements are module-level const bindings from db.prepare(),
-  // so there is no lazy-init to null out — the cache is unused when
-  // the db mock is swapped. This function exists for API consistency
-  // across all route modules.
-}
-
 module.exports = router;
 // Exposed for unit testing (mirrors the pattern in vendors.js / changes.js).
 module.exports.resolveSeats = _resolveSeats;
-module.exports.resetCachedStatements = resetCachedStatements;
+module.exports.resetCachedStatements = () => {};
