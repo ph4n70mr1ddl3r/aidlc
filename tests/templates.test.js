@@ -1,9 +1,9 @@
 const { describe, it, expect } = require('@jest/globals');
-const ejs = require('ejs');
 const fs = require('fs');
 const path = require('path');
 const utils = require('../src/utils');
 const constants = require('../src/constants');
+const { baseLocals, render } = require('./template_helpers');
 
 // Regression test for a class of bug that has bitten this codebase before:
 // helpers used inside EJS templates must be wired into res.locals in app.js,
@@ -12,58 +12,6 @@ const constants = require('../src/constants');
 // Previously daysUntil / usagePercent / isExpiringSoon were called from
 // templates but never exposed, which crashed /licenses, /assets/:id, and
 // /projects/:id for any row with a populated date.
-
-/**
- * Reproduce the exact res.locals surface that app.js injects into every
- * rendered template. If a helper is added to a template, it must be added
- * here (and to app.js) — otherwise this suite will fail.
- */
-function baseLocals() {
-  const user = { id: 1, first_name: 'Ada', last_name: 'Lovelace', role: 'admin', email: 'ada@company.com', department: 'IT' };
-  return {
-    user,
-    flash: { success: [], error: [], info: [] },
-    currentPage: '/x',
-    csrfToken: 'test-csrf-token',
-    localDate: utils.localDate,
-    formatDate: utils.formatDate,
-    formatDateTime: utils.formatDateTime,
-    daysUntil: utils.daysUntil,
-    usagePercent: utils.usagePercent,
-    isExpiringSoon: utils.isExpiringSoon,
-    escapeHtml: utils.escapeHtml,
-    isValidEmail: utils.isValidEmail,
-    titleCase: utils.titleCase,
-    isPrivileged: utils.isPrivileged,
-    badgeClass: utils.badgeClass,
-    CONDITION_BADGE: constants.CONDITION_BADGE,
-    CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
-    ROLE_BADGE: constants.ROLE_BADGE,
-    MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
-    KB_CATEGORY_BADGE: constants.KB_CATEGORY_BADGE,
-    LICENSE_TYPE_BADGE: constants.LICENSE_TYPE_BADGE,
-    TICKET_STATUS_BADGE: constants.TICKET_STATUS_BADGE,
-    TICKET_PRIORITY_BADGE: constants.TICKET_PRIORITY_BADGE,
-    ASSET_STATUS_BADGE: constants.ASSET_STATUS_BADGE,
-    PROJECT_STATUS_BADGE: constants.PROJECT_STATUS_BADGE,
-    PROJECT_PRIORITY_BADGE: constants.PROJECT_PRIORITY_BADGE,
-    TASK_PRIORITY_BADGE: constants.TASK_PRIORITY_BADGE,
-    CHANGE_STATUS_BADGE: constants.CHANGE_STATUS_BADGE,
-    CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
-    KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
-    VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
-    ACTION_BADGE: constants.ACTION_BADGE,
-    IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
-    TASK_DEADLINE_BADGE: constants.TASK_DEADLINE_BADGE,
-    WARRANTY_DEADLINE_BADGE: constants.WARRANTY_DEADLINE_BADGE,
-    CONSTANTS: constants
-  };
-}
-
-function render(pageRel, locals) {
-  const file = path.join(__dirname, '..', 'views', 'pages', pageRel);
-  return ejs.render(fs.readFileSync(file, 'utf8'), locals, { filename: file });
-}
 
 describe('res.locals wiring guards', () => {
   it('app.js exposes every template helper used by views into res.locals', () => {
@@ -182,70 +130,79 @@ describe('templates render without ReferenceError', () => {
     // Pin the reference date so the deadlines are deterministic regardless of
     // when the test suite is run. '2026-09-15' makes the overdue date 3 days
     // in the past and the due_soon date 2 days in the future.
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
-    const html = render('projects/show.ejs', {
-      ...baseLocals(),
-      title: 'Project',
-      project: {
-        id: 1, name: 'Migration', status: 'in_progress', priority: 'high',
-        progress: 10, owner_name: 'Ada', budget: 1000, spent: 100,
-        start_date: null, end_date: null, description: ''
-      },
-      tasks: [
-        { id: 1, title: 'Overdue task', status: 'in_progress', priority: 'high', due_date: '2026-09-12', assigned_name: 'Ada' },
-        { id: 2, title: 'Due soon task', status: 'todo', priority: 'medium', due_date: '2026-09-17', assigned_name: 'Ada' },
-        { id: 3, title: 'Far-out task', status: 'todo', priority: 'low', due_date: '2027-01-01', assigned_name: 'Ada' }
-      ],
-      members: [], staff: []
-    });
-    jest.useRealTimers();
-    // overdue badge class and text
-    expect(html).toContain('badge-critical');
-    expect(html).toContain('Overdue');
-    // due_soon badge class and text
-    expect(html).toContain('badge-high');
-    expect(html).toContain('Due soon');
-    // far-out task should have no deadline badge
-    expect(html).not.toMatch(/Due soon.*Far-out/);
+    try {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+      const html = render('projects/show.ejs', {
+        ...baseLocals(),
+        title: 'Project',
+        project: {
+          id: 1, name: 'Migration', status: 'in_progress', priority: 'high',
+          progress: 10, owner_name: 'Ada', budget: 1000, spent: 100,
+          start_date: null, end_date: null, description: ''
+        },
+        tasks: [
+          { id: 1, title: 'Overdue task', status: 'in_progress', priority: 'high', due_date: '2026-09-12', assigned_name: 'Ada' },
+          { id: 2, title: 'Due soon task', status: 'todo', priority: 'medium', due_date: '2026-09-17', assigned_name: 'Ada' },
+          { id: 3, title: 'Far-out task', status: 'todo', priority: 'low', due_date: '2027-01-01', assigned_name: 'Ada' }
+        ],
+        members: [], staff: []
+      });
+      // overdue badge class and text
+      expect(html).toContain('badge-critical');
+      expect(html).toContain('Overdue');
+      // due_soon badge class and text
+      expect(html).toContain('badge-high');
+      expect(html).toContain('Due soon');
+      // far-out task should have no deadline badge
+      expect(html).not.toMatch(/Due soon.*Far-out/);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('assets/show renders expired and expiring-soon warranty badges (regression: WARRANTY_DEADLINE_BADGE must be in res.locals)', () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
-    const html = render('assets/show.ejs', {
-      ...baseLocals(),
-      title: 'Asset',
-      asset: {
-        id: 1, name: 'MacBook Pro', asset_tag: 'AST-001',
-        status: 'in_use', condition_rating: 'good', category: 'laptop',
-        warranty_expiry: '2026-09-10', purchase_date: '2020-01-01',
-        purchase_price: 1999, assigned_name: 'Ada', assigned_email: 'ada@company.com'
-      },
-      relatedTickets: []
-    });
-    jest.useRealTimers();
-    expect(html).toContain('badge-critical');
-    expect(html).toContain('Expired');
+    try {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+      const html = render('assets/show.ejs', {
+        ...baseLocals(),
+        title: 'Asset',
+        asset: {
+          id: 1, name: 'MacBook Pro', asset_tag: 'AST-001',
+          status: 'in_use', condition_rating: 'good', category: 'laptop',
+          warranty_expiry: '2026-09-10', purchase_date: '2020-01-01',
+          purchase_price: 1999, assigned_name: 'Ada', assigned_email: 'ada@company.com'
+        },
+        relatedTickets: []
+      });
+      expect(html).toContain('badge-critical');
+      expect(html).toContain('Expired');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('assets/show renders expiring-soon warranty badge within 90 days', () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
-    const html = render('assets/show.ejs', {
-      ...baseLocals(),
-      title: 'Asset',
-      asset: {
-        id: 2, name: 'Dell Monitor', asset_tag: 'AST-002',
-        status: 'in_storage', condition_rating: 'new', category: 'monitor',
-        warranty_expiry: '2026-11-01', purchase_date: '2024-01-01',
-        purchase_price: 400, assigned_name: null, assigned_email: null
-      },
-      relatedTickets: []
-    });
-    jest.useRealTimers();
-    expect(html).toContain('badge-high');
-    expect(html).toContain('days left');
+    try {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-15T00:00:00Z'));
+      const html = render('assets/show.ejs', {
+        ...baseLocals(),
+        title: 'Asset',
+        asset: {
+          id: 2, name: 'Dell Monitor', asset_tag: 'AST-002',
+          status: 'in_storage', condition_rating: 'new', category: 'monitor',
+          warranty_expiry: '2026-11-01', purchase_date: '2024-01-01',
+          purchase_price: 400, assigned_name: null, assigned_email: null
+        },
+        relatedTickets: []
+      });
+      expect(html).toContain('badge-high');
+      expect(html).toContain('days left');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('changes/form renders stored datetimes into datetime-local inputs with a T separator (regression: space format blanked the field on edit)', () => {

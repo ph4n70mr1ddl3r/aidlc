@@ -1430,18 +1430,21 @@ describe('getActiveStaff', () => {
   });
 
   it('refreshes cache after TTL expires', () => {
-    jest.useFakeTimers();
-    utils.resetCachedStatements();
-    const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
-    const stmt = { all: jest.fn(() => staff) };
-    const db = { prepare: jest.fn(() => stmt) };
-    utils.getActiveStaff(db);
-    expect(stmt.all).toHaveBeenCalledTimes(1);
-    // Advance past the 30s TTL
-    jest.advanceTimersByTime(31_000);
-    utils.getActiveStaff(db);
-    expect(stmt.all).toHaveBeenCalledTimes(2);
-    jest.useRealTimers();
+    try {
+      jest.useFakeTimers();
+      utils.resetCachedStatements();
+      const staff = [{ id: 1, first_name: 'Alice', last_name: 'Smith' }];
+      const stmt = { all: jest.fn(() => staff) };
+      const db = { prepare: jest.fn(() => stmt) };
+      utils.getActiveStaff(db);
+      expect(stmt.all).toHaveBeenCalledTimes(1);
+      // Advance past the 30s TTL
+      jest.advanceTimersByTime(31_000);
+      utils.getActiveStaff(db);
+      expect(stmt.all).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

@@ -1,9 +1,5 @@
 const { describe, it, expect } = require('@jest/globals');
-const ejs = require('ejs');
-const fs = require('fs');
-const path = require('path');
-const utils = require('../src/utils');
-const constants = require('../src/constants');
+const { baseLocals, render } = require('./template_helpers');
 
 // Regression tests for the 175th review pass. Defects closed:
 // (1) views/pages/assets/show.ejs — titleCase(asset.condition_rating) missing
@@ -15,50 +11,6 @@ const constants = require('../src/constants');
 //     vs badgeClass(license.license_type || 'perpetual', ...).
 // (4) views/pages/reports/assets.ejs — aria-label titleCase(c.condition_rating)
 //     missing || 'good' fallback matching the text span on the previous line.
-
-function baseLocals() {
-  return {
-    user: { id: 1, first_name: 'Ada', last_name: 'Lovelace', role: 'admin', email: 'ada@company.com' },
-    flash: { success: [], error: [], info: [] },
-    currentPage: '/x',
-    csrfToken: 'test-csrf-token',
-    localDate: utils.localDate,
-    formatDate: utils.formatDate,
-    formatDateTime: utils.formatDateTime,
-    daysUntil: utils.daysUntil,
-    usagePercent: utils.usagePercent,
-    isExpiringSoon: utils.isExpiringSoon,
-    escapeHtml: utils.escapeHtml,
-    isValidEmail: utils.isValidEmail,
-    titleCase: utils.titleCase,
-    isPrivileged: utils.isPrivileged,
-    badgeClass: utils.badgeClass,
-    CONDITION_BADGE: constants.CONDITION_BADGE,
-    CHANGE_TYPE_BADGE: constants.CHANGE_TYPE_BADGE,
-    ROLE_BADGE: constants.ROLE_BADGE,
-    MEMBER_ROLE_BADGE: constants.MEMBER_ROLE_BADGE,
-    KB_CATEGORY_BADGE: constants.KB_CATEGORY_BADGE,
-    LICENSE_TYPE_BADGE: constants.LICENSE_TYPE_BADGE,
-    TICKET_STATUS_BADGE: constants.TICKET_STATUS_BADGE,
-    TICKET_PRIORITY_BADGE: constants.TICKET_PRIORITY_BADGE,
-    ASSET_STATUS_BADGE: constants.ASSET_STATUS_BADGE,
-    PROJECT_STATUS_BADGE: constants.PROJECT_STATUS_BADGE,
-    PROJECT_PRIORITY_BADGE: constants.PROJECT_PRIORITY_BADGE,
-    TASK_PRIORITY_BADGE: constants.TASK_PRIORITY_BADGE,
-    CHANGE_STATUS_BADGE: constants.CHANGE_STATUS_BADGE,
-    CHANGE_PRIORITY_BADGE: constants.CHANGE_PRIORITY_BADGE,
-    KB_STATUS_BADGE: constants.KB_STATUS_BADGE,
-    VENDOR_CATEGORY_BADGE: constants.VENDOR_CATEGORY_BADGE,
-    ACTION_BADGE: constants.ACTION_BADGE,
-    IS_ACTIVE_BADGE: constants.IS_ACTIVE_BADGE,
-    CONSTANTS: constants
-  };
-}
-
-function render(pageRel, locals) {
-  const file = path.join(__dirname, '..', 'views', 'pages', pageRel);
-  return ejs.render(fs.readFileSync(file, 'utf8'), locals, { filename: file });
-}
 
 describe('code review 175: titleCase fallback consistency in show/detail templates', () => {
   describe('assets/show ejs — condition_rating titleCase has fallback', () => {

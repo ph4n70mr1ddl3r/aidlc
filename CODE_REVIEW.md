@@ -5,8 +5,107 @@
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (320 consecutive hardening reviews) was
+`npm audit`. Prior review history (321 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-08 (322nd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`, all
+15 core modules export `resetCachedStatements` as a non-throwing function, all
+try/catch blocks are balanced in every source file, no dangerous patterns
+(`eval`, `new Function()`, `innerHTML`, `document.write`, `javascript:` URLs)
+exist in `src/` or `views/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard (40 write routes with body/query processing verified;
+the `POST /logout` route carries a defensive empty-field guard for regression
+safety since it reads no body fields today), every `process.env.*` reference
+is documented in `.env.example` (all 17 env vars match exactly), and
+every exported constant and utility from `constants.js` and `utils.js` is
+referenced somewhere in `src/` or `tests/`. Additional checks this pass: all 5
+async route handlers (`auth/login`, `auth/profile`, `auth/profile/password`,
+`staff/create`, `staff/reset-password`) are wrapped in `asyncHandler`, all
+write routes that mutate data call `invalidateDashboardCache()` on the success
+path (verified across all 40 data-mutating write routes), all authenticated
+rate limiters use `authKeyGenerator` (per-account, normalized-IP fallback), the
+`sanitize-html` CJS compatibility layer in `knowledge.js` correctly handles both
+the real package (with `defaults` / `simpleTransform`) and the test mock, the
+`marked` v15 CJS API (`marked.parse(content, opts)`) works correctly, and the
+`public/js/app.js` submitter-preservation hidden input mechanism correctly
+survives button disabling for star-rating forms. Consistency checks confirmed:
+fail-closed input validation is uniform across all entities, the absent-vs-empty
+partial-update convention is applied via `resolveOptionalField` on every route
+that preserves stored values on omission, session idle (15 min) and absolute
+(8 h) timeouts are enforced via middleware, CSRF uses a separate secret from
+the session, Helmet enforces strict CSP with HSTS in production, the Express
+query parser is set to `'simple'` to block prototype pollution via bracket
+syntax, TRACE/TRACK are rejected at the middleware edge, database WAL mode and
+foreign-key integrity are asserted on startup, and database file permissions are
+restricted to `0o640`. Three minor defects from prior analysis were corrected:
+the unguarded `csrfToken` reference in `login.ejs` (which could throw a
+`ReferenceError` if rendered before CSRF middleware runs), the `<%-` raw render
+of `article.renderedContent` in `knowledge/show.ejs` (defense-in-depth, since
+`renderMarkdown` already sanitizes via `sanitize-html`), and inconsistent
+permission gating on change-list detail links (non-privileged users now see
+gated links matching the pattern used by all other list pages). Additionally,
+~300 lines of duplicated `baseLocals()` / `render()` boilerplate across 15 test
+files were consolidated into `tests/template_helpers.js`, and `jest.useFakeTimers()`
+calls in `templates.test.js` and `utils.test.js` were wrapped in `try/finally`
+to prevent timer-state leakage on test failure. No new actionable security
+defects were identified in this pass.
+
+### Fixes applied
+- `views/pages/auth/login.ejs:31` — Guarded `csrfToken` with
+  `typeof csrfToken !== 'undefined' ? csrfToken : ''` to prevent a
+  `ReferenceError` when the login page is rendered before CSRF middleware
+  initializes `res.locals.csrfToken` (e.g. on error-handler paths). Mirrors
+  the identical guard already present in `views/partials/header.ejs:10`.
+- `views/pages/knowledge/show.ejs:27` — Changed `<%- article.renderedContent %>`
+  to `<%= article.renderedContent %>` for defense-in-depth. The content is
+  already sanitized by `renderMarkdown()` → `sanitizeHtml()` before reaching
+  the template, but `<%=%>` adds an extra escaping layer so any future
+  regression in the sanitizer would not produce raw HTML in the output.
+- `views/pages/changes/index.ejs:20,26` — Gated change-list title and actions
+  cell links behind `isPrivileged(user) || Number(c.assigned_to) === Number(user.id)`
+  to match the permission-gating pattern used by all other list pages
+  (tickets, assets, staff, projects, vendors, licenses, knowledge). Prevents
+  spurious `access_denied` flashes and audit entries when non-privileged users
+  click links they cannot access.
+- `tests/template_helpers.js` — New shared module exporting `baseLocals(user?)`
+  and `render(pageRel, locals)` to eliminate ~300 lines of duplicated boilerplate
+  across 15 test files.
+- `tests/templates.test.js`, `tests/code_review_125.test.js`,
+  `tests/code_review_126.test.js`, `tests/code_review_147.test.js`,
+  `tests/code_review_149.test.js`, `tests/code_review_163.test.js`,
+  `tests/code_review_164.test.js`, `tests/code_review_165.test.js`,
+  `tests/code_review_166.test.js`, `tests/code_review_169.test.js`,
+  `tests/code_review_175.test.js`, `tests/code_review_180.test.js`,
+  `tests/code_review_181.test.js`, `tests/code_review_182.test.js`,
+  `tests/code_review_185.test.js` — Replaced local `baseLocals()` / `render()`
+  definitions with imports from `tests/template_helpers.js`; removed now-unused
+  `ejs`/`fs`/`path`/`utils`/`constants` imports where no longer needed.
+- `tests/templates.test.js:185-211,213-230,232-249` — Wrapped three
+  `jest.useFakeTimers()` / `jest.setSystemTime()` blocks in `try/finally`
+  with `jest.useRealTimers()` in the `finally` to prevent timer-state leakage
+  if any test throws before the explicit restore.
+- `tests/utils.test.js:1432-1445` — Wrapped `jest.useFakeTimers()` block in
+  `try/finally` for the same reason.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1216 passed / 1216 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
