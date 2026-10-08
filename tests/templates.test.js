@@ -544,6 +544,30 @@ describe('every template renders without error (regression)', () => {
     expect(html).toContain('<option value="archived"');
   });
 
+  it('knowledge/show renders sanitized markdown as raw HTML (not double-escaped)', () => {
+    // Regression: knowledge/show.ejs used <%= article.renderedContent %> which
+    // EJS-escapes the already-sanitized HTML, producing visible &lt;p&gt; markup
+    // instead of formatted content. The fix changes it to <%- (raw output). The
+    // content reaching the template has already passed through sanitize-html, so
+    // raw output is safe — this test pins the invariant.
+    const html = render('knowledge/show.ejs', {
+      ...baseLocals(), title: 'VPN Guide',
+      article: {
+        id: 1, title: 'VPN Guide', status: 'published', category: 'how_to',
+        tags: 'vpn', author_name: 'Sarah Chen', views: 5,
+        updated_at: '2026-01-01',
+        renderedContent: '<p>Connect to <strong>vpn.company.com</strong></p>'
+      },
+      markedFallback: false
+    });
+    // Raw HTML tags must be present (not escaped to &lt;p&gt;)
+    expect(html).toContain('<p>Connect to');
+    expect(html).toContain('<strong>vpn.company.com</strong>');
+    // Escaped entities must NOT appear
+    expect(html).not.toContain('&lt;p&gt;');
+    expect(html).not.toContain('&lt;strong&gt;');
+  });
+
   it('projects/index empty state carries the same hint text convention as sibling list pages', () => {
     // Regression: the projects list was the only list-page empty state without
     // a one-line hint, contradicting the consistency sweep pass 140 applied to
