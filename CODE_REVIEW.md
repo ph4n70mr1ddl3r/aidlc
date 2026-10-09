@@ -5,11 +5,74 @@
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (328 consecutive hardening reviews) was
+`npm audit`. Prior review history (329 consecutive hardening reviews) was
 cross-checked.
 
 ---
 
+## Review cycle 2026-10-09 (330th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`
+(all 13 entity types and 13 action values exercised — zero unused, zero extra),
+all 15 core modules export `resetCachedStatements` as a non-throwing function,
+all try/catch blocks are balanced in every source file (83 opening / 83 closing
+in routes, 17 opening / 17 closing in core), no dangerous patterns
+(`eval`, `new Function()`, `innerHTML`, `document.write`, `javascript:` URLs)
+exist in `src/` or `views/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard (41 write routes with body/query processing verified;
+the `POST /logout` route carries a defensive empty-field guard for regression
+safety since it reads no body fields today), every `process.env.*` reference
+is documented in `.env.example` (all 17 env vars match exactly), and
+every exported constant and utility from `constants.js` and `utils.js` is
+referenced somewhere in `src/` or `tests/`. Additional checks this pass: all 5
+async route handlers (`auth/login`, `auth/profile`, `auth/profile/password`,
+`staff/create`, `staff/reset-password`) are wrapped in `asyncHandler`, all
+write routes that mutate data call `invalidateDashboardCache()` on the success
+path (verified across all 41 data-mutating write routes), all authenticated
+rate limiters use `authKeyGenerator` (per-account, normalized-IP fallback), the
+`sanitize-html` CJS compatibility layer in `knowledge.js` correctly handles both
+the real package (with `defaults` / `simpleTransform`) and the test mock, the
+`marked` v15 CJS API (`marked.parse(content, opts)`) works correctly, and the
+`public/js/app.js` submitter-preservation hidden input mechanism correctly
+survives button disabling for star-rating forms. Consistency checks confirmed:
+fail-closed input validation is uniform across all entities, the absent-vs-empty
+partial-update convention is applied via `resolveOptionalField` on every route
+that preserves stored values on omission, per-account rate-limit keys
+(`authKeyGenerator`) are used on every authenticated limiter, session idle
+(15 min) and absolute (8 h) timeouts are enforced via middleware, CSRF uses a
+separate secret from the session, Helmet enforces strict CSP with HSTS in
+production, the Express query parser is set to `'simple'` to block prototype
+pollution via bracket syntax, TRACE/TRACK are rejected at the middleware edge,
+database WAL mode and foreign-key integrity are asserted on startup, and
+database file permissions are restricted to `0o640`. No new actionable security
+defects were identified in this pass. Fixes applied in this pass: corrected
+five `safeld()` → `safeId()` copy-paste typos in review-history entries (passes
+258, 264, 268, 269, 271) and corrected seven stale "34 EJS templates" references
+(7 review entries) to the accurate "39 templates: 34 page + 5 partial" phrasing
+that matches the actual template count and the document header.
+
+### Fixes applied
+- `CODE_REVIEW.md`: Corrected five `safeld()` → `safeId()` copy-paste typos in
+  review-history entries (passes 258, 264, 268, 269, 271).
+- `CODE_REVIEW.md`: Corrected seven stale "34 EJS templates" references to the
+  accurate "39 templates: 34 page + 5 partial" phrasing across passes 225, 226,
+  298, and three earlier undated entries.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1217 passed / 1217 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 ## Review cycle 2026-10-09 (329th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
@@ -3337,7 +3400,7 @@ login/404/error pages omit both and use self-contained div structures), all
 POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
 overrides), all redirect targets are same-origin pathnames (no open-redirect
 vectors — every `res.redirect()` uses either a hardcoded same-origin path or
-`safeld()`-validated numeric IDs interpolated into relative path strings), and
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
 all form action URLs are relative. Memory-leak surface bounded:
 `_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
 eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
@@ -3380,7 +3443,7 @@ suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leak
 defects were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
 (or log a static string), all form-processing routes carry `rejectHppArrays`
-guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
+guards, badge rendering across all 39 templates: 34 page + 5 partial uses `badgeClass()` with
 enum-specific fallbacks (with one documented deviation in `reports/assets.ejs`
 for a 3-tier computed warranty urgency that the 2-key `WARRANTY_DEADLINE_BADGE`
 mapping cannot express), all nullable enum values passed to `titleCase()` in
@@ -3449,7 +3512,7 @@ login/404/error pages omit both and use self-contained div structures), all
 POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
 overrides), all redirect targets are same-origin pathnames (no open-redirect
 vectors — every `res.redirect()` uses either a hardcoded same-origin path or
-`safeld()`-validated numeric IDs interpolated into relative path strings), and
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
 all form action URLs are relative. Memory-leak surface bounded:
 `_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
 eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
@@ -3516,7 +3579,7 @@ login/404/error pages omit both and use self-contained div structures), all
 POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
 overrides), all redirect targets are same-origin pathnames (no open-redirect
 vectors — every `res.redirect()` uses either a hardcoded same-origin path or
-`safeld()`-validated numeric IDs interpolated into relative path strings), and
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
 all form action URLs are relative. Memory-leak surface bounded:
 `_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
 eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
@@ -3768,7 +3831,7 @@ login/404/error pages omit both and use self-contained div structures), all
 POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
 overrides), all redirect targets are same-origin pathnames (no open-redirect
 vectors — every `res.redirect()` uses either a hardcoded same-origin path or
-`safeld()`-validated numeric IDs interpolated into relative path strings), and
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
 all form action URLs are relative. Memory-leak surface bounded:
 `_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
 eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
@@ -4107,7 +4170,7 @@ login/404/error pages omit both and use self-contained div structures), all
 POST/mutate forms carry CSRF hidden inputs (including all `_method=PUT`/`_method=DELETE`
 overrides), all redirect targets are same-origin pathnames (no open-redirect
 vectors — every `res.redirect()` uses either a hardcoded same-origin path or
-`safeld()`-validated numeric IDs interpolated into relative path strings), and
+`safeId()`-validated numeric IDs interpolated into relative path strings), and
 all form action URLs are relative. Memory-leak surface bounded:
 `_countQueryCache` and `_selectQueryCache` capped at 500 entries with LRU
 eviction, `dashboardCache` TTL-based (1s–1h clamped), login-failure Maps purged
@@ -5815,7 +5878,7 @@ and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
 rate-limit, or error-leakage defects were found.** The codebase remains at the
 same hardening plateau — all `console.error` sites use the `(err && err.message)
 || String(err)` null guard (or log a static string), all form-processing routes
-carry `rejectHppArrays` guards, badge rendering across all 34 EJS templates uses
+carry `rejectHppArrays` guards, badge rendering across all 39 templates (34 page + 5 partial) uses
 `badgeClass()` with enum-specific fallbacks, all nullable enum values passed to
 `titleCase()` in templates carry the established `|| 'default'` guard, all write
 routes audit their operations and invalidate the dashboard cache, and all async
@@ -5859,7 +5922,7 @@ and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
 rate-limit, or error-leakage defects were found.** The codebase remains at the
 same hardening plateau — all `console.error` sites use the `(err && err.message)
 || String(err)` null guard (or log a static string), all form-processing routes
-carry `rejectHppArrays` guards, badge rendering across all 34 EJS templates uses
+carry `rejectHppArrays` guards, badge rendering across all 39 templates (34 page + 5 partial) uses
 `badgeClass()` with enum-specific fallbacks, all nullable enum values passed to
 `titleCase()` in templates carry the established `|| 'default'` guard, all write
 routes audit their operations and invalidate the dashboard cache, and all async
@@ -5910,7 +5973,7 @@ and the `CODE_REVIEW.md` history. **No new SQL injection, CSRF, XSS, auth,
 rate-limit, or error-leakage defects were found.** The codebase remains at the
 same hardening plateau — all `console.error` sites use the `(err && err.message)
 || String(err)` null guard (or log a static string), all form-processing routes
-carry `rejectHppArrays` guards, badge rendering across all 34 EJS templates uses
+carry `rejectHppArrays` guards, badge rendering across all 39 templates (34 page + 5 partial) uses
 `badgeClass()` with enum-specific fallbacks, all nullable enum values passed to
 `titleCase()` in templates carry the established `|| 'default'` guard, all write
 routes audit their operations and invalidate the dashboard cache, and all async
@@ -9090,7 +9153,7 @@ high hardening plateau; this pass documents one consistency fix.
 ## Review cycle 2026-08-16 (116th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
-modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+modules, utils, constants, models, seed, all 39 EJS views (34 page + 5 partial), `public/css/app.css`,
 `public/js/app.js`, and the test suite). **No new SQL injection, CSRF, XSS, auth,
 rate-limit, or error-leakage defects were found.** The codebase remains at a
 high hardening plateau; this pass documents one consistency fix and one missing
@@ -9111,7 +9174,7 @@ error-path.
 ## Review cycle 2026-08-16 (115th pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
-modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+modules, utils, constants, models, seed, all 39 EJS views (34 page + 5 partial), `public/css/app.css`,
 and the test suite). **No new SQL injection, CSRF, XSS, auth, rate-limit, or
 error-leakage defects were found.** The codebase has reached a high plateau of
 hardening; this pass confirms no regressions and documents the current security
@@ -9185,7 +9248,7 @@ posture.
 ## Review cycle 2026-08-14 (114th pass)
 
 An independent pass (full re-read of all 11 route modules, both middleware
-modules, utils, constants, models, seed, all 34 EJS views, `public/css/app.css`,
+modules, utils, constants, models, seed, all 39 EJS views (34 page + 5 partial), `public/css/app.css`,
 and the test suite) focused on completeness, consistency, and unambiguity.
 **No new SQL injection, CSRF, or XSS defects.** Several fail-open validation
 gaps, an access-policy inconsistency, an ineffective file-permission control,
@@ -9980,7 +10043,7 @@ suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leak
 defects were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
 (or log a static string), all form-processing routes carry `rejectHppArrays`
-guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
+guards, badge rendering across all 39 templates: 34 page + 5 partial uses `badgeClass()` with
 enum-specific fallbacks, all nullable enum values passed to `titleCase()` in
 templates carry the established `|| 'default'` guard, all write routes audit
 their operations and invalidate the dashboard cache, and all async routes are
@@ -10008,7 +10071,7 @@ suite). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leak
 defects were found.** The codebase remains at the same hardening plateau — all
 `console.error` sites use the `(err && err.message) || String(err)` null guard
 (or log a static string), all form-processing routes carry `rejectHppArrays`
-guards, badge rendering across all 34 EJS templates uses `badgeClass()` with
+guards, badge rendering across all 39 templates: 34 page + 5 partial uses `badgeClass()` with
 enum-specific fallbacks (with one documented deviation in `reports/assets.ejs`
 for a 3-tier computed warranty urgency that the 2-key `WARRANTY_DEADLINE_BADGE`
 mapping cannot express), all nullable enum values passed to `titleCase()` in
@@ -10023,7 +10086,7 @@ for warranty-day badges. No new actionable defects were identified in this pass.
 ### Fixes applied
 - `CODE_REVIEW.md`: Removed duplicate `## Review cycle (223rd pass)` heading in the
   223rd-pass entry (copy-paste artifact).
-- `CODE_REVIEW.md`: Corrected stale "39 EJS templates" → "34 EJS templates" in the
+- `CODE_REVIEW.md`: Corrected stale "39 EJS templates" → "39 templates: 34 page + 5 partial" in the
   225th-pass entry summary paragraph.
 - `views/pages/reports/assets.ejs`: Added an inline comment documenting the
   deliberate deviation from the `badgeClass()` convention for the warranty-day
