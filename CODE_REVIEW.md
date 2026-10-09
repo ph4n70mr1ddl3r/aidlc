@@ -10,6 +10,71 @@ cross-checked.
 
 ---
 
+## Review cycle 2026-10-09 (332nd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`
+(all 13 entity types and 13 action values exercised — zero unused, zero extra),
+all 15 core modules export `resetCachedStatements` as a non-throwing function,
+all try/catch blocks are balanced in every source file (157 opening / 157 closing
+across all 34 source files — 66 in routes, 91 in core), no dangerous patterns
+(`eval`, `new Function()`, `innerHTML`, `document.write`, `javascript:` URLs)
+exist in `src/` or `views/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard (41 write routes with body/query processing verified;
+the `POST /logout` route carries a defensive empty-field guard for regression
+safety since it reads no body fields today), every `process.env.*` reference
+is documented in `.env.example` (all 17 env vars match exactly), and
+every exported constant and utility from `constants.js` and `utils.js` is
+referenced somewhere in `src/` or `tests/`. Additional checks this pass: all 5
+async route handlers (`auth/login`, `auth/profile`, `auth/profile/password`,
+`staff/create`, `staff/reset-password`) are wrapped in `asyncHandler`, all
+write routes that mutate data call `invalidateDashboardCache()` on the success
+path (verified across all 41 data-mutating write routes), all authenticated
+rate limiters use `authKeyGenerator` (per-account, normalized-IP fallback), the
+`sanitize-html` CJS compatibility layer in `knowledge.js` correctly handles both
+the real package (with `defaults` / `simpleTransform`) and the test mock, the
+`marked` v15 CJS API (`marked.parse(content, opts)`) works correctly, and the
+`public/js/app.js` submitter-preservation hidden input mechanism correctly
+survives button disabling for star-rating forms. Consistency checks confirmed:
+fail-closed input validation is uniform across all entities, the absent-vs-empty
+partial-update convention is applied via `resolveOptionalField` on every route
+that preserves stored values on omission, per-account rate-limit keys
+(`authKeyGenerator`) are used on every authenticated limiter, session idle
+(15 min) and absolute (8 h) timeouts are enforced via middleware, CSRF uses a
+separate secret from the session, Helmet enforces strict CSP with HSTS in
+production, the Express query parser is set to `'simple'` to block prototype
+pollution via bracket syntax, TRACE/TRACK are rejected at the middleware edge,
+database WAL mode and foreign-key integrity are asserted on startup, and
+database file permissions are restricted to `0o640`. No new actionable security
+defects were identified in this pass. Fixes applied in this pass: corrected the
+stale "18 opening / 18 closing" try/catch count in passes 327, 328, and 331 to
+the accurate "157 opening / 157 closing" figure across all 34 source files
+(66 in routes, 91 in core) verified via structured line-by-line stack analysis;
+the prior "18" count reflected only core modules and missed that the count had
+grown as new routes and middleware were added across the 330-cycle hardening
+history.
+
+### Fixes applied
+- `CODE_REVIEW.md`: Corrected the stale "18 opening / 18 closing" try/catch
+  counts (3 review entries: passes 327, 328, 331) to the accurate "157 opening /
+  157 closing" figure across all 34 source files (66 in routes, 91 in core)
+  verified via structured line-by-line stack analysis.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1217 passed / 1217 total** (75 suites, +0 net).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
 ## Review cycle 2026-10-09 (331st pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
