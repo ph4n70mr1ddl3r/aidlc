@@ -58,7 +58,10 @@ database file permissions are restricted to `0o640`. No new actionable security
 defects were identified in this pass.
 
 ### Fixes applied
-None.
+- `CODE_REVIEW.md`: Removed a stray duplicate `## Review cycle 2026-10-09 (334th pass)`
+  heading (with an empty `---` separator) that appeared between the 335th and 334th
+  pass entries — a copy-paste artifact with no content, introduced during an earlier
+  review cycle edit.
 
 ### Regression tests added
 None.
@@ -67,10 +70,6 @@ None.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1217 passed / 1217 total** (75 suites, +0 net).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
-
----
-
-## Review cycle 2026-10-09 (334th pass)
 
 ---
 
