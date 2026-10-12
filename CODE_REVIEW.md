@@ -61,7 +61,7 @@ asserted on startup, and database file permissions are restricted to `0o640`.
 All unescaped EJS outputs (`<%- %>`) are limited to `include()` calls and the
 pre-sanitized `article.renderedContent` field; no raw user data reaches
 unescaped output. No open-redirect vectors, prototype-pollution paths, or
-secreet-leakage in logging were found. No new actionable security defects were
+secret-leakage in logging were found. No new actionable security defects were
 identified in this pass.
 
 ### Fixes applied
@@ -127,7 +127,7 @@ asserted on startup, and database file permissions are restricted to `0o640`.
 All unescaped EJS outputs (`<%- %>`) are limited to `include()` calls and the
 pre-sanitized `article.renderedContent` field; no raw user data reaches
 unescaped output. No open-redirect vectors, prototype-pollution paths, or
-secreet-leakage in logging were found. No new actionable security defects were
+secret-leakage in logging were found. No new actionable security defects were
 identified in this pass.
 
 ### Fixes applied
