@@ -646,10 +646,13 @@ router.delete('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => 
   try {
     const deleteProject = db.transaction(() => {
       const existing = _showProjectStmt.get(id);
+      if (!existing) {
+        return { changes: 0, name: null };
+      }
       _deleteProjectTasksStmt.run(id);
       _deleteProjectMembersStmt.run(id);
       const changes = _deleteProjectStmt.run(id).changes;
-      return { changes, name: existing ? existing.name : null };
+      return { changes, name: existing.name };
     });
     const result = deleteProject();
     if (result.changes === 0) {

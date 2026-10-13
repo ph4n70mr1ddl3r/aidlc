@@ -202,10 +202,11 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Change Type');
     return res.redirect('/changes/new');
   }
-  if (!status || !VALID_STATUSES.includes(status)) {
+  if (status && !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid Status');
     return res.redirect('/changes/new');
   }
+  const safeStatus = status || 'scheduled';
   if (priority && !VALID_PRIORITIES.includes(priority)) {
     req.flash('error', 'Invalid Priority');
     return res.redirect('/changes/new');
@@ -252,7 +253,7 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       if (safeAssignee && !isActiveUser(db, safeAssignee)) {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
-      return _changeInsertStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, status, safePriority,
+      return _changeInsertStmt.run(title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, change_type, safeStatus, safePriority,
         sStart, sEnd, (impact || '').substring(0, MAX_LONG_STR) || null, safeAssignee);
     });
     const result = createChange();
