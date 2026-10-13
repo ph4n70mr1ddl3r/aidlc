@@ -186,6 +186,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
+- **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
 - **HTML sanitization** on user-generated markdown content
 - **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
 
