@@ -11528,3 +11528,49 @@ None.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1217 passed / 1217 total** (75 suites, +0 net from #341).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-14 (351st pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, EJS views (39 templates: 34 page + 5 partial),
+`public/js/app.js`, the test suite, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS` and
+`ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across `src/`
+(all 13 entity types and 13 action values exercised — zero unused, zero extra),
+all 15 core modules export `resetCachedStatements` as a non-throwing function,
+all brace pairs are balanced in every source file (verified with a string/comment/
+regex-aware parser — 117 open/close in app.js, 196 in utils.js, all others
+balanced), all try/catch blocks are structurally balanced across all modules,
+no dangerous patterns (`eval`, `new Function()`, `innerHTML`, `document.write`,
+`javascript:` URLs) exist in `src/` or `views/`, all `res.redirect()` targets are
+same-origin pathnames, all form `action` URLs are relative, every write route
+carries a `rejectHppArrays` guard (41 write routes with body/query processing
+verified; 65 HPP guard invocations across all routes), every `process.env.*`
+reference is documented in `.env.example` (all 17 env vars match exactly — 7
+active defaults, 10 commented-out options), and every exported constant and
+utility from `constants.js` and `utils.js` is referenced somewhere in `src/` or
+`tests/`. Additional checks this pass: all authenticated rate limiters use
+`authKeyGenerator` (per-account, normalized-IP fallback; the single IP-keyed
+limiter in auth.js is the pre-auth login limiter which correctly falls back to
+IP keying), `normalizeIp()` rejects arrays (HPP on X-Forwarded-For) and returns
+`'unknown'` for absent/non-string values consistently everywhere it is called,
+the `<%- article.renderedContent %>` escape in `knowledge/show.ejs` is safe
+because `renderMarkdown()` sanitizes through `sanitize-html` before returning,
+the `marked` v15 async-extension guard (`html.then` check) prevents Promise
+leakage into the template, and the `sanitize-html` CJS compatibility layer
+handles both real-package shapes and the test mock without regression. No new
+actionable defects were identified in this pass.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1309 passed / 1309 total** (77 suites, +0 net from #350).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
