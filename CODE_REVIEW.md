@@ -1,12 +1,76 @@
 # Code Review Notes
 
-**Date:** 2026-10-15 (353rd pass)
+**Date:** 2026-10-15 (354th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (352 consecutive hardening reviews) was
+`npm audit`. Prior review history (353 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-15 (354th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views
+(39 templates: 34 page + 5 partial), `public/js/app.js`, `.env.example`,
+README, CI workflow, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS`
+and `ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across
+`src/` (all 13 entity types and 13 action values exercised — zero unused,
+zero extra), all 15 core modules export `resetCachedStatements` as a
+non-throwing function, no dangerous patterns (`eval`, `new Function()`,
+`innerHTML`, `document.write`, `javascript:` URLs) exist in `src/`,
+`views/`, or `public/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard, every `process.env.*` reference is documented in
+`.env.example` (all 17 env vars match exactly — 7 active defaults, 10
+commented-out options), and every exported constant and utility from
+`constants.js` and `utils.js` is referenced somewhere in `src/` or `tests/`.
+Additional checks this pass: the seed data is self-consistent with the
+routes — project `progress` values match `recalcProjectProgress()` output
+(2/5 done = 40, 2/4 done = 50, 1/1 done = 100, taskless projects = 0), the
+`asset_counter` / `ticket_counter` rows are initialized to the seed row
+counts so the next generated tag/number continues the sequence, all
+`assigned_to` / `owner_id` / `author_id` / FK references resolve to seeded
+users, and the audit_log wipe is an intentional documented behavior
+(comment + README "consider periodic archival"); the `marked` v15 CJS API
+and the `sanitize-html` CJS shape match the guards in `knowledge.js`;
+coverage thresholds hold (66.23% statements / 63.1% branches / 75.39%
+functions / 66.23% lines vs. the 60/55/60/60 floor in `package.json`); the
+CI matrix (Node 20/22, `npm ci`, lint, coverage, high-level audit) matches
+the documented tooling. One documentation defect found: the JSDoc for
+`createAuditLogPruner` (utils.js) described the logger contract as
+`log`/`error`/`warn` while the code invokes `logger.info`, `logger.error`,
+and `logger.warn` — `log` is never called and `info` was undocumented;
+corrected. No new actionable code defects were identified.
+
+### Fixes applied
+- `src/utils.js`: `createAuditLogPruner` JSDoc — corrected the documented
+  logger contract from `log`/`error`/`warn` to the actually-invoked
+  `info`/`error`/`warn` surface and noted that `log` is intentionally
+  unused (documentation only; no behavioral change).
+
+### Regression tests added
+- `tests/code_review_354.test.js`: full hardening plateau verification
+  (48 tests covering badge/enum consistency, audit action/entity
+  allowlists, constant/utility reference completeness,
+  `resetCachedStatements` exports, dangerous-pattern absence, redirect
+  safety, form-action safety, HPP guards on all write routes,
+  `.env.example` documentation coverage with a pinned 17-var count,
+  unescaped-EJS output confinement, try/catch balance, the
+  `createAuditLogPruner` logger surface (including the first-run-only
+  warning behavior), the pass-346 changes-create status default, and the
+  pass-346 projects-delete not-found short-circuit ordering).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1357 passed / 1357 total** (78 suites, +48 net from #353).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

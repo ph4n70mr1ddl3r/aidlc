@@ -869,7 +869,9 @@ function pruneAuditLog(db, retentionDays) {
  * @param {Function} pruneFn - `(retentionDays) => number of rows deleted`
  * @param {Object} [opts]
  * @param {number} [opts.days] - retention period in days (non-finite or <=0 disables pruning)
- * @param {Object} [opts.logger] - logger with `log`/`error`/`warn`; defaults to console
+ * @param {Object} [opts.logger] - logger with `info`/`error`/`warn` methods;
+ *   defaults to console (which provides all three). Only these three methods
+ *   are ever invoked; `log` is intentionally not used.
  * @returns {Function}
  */
 function createAuditLogPruner(pruneFn, { days, logger = console } = {}) {
