@@ -1,12 +1,63 @@
 # Code Review Notes
 
-**Date:** 2026-10-14 (352nd pass)
+**Date:** 2026-10-15 (353rd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (351 consecutive hardening reviews) was
+`npm audit`. Prior review history (352 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-15 (353rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views
+(39 templates: 34 page + 5 partial), `public/js/app.js`, `.env.example`,
+README, CI workflow, and the `CODE_REVIEW.md` history).
+**No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage
+defects were found.** The codebase remains at the same hardening plateau.
+Automated cross-references verified: every badge mapping in `constants.js`
+covers its enum exactly (no missing keys, no extra keys), `ALLOWED_ACTIONS`
+and `ALLOWED_ENTITY_TYPES` exactly match all emitted audit values across
+`src/` (all 13 entity types and 13 action values exercised — zero unused,
+zero extra), all 15 core modules export `resetCachedStatements` as a
+non-throwing function, no dangerous patterns (`eval`, `new Function()`,
+`innerHTML`, `document.write`, `javascript:` URLs) exist in `src/`,
+`views/`, or `public/`, all `res.redirect()` targets are same-origin
+pathnames, all form `action` URLs are relative, every write route carries a
+`rejectHppArrays` guard (41 write routes verified; 65 HPP guard invocations
+across all routes), every `process.env.*` reference is documented in
+`.env.example` (all 17 env vars match exactly — 7 active defaults, 10
+commented-out options), and every exported constant and utility from
+`constants.js` and `utils.js` is referenced somewhere in `src/` or `tests/`.
+Additional checks this pass: the seed data is self-consistent with the
+routes — project `progress` values match `recalcProjectProgress()` output
+(2/5 done = 40, 2/4 done = 50, 1/1 done = 100, taskless projects = 0), the
+`asset_counter` / `ticket_counter` rows are initialized to the seed row
+counts so the next generated tag/number continues the sequence, all
+`assigned_to` / `owner_id` / `author_id` / FK references resolve to seeded
+users, and the audit_log wipe is an intentional documented behavior
+(comment + README "consider periodic archival"); the `marked` v15 CJS API
+and the `sanitize-html` CJS shape were probed against the installed
+packages and match the guards in `knowledge.js` (sync `parse`, dual-shape
+compatibility layer, the test mock's API surface); coverage thresholds hold
+(66.23% statements / 63.12% branches / 75.39% functions / 66.23% lines vs.
+the 60/55/60/60 floor in `package.json`); the CI matrix (Node 20/22,
+`npm ci`, lint, coverage, high-level audit) matches the documented tooling.
+No new actionable defects were identified in this pass.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1309 passed / 1309 total** (77 suites, +0 net from #352).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
