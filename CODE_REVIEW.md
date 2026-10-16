@@ -1,12 +1,76 @@
 # Code Review Notes
 
-**Date:** 2026-10-15 (354th pass)
+**Date:** 2026-10-16 (355th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (353 consecutive hardening reviews) was
+`npm audit`. Prior review history (354 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-16 (355th pass)
+
+An independent pass (full re-read of all 12 route modules — including
+`licenses.js` and the client-side `public/js/app.js` — both middleware
+modules, utils, constants, models, database schema, EJS views, `.env.example`,
+and the `CODE_REVIEW.md` history). **No new SQL injection, IDOR, CSRF, XSS,
+auth, rate-limit, or error-leakage defects were found.** The codebase remains
+at the same hardening plateau. Two candidate consistency deviations were
+investigated and one was confirmed as a genuine defect:
+
+1. **`PUT /profile` silently wiped the stored phone on partial submission**
+   (confirmed defect, fixed). The route computed
+   `safePhone = phone ? phone.substring(0, MAX_PHONE) : null` and wrote it
+   unconditionally, so any request that OMITTED the `phone` field persisted
+   `NULL`. Every sibling update route (`staff.js`, `vendors.js`, `assets.js`,
+   `projects.js`, `tickets.js`, `licenses.js`) resolves optional fields via
+   the shared `resolveOptionalField(raw, processed, maxLen, existing)`
+   convention, where an ABSENT field preserves the stored value and an
+   explicit EMPTY string clears it. The profile route was the sole outlier.
+   The self-service profile form always submits the field, so impact was
+   API-only partial PUTs — but the silent data loss is exactly the class the
+   `resolveOptionalField` convention exists to prevent. Fixed to preserve the
+   stored phone on absent and clear on explicit empty, mirroring
+   `staff.js:560` / `vendors.js:553`.
+
+2. **`POST /tickets` guard loop includes `status` but never persists it**
+   (not a defect). `status` appears in the `rejectHppArrays` list and the
+   present-non-string guard loop, yet the create path never reads or writes
+   it — the DB default (`'open'`) applies and the create form does not render
+   the field (only the edit form does). This is intentional fail-closed
+   defensive rejection of malformed input (a JSON-array/non-string `status`
+   is refused rather than ignored), consistent with the same guard on
+   persisted fields; the insert deliberately omits `status` so tickets always
+   open in the default state. No change made.
+
+Also verified this pass: all delete/update/create routes check existence
+before dependent writes inside their transactions; all list routes clamp the
+requested page to the actual page count; the license key reveal endpoint
+remains POST-only, rate-limited (`licenseKeyLimiter`), and audited; and the
+client-side double-submit / submitter-preservation and license-key re-masking
+handlers in `public/js/app.js` are internally consistent.
+
+### Fixes applied
+- `src/routes/auth.js`: `PUT /profile` now resolves the optional `phone`
+  field with `resolveOptionalField` against the freshly-read user row — an
+  ABSENT field preserves the stored number, an explicit empty string clears
+  it — instead of unconditionally writing `NULL`. Added the
+  `resolveOptionalField` import and a present-non-string sentinel guard
+  (rejects a JSON number/object phone rather than coercing it). Mirrors the
+  `staff.js` / `vendors.js` update convention.
+
+### Regression tests added
+- `tests/code_review_355.test.js`: 4 tests pinning the `PUT /profile` phone
+  semantics — absent preserves the stored value, explicit empty clears it, a
+  new value replaces it, and a source-level convention pin asserting the
+  route resolves the field through `resolveOptionalField`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1361 passed / 1361 total** (79 suites, +4 net from #354).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

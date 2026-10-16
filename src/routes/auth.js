@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, resolveOptionalField, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
@@ -492,8 +492,19 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   const safeFirstName = first_name.substring(0, MAX_SHORT_STR);
   const safeLastName = last_name.substring(0, MAX_SHORT_STR);
   const safeEmail = email.substring(0, MAX_EMAIL);
-  const safePhone = phone ? phone.substring(0, MAX_PHONE) : null;
   const userId = req.session.user.id;
+  // Preserve the stored phone when the field is ABSENT from a partial
+  // submission; an explicit empty string clears it. Mirrors the
+  // resolveOptionalField convention used by the staff/vendors/assets update
+  // routes. Previously an absent phone was unconditionally written as NULL,
+  // silently wiping the stored value on any partial PUT.
+  const currentProfile = _getProfileSelectStmt().get(userId);
+  const resolvedPhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, currentProfile ? currentProfile.phone : null);
+  if (resolvedPhone && resolvedPhone.error) {
+    req.flash('error', 'Please enter a valid phone number');
+    return res.redirect('/profile');
+  }
+  const safePhone = resolvedPhone;
   try {
     const updateResult = _getProfileUpdateStmt().run(safeFirstName, safeLastName, safeEmail, safePhone, userId);
     if (updateResult.changes === 0) {
