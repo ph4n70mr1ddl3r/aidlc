@@ -65,12 +65,12 @@ const _assetCounterPreviewStmt = db.prepare(`
   `);
 
 const SORT_MAP = Object.freeze({
-  name_asc: 'a.name ASC',
-  name_desc: 'a.name DESC',
-  newest: 'a.created_at DESC',
-  oldest: 'a.created_at ASC',
-  status: "CASE a.status WHEN 'in_use' THEN 1 WHEN 'in_storage' THEN 2 WHEN 'in_repair' THEN 3 WHEN 'reserved' THEN 4 WHEN 'disposed' THEN 5 END, a.name ASC",
-  default: 'a.name ASC'
+  name_asc: 'a.name ASC, a.id ASC',
+  name_desc: 'a.name DESC, a.id DESC',
+  newest: 'a.created_at DESC, a.id DESC',
+  oldest: 'a.created_at ASC, a.id ASC',
+  status: "CASE a.status WHEN 'in_use' THEN 1 WHEN 'in_storage' THEN 2 WHEN 'in_repair' THEN 3 WHEN 'reserved' THEN 4 WHEN 'disposed' THEN 5 END, a.name ASC, a.id ASC",
+  default: 'a.name ASC, a.id ASC'
 });
 
 // List assets (paginated)
@@ -311,7 +311,12 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect('/assets/new');
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'An asset with this tag already exists');
+      // Two unique constraints live on assets: the asset_tag column and the
+      // partial serial_number index. Branch on the constraint message so a
+      // duplicate serial no longer reports the misleading "tag" message.
+      req.flash('error', /serial_number/.test(err.message)
+        ? 'An asset with this serial number already exists'
+        : 'An asset with this tag already exists');
     } else {
       logError('Asset create error:', err);
       req.flash('error', 'Error creating asset. Please try again.');
@@ -664,7 +669,12 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect(`/assets/${id}/edit`);
     }
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      req.flash('error', 'An asset with this tag already exists');
+      // Branch on the constraint message the same way create does — a
+      // duplicate serial_number (partial unique index) must report the
+      // serial message, not the tag one.
+      req.flash('error', /serial_number/.test(err.message)
+        ? 'An asset with this serial number already exists'
+        : 'An asset with this tag already exists');
       return res.redirect(`/assets/${id}/edit`);
     } else {
       logError('Asset update error:', err);

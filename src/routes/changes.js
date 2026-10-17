@@ -129,7 +129,7 @@ router.get('/', (req, res) => {
     FROM change_log c
     LEFT JOIN users u ON c.assigned_to = u.id
     WHERE ${whereClause}
-    ORDER BY c.scheduled_start DESC
+    ORDER BY c.scheduled_start DESC, c.id DESC
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 

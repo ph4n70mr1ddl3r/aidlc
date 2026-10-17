@@ -323,7 +323,7 @@ router.get('/', kbReadLimiter, (req, res) => {
     FROM knowledge_articles k
     LEFT JOIN users u ON k.author_id = u.id
     WHERE ${whereClause}
-    ORDER BY k.updated_at DESC
+    ORDER BY k.updated_at DESC, k.id DESC
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 

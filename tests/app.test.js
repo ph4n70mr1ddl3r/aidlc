@@ -89,6 +89,10 @@ jest.mock('../src/utils', () => ({
   VENDOR_CATEGORY_BADGE: {},
   ACTION_BADGE: {},
   IS_ACTIVE_BADGE: {},
+  normalizeIp: (ip) => ip,
+  // Anchored integer env parse (same implementation as src/utils) so the app's
+  // PRUNE seed / SESSION_* env wiring exercises the real fail-closed contract.
+  parseEnvInt: (raw) => (typeof raw === 'string' && /^\d+$/.test(raw)) ? parseInt(raw, 10) : NaN,
   pruneAuditLog: jest.fn(() => 0),
   // PRUNE_AUDIT_DAYS is unset in these tests, so the app wires up a no-op
   // pruner; the real createAuditLogPruner behavior is covered in

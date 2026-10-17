@@ -10,12 +10,28 @@ const _MAX_ACRONYM_LENGTH = Math.max(0, ...Array.from(ACRONYMS, a => a.length));
 const SAFE_COLUMN_RE = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)?$/;
 
 /**
+ * Strictly parse an integer-only env value. Returns the integer, or NaN for
+ * anything else (unset, empty, garbage, prefix-parseable strings). Bare
+ * parseInt() would silently prefix-parse operator typos — PRUNE_AUDIT_DAYS
+ * "6months" becoming 6 days, DASHBOARD_TTL_MS "90s" becoming 90ms, or
+ * SESSION_ABSOLUTE_TIMEOUT_SECONDS "8hours" becoming an 8-second session
+ * lifetime — with no warning. Mirrors the anchored /^\d+$/ contract the PORT
+ * parser enforces in app.js, so every numeric env variable fails closed to its
+ * documented default instead of accepting a coerced prefix.
+ * @param {string|undefined} raw - Raw env value
+ * @returns {number} Parsed integer or NaN when invalid
+ */
+function parseEnvInt(raw) {
+  return (typeof raw === 'string' && /^\d+$/.test(raw)) ? parseInt(raw, 10) : NaN;
+}
+
+/**
  * Derive PAGE_SIZE from environment (testable helper).
  * Logs a warning if PAGE_SIZE is set but invalid; values exceeding MAX_PAGE_SIZE are clamped.
  */
 function _derivePageSize() {
   const raw = process.env.PAGE_SIZE;
-  const p = parseInt(raw, 10);
+  const p = parseEnvInt(raw);
   if (raw !== undefined && raw !== '' && (!Number.isFinite(p) || p <= 0)) {
     console.warn(
       `WARNING: Invalid PAGE_SIZE "${raw}" — must be a positive integer. Using default ${DEFAULT_PAGE_SIZE}.`
@@ -1221,6 +1237,7 @@ function rejectHppArrays(req, fields) {
 module.exports = {
   paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
   safeId, isPresentInvalidId, safePositiveFloat, safeInt, safePositiveInt,
+  parseEnvInt,
   validatePassword, isValidUsername, isValidEmail, isValidUrl,
   sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal,
   safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,

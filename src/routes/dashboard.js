@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { authKeyGenerator, logError, prefersJson } = require('../utils');
+const { authKeyGenerator, logError, prefersJson, parseEnvInt } = require('../utils');
 const rateLimit = require('express-rate-limit');
 
 // Key rate-limiting by authenticated user id (per-account, shared utils helper)
@@ -54,7 +54,7 @@ const _DASH_UPCOMING_CHANGES_LIMIT = 5;
 const _DASH_STAFF_WORKLOAD_LIMIT = 8;
 const _DASH_LICENSE_ALERTS_LIMIT = 20;
 
-const _parsedDTTL = parseInt(process.env.DASHBOARD_TTL_MS, 10);
+const _parsedDTTL = parseEnvInt(process.env.DASHBOARD_TTL_MS);
 // Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
 // astronomically large values (days/weeks of stale data) cannot occur.
 const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? Math.max(1_000, Math.min(3_600_000, _parsedDTTL)) : 30_000;

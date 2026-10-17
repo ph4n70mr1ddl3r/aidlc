@@ -188,7 +188,7 @@ router.get('/', requireAdminOrManager, (req, res) => {
 
   const vendors = selectQuery(db, `
     SELECT v.id, v.name, v.contact_person, v.email, v.category, v.contract_end, v.rating, v.is_active
-    FROM vendors v WHERE ${whereClause} ORDER BY v.name ASC LIMIT ? OFFSET ?
+    FROM vendors v WHERE ${whereClause} ORDER BY v.name ASC, v.id ASC LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
   res.render('pages/vendors/index', {

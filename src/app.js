@@ -62,8 +62,18 @@ const db = require('./models/database');
 // This prevents unbounded audit_log growth which degrades query performance
 // over time. Set PRUNE_AUDIT_DAYS=365 in .env to auto-delete entries older
 // than 1 year. Default interval is 24 hours; override with PRUNE_AUDIT_INTERVAL_MS.
-const pruneDays = parseInt(process.env.PRUNE_AUDIT_DAYS, 10);
-const _parsedPruneInterval = parseInt(process.env.PRUNE_AUDIT_INTERVAL_MS, 10);
+// Strictly parsed so operator typos fail closed instead of prefix-parsing
+// ("6months" would otherwise silently become a 6-day retention; "1year" would
+// become NaN with no diagnostic). Invalid set values warn and fall back to the
+// documented default (pruning disabled / 24h interval).
+const pruneDays = utilsModule.parseEnvInt(process.env.PRUNE_AUDIT_DAYS);
+if (process.env.PRUNE_AUDIT_DAYS !== undefined && process.env.PRUNE_AUDIT_DAYS !== '' && Number.isNaN(pruneDays)) {
+  console.warn(`WARNING: Invalid PRUNE_AUDIT_DAYS "${process.env.PRUNE_AUDIT_DAYS}" — must be a non-negative integer. Audit pruning stays disabled.`);
+}
+const _parsedPruneInterval = utilsModule.parseEnvInt(process.env.PRUNE_AUDIT_INTERVAL_MS);
+if (process.env.PRUNE_AUDIT_INTERVAL_MS !== undefined && process.env.PRUNE_AUDIT_INTERVAL_MS !== '' && Number.isNaN(_parsedPruneInterval)) {
+  console.warn(`WARNING: Invalid PRUNE_AUDIT_INTERVAL_MS "${process.env.PRUNE_AUDIT_INTERVAL_MS}" — must be a non-negative integer. Using the 24h default.`);
+}
 const pruneIntervalMs = Number.isFinite(_parsedPruneInterval) ? _parsedPruneInterval : 86_400_000; // 24h
 let _pruneInterval = null;
 // createAuditLogPruner emits the "initial prune failed" warning only when the
@@ -280,7 +290,9 @@ app.use(cookieParser());
 // rather than disabling the timeout entirely — a parsed 0 or NaN would make the
 // `now - last > window` comparisons always-false and silently kill the feature.
 function _parsePositiveSeconds(raw, fallback) {
-  const n = parseInt(raw, 10);
+  // parseEnvInt is anchored (/^\d+$/), so "8hours" fails to fallback instead of
+  // prefix-parsing to an 8-second session lifetime.
+  const n = utilsModule.parseEnvInt(raw);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 // The idle window is floored at 60s (the lastAccess write throttle below):

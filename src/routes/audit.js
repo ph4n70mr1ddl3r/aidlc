@@ -26,9 +26,9 @@ const auditLimiter = rateLimit({
 });
 
 const SORT_MAP = Object.freeze({
-  newest: 'a.created_at DESC',
-  oldest: 'a.created_at ASC',
-  default: 'a.created_at DESC'
+  newest: 'a.created_at DESC, a.id DESC',
+  oldest: 'a.created_at ASC, a.id ASC',
+  default: 'a.created_at DESC, a.id DESC'
 });
 
 router.get('/', auditLimiter, (req, res) => {

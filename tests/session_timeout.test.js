@@ -78,6 +78,10 @@ jest.mock('../src/utils', () => ({
   VENDOR_CATEGORY_BADGE: {},
   ACTION_BADGE: {},
   IS_ACTIVE_BADGE: {},
+  // Faithful passthrough of the anchored integer env parse (same code as
+  // src/utils) so the app's PRUNE seed / SESSION_* env wiring exercises the
+  // real fail-closed contract.
+  parseEnvInt: (raw) => (typeof raw === 'string' && /^\d+$/.test(raw)) ? parseInt(raw, 10) : NaN,
   pruneAuditLog: jest.fn(() => 0),
   createAuditLogPruner: jest.fn(() => () => {}),
   prefersJson: jest.fn((req) => Boolean(req && typeof req.accepts === 'function') && req.accepts(['json', 'html']) === 'json')

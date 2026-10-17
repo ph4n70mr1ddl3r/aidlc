@@ -92,7 +92,18 @@ function checkLockout(map, key) {
   if (!entry) {
     return false;
   }
-  if (entry.lockedUntil && Date.now() < entry.lockedUntil) {
+  // Lazily reset the failure count when the lockout window has expired. The
+  // 10-minute purge only deletes expired entries on its next tick, and the
+  // count is pinned at MAX_LOGIN_FAILURES while locked — without this reset a
+  // single failure after expiry would immediately re-arm the lockout, keeping
+  // an account/IP permanently locked with one request per window.
+  if (entry.lockedUntil && Date.now() >= entry.lockedUntil) {
+    entry.count = 0;
+    entry.lockedUntil = null;
+    entry.lastAttempt = Date.now();
+    return false;
+  }
+  if (entry.lockedUntil) {
     return true;
   }
   return false;

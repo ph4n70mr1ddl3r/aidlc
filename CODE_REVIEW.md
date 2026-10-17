@@ -1,12 +1,132 @@
 # Code Review Notes
 
-**Date:** 2026-10-17 (357th pass)
+**Date:** 2026-10-17 (358th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (356 consecutive hardening reviews) was
+`npm audit`. Prior review history (357 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-17 (358th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, `.env.example`, plus ESLint, Jest, and `npm audit`) with
+parallel deep-review agents cross-verifying routes/views/HPP-field coverage and
+the core runtime files. Three real defects surfaced (one security, one
+fail-open config class, one user-message accuracy), plus two low-severity
+accuracy items — all fixed this pass.
+
+1. **Login lockout looped forever after expiry** (confirmed security/availability
+   defect, fixed). `recordLoginFailure` pins the failure count at
+   `MAX_LOGIN_FAILURES` (5) while locked, and `checkLockout` returned `false`
+   without touching the stale count once `lockedUntil` had passed (the 10-minute
+   purge only deletes expired entries on its next tick). After the 15-minute
+   window expired, a SINGLE failed attempt incremented the pinned count
+   (5 → 6 ≥ 5) and immediately re-armed the lockout — one request per window
+   could keep an account (or an IP) permanently locked. Fix:
+   `checkLockout` lazily resets `count`/`lockedUntil` when the window has
+   expired, so a post-expiry failure starts a fresh 5-failure window (verified
+   behaviorally for both the per-account and per-IP maps via the login
+   handler with a mocked clock).
+
+2. **Numeric env variables prefix-parses operator typos fail-open** (confirmed
+   defect, fixed). While `PORT` uses an anchored `/^\d+$/` parser (app.js:
+   "parseInt('3000abc') silently returns 3000"), five numeric env reads still
+   used bare `parseInt`, so `PRUNE_AUDIT_DAYS="1year"` silently pruned with a
+   6-day retention (or disabled pruning entirely with no diagnostic),
+   `PRUNE_AUDIT_INTERVAL_MS="90s"` fired the prune loop every 90 ms,
+   `DASHBOARD_TTL_MS="6months"` silently clamped to 1 s, `PAGE_SIZE="6months"`
+   became page size 6 with no warning, and — worst —
+   `SESSION_ABSOLUTE_TIMEOUT_SECONDS="8hours"` became an 8-SECOND session
+   lifetime (every session destroyed after 8 seconds, silently). Fix:
+   `utils.parseEnvInt()` (anchored `/^\d+$/`, NaN on anything else) applied to
+   all five sites; set-but-invalid `PRUNE_AUDIT_DAYS` /
+   `PRUNE_AUDIT_INTERVAL_MS` now emit the same style of warning `PAGE_SIZE`
+   already does, and all documented defaults are preserved fail-closed.
+
+3. **`assets.js` UNIQUE-constraint flashes mislabeled serial duplicates**
+   (confirmed accuracy defect, fixed). The `assets` table has two uniqueness
+   sources — the `asset_tag` UNIQUE column and the partial
+   `UNIQUE(serial_number) WHERE serial_number IS NOT NULL` index — but both
+   create and edit flashed "An asset with this tag already exists" for either
+   violation, sending the operator to debug the wrong field. Both catch sites
+   now branch on the constraint message and report the serial-number message
+   for `assets.serial_number` duplicates (mirrors staff.js, which already
+   words its dual username/email constraint correctly).
+
+4. **Comment audit could not distinguish internal notes** (low, fixed).
+   `POST /tickets/:id/comments` audited the literal `'Added comment'`
+   regardless of the privilege-gated `is_internal` flag; the audit detail now
+   appends `' (internal)'` (the resolved `parseBooleanFlag` value is hoisted so
+   the INSERT and the audit detail share one resolution — mirrors the
+   vendor-rename / staff-reset detail-enrichment pattern).
+
+5. **Absent priority reported "Invalid Priority"** (low, fixed). Ticket create
+   flashes "Priority is required" when the field is absent and "Invalid
+   Priority" only for a present-but-invalid value, matching the required-field
+   wording of the sibling title/category/requester checks.
+
+6. **Paginated list ORDER BYs were not total orders** (low, fixed). Every
+   paginated list query (tickets, assets, projects, audit `SORT_MAP`s and the
+   literal queries in changes, knowledge, licenses, vendors, staff) sorted only
+   by second-resolution timestamp/category/name keys, so ties (e.g. bulk-seeded
+   rows sharing one `created_at`) made SQLite's LIMIT/OFFSET paging
+   nondeterministic — rows could repeat or vanish across pages. All nine
+   queries now end in an `id` tiebreaker making the ordering deterministic.
+
+Also verified this pass: all view↔route render locals and form-field names
+match (tickets/assets/staff/vendors/projects/licenses/changes/knowledge); every
+write form carries the CSRF hidden input and every write route the
+`rejectHppArrays` guard (verified field-by-field against `req.body`/`req.query`
+reads); no SQL-injection surface (all dynamic SQL is whitelisted through
+`buildFilters`/`safeSort`/`countQuery`/`selectQuery`); README env-var/security
+claims match the code exactly (rate limits, bcrypt rounds, hardcoded timeouts);
+`.env.example` covers all 17 env vars; session fixation protection on
+login/profile/password-change; reports/dashboard aggregation queries
+consistent; schema indexes cover the hot queries; seed counter arithmetic and
+FK-safe delete ordering correct; `public/js/app.js` and the pagination partial
+clean.
+
+### Fixes applied
+- `src/routes/auth.js`: `checkLockout` lazy reset of expired lockout entries
+  (count + `lockedUntil`) for both per-account and per-IP maps.
+- `src/utils.js`: new `parseEnvInt()` (anchored `/^\d+$/`, mirrors the PORT
+  parser contract) used by `_derivePageSize`; exported for tests/modules.
+- `src/app.js`: `PRUNE_AUDIT_DAYS` / `PRUNE_AUDIT_INTERVAL_MS` parsed and
+  warned via `parseEnvInt`; `_parsePositiveSeconds` uses `parseEnvInt` so
+  `SESSION_*_TIMEOUT_SECONDS` typos fail closed to the documented defaults.
+- `src/routes/dashboard.js`: `DASHBOARD_TTL_MS` parsed via `parseEnvInt`.
+- `src/routes/assets.js`: create/update catch sites branch the
+  `SQLITE_CONSTRAINT_UNIQUE` flash on tag vs serial constraint messages.
+- `src/routes/tickets.js`: comment audit detail marks internal notes; absent
+  priority flashed as required rather than invalid.
+- `src/routes/{tickets,assets,projects,audit,changes,knowledge,licenses,
+  vendors,staff}.js`: paginated list `ORDER BY`s gained unique `id`
+  tiebreakers.
+- `tests/app.test.js`, `tests/session_timeout.test.js`: the `../src/utils`
+  mocks gained the faithful `parseEnvInt` passthrough so the freshly-loaded
+  app wiring exercises the real contract.
+
+### Regression tests added
+- `tests/code_review_358.test.js`: 16 tests — behavioral lockout-expiry
+  coverage for the account and IP maps (mocked clock through the real login
+  handler: post-expiry attempt is recorded as a fresh failure and requires a
+  new full 5-failure window to re-lock); `parseEnvInt` canonical/garbage
+  matrix; `PAGE_SIZE="6months"` warns and falls back; `PRUNE_*` typos warn and
+  fail closed at fresh app load (plus a valid-value smoke pass); source pins
+  that every numeric env read routes through `parseEnvInt`; assets
+  serial/tag duplicate-flash branch on create and edit; comment audit detail
+  for internal vs public notes; required-vs-invalid priority wording; and
+  tiebreaker pins over all four `SORT_MAP`s and the five literal queries.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1384 passed / 1384 total** (81 suites, +16 net from #357).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 

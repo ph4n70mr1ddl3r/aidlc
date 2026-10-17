@@ -138,11 +138,16 @@ const _ticketInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
+// Every ORDER BY carries an `id` tiebreaker: created_at/updated_at have
+// second-resolution ties (bulk-seeded rows share one timestamp), and without a
+// unique trailing key SQLite's sort order is not total, so LIMIT/OFFSET paging
+// could hide or duplicate rows across pages. The tiebreaker makes the ordering
+// deterministic and pagination stable.
 const SORT_MAP = Object.freeze({
-  newest: 't.created_at DESC',
-  oldest: 't.created_at ASC',
-  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC",
-  default: 't.created_at DESC'
+  newest: 't.created_at DESC, t.id DESC',
+  oldest: 't.created_at ASC, t.id ASC',
+  priority: "CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, t.created_at ASC, t.id ASC",
+  default: 't.created_at DESC, t.id DESC'
 });
 
 /**
@@ -322,7 +327,9 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     return res.redirect('/tickets/new');
   }
   if (!priority || !VALID_PRIORITIES.includes(priority)) {
-    req.flash('error', 'Invalid Priority');
+    // Match the required-fields wording of the sibling checks: an absent
+    // priority is a required-field miss, not a bad enum value.
+    req.flash('error', priority ? 'Invalid Priority' : 'Priority is required');
     return res.redirect('/tickets/new');
   }
 
@@ -863,6 +870,9 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
   }
 
   try {
+    // Hoisted so the INSERT and the audit detail below use the same resolved
+    // flag (only admin/manager can set it).
+    const commentInternalFlag = parseBooleanFlag(is_internal, isPrivileged(req.session.user));
     // Verify ticket exists, check user access, and add comment in a single
     // transaction to avoid a TOCTOU race where the ticket is deleted between
     // the existence check and the INSERT (mirrors the task-add / member-add patterns).
@@ -889,14 +899,18 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
         // Only admin/manager can mark comments as internal.
         // parseBooleanFlag rejects any non-canonical string ('false', 'off',
         // 'no') so it cannot be coerced truthy, and it gates on privilege.
-        parseBooleanFlag(is_internal, isPrivileged(req.session.user)));
+        commentInternalFlag);
 
       // Refresh ticket updated_at so it sorts as recently active
       _commentTouchStmt.run(id);
     });
     addComment();
 
-    req.audit('comment', 'ticket', id, 'Added comment');
+    // Hoisted above the transaction so the audit detail can distinguish an
+    // internal note from a public comment (mirrors the vendor-rename and
+    // staff-reset detail enrichment). parseBooleanFlag is deterministic, so
+    // hoisting does not change the stored value.
+    req.audit('comment', 'ticket', id, `Added comment${commentInternalFlag ? ' (internal)' : ''}`);
     req.flash('success', 'Comment added.');
     invalidateDashboardCache();
     return res.redirect(`/tickets/${id}`);

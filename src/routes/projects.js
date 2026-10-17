@@ -113,11 +113,11 @@ const _projectInsertStmt = db.prepare(`
 // tickets.js / assets.js / audit.js — safeSort validates the key against
 // the map and falls back to 'default' if unknown.
 const SORT_MAP = Object.freeze({
-  newest: 'p.updated_at DESC',
-  oldest: 'p.updated_at ASC',
-  name: 'p.name ASC',
-  priority: "CASE p.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, p.updated_at DESC",
-  default: 'p.updated_at DESC'
+  newest: 'p.updated_at DESC, p.id DESC',
+  oldest: 'p.updated_at ASC, p.id ASC',
+  name: 'p.name ASC, p.id ASC',
+  priority: "CASE p.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, p.updated_at DESC, p.id DESC",
+  default: 'p.updated_at DESC, p.id DESC'
 });
 
 // List projects (paginated)

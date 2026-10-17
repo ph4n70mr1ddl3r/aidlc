@@ -132,7 +132,7 @@ router.get('/', requireAdminOrManager, (req, res) => {
   const licenses = selectQuery(db, `
     SELECT l.id, l.software_name, l.vendor, l.license_type, l.total_seats, l.used_seats,
       l.purchase_date, l.expiry_date, l.cost, l.created_at, l.updated_at
-    FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC LIMIT ? OFFSET ?
+    FROM licenses l WHERE ${whereClause} ORDER BY l.software_name ASC, l.id ASC LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
   res.render('pages/licenses/index', {

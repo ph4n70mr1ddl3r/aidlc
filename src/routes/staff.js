@@ -142,7 +142,7 @@ router.get('/', (req, res) => {
       GROUP BY assigned_to
     ) ptCounts ON ptCounts.assigned_to = u.id
     WHERE ${whereClause}
-    ORDER BY u.first_name ASC
+    ORDER BY u.first_name ASC, u.id ASC
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
