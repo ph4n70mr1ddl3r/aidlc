@@ -335,7 +335,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 
   // Store user in session (without password) — regenerate session to prevent fixation
   // password intentionally excluded from session via destructuring
-  const { password: _password, ...sessionUser } = user;
+  const { password: _pw, ...sessionUser } = user;
 
   try {
     await _regenerateSession(req.session);

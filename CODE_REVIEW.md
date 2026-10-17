@@ -1,12 +1,65 @@
 # Code Review Notes
 
-**Date:** 2026-10-16 (355th pass)
+**Date:** 2026-10-17 (356th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (354 consecutive hardening reviews) was
+`npm audit`. Prior review history (355 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-17 (356th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`.env.example`, the `CODE_REVIEW.md` history, plus ESLint, Jest, and
+`npm audit`). **No new SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or
+error-leakage defects were found.** The codebase remains at the same hardening
+plateau. Two consistency deviations were investigated and one confirmed:
+
+1. **Inconsistent `password` destructure alias in `src/routes/auth.js`**
+   (confirmed defect, fixed). The login handler used
+   `const { password: _password, ...sessionUser } = user;` while the other
+   three session-scrubbing sites (the two in `PUT /profile` and the one in
+   `PUT /staff/:id`) all use `const { password: _pw, ...sessionUser } = ...`.
+   The ESLint `no-unused-vars` `varsIgnorePattern: '^_'` accepts both names,
+   but the codebase convention is `_pw` everywhere else — the outlier was
+   introduced by pass 355's `PUT /profile` regression work not touching the
+   login line. Renamed `_password` → `_pw` for uniformity. No behavioral
+   change (both names are ignored by the linter and the destructuring result
+   is identical).
+
+2. **Stale comment/heading count in `CODE_REVIEW.md` itself** (not a defect).
+   The 354th/355th cycle headings say "15 core modules export
+   `resetCachedStatements`" — that count has been stable across the last 30
+   passes and the list in `tests/code_review_354.test.js` (15 entries: 2
+   middleware + 12 routes + `utils.js`) confirms it. No code change needed;
+   documented here so the count is pinned to the actual module list rather
+   than the prose.
+
+Also verified this pass: all delete/update/create routes check existence
+before dependent writes inside their transactions; all list routes clamp the
+requested page to the actual page count; the license key reveal endpoint
+remains POST-only, rate-limited (`licenseKeyLimiter`), and audited; and the
+client-side double-submit / submitter-preservation and license-key re-masking
+handlers in `public/js/app.js` are internally consistent.
+
+### Fixes applied
+- `src/routes/auth.js`: rename `_password` → `_pw` in the login handler's
+  session-scrubbing destructure so it matches the `_pw` convention used by
+  the two `PUT /profile` sites in the same file and `PUT /staff/:id` in
+  `staff.js`. No behavioral change.
+
+### Regression tests added
+- None (the rename is a cosmetic convention pin; existing 355 tests already
+  cover the `PUT /profile` phone semantics).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1361 passed / 1361 total** (79 suites, +0 net from #355).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
