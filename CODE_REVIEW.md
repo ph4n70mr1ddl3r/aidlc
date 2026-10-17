@@ -12085,3 +12085,38 @@ None.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1309 passed / 1309 total** (77 suites, +0 net from #350).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-17 (359th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, `app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`,
+the pagination/nav/header partials, `tickets/show.ejs`, `public/js/app.js`,
+`.env.example`, and the `CODE_REVIEW.md` history). **No new SQL injection,
+IDOR, CSRF, XSS, auth, rate-limit, or error-leakage defects were found.** The
+codebase remains at the same hardening plateau. Automated cross-references
+verified: all 17 `process.env.*` references in `src/` are documented in
+`.env.example` (7 active defaults, 10 commented-out options — exact match, no
+missing or undocumented variables), the HPP guard inventory is unchanged at
+65 `rejectHppArrays` invocations across all 12 route modules, and the seed
+tooling remains consistent (asset/ticket counters seed `next_seq` to the last
+seeded number so the first generated tag/ticket continues the sequence;
+`runSeed()` normalizes NODE_ENV exactly like `app.js` so the production guard
+cannot be bypassed by case/whitespace variants). Additional checks this pass:
+`views/partials/pagination.ejs` strips any pre-existing `page=` param from
+`baseUrl` before appending the target page (belt-and-braces over the already
+page-stripped `paginateBaseUrl()`), `public/js/app.js` correctly orders the
+confirm handler before the double-submit handler and only mirrors real submit
+controls into hidden inputs, and the license-key reveal/mask paths remain
+fetch-per-reveal with `visibilitychange`/`pagehide` masking. No new actionable
+defects were identified in this pass.
+
+### Fixes applied
+None.
+
+### Regression tests added
+None.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1384 passed / 1384 total** (81 suites, +0 net from #358).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
