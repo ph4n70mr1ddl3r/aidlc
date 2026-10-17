@@ -787,7 +787,7 @@ server.on('error', (err) => {
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`\nIT Department Manager running at http://localhost:${PORT}`);
-    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}\n`);
+    console.log(`   Environment: ${process.env.NODE_ENV}\n`);
   });
 }
 
