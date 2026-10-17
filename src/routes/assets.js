@@ -251,10 +251,12 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // Fail closed on malformed purchase price (LOW). A present, non-empty price
   // that fails to parse must be rejected rather than silently stored as NULL,
   // which would drop a legitimate price on a typo'd submission. An empty/omitted
-  // price is allowed (defaults to 0 — the schema treats price as NOT NULL and a
-  // blank form field means "not recorded"; the update path instead PRESERVES
-  // the stored value on absence). Mirrors licenses create cost handling.
+  // price is allowed (defaults to 0 — a blank form field means "not recorded";
+  // the update path instead PRESERVES the stored value on absence). Mirrors
+  // licenses create cost handling.
   // Mirrors the assets UPDATE path (11th pass) and licenses create (9th pass).
+  // Note: the schema declares purchase_price as a nullable REAL; this create
+  // path is stricter by convention, writing 0 rather than NULL.
   if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
       !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
     req.flash('error', 'Invalid Purchase Price');

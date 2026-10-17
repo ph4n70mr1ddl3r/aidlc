@@ -2,22 +2,25 @@ const { describe, it, expect } = require('@jest/globals');
 const { lastHandlerFor } = require('./helpers');
 
 // Regression tests for review cycle 194: two consistency defects closed on the
-// 193rd-pass codebase — (1) _commentExistsStmt in tickets.js still selected the
-// unused assigned_to column (a dead-column drift from the described cycle-179
-// fix that was never actually applied), and (2) auth.js used "Invalid Username
-// Or Password" instead of the app-wide "Invalid <Credential>" title-case
-// convention. Both are pinned so future drift cannot reintroduce them.
-describe('code review 194 — comment-exists dead column + auth error-message consistency', () => {
-  describe('_commentExistsStmt has no unused assigned_to column', () => {
-    it('source contains only id in the SELECT clause', () => {
+// 193rd-pass codebase — (1) the auth.js invalid-login message drifted from the
+// app-wide "Invalid <Credential>" title-case convention, corrected back to
+// "Invalid Login Credentials"; (2) the same cycle pinned _commentExistsStmt in
+// tickets.js to select `id` alone, removing `assigned_to` on the premise that
+// it was an unused dead column. That premise was wrong — the column feeds
+// canAccessResource()'s staff branch in the comment route — so pass 357
+// restored `assigned_to` and the pin below now asserts the CORRECT invariant
+// (the column must be present). It is pinned so future dead-column cleanups
+// cannot re-sever the staff comment-access path.
+describe('code review 194 — auth error-message consistency (+357 comment-select correction)', () => {
+  describe('_commentExistsStmt keeps the access-check column (357-corrected)', () => {
+    it('source selects id AND assigned_to (canAccessResource consumes assigned_to)', () => {
       const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'routes', 'tickets.js'), 'utf8');
       // The statement is a single-line template literal; match it including
       // the surrounding quotes rather than relying on backtick interpolation.
       const match = src.match(/const _commentExistsStmt = db\.prepare\('([^']+)'\)/);
       expect(match).toBeDefined();
       const sql = match[1];
-      expect(sql).toMatch(/\bSELECT\s+id\b/);
-      expect(sql).not.toMatch(/\bassigned_to\b/);
+      expect(sql).toMatch(/\bSELECT\s+id,\s*assigned_to\b/);
     });
   });
 

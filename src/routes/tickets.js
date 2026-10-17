@@ -72,7 +72,11 @@ const _showCommentsStmt = db.prepare(`
     LIMIT ${COMMENT_LIST_CAP}
   `);
 const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
-const _ticketAssigneeStmt = db.prepare('SELECT assigned_to FROM tickets WHERE id = ?');
+// Also selects `status` so the quick-status route's no-op guard
+// (`ticket.status === status`) works — with only `assigned_to` selected the
+// guard always compared undefined and every same-status submission was
+// re-written, audited, and cache-invalidated as a change.
+const _ticketAssigneeStmt = db.prepare('SELECT assigned_to, status FROM tickets WHERE id = ?');
 const _satisfactionCheckStmt = db.prepare('SELECT status FROM tickets WHERE id = ?');
 const _satisfactionUpdateStmt = db.prepare(
   'UPDATE tickets SET satisfaction_rating = ?, updated_at = datetime(\'now\') WHERE id = ?'
@@ -112,7 +116,13 @@ const _commentInsertStmt = db.prepare(`
     VALUES (?, ?, ?, ?)
   `);
 const _commentTouchStmt = db.prepare('UPDATE tickets SET updated_at = datetime(\'now\') WHERE id = ?');
-const _commentExistsStmt = db.prepare('SELECT id FROM tickets WHERE id = ?');
+// Selects `assigned_to` alongside `id` so the in-transaction access check
+// (`canAccessResource(req, ticket)`) can honor the staff branch: a regular
+// staff user may only comment on tickets assigned to them. With `id` alone
+// `canAccessResource` returned false for every staff user and every ticket,
+// locking staff out of the comment feature entirely (cycle-194 regression,
+// corrected by pass 357).
+const _commentExistsStmt = db.prepare('SELECT id, assigned_to FROM tickets WHERE id = ?');
 
 // Cached statements for ticket create route (used inside transaction)
 const _ticketCounterStmt = db.prepare(`

@@ -1,12 +1,98 @@
 # Code Review Notes
 
-**Date:** 2026-10-17 (356th pass)
+**Date:** 2026-10-17 (357th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (355 consecutive hardening reviews) was
+`npm audit`. Prior review history (356 consecutive hardening reviews) was
 cross-checked.
+
+---
+
+## Review cycle 2026-10-17 (357th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, `.env.example`, plus ESLint, Jest, and `npm audit`) with
+two parallel deep-review agents cross-verifying the route modules against the
+documented invariants. **A git-history cross-check of three guarded code paths
+surfaced two real structural defects — both caused by earlier review cycles
+"cleaning up" dependencies they did not trace** — plus one factually wrong
+comment. All fixed this pass.
+
+1. **`POST /tickets/:id/comments` locked regular staff out of commenting
+   entirely** (confirmed defect, fixed). Cycle 194 (commit 4bde2789) removed
+   `assigned_to` from `_commentExistsStmt` on the premise that it was an
+   unused dead column — but the comment route's in-transaction access check
+   passes the fetched row to `canAccessResource(req, ticket)`
+   (`middleware/auth.js:178`), whose staff branch consumes exactly
+   `assigned_to`. With `SELECT id` alone, the check returned `false` for every
+   non-privileged user on every ticket since cycle 194, contradicting the
+   route's own documented policy (tickets.js: "regular staff can only comment
+   on tickets assigned to them"). The `tests/code_review_194.test.js` pin was
+   written on the same faulty premise; both the statement and the pin are now
+   corrected (the pin asserts the column MUST be present). Admin/manager
+   access was unaffected because `canAccessResource` returns `true` before the
+   field checks — which is also why the 355-cycle test suite never caught it.
+
+2. **`PUT /tickets/:id/status` no-op guard was unreachable** (confirmed
+   defect, fixed). Cycle 215 added `if (ticket.status === status) return
+   { unchanged: true }` to skip re-writing an unchanged status — but the
+   transaction reads the row via `_ticketAssigneeStmt`, which selected only
+   `assigned_to`, so `ticket.status` was always `undefined` and the guard
+   never fired. Every same-status submission was re-written, audited as
+   "Status changed to X", flashed success, and invalidated the dashboard
+   cache. `_ticketAssigneeStmt` now selects `assigned_to, status` (the row is
+   also passed to `canAccessResource`, which needs `assigned_to`). Verified
+   behaviorally: same-status now flashes `info: "Status unchanged."` with no
+   UPDATE/audit/invalidation; a different status behaves exactly as before.
+
+3. **`src/routes/assets.js` create-route comment claimed the schema treats
+   `purchase_price` as NOT NULL** (comment-only defect, fixed). The schema
+   declares `purchase_price REAL` (nullable), and the sibling update-path
+   comment in the same file explicitly reasons about stored NULL prices.
+   Behavior was correct in both paths (create defaults absent/empty to 0;
+   update preserves) — corrected the comment and added a note clarifying the
+   create path is stricter by convention.
+
+Also verified this pass (agent cross-check, all invariants confirmed): all 15
+core modules export `resetCachedStatements`; every badge mapping in
+`constants.js` covers its enum exactly; `ALLOWED_ACTIONS` / 
+`ALLOWED_ENTITY_TYPES` exactly match all 84 `req.audit(...)` sites plus the 9
+object-style `audit({...})` sites (13 actions / 13 entities, zero unused, zero
+extra); every write route carries `rejectHppArrays` + success-path
+`invalidateDashboardCache()`; seat/content placeholder counts match on every
+statement; transactions never delete children before verifying the parent;
+seed counters and progress values match the runtime formulas; dynamic SQL
+interpolates only compile-time constants; the pass-356 `_pw` rename and the
+pass-355 `PUT /profile` `resolveOptionalField` semantics are intact.
+
+### Fixes applied
+- `src/routes/tickets.js`: restore `assigned_to` in `_commentExistsStmt`
+  (staff comment access) and add `status` to `_ticketAssigneeStmt`
+  (reachable no-op guard), each with a comment documenting the consumer so
+  future dead-column cleanups cannot re-sever them.
+- `src/routes/assets.js`: corrected the false NOT NULL claim in the
+  create-route purchase-price comment.
+- `tests/code_review_194.test.js`: the first pin asserted the faulty premise
+  (`assigned_to` must be ABSENT); corrected to assert the column MUST be
+  present in `_commentExistsStmt`, with the corrected-premise rationale in the
+  header.
+
+### Regression tests added
+- `tests/code_review_357.test.js`: 7 tests — source pins on both corrected
+  statements, plus behavioral coverage using the real `canAccessResource`:
+  staff can comment on a ticket assigned to them, staff is denied on an
+  unassigned ticket (audit + ACCESS_DENIED flash), admin can comment on any
+  ticket, unchanged-status flashes `info` with no UPDATE/audit/cache
+  invalidation, and changed-status still runs the update with success flash
+  + audit + invalidation.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1368 passed / 1368 total** (80 suites, +7 net from #356).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
 ---
 
