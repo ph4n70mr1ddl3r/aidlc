@@ -497,9 +497,17 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       // but-invalid status was already rejected by the outer guard above.
       effectiveStatus = status || existingChange.status;
 
-      _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, effectiveStatus, safePriority,
+      const result = _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, effectiveStatus, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
         resolvedImpact, resolvedAssignee, id);
+      // Belt-and-braces NOT_FOUND guard mirroring the tickets/assets/projects/
+      // licenses update transactions: the re-fetch above guarantees the row
+      // exists at this point in the transaction, but checking the affected-row
+      // count keeps the convention uniform across every update route (and
+      // catches any future statement edit that drops the WHERE id term).
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
     });
     updateChange();
 

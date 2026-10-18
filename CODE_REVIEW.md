@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-17 (358th pass)
+**Date:** 2026-10-18 (360th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
@@ -12120,3 +12120,86 @@ None.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1384 passed / 1384 total** (81 suites, +0 net from #358).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-18 (360th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, `app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`,
+all 39 EJS templates (34 page + 5 partial), `public/js/app.js`,
+`public/css/app.css` classes referenced by templates, `README.md`,
+`.env.example`, `eslint.config.js`, both jest setup files, the CI workflow, and
+the `CODE_REVIEW.md` history). **No new SQL injection, IDOR, CSRF, XSS, auth,
+rate-limit, or error-leakage defects were found.** Three low-severity
+consistency/correctness items surfaced and were fixed this pass; the codebase
+otherwise remains at the same hardening plateau.
+
+1. **Staff directory name cell hid the last name when the first name was blank**
+   (display inconsistency, fixed). In `views/pages/staff/index.ejs` the linked
+   (viewable) name cell rendered `<%= s.first_name %> <%= s.first_name ?
+   s.last_name : '' %>` — a stray ternary that suppressed the last name
+   whenever `first_name` was empty, while the adjacent unlinked branch rendered
+   `first_name + ' ' + last_name` unconditionally. The column is NOT NULL but
+   permits `''` (legacy rows / direct DB writes), and validation only rejects
+   blanks on create/update — so such a row rendered a blank linked name and an
+   "Unlinked Lastname" name in the same table. Fixed to render the last name
+   unconditionally, matching the unlinked branch and every other staff-name
+   rendering in the app.
+
+2. **`changes.js` and `vendors.js` update transactions skipped the
+   `changes === 0` NOT_FOUND guard** (convention uniformity, fixed). Every
+   sibling update transaction (tickets, assets, projects, licenses, staff,
+   knowledge) captures the `run()` result and throws `NOT_FOUND` when the
+   affected-row count is 0 as belt-and-braces after the in-transaction re-fetch;
+   the change and vendor update routes called `run()` without capturing the
+   result. Behavior was identical (the re-fetch guarantees the row exists inside
+   the transaction), but the omission broke the uniform convention and would
+   silently stop guarding if a future statement edit dropped the `WHERE id`
+   term. Both routes now capture the result and throw `NOT_FOUND` on 0 changes,
+   reusing their existing NOT_FOUND flash/redirect handlers.
+
+3. **`CODE_REVIEW.md` header was stale** (documentation consistency, fixed).
+   The header still read "(358th pass)" although the 359th entry had been
+   appended — the header date/pass counter is the file's only index and must
+   track the latest entry. Updated to the 360th pass.
+
+Cross-cutting checks re-verified this pass: every paginated list route clamps
+the requested page to `totalPages` with an `id` tiebreaker in every ORDER BY
+used with LIMIT/OFFSET; every write route rejects HPP arrays before
+`safeQueryValue` collapses them; the absent-vs-empty partial-update convention
+is uniformly applied (dates/prices/PII/enums resolve against the
+transaction-consistent re-fetch); deactivated assignees/owners are preserved on
+unchanged resubmission via `ensureAssigneeInList` + the equal-id exemption in
+`isActiveUser` checks; requester PII is redacted for non-privileged viewers on
+both the show and edit paths and preserved on partial submissions; the
+knowledge index/show/edit/delete visibility rules agree (published OR author OR
+privileged); the changes list is scoped to `assigned_to = user.id` for
+non-privileged users matching the show gate; the licenses/vendors surfaces are
+coherently admin/manager-only; list rows link only where the viewer can pass
+the corresponding show-route gate; seed counters continue the AST-/TK-
+sequences correctly and `runSeed()` normalizes NODE_ENV like `app.js`; the
+`licenses/form.ejs` never pre-fills the stored key and masks reveal output to
+`****`; `staff/index.ejs` and `staff/show.ejs` PII redaction markers
+("Restricted") match the route-level nulling; the `.env.example` documents all
+17 env vars exactly as read in `src/`; and `README.md` (structure, env table,
+scripts, security summary) matches the current code.
+
+### Fixes applied
+1. `views/pages/staff/index.ejs` — render the last name unconditionally in the
+   linked name cell (removed the `s.first_name ? … : ''` ternary).
+2. `src/routes/changes.js` — capture the change-update `run()` result and
+   throw `NOT_FOUND` on 0 affected rows (belt-and-braces guard matching every
+   sibling update transaction).
+3. `src/routes/vendors.js` — same guard for the vendor-update transaction.
+4. `CODE_REVIEW.md` — header pass counter refreshed (was stale at 358).
+
+### Regression tests added
+None — the template fix is a pure display-string change pinned by the
+`templates.test.js` render smoke (staff/index renders for both viewer types),
+and the two route guards are unreachable defensive branches behind the
+in-transaction existence re-fetch (the surrounding NOT_FOUND handlers are
+already covered by existing tests).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1384 passed / 1384 total (81 suites, +0 net from #359).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

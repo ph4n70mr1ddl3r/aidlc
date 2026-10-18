@@ -615,13 +615,21 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
       // Preserve existing is_active — use dedicated activate/deactivate routes
       // to change vendor status, ensuring any future cleanup logic runs consistently.
-      _updateStmt.run(safeName, safeContactPerson, safeEmail, safePhone, safeAddress,
+      const updateResult = _updateStmt.run(safeName, safeContactPerson, safeEmail, safePhone, safeAddress,
         safeWebsite, safeCategory,
         resolvedStartDate.value,
         resolvedEndDate.value,
         safeNotes,
         safeRatingVal,
         existing.is_active ? 1 : 0, id);
+      // Belt-and-braces NOT_FOUND guard mirroring the tickets/assets/projects/
+      // licenses update transactions: the re-fetch above guarantees the row
+      // exists at this point in the transaction, but checking the affected-row
+      // count keeps the convention uniform across every update route (and
+      // catches any future statement edit that drops the WHERE id term).
+      if (updateResult.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
 
       // Sync name change to license references (licenses.vendor is a text field
       // matching the vendor's name — not a foreign key).
