@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-18 (360th pass)
+**Date:** 2026-10-19 (361st pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (357 consecutive hardening reviews) was
+`npm audit`. Prior review history (360 consecutive hardening reviews) was
 cross-checked.
 
 ---
@@ -12202,4 +12202,108 @@ already covered by existing tests).
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — 1384 passed / 1384 total (81 suites, +0 net from #359).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-19 (361st pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, `app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`,
+all 39 EJS templates (34 page + 5 partial), `public/js/app.js`, the CSS classes
+referenced by templates, `README.md`, `.env.example`, `eslint.config.js`, both
+jest setup files, the CI workflow, and the `CODE_REVIEW.md` history). **No new
+SQL injection, IDOR, CSRF, XSS, auth, rate-limit, or error-leakage defects were
+found.** Two correctness items surfaced and were fixed this pass; the codebase
+otherwise remains at the same hardening plateau.
+
+1. **Error page double-escaped messages AND failed to render for pre-locals
+   errors** (correctness, fixed). `views/pages/error.ejs` rendered
+   `<%= escapeHtml(error.message) %>` — a manual res.locals helper call inside
+   EJS's escaped-output interpolation, which is defective twice over. First,
+   `<%= %>` already HTML-escapes its expression, so the wrapper double-escaped
+   every message containing `&`/`<`/`>`/quotes ("a < b" displayed as the
+   literal text "a &lt; b") — the same double-escape class previously fixed
+   for the audit details column. Second, for errors thrown BEFORE the global
+   res.locals middleware runs (body-parser 413 payload-too-large / 400
+   malformed-JSON fire at the parser, ahead of session, flash, CSRF, and the
+   locals middleware), `escapeHtml` is genuinely undefined — the very scenario
+   the template's own `user`/`statusCode` guards and `header.ejs`'s `csrfToken`
+   guard (pass 141) exist for. The render then threw a secondary
+   `ReferenceError`, and Express downgraded the styled 413/400 page to a
+   bare-text 500 with a wrong status code. Verified end-to-end: an oversized
+   urlencoded POST previously returned 500 + a `ReferenceError` stack; after
+   the fix it returns the styled 413 "Request Error" page. The manual call was
+   removed — EJS's built-in escaping preserves the pass-298 security contract
+   (message escaped exactly once; raw `<%-` output stays forbidden) with no
+   dependency on locals scope.
+
+2. **405 `Allow` header omitted OPTIONS** (protocol consistency, fixed). The
+   TRACE/TRACK rejection middleware in `app.js` advertised
+   `Allow: GET, HEAD, POST, PUT, DELETE`, but the app genuinely serves OPTIONS
+   (Express's automatic OPTIONS handler answers matching routes, and
+   `doubleCsrfProtection` explicitly skips OPTIONS) — so the advertised set was
+   inaccurate per RFC 9110 §10.2.1 (Allow lists the methods supported by the
+   target resource). OPTIONS was added to `_ALLOWED_METHODS`; no routing,
+   CSRF, or write-method behavior changed — only the advertised metadata.
+   Pass 167's inverse logic (PATCH removed because no route handles it) is
+   preserved: the list now exactly equals the set of methods the app serves.
+
+Cross-cutting checks re-verified this pass: the error/404/header partial guard
+set is complete for the pre-res.locals render path (post-fix, every local
+referenced by `error.ejs` is either passed by the error handler or
+`typeof`-guarded, matching `header.ejs`/`404.ejs`); every write route rejects
+HPP arrays before `safeQueryValue` collapses them (the knowledge form's
+intentional `is_featured` checkbox-array exception is documented and resolved
+last-element by `resolveSafeFeatured`); every paginated list route clamps the
+requested page to `totalPages` with `id` tiebreakers in all LIMIT/OFFSET
+ORDER BY clauses; absent-vs-empty partial-update resolution is uniform across
+tickets/assets/projects/vendors/licenses/changes/staff (dates, prices, PII,
+enums resolved against the transaction-consistent re-fetch); every update
+transaction captures the `run()` result and throws NOT_FOUND on 0 changes;
+deactivated assignees/owners are preserved on unchanged resubmission via
+`ensureAssigneeInList`/`ensureLinkedAssetInList` plus the equal-id exemption;
+requester PII is redacted for non-privileged viewers on show and edit paths and
+preserved on partial submission; the knowledge index/show/edit/delete
+visibility rules agree (published OR author OR privileged); changes are scoped
+to `assigned_to` for non-privileged list viewers matching the show gate;
+licenses/vendors remain coherently admin/manager-only with list rows linked
+only where the viewer passes the show gate; all badge/CSS classes referenced
+by templates exist in `app.css`; every mutation route calls
+`invalidateDashboardCache()` (and `invalidateActiveStaffCache()` for
+user-column writes); `.env.example` documents all 17 env vars exactly as read
+in `src/`; seed counters continue the AST-/TK- sequences and the seed guard
+normalizes NODE_ENV identically to `app.js`; and `README.md` matches the
+current code. Historical pins updated per convention: `code_review_298`
+(re-pinned to the escaped-interpolation form whose intent it actually had) and
+`code_review_167` (Allow-list string refreshed for the OPTIONS addition).
+
+### Fixes applied
+1. `views/pages/error.ejs` — render `error.message` through EJS's built-in
+   `<%= %>` escaping instead of the manual `escapeHtml()` wrapper (fixes the
+   pre-locals secondary ReferenceError that downgraded styled 413/400 pages to
+   bare-text 500s, and the double-escaping of messages with HTML
+   metacharacters).
+2. `src/app.js` — add OPTIONS to the 405 `Allow` header so the advertised
+   method set matches the methods the app actually serves (no behavior change).
+3. `tests/code_review_167.test.js` — Allow-list pin refreshed for the OPTIONS
+   addition (PATCH remains absent everywhere).
+4. `tests/code_review_298.test.js` — re-pinned to the corrected escaping
+   convention: `<%= error.message %>` present, raw `<%-` forbidden (the old
+   pin mislabeled escaped interpolation as "bare").
+
+### Regression tests added
+`tests/code_review_361.test.js` (4 tests): error.ejs renders with no
+`escapeHtml` local (pre-res.locals error path) and degrades the CTA to the
+anonymous branch; messages with `&`/`<` escape exactly once (no
+`&amp;amp;`/`&amp;lt;`); an oversized urlencoded POST through the real app
+(mocked DB/middleware, matching `app.test.js`'s harness) returns the styled
+413 HTML page — status not downgraded to 500 and no `ReferenceError` text
+leaks; and a raw-socket TRACE request is rejected with 405 advertising
+`Allow: GET, HEAD, POST, PUT, DELETE, OPTIONS`. Verified the template tests
+fail against the pre-fix template (3 of 4 fail when the fix is reverted).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1388 passed / 1388 total (82 suites, +1 from #360).
+- `npm run test:coverage` — global thresholds pass (statements 67.68%,
+  branches 65.25%, functions 76.75%, lines 67.68%).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

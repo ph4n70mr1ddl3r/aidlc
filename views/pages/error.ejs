@@ -4,7 +4,19 @@
     <h1 style="font-size:72px;font-weight:800;color:var(--danger);line-height:1;"><%= typeof statusCode !== 'undefined' ? statusCode : 500 %></h1>
     <h2 style="margin-bottom:12px;"><%= typeof statusCode !== 'undefined' && statusCode < 500 ? 'Request Error' : 'Server Error' %></h2>
     <% if (typeof error !== 'undefined' && error && error.message) { %>
-      <p style="margin-bottom:12px;padding:12px;background:var(--danger-light);border-radius:8px;font-family:monospace;font-size:13px;"><%= escapeHtml(error.message) %></p>
+      <% // EJS escaped-output interpolation already HTML-escapes its
+         // expression. The previous manual escapeHtml() call had two
+         // defects: (1) it double-escaped every message containing &/</>
+         // ("a < b" displayed as the literal text "a &lt; b"), and (2) it
+         // referenced a res.locals helper that is genuinely UNDEFINED when
+         // the error was thrown BEFORE the res.locals middleware ran (e.g.
+         // body-parser 413/400) — the render then threw a secondary
+         // ReferenceError and Express downgraded the styled page to a
+         // bare-text 500 with a wrong status code. Relying on the built-in
+         // escaping fixes both — the same class fixed for header.ejs's
+         // csrfToken guard (pass 141) and the audit details column
+         // (double-escape). %>
+      <p style="margin-bottom:12px;padding:12px;background:var(--danger-light);border-radius:8px;font-family:monospace;font-size:13px;"><%= error.message %></p>
     <% } else { %>
       <p style="margin-bottom:12px;padding:12px;background:var(--danger-light);border-radius:8px;">An unexpected error occurred.</p>
     <% } %>

@@ -29,7 +29,11 @@ describe('code review 167: consistency/completeness/correctness', () => {
   describe('PATCH removed from app.js method sets', () => {
     it('does not appear in _ALLOWED_METHODS/_WRITE_METHODS/_OVERRIDE_METHODS', () => {
       const src = readSrc('src/app.js');
-      expect(src).toContain("const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE';");
+      // Pin refreshed in pass 361: OPTIONS was added to _ALLOWED_METHODS so the
+      // 405 Allow header accurately advertises the methods the app serves
+      // (Express auto-handles OPTIONS; CSRF validation skips it). PATCH stays
+      // absent everywhere — no route handles it.
+      expect(src).toContain("const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';");
       expect(src).toContain("new Set(['POST', 'PUT', 'DELETE'])");
       expect(src).toContain("new Set(['PUT', 'DELETE'])");
     });

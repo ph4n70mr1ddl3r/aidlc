@@ -124,7 +124,12 @@ app.set('query parser', 'simple');
 // needed and have been associated with cross-protocol/cross-site tracing
 // attacks; dropping them at the edge is cheap defense-in-depth.
 const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
-const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE';
+// OPTIONS is deliberately advertised: the app genuinely serves it (Express's
+// automatic OPTIONS handler answers matching routes, and doubleCsrfProtection
+// skips OPTIONS), so omitting it made the 405 Allow header inaccurate — the
+// set must list every method the target resource supports (RFC 9110 §10.2.1).
+// The write/route surface is unchanged; only the advertised metadata was wrong.
+const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';
 const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE']);
 // Methods a POST may be overridden to via `_method`. Restricted to the write
 // verbs the app actually uses (PUT/DELETE). An allowlist — rather than passing
