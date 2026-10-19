@@ -348,7 +348,15 @@ router.get('/:id', (req, res) => {
 
   req.audit('read', 'asset', id, `Viewed asset: ${asset.name}`);
 
-  const relatedTickets = _relatedTicketsStmt.all(id);
+  // Related-ticket metadata (number/title/status/priority/assignee) is scoped
+  // to the viewer's ticket access — without the gate a non-privileged assignee
+  // of the asset could harvest metadata for linked tickets they cannot open
+  // (the ticket show route's canAccessResource would deny them), an IDOR
+  // asymmetry the link itself was meant to prevent. The template still applies
+  // its own per-row canView check for the link vs. text rendering, which now
+  // matches the route-level scoping.
+  const relatedTickets = _relatedTicketsStmt.all(id)
+    .filter(t => canAccessResource(req, t));
 
   // Redact assigned_email for non-privileged viewers — staff should not be able
   // to harvest other users' emails from asset detail pages. Shallow-copy before

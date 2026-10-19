@@ -121,8 +121,10 @@ function checkIpLockout(ip) {
 /**
  * Purge stale entries from a login-failure map to bound memory usage.
  * When the map exceeds MAX_LOGIN_FAILURES_MAP_SIZE, removes entries whose
- * lastAttempt is older than the lockout window, then evicts oldest entries
- * as a fallback.
+ * lastAttempt is older than the lockout window, then evicts the oldest
+ * unlocked entry as a fallback. Entries in an ACTIVE lockout are never
+ * evicted here — doing so would release that account's lockout early and
+ * let a username flood defeat the per-account brute-force protection.
  */
 function purgeStaleEntries(map) {
   if (map.size < MAX_LOGIN_FAILURES_MAP_SIZE) {
@@ -144,26 +146,24 @@ function purgeStaleEntries(map) {
       return;
     }
   }
-  // Still over capacity — evict oldest non-locked entries.
-  // If the absolute oldest entry is locked (active lockout), skip it
-  // and evict the next unlocked entry so the map doesn't grow unbounded.
-  let evicted = false;
+  // Still over capacity — evict the oldest unlocked entry. If every entry
+  // is locked (active lockout), skip all of them — see below.
   for (const [key, val] of map) {
     if (val && val.lockedUntil && Date.now() < val.lockedUntil) {
       continue;
     }
     map.delete(key);
-    evicted = true;
     break;
   }
-  // When every entry is locked, force-evict the oldest entry regardless of lock
-  // state so the map can make room.
-  if (!evicted) {
-    const oldest = map.keys().next().value;
-    if (oldest !== undefined) {
-      map.delete(oldest);
-    }
-  }
+  // When every entry is still locked, the stale-eviction loop above removed
+  // nothing and there is no unlocked entry to evict. Deleting a *locked*
+  // entry would release that account's active lockout early — a 10 000-name
+  // username flood could then keep force-evicting a victim's lockout one
+  // entry at a time and defeat the per-account brute-force protection. Keep
+  // the locked entry and accept the transient over-capacity instead: every
+  // entry has a lastAttempt within the lockout window, so the periodic
+  // 10-minute purge recovers the slots within ~25 minutes without ever
+  // releasing an active lockout.
 }
 
 /**
@@ -362,7 +362,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
 }));
 
 // Logout (POST only — GET logout is CSRF-vulnerable)
-router.post('/logout', (req, res) => {
+router.post('/logout', asyncHandler(async (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors
   // the array-rejection guards on every other write route in the app. The
   // logout handler does not read body fields today, so a polluted payload
@@ -382,6 +382,18 @@ router.post('/logout', (req, res) => {
     // attempt even though we cannot attribute it to a specific user ID.
     audit({ req, action: 'logout', entity: 'user', entityId: null, details: 'Logout with no active session' });
   }
+  // Regenerate before destroy so the session id is rotated even in the
+  // destroy-then-redirect path. destroy() alone leaves the pre-logout id
+  // revivable by any cached copy of the cookie (back-button, service worker,
+  // proxy cache) until the store entry is gone — the same fixation vector
+  // the login/profile/password routes close with _regenerateSession.
+  try {
+    await _regenerateSession(req.session);
+  } catch (err) {
+    // Regeneration is best-effort: the destroy below still wipes the session
+    // state, so a regenerate failure must not break logout.
+    logError('Session regeneration error during logout:', err);
+  }
   req.session.destroy((err) => {
     if (err) {
       logError('Session destroy error:', err);
@@ -399,7 +411,7 @@ router.post('/logout', (req, res) => {
       return res.redirect('/login');
     }
   });
-});
+}));
 
 // Lazily initialized for test isolation (consistent with the login stmts and audit.js).
 let _profileSelectStmt = null;

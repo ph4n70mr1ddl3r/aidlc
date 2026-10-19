@@ -215,11 +215,22 @@ describe('tickets update — partial submission preserves stored due_date and re
     expect(params[7]).toBe('2026-06-01'); // due_date column (index 7)
   });
 
+  it('preserves the stored requester_name when the field is absent (regression: wiped to "")', () => {
+    const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
+    const { redirectCalls } = runHandler(h, {
+      title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
+      requester_email: 'bob@x.com'
+    }, { id: '1' });
+    expect(redirectCalls).toHaveLength(1);
+    const params = lastRunParams();
+    expect(params[9]).toBe('Bob'); // requester_name column (index 9)
+  });
+
   it('preserves requester PII for a non-privileged editor who cannot see it', () => {
     const h = lastHandlerFor(ticketsRouter, 'put', '/:id');
     const { redirectCalls } = runHandler(h, {
       title: 'Broken laptop', category: 'hardware', priority: 'medium', status: 'open',
-      requester_name: 'Bob'
+      requester_email: 'bob@x.com'
     }, { id: '1' }, { id: 2, role: 'staff' });
     expect(redirectCalls).toHaveLength(1);
     const params = lastRunParams();

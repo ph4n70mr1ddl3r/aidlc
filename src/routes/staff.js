@@ -150,16 +150,19 @@ router.get('/', (req, res) => {
   // Non-privileged users (regular staff) must not be able to harvest other
   // employees' email/phone via the directory listing. Only privileged users
   // (admin/manager) and the user themselves receive those fields; everyone
-  // else gets them zeroed out before rendering.
-  // Use a shallow copy per row to avoid mutating the DB query result objects
-  // in-place — a mutated row object could leak through a cache or middleware.
+  // else gets them zeroed out before rendering. last_login and avatar are
+  // zeroed too — the email/phone/department redaction only controls what the
+  // index template renders today, so any future template change reviving a
+  // column would leak the data. Use a shallow copy per row to avoid mutating
+  // the DB query result objects in-place — a mutated row object could leak
+  // through a cache or middleware.
   const viewer = req.session.user;
   const viewerPrivileged = isPrivileged(viewer);
   const renderedStaff = staff.map(s => {
     if (viewerPrivileged || Number(s.id) === Number(viewer.id)) {
       return { ...s };
     }
-    return { ...s, email: null, phone: null, department: null };
+    return { ...s, email: null, phone: null, department: null, last_login: null, avatar: null };
   });
 
   res.render('pages/staff/index', {

@@ -541,7 +541,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
   const resolution_notes = trim(safeQueryValue(req.body.resolution_notes));
-  const requester_name = trim(safeQueryValue(req.body.requester_name));
+  const rawRequesterName = req.body.requester_name;
+  const requester_name = trim(safeQueryValue(rawRequesterName));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
   // Requester PII (email/phone/department) is only editable by privileged users
@@ -635,14 +636,33 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  // Validate requester fields. requester_name is rendered for every editor and
-  // must be present; requester email/phone/department are requester PII that
-  // only privileged users can see or modify (see canEditRequesterPII above).
-  if (!requester_name) {
-    req.flash('error', 'Requester name is required');
+  // Validate requester fields. requester_name is rendered for every editor;
+  // requester email/phone/department are requester PII that only privileged
+  // users can see or modify (see canEditRequesterPII above).
+  //
+  // Absent-vs-empty convention for requester_name (mirrors every sibling
+  // field's resolveOptionalField rule): a partial API PUT that OMITS
+  // requester_name preserves the stored value instead of wiping it to '', and
+  // an explicit empty string is rejected as a required-field miss (the create
+  // route and the edit form both require a non-empty name, so an empty value
+  // has no valid meaning). Fail closed on a present-but-non-string value
+  // (JSON number/object): trim() would coerce it to '' and the wipe/require
+  // checks would misfire — the same fail-closed guard the enum fields above
+  // apply.
+  if (rawRequesterName !== undefined && rawRequesterName !== null && rawRequesterName !== '' && typeof rawRequesterName !== 'string') {
+    req.flash('error', 'Invalid Requester Name');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (requester_name.length > MAX_SHORT_STR) {
+  const requesterNameAbsent = rawRequesterName === undefined || rawRequesterName === null;
+  if (!requester_name) {
+    // Absent on a partial submission preserves the stored value (resolved
+    // inside the transaction below); a PRESENT-but-empty value is a
+    // required-field miss (the edit form and create route both require it).
+    if (!requesterNameAbsent) {
+      req.flash('error', 'Requester name is required');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+  } else if (requester_name.length > MAX_SHORT_STR) {
     req.flash('error', `Requester name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -778,9 +798,16 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       const effectivePriority = priority || ticket.priority;
       const effectiveStatus = status || ticket.status;
 
+      // requester_name mirrors the absent-vs-empty rule of every sibling field:
+      // an ABSENT field (partial API submission) preserves the stored value;
+      // an explicit empty string was rejected above (required on this route).
+      const resolvedRequesterName = (rawRequesterName === undefined || rawRequesterName === null)
+        ? (ticket.requester_name ?? '')
+        : requester_name.substring(0, MAX_SHORT_STR);
+
       const params = [title.substring(0, MAX_MEDIUM_STR), resolvedDescription, effectiveCategory, effectivePriority, effectiveStatus,
         resolvedAssignee, resolvedAssetId, resolvedDueDate, resolvedResolutionNotes,
-        (requester_name || '').substring(0, MAX_SHORT_STR), resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
+        resolvedRequesterName, resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 
       const wasResolved = ticket.status === 'resolved' || ticket.status === 'closed';
       const isNowResolved = effectiveStatus === 'resolved' || effectiveStatus === 'closed';

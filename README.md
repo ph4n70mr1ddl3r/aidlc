@@ -182,7 +182,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 
 - **CSRF protection** on all state-changing requests
 - **Helmet** for security headers (CSP, X-Frame-Options, etc.)
-- **Rate limiting** on login (10 requests per 15 min per IP, with a separate 5-failure lockout for 15 min), dashboard (10/min), health (30/min), and writes (100 per 15 min)
+- **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout), dashboard (10/min), health (30/min), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each) and staff updates (50/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries

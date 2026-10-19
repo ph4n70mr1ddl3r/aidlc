@@ -17,17 +17,16 @@ try {
   markedFallback = true;
 }
 const sanitizeHtml = (() => {
+  // NOTE: load errors (package missing/broken) and shape errors (module loaded
+  // but is not the expected sanitizer function) must be distinguished — the IIFE
+  // throw form previously caught BOTH, so a shape error silently fell back to
+  // the identity function (pass-through), turning renderMarkdown into a
+  // stored-XSS surface. The shape check therefore uses a plain if/throw so a
+  // shape error propagates (crashing at startup is the fail-closed behavior),
+  // while a load error still degrades to the escaped plain-text fallback.
+  let loaded;
   try {
-    const mod = require('sanitize-html');
-    // sanitize-html 2.x exports the function as the default; some versions
-    // also attach it as .default. Handle both shapes.
-    return typeof mod === 'function'
-      ? mod
-      : (mod && typeof mod.default === 'function'
-        ? mod.default
-        : (() => {
-          throw new Error('unexpected sanitize-html shape');
-        })());
+    loaded = require('sanitize-html');
   } catch (err) {
     console.error(`ERROR: sanitize-html package failed to load: ${(err && err.message) || String(err)}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
     // Fail closed: escape all HTML instead of passing it through unsanitized
@@ -40,6 +39,18 @@ const sanitizeHtml = (() => {
     noop.simpleTransform = () => (tagName, attribs) => attribs;
     return noop;
   }
+  // sanitize-html 2.x exports the function as the default; some versions
+  // also attach it as .default. Handle both shapes.
+  if (typeof loaded === 'function') {
+    return loaded;
+  }
+  if (loaded && typeof loaded.default === 'function') {
+    return loaded.default;
+  }
+  // A loaded-but-unexpected shape cannot be verified as a sanitizer — fail
+  // closed by crashing at startup rather than trusting an unknown object.
+  console.error(`ERROR: sanitize-html loaded but has an unexpected shape: ${Object.keys(loaded).join(', ')}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
+  throw new Error('unexpected sanitize-html shape');
 })();
 const rateLimit = require('express-rate-limit');
 

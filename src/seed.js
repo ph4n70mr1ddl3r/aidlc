@@ -411,6 +411,11 @@ if (require.main === module) {
   } catch (err) {
     console.error('Seeding failed:', (err && err.message) || String(err));
     process.exitCode = 1;
+    // Still close on failure — the script owns this handle for its whole
+    // lifetime (it opened the shared module here, nothing else is running in
+    // this process), and leaving it open keeps the event loop blocked.
+    // (The CLI production guard above exits BEFORE the db is required, so
+    // the only in-try failures are genuine seeding failures — always close.)
   } finally {
     db.close();
   }

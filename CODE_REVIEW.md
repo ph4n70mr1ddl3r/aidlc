@@ -1,14 +1,138 @@
 # Code Review Notes
 
-**Date:** 2026-10-19 (361st pass)
+**Date:** 2026-10-19 (362nd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (360 consecutive hardening reviews) was
+`npm audit`. Prior review history (361 consecutive hardening reviews) was
 cross-checked.
 
 ---
+
+## Review cycle 2026-10-19 (362nd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+
+1. **`requester_name` wiped on partial ticket updates** (confirmed
+   correctness/data-loss defect, fixed). `PUT /tickets/:id` wrote
+   `(requester_name || '').substring(0, MAX_SHORT_STR)` unconditionally, with
+   no absent-preserves rule, while every sibling field (description,
+   resolution_notes, requester email/department/phone, assignee, asset,
+   due_date, category, priority, status) resolved to the stored value on
+   absence via `resolveOptionalField` / the raw-vs-trimmed split. A partial
+   `PUT` that omitted `requester_name` silently erased it to `''` — the exact
+   bug class the sibling fields had already fixed. Fix: capture the raw value
+   (`rawRequesterName`), apply the same fail-closed present-non-string guard as
+   the enum fields, reject an explicit empty string as a required-field miss
+   (the create route and edit form both require a non-empty name), and resolve
+   inside the transaction as `ticket.requester_name ?? ''` on absence.
+
+2. **Asset show page leaked linked-ticket metadata past the ticket access gate**
+   (confirmed IDOR asymmetry, fixed). `GET /assets/:id` rendered
+   `_relatedTicketsStmt.all(id)` (ticket number/title/status/priority/
+   assigned_to) to any viewer who passed `canAccessResource` on the *asset*
+   (assets.js:343) — including a non-privileged assignee of the asset who would
+   be *denied* on the ticket show route (tickets.js:423). The asset page was a
+   metadata oracle for tickets the viewer had no permission to open. Fix:
+   filter the related-ticket rows through `canAccessResource` (the same gate
+   the ticket show route uses), so the set the asset page exposes exactly
+   matches the set the viewer may open.
+
+3. **Staff list leaked `last_login`/`avatar` to non-privileged viewers**
+   (confirmed PII-disclosure asymmetry, fixed). `GET /staff` zeroed
+   `email`/`phone`/`department` on non-self rows (staff.js:162) but not
+   `last_login` (user-activity timing) or `avatar` — inconsistent with the
+   redaction the route's own comment documents. Fix: both fields are now
+   zeroed alongside email/phone/department for non-self/non-privileged rows.
+
+4. **`sanitize-html` shape-detection silently passed through an unknown module
+   shape** (confirmed fail-open stored-XSS surface, fixed). The loader wrapped
+   *both* the `require` and the shape check in one try/catch, so a loaded-but-
+   unexpected module shape (e.g. a broken interop wrapper returning a
+   non-sanitizer object) caught the "throw" and fell back to the identity
+   function — turning `renderMarkdown` into a stored-XSS surface. Fix: split
+   the load error (still degrades to the escaped plain-text fallback, as
+   before) from the shape error, which now logs and **throws at startup**
+   (fail-closed: a process that can't verify its sanitizer should not serve
+   untrusted HTML). Regression: `knowledge_sanitize_shape.test.js` mocks an
+   unexpected shape and asserts the throw.
+
+5. **`purgeStaleEntries` force-evicted active lockouts when the map was full**
+   (confirmed brute-force bypass, fixed). When `MAX_LOGIN_FAILURES_MAP_SIZE`
+   (10 000) was exceeded and *every* entry was still in an active lockout, the
+   fallback deleted the oldest entry *regardless of lock state* — a
+   10 000-username flood could then keep force-evicting a victim's lockout one
+   entry at a time, defeating the per-account brute-force protection. Fix: the
+   fallback now evicts only unlocked entries; when every entry is locked it
+   evicts nothing and accepts the transient over-capacity (each entry's
+   `lastAttempt` is within the 15-minute lockout window, so the periodic
+   10-minute purge recovers slots within ~25 minutes without releasing any
+   active lockout).
+
+6. **Logout did not rotate the session ID** (confirmed session-fixation
+   residual, fixed). `POST /logout` called `req.session.destroy()` directly,
+   leaving the pre-logout session id revivable by any cached copy of the
+   cookie (back-button cache, service worker, proxy) until the store entry was
+   gone — the same fixation vector the login/profile/password routes close
+   with `_regenerateSession`. Fix: the logout handler is now async and calls
+   `_regenerateSession` before `destroy` (best-effort: a regenerate failure
+   must not break logout, since the destroy below still wipes session state).
+
+Also verified this pass: all 17 env vars in `.env.example` match the exact
+reads in `src/`; `README.md` rate-limit claims updated to the full per-route
+limiter inventory (reports 30/5min, audit 30/5min, license-key reveal
+20/15min, KB write 30/hour + read 100/15min, staff create + deactivate 10/hour,
+staff updates 50/15min, password 10/15min, ticket write 50/15min, ticket
+comments 10/min, per-entity writes 50/15min, global write backstop 100/15min);
+the `seed.js` CLI production guard exits before the shared DB handle is
+required, so the `finally` `db.close()` only ever closes a handle this script
+opened (documented); the favicon-ico 204 comment corrected to describe the
+legacy browser fallback (pages link the real icon at `/favicon.svg`); HPP
+guards present on every write route; `NOT_FOUND` guards on every update;
+pagination clamped with `id` tiebreakers; PII redaction on ticket show/edit;
+deactivated staff PII now gated by the show route's privilege/self check
+(matching the index scoping); `last_login`/`avatar` zeroed on the staff index
+for non-self rows.
+
+### Fixes applied
+1. `src/routes/tickets.js` — `requester_name` absent-preserves + present
+   non-string guard + required-empty rejection on `PUT /:id` (mirrors every
+   sibling field's `resolveOptionalField` convention).
+2. `src/routes/assets.js` — related-ticket rows on the asset show page
+   filtered through `canAccessResource` so the set exposed matches the set the
+   viewer may open.
+3. `src/routes/staff.js` — staff index zeroes `last_login` + `avatar`
+   alongside email/phone/department for non-self/non-privileged rows.
+4. `src/routes/knowledge.js` — split the sanitize-html load fallback from the
+   shape check; an unexpected loaded shape now logs + throws at startup
+   (fail-closed) instead of silently passing through.
+5. `src/routes/auth.js` — `purgeStaleEntries` no longer evicts entries in an
+   active lockout when the map is full; `POST /logout` regenerates the session
+   before `destroy` (fixation parity with login/profile/password).
+6. `README.md` — rate-limit line expanded to the full per-route limiter
+   inventory; `src/app.js` — favicon-ico 204 comment corrected.
+
+### Regression tests added
+`tests/code_review_362.test.js` (8 tests): ticket update preserves stored
+requester_name on absence, rejects a present non-string requester_name, still
+rejects an explicit empty name; asset show filters related tickets through
+`canAccessResource` (staff viewer sees only their own linked ticket); staff
+index nulls last_login+avatar for non-self/non-privileged rows and keeps all
+fields for privileged viewers; logout regenerates the session before destroy;
+login-failure purge no longer force-evicts active lockouts.
+`tests/knowledge_sanitize_shape.test.js` (2 tests): a loaded-but-unexpected
+sanitize-html shape throws at module load (fail-closed, no pass-through).
+`tests/partial_update.test.js` — added a requester_name absent-preserve case
+and dropped the now-invalid explicit field from the non-privileged PII-preserve
+case.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1399 passed / 1399 total (84 suites, +10 from #361).
+- `npm run test:coverage` — global thresholds pass (statements 67.99%,
+  branches 65.7%, functions 77.38%, lines 67.99%).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
 
 ## Review cycle 2026-10-17 (358th pass)
 

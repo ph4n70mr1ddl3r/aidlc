@@ -623,8 +623,10 @@ app.use('/licenses', licensesRoutes);
 app.use('/reports', reportsRoutes);
 app.use('/audit', auditRoutes);
 
-// Return 204 No Content for favicon.ico to prevent browser favicon requests
-// from generating 404 errors in the access log.
+// Return 204 No Content for /favicon.ico so the legacy browser fallback
+// request (which some browsers make before honoring the /favicon.svg link)
+// does not generate a 404 in the access log. Pages link the real icon at
+// /favicon.svg (header.ejs); this stub only silences the .ico probe.
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // Health check (unauthenticated) — rate-limited to prevent abuse
