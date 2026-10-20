@@ -741,6 +741,14 @@ function recalcProjectProgress(db, projectId) {
  * Exception: an explicit JSON null preserves the stored value (treated as
  * absent) — form submissions cannot send null, so this only affects JSON API
  * callers, where null reads as "no opinion on this field".
+ *
+ * A present-but-whitespace-only value is REJECTED (the same error sentinel) for
+ * the same reason: it is neither an ABSENT field (preserve) nor an explicit
+ * empty string (clear), yet it trims to an empty string — so it used to take
+ * the clear branch and silently wipe the stored value while the route flashed
+ * "updated successfully". This is the rule the staff.department guard
+ * introduced ad hoc; centralizing it here makes the whole app behave the same
+ * way and stops a future route from regressing to a silent wipe.
  * @param {*} rawValue - the raw req.body[field] value; may be undefined
  *   (absent field), null (treated as absent — see above), a string, an array
  *   (HPP), or any other type.
@@ -755,6 +763,11 @@ function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
     return existingValue;
   }
   if (Array.isArray(rawValue) || typeof rawValue !== 'string') {
+    return { error: true };
+  }
+  // Present but blank (whitespace only): fail closed instead of clearing.
+  // An explicit '' still clears the field (the branch below).
+  if (rawValue !== '' && rawValue.trim() === '') {
     return { error: true };
   }
   if (processedValue !== null && processedValue !== '') {

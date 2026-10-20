@@ -487,7 +487,18 @@ router.get('/:id', (req, res) => {
     delete safeTicket.requester_department;
   }
 
-  res.render('pages/tickets/show', { title: `Ticket ${ticket.ticket_number}`, ticket: safeTicket, comments });
+  res.render('pages/tickets/show', {
+    title: `Ticket ${ticket.ticket_number}`,
+    ticket: safeTicket,
+    comments,
+    // Whether the comment query hit its cap. The visible count alone cannot
+    // express this for a non-privileged viewer, because the internal-comment
+    // filter runs AFTER the cap — the displayed count is smaller than the
+    // number of rows the query returned, so the template's "N+" marker would
+    // under-report (or hide) the truncation. The flag is computed from the
+    // pre-filter row count.
+    commentsTruncated: rawComments.length >= COMMENT_LIST_CAP
+  });
 });
 
 // Edit ticket form

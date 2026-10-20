@@ -1949,8 +1949,21 @@ describe('resolveOptionalField (shared absent-vs-empty resolver)', () => {
 
   it('clears field to null when processedValue is empty/null', () => {
     expect(utils.resolveOptionalField('', '', 100, 'existing')).toBeNull();
-    expect(utils.resolveOptionalField(' ', '', 100, 'existing')).toBeNull();
     expect(utils.resolveOptionalField('submitted', null, 100, 'existing')).toBeNull();
+  });
+
+  it('rejects a present-but-whitespace-only value (fails closed instead of clearing)', () => {
+    // A whitespace-only value is neither an ABSENT field (preserve) nor an
+    // explicit empty string (clear), yet it trims to '' — so it used to take
+    // the clear branch and silently wipe the stored value while the route
+    // flashed "updated successfully". The staff.department guard introduced
+    // that rule ad hoc; it is now enforced centrally for every optional text
+    // field on every update route.
+    expect(utils.resolveOptionalField(' ', '', 100, 'existing')).toEqual({ error: true });
+    expect(utils.resolveOptionalField('   ', null, 100, 'existing')).toEqual({ error: true });
+    expect(utils.resolveOptionalField('\n\t ', null, 100, 'existing')).toEqual({ error: true });
+    // An explicit empty string still clears the field.
+    expect(utils.resolveOptionalField('', '', 100, 'existing')).toBeNull();
   });
 
   it('accepts a new value and truncates to maxLen', () => {

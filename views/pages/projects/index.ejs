@@ -22,6 +22,16 @@
       <option value="<%= p %>" <%= filters.priority === p ? 'selected' : '' %>><%= titleCase(p) %></option>
     <% }) %>
   </select>
+  <% // Sort control — the route already honours a `sort` query parameter
+     // (SORT_MAP in projects.js); exposing it here makes the server-side sort
+     // reachable from the UI, matching the tickets list. The route's default
+     // is "recently updated", so that option is pre-selected. %>
+  <select name="sort" aria-label="Sort order">
+    <option value="newest" <%= !filters.sort || filters.sort === 'newest' ? 'selected' : '' %>>Recently Updated</option>
+    <option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Least Recently Updated</option>
+    <option value="name" <%= filters.sort === 'name' ? 'selected' : '' %>>Name (A-Z)</option>
+    <option value="priority" <%= filters.sort === 'priority' ? 'selected' : '' %>>Priority</option>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/projects" class="btn btn-sm btn-outline">Clear</a>
 </form>

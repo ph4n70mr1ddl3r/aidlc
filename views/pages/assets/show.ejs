@@ -53,7 +53,10 @@
 
   <!-- Related Tickets -->
   <div class="card">
-    <div class="card-header"><h3><i class="fas fa-ticket" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Related Tickets</h3></div>
+    <!-- The parenthesized count shows "N+" when the related-ticket query's LIMIT
+         cap was hit — the displayed rows are a capped subset, not the total
+         (same convention as the staff profile sidebars). -->
+    <div class="card-header"><h3><i class="fas fa-ticket" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Related Tickets (<%= relatedTickets.length %><%= relatedTickets.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
     <div class="card-body">
       <% if (relatedTickets.length === 0) { %>
         <p class="text-muted text-sm">No tickets linked to this asset</p>

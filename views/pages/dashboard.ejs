@@ -80,7 +80,7 @@
   <!-- My Tickets -->
   <div class="card">
     <div class="card-header">
-      <h3><i class="fas fa-user-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets</h3>
+      <h3><i class="fas fa-user-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets (<%= myTickets.length %><%= myTickets.length >= CONSTANTS.DASHBOARD_LIMITS.myTickets ? '+' : '' %>)</h3>
       <a href="/tickets?assigned_to=<%= user.id %>" class="btn btn-sm btn-outline">View All</a>
     </div>
     <div class="card-body" style="padding:0;">
@@ -115,7 +115,7 @@
   <div>
     <!-- Staff Workload -->
     <div class="card mb-2">
-      <div class="card-header"><h3><i class="fas fa-chart-bar" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team Workload</h3></div>
+      <div class="card-header"><h3><i class="fas fa-chart-bar" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team Workload (<%= staffWorkload.length %><%= staffWorkload.length >= CONSTANTS.DASHBOARD_LIMITS.staffWorkload ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% if (Array.isArray(staffWorkload)) { staffWorkload.forEach(s => { %>
           <div style="margin-bottom:12px;">
@@ -136,7 +136,7 @@
     <!-- Upcoming Changes -->
     <% if (Array.isArray(upcomingChanges) && upcomingChanges.length > 0) { %>
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-calendar" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes</h3></div>
+      <div class="card-header"><h3><i class="fas fa-calendar" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes (<%= upcomingChanges.length %><%= upcomingChanges.length >= CONSTANTS.DASHBOARD_LIMITS.upcomingChanges ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% upcomingChanges.forEach(c => { %>
           <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
@@ -154,7 +154,7 @@
      matching the "active" definition used by every other widget on this page. -->
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets</h3>
+    <h3><i class="fas fa-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets (<%= recentTickets.length %><%= recentTickets.length >= CONSTANTS.DASHBOARD_LIMITS.recentTickets ? '+' : '' %>)</h3>
     <a href="/tickets" class="btn btn-sm btn-outline">View All</a>
   </div>
   <div class="card-body" style="padding:0;">

@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (368th pass)
+**Date:** 2026-10-20 (369th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (367 consecutive hardening reviews) was
+`npm audit`. Prior review history (368 consecutive hardening reviews) was
 cross-checked.
 
 ---
@@ -12980,4 +12980,208 @@ table, scripts, security summary) matches the current code.
 - `npm test` — **1432 passed / 1432 total** (90 suites, +20 from #367).
 - `npm run test:coverage` — global thresholds pass (statements 70.59%,
   branches 67.91%, functions 79.61%, lines 70.59%; up from 67.68/65.25/76.75/67.68).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-20 (369th pass)
+
+An independent pass re-read every route module, both middleware modules,
+`app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`, all 39 EJS
+templates (34 page + 5 partial), `public/js/app.js`, `public/css/app.css`,
+`README.md`, `.env.example`, `eslint.config.js`, both jest setup files and the
+CI workflow, and re-verified the documented invariants (HPP rejection,
+absent-vs-empty partial updates, transaction-consistent rechecks, `changes === 0`
+no-op guards, access-scoped list queries, cache invalidation, ordering
+determinism, and view-to-route gating). Two access-control defects and seven
+consistency/completeness defects were found and fixed. No new SQL injection,
+IDOR, CSRF, XSS, rate-limit, or error-leakage defects were found.
+
+1. **The dashboard disclosed change records the viewer is denied on the change
+   log** (MEDIUM, access scoping). `dashboard.js` listed *every* scheduled
+   change (title + start time) in the shared, TTL-cached payload:
+
+   ```js
+   upcomingChanges: db.prepare(`
+     SELECT id, title, scheduled_start FROM change_log
+     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
+     ORDER BY scheduled_start ASC LIMIT 5
+   `),
+   ```
+
+   while `changes.js` scopes the change list to `assigned_to = user.id` for
+   non-privileged viewers (`changes.js:109-112`) and denies them the detail
+   route via `canAccessResource` (`changes.js:291`). A staff member therefore
+   saw the titles of changes they are refused — the exact content-oracle class
+   the change list was closed for, re-opened on the landing page (change titles
+   routinely name systems, CVEs and outage windows). Fix: the query moved out
+   of the shared cache into the per-viewer section (exactly like `myTickets`),
+   with an unscoped variant for privileged viewers and an `assigned_to = ?`
+   variant for everyone else, so the dashboard now honours the same policy as
+   the change log.
+
+2. **`/changes/:id` revealed that a record exists** (LOW, information
+   disclosure). The denied branch flashed "You do not have permission to view
+   this change." while a missing id flashed "Change not found". Because the
+   list is now scoped, a staff member could enumerate which change ids exist
+   (and every probe wrote an `access_denied` audit row naming the title). The
+   denial now uses the show route's non-enumerating "Change not found"
+   wording — the same fix pass 368 applied to the knowledge base. The audit
+   entry is unchanged.
+
+3. **A present-but-whitespace-only optional field silently wiped the stored
+   value on every update route** (MEDIUM, data loss). The shared
+   `resolveOptionalField()` helper distinguishes an ABSENT field (preserve the
+   stored value) from an explicit `''` (clear it), but a whitespace-only value
+   ("   ") trimmed to `''` and therefore took the *clear* branch — so a ticket
+   description, a project description, a vendor note, an asset serial number …
+   was erased while the route flashed "updated successfully". The app already
+   knew this was wrong: pass 368 added an ad-hoc guard for `staff.department`
+   only, leaving the other ~20 optional text fields inconsistent. Fix: the rule
+   is now enforced centrally in `resolveOptionalField()` — a present,
+   whitespace-only string returns the same error sentinel used for HPP arrays
+   and non-string values, so every update route fails closed with its existing
+   "Invalid <Field>" message. An explicit `''` still clears the field, and an
+   ABSENT field still preserves it.
+
+4. **Capped lists did not disclose their truncation** (LOW, display
+   consistency). Every capped list in the app is a bounded slice of a larger
+   set, and the app's convention is to say so with an "(N+)" marker — the staff
+   profile sidebars, the ticket comments and the project tasks/members all
+   carry it. The asset page's "Related Tickets" card did not, so an asset with
+   25 linked tickets showed 10 of them under a heading that implied
+   completeness. The marker is now rendered there.
+
+5. **The ticket-comment truncation marker under-reported the cap for
+   non-privileged viewers** (LOW, display correctness). The marker was derived
+   from `comments.length`, but the internal-comment filter runs *after* the
+   500-row cap, so a staff member saw e.g. "Comments (400)" for a list that was
+   in fact truncated — the opposite of the truth on exactly the viewer for whom
+   the count is already wrong. The route now computes `commentsTruncated` from
+   the pre-filter row count and the template renders the marker from it.
+
+6. **Capped dashboard and report queries had no total ordering** (LOW,
+   convention). The codebase documents the rule ("Every ORDER BY carries an
+   `id` tiebreaker: … without a unique trailing key SQLite's sort order is not
+   total, so LIMIT/OFFSET paging could hide or duplicate rows") and passes
+   358/368 applied it to every paginated and capped list. Ten capped
+   aggregation queries still lacked it: `dashboard.recentTickets`,
+   `dashboard.expiringWarranties`, `dashboard.upcomingChanges`,
+   `dashboard.ticketsByCategory`, `dashboard.staffWorkload`,
+   `dashboard.licenseAlerts`, `dashboard.myTickets`, `reports.topResolvers`,
+   `reports.warrantyExpiring` and `reports.staffPerformance`. All ten now
+   carry a unique trailing key, so the row at the LIMIT boundary can no longer
+   swap between cache refreshes (seeded rows share one `created_at`, so ties
+   are the normal case, not the exception).
+
+7. **The change-log assignee filter was inert for non-privileged viewers**
+   (LOW, UI correctness). The route hard-adds `assigned_to = <viewer>` to the
+   WHERE clause for non-privileged users, so the filter dropdown offered every
+   colleague but any selection other than the viewer returned zero rows. The
+   control is now rendered only for privileged viewers — the same pattern the
+   knowledge index uses for its status filter.
+
+8. **The assets and projects lists exposed no sort control although the routes
+   honour `?sort=`** (LOW, completeness). Both routes read, validate and apply
+   a `sort` parameter through their `SORT_MAP`, and `paginationBaseUrl`
+   preserved it across pages, but no form ever produced it — the feature was
+   reachable only by hand-editing the URL. Both filter bars now carry the same
+   `<select name="sort">` the ticket list uses, with the route's default
+   pre-selected.
+
+9. **A credential change inside the same second did not invalidate the
+   session** (LOW, correctness). `password_changed_at` was written with
+   `datetime('now')` (one-second resolution) and compared verbatim against the
+   copy stored in the user's session. A password reset (admin route) or a
+   self-service password change that landed in the same second as the session's
+   marker produced an equal string, so the session issued against the *old*
+   credential survived for its full lifetime. Both writers now stamp
+   millisecond-resolution markers (`strftime('%Y-%m-%d %H:%M:%f','now')`).
+
+10. **22 unreachable badge CSS rules** (LOW, dead code). Every badge is
+    rendered through `badgeClass(value, BADGE_MAP)`, which can only ever emit
+    `badge-low` / `badge-medium` / `badge-high` / `badge-critical` — the union
+    of all 20 badge maps in `constants.js`. The per-enum rules
+    (`.badge-open`, `.badge-in_progress`, `.badge-failed`, …) matched nothing,
+    and several contradicted the maps they duplicated (`.badge-failed` was red
+    while `CHANGE_STATUS_BADGE` maps `failed` → `critical`). They were removed
+    and replaced with a comment pointing at the badge maps.
+
+Also verified this pass: every write route still rejects HPP arrays before any
+value is consumed; every update transaction still re-reads the row inside the
+transaction and throws `NOT_FOUND` on a zero-row write; the absent-vs-empty
+convention is now uniform (absent ⇒ preserve, `''` ⇒ clear, present-but-blank
+⇒ fail closed) across tickets, projects, tasks, assets, vendors, licenses,
+changes, staff and the profile route; requester PII is still redacted for
+non-privileged viewers on both the show and edit paths; the ticket list remains
+open to all staff while the change list, knowledge base, licenses and vendors
+remain scoped/privileged — and every surface that discloses a scoped record
+(dashboard, list, show) now agrees; the deactivation unassignment still clears
+tickets, tasks, changes and project ownership; the seed counters still produce
+the `AST-` / `TK-` sequences correctly; `.env.example` still documents all 17
+env vars exactly as read in `src/`; and `README.md` still matches the code.
+
+### Fixes applied
+1. `src/routes/dashboard.js` — the upcoming-changes query moved out of the
+   shared TTL cache into the per-viewer section, split into
+   `upcomingChangesAll` (privileged) and `upcomingChangesOwned`
+   (`assigned_to = ?`); the shared payload no longer contains change rows.
+2. `src/routes/changes.js` — the show route's access-denied branch now uses the
+   non-enumerating "Change not found" wording (audit entry unchanged).
+3. `src/utils.js` — `resolveOptionalField()` rejects a present-but-whitespace-only
+   value with the error sentinel, so every update route fails closed instead
+   of silently clearing the stored value.
+4. `src/routes/tickets.js` — the show route passes `commentsTruncated`
+   (computed from the pre-filter row count) to the template.
+5. `src/routes/dashboard.js` + `src/routes/reports.js` — ten capped queries
+   gained a unique trailing sort key.
+6. `src/constants.js` + `src/app.js` — new `DASHBOARD_LIMITS` constant (the
+   dashboard caps) exported and wired into `TEMPLATE_CONSTANTS`, so the
+   template and the route can never drift; `src/routes/dashboard.js` imports
+   it instead of declaring its own literals.
+7. `views/pages/dashboard.ejs` — the four capped widgets (My Active Tickets,
+   Team Workload, Upcoming Changes, Recently Active Tickets) carry the "(N+)"
+   marker.
+8. `views/pages/assets/show.ejs` — the Related Tickets card carries the "(N+)"
+   marker.
+9. `views/pages/tickets/show.ejs` — the Comments marker is driven by the
+   route's truncation flag.
+10. `views/pages/changes/index.ejs` — the assignee filter is rendered only for
+    privileged viewers.
+11. `views/pages/assets/index.ejs` + `views/pages/projects/index.ejs` — the
+    missing sort controls were added.
+12. `src/routes/staff.js` + `src/routes/auth.js` — the credential-change marker
+    uses millisecond resolution.
+13. `public/css/app.css` — the 22 unreachable per-enum badge rules were removed.
+
+### Regression tests added
+`tests/code_review_369.test.js` (20 tests) — new file, +22 net.
+
+- The dashboard scoping, the change-denied wording and the whitespace-only
+  rejections run against a **real in-memory SQLite database** (not the shared
+  jest mock), so the SQL and the transaction semantics are genuinely
+  exercised: a staff member's dashboard lists only their own scheduled change
+  (and a privileged viewer's lists both, from the same process), a denied
+  change and a missing change produce the identical flash, a whitespace-only
+  ticket description/resolution note and project description are rejected with
+  the stored value intact, and an explicit `''` still clears the field.
+- Template-level assertions cover the new "(N+)" markers (asset related
+  tickets, ticket comments, the four dashboard widgets), the privilege-dependent
+  change-log assignee filter, and the new assets/projects sort controls.
+- Source-level pins cover the `id`/group-key tiebreakers in the capped
+  dashboard and report queries, the millisecond credential marker, and the
+  removal of the dead badge rules.
+- Verified that 16 of the 20 new tests fail against the pre-fix code (the 4
+  that pass are the "must still work" guards: a privileged viewer still sees
+  every change, a missing record still reports "Change not found", and an
+  explicit empty string still clears the description on both routes).
+- Historical pins updated per convention: `tests/utils.test.js` and
+  `tests/vendors.test.js` documented the old "whitespace-only clears" contract
+  of `resolveOptionalField()`; both now assert the fail-closed contract (plus
+  the explicit-`''` clear that is unchanged).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1454 passed / 1454 total** (91 suites, +22 from #368).
+- `npm run test:coverage` — global thresholds pass (statements 70.94%,
+  branches 68.26%, functions 80.25%, lines 70.94%; up from
+  70.59/67.91/79.61/70.59).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

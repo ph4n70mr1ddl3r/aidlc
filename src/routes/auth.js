@@ -441,7 +441,12 @@ function _getPasswordSelectStmt() {
 let _passwordUpdateStmt = null;
 function _getPasswordUpdateStmt() {
   if (!_passwordUpdateStmt) {
-    _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
+    // MILLISECOND-resolution marker (see the note in staff.js): the value is
+    // compared against the copy stored in the session to invalidate sessions
+    // issued against the old credential. With datetime('now')'s one-second
+    // resolution, a change landing in the same second as the session marker
+    // compared equal and the old session survived the credential change.
+    _passwordUpdateStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = strftime(\'%Y-%m-%d %H:%M:%f\', \'now\'), updated_at = datetime(\'now\') WHERE id = ?');
   }
   return _passwordUpdateStmt;
 }

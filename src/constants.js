@@ -186,6 +186,22 @@ const ASSIGNED_ITEMS_CAP = 10;                         // max assigned tickets/t
 const TASK_LIST_CAP = 200;                             // max tasks rendered in project show page
 const MEMBER_LIST_CAP = 100;                           // max members rendered in project show page
 
+// Dashboard widget caps — the dashboard renders several bounded lists (recent
+// tickets, upcoming changes, team workload, warranty/license alerts). The caps
+// live here (rather than as route-local constants in dashboard.js) so the
+// template can disclose the truncation with the same "(N+)" marker the staff
+// profile sidebars use — a silently truncated list reads as a complete one.
+// Keep the values in sync with the LIMITs in src/routes/dashboard.js; the
+// dashboard route imports this object so the two can never drift.
+const DASHBOARD_LIMITS = Object.freeze({
+  recentTickets: 10,      // "Recently Active Tickets" card
+  myTickets: 10,          // "My Active Tickets" card
+  upcomingChanges: 5,     // "Upcoming Changes" card
+  staffWorkload: 8,       // "Team Workload" card
+  warrantyAlerts: 20,     // expiring/expired warranty list
+  licenseAlerts: 20       // expiring/expired license list
+});
+
 module.exports = {
   ASSET_CATEGORIES, ASSET_STATUSES, ASSET_CONDITIONS,
   TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES,
@@ -215,5 +231,6 @@ module.exports = {
   DESC_TRUNCATION_LEN,
   PROGRESS_GREEN_THRESHOLD, PROGRESS_BLUE_THRESHOLD, PROGRESS_ORANGE_THRESHOLD,
   WORKLOAD_MULTIPLIER, WORKLOAD_RED_THRESHOLD, WORKLOAD_ORANGE_THRESHOLD,
-  COMMENT_LIST_CAP, ASSIGNED_ITEMS_CAP, TASK_LIST_CAP, MEMBER_LIST_CAP
+  COMMENT_LIST_CAP, ASSIGNED_ITEMS_CAP, TASK_LIST_CAP, MEMBER_LIST_CAP,
+  DASHBOARD_LIMITS
 };

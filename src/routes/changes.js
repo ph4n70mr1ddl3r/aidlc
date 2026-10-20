@@ -290,7 +290,13 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, change)) {
     req.audit('access_denied', 'change', id, `Unauthorized view attempt on change "${change.title}"`);
-    req.flash('error', 'You do not have permission to view this change.');
+    // Use the same non-enumerating wording as the "not found" branch above: the
+    // change list is scoped to the viewer's own assignments for non-privileged
+    // users, so a distinct "you do not have permission" message turned the
+    // show route into an existence oracle (a staff member could probe ids and
+    // learn which change records exist). Mirrors the knowledge-base wording
+    // adopted for the same reason.
+    req.flash('error', 'Change not found');
     return res.redirect('/changes');
   }
 

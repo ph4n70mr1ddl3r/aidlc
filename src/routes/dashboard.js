@@ -1,7 +1,8 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { authKeyGenerator, logError, prefersJson, parseEnvInt } = require('../utils');
+const { authKeyGenerator, logError, prefersJson, parseEnvInt, isPrivileged } = require('../utils');
+const { DASHBOARD_LIMITS } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
 // Key rate-limiting by authenticated user id (per-account, shared utils helper)
@@ -47,12 +48,14 @@ router.use(requireAuth, auditMiddleware, dashboardLimiter); // Added dashboardLi
 // to avoid stampede, but here a simple TTL check is sufficient.
 // ---------------------------------------------------------------------------
 // Named limits keep the query strings readable and make it trivial to tune
-// the caps in one place instead of hunting through raw SQL literals.
-const _DASH_RECENT_TICKETS_LIMIT = 10;
-const _DASH_WARRANTY_LIMIT = 20;
-const _DASH_UPCOMING_CHANGES_LIMIT = 5;
-const _DASH_STAFF_WORKLOAD_LIMIT = 8;
-const _DASH_LICENSE_ALERTS_LIMIT = 20;
+// the caps in one place instead of hunting through raw SQL literals. The
+// values are shared with src/constants.js (DASHBOARD_LIMITS) so the template
+// can disclose the truncation with an "(N+)" marker — the two can never drift.
+const _DASH_RECENT_TICKETS_LIMIT = DASHBOARD_LIMITS.recentTickets;
+const _DASH_WARRANTY_LIMIT = DASHBOARD_LIMITS.warrantyAlerts;
+const _DASH_UPCOMING_CHANGES_LIMIT = DASHBOARD_LIMITS.upcomingChanges;
+const _DASH_STAFF_WORKLOAD_LIMIT = DASHBOARD_LIMITS.staffWorkload;
+const _DASH_LICENSE_ALERTS_LIMIT = DASHBOARD_LIMITS.licenseAlerts;
 
 const _parsedDTTL = parseEnvInt(process.env.DASHBOARD_TTL_MS);
 // Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
@@ -124,7 +127,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.status NOT IN ('closed', 'resolved')
-    ORDER BY t.updated_at DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
+    ORDER BY t.updated_at DESC, t.id DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
   `),
   // Include already-expired warranties — they are more urgent than expiring-soon.
   // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
@@ -137,7 +140,7 @@ const stmts = {
     SELECT id, name, asset_tag, warranty_expiry FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
-    ORDER BY warranty_expiry ASC
+    ORDER BY warranty_expiry ASC, id ASC
     LIMIT ${_DASH_WARRANTY_LIMIT}
   `),
   // Uncapped COUNT for the alert card number. The list query above is capped
@@ -149,15 +152,28 @@ const stmts = {
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
   `),
-  upcomingChanges: db.prepare(`
+  // Upcoming changes are VIEWER-SCOPED, so this query is deliberately NOT part
+  // of the shared cached payload below: the change-log module scopes its list
+  // to `assigned_to = user.id` for non-privileged viewers and denies them the
+  // detail route, so listing every scheduled change here leaked the titles of
+  // records the viewer is refused (the same content-oracle class the change
+  // list was closed for). Both variants are queried per request, exactly like
+  // myTickets below.
+  upcomingChangesAll: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
-    ORDER BY scheduled_start ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
+    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
+  `),
+  upcomingChangesOwned: db.prepare(`
+    SELECT id, title, scheduled_start FROM change_log
+    WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
+      AND assigned_to = ?
+    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
   `),
   ticketsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count FROM tickets
     WHERE status IN ('open','in_progress','waiting')
-    GROUP BY category ORDER BY count DESC
+    GROUP BY category ORDER BY count DESC, category ASC
   `),
   staffWorkload: db.prepare(`
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
@@ -166,7 +182,7 @@ const stmts = {
     LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status IN ('open','in_progress','waiting')
     WHERE u.is_active = 1
     GROUP BY u.id
-    ORDER BY open_tickets DESC
+    ORDER BY open_tickets DESC, u.id ASC
     LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT}
   `),
   // Only select the columns the dashboard template renders (expiry_date for
@@ -176,7 +192,7 @@ const stmts = {
   licenseAlerts: db.prepare(`
     SELECT id, software_name, vendor, expiry_date FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
-    ORDER BY expiry_date ASC
+    ORDER BY expiry_date ASC, id ASC
     LIMIT ${_DASH_LICENSE_ALERTS_LIMIT}
   `),
   // Uncapped COUNT for the alert card number — licenseAlerts.length would
@@ -195,7 +211,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.assigned_to = ? AND t.status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
+    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC, t.id ASC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
   `)
 };
 
@@ -215,7 +231,6 @@ function getDashboardData(user) {
         recentTickets: stmts.recentTickets.all(),
         expiringWarranties: stmts.expiringWarranties.all(),
         expiringWarrantiesCount: stmts.expiringWarrantiesCount.get().c,
-        upcomingChanges: stmts.upcomingChanges.all(),
         ticketsByCategory: stmts.ticketsByCategory.all(),
         staffWorkload: stmts.staffWorkload.all(),
         licenseAlerts: stmts.licenseAlerts.all(),
@@ -242,6 +257,19 @@ function getDashboardData(user) {
     logError('Dashboard myTickets query error:', err);
   }
 
+  // Upcoming changes — viewer-scoped, so queried fresh per request (never
+  // served from the shared TTL cache). Privileged viewers see every scheduled
+  // change; a regular staff member sees only the changes assigned to them,
+  // matching the change-log list route and its show-route access gate.
+  let upcomingChanges = [];
+  try {
+    upcomingChanges = isPrivileged(user)
+      ? stmts.upcomingChangesAll.all()
+      : stmts.upcomingChangesOwned.all(user.id);
+  } catch (err) {
+    logError('Dashboard upcomingChanges query error:', err);
+  }
+
   // Deep-merge defaults to avoid shared nested object references between cache
   // and rendered data.  Object.assign only copies one level deep, so mutating a
   // nested object in a template (e.g. ticketStats.open) would corrupt the cache.
@@ -253,7 +281,7 @@ function getDashboardData(user) {
     recentTickets: (shared.recentTickets || EMPTY_DEFAULTS.recentTickets).map(r => ({ ...r })),
     expiringWarranties: (shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties).map(r => ({ ...r })),
     expiringWarrantiesCount: shared.expiringWarrantiesCount ?? EMPTY_DEFAULTS.expiringWarrantiesCount,
-    upcomingChanges: (shared.upcomingChanges || EMPTY_DEFAULTS.upcomingChanges).map(r => ({ ...r })),
+    upcomingChanges: upcomingChanges.map(r => ({ ...r })),
     ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
     staffWorkload: (shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload).map(r => ({ ...r })),
     licenseAlerts: (shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts).map(r => ({ ...r })),

@@ -128,8 +128,18 @@ describe('resolveOptionalField (absent-vs-empty clearing, used by vendors.js)', 
 
   it('clears field to null when processedValue is empty/null', () => {
     expect(resolveOptionalField('', '', 100, 'existing')).toBeNull();
-    expect(resolveOptionalField(' ', '', 100, 'existing')).toBeNull();
     expect(resolveOptionalField('submitted', null, 100, 'existing')).toBeNull();
+  });
+
+  it('rejects a present-but-whitespace-only value (fails closed instead of clearing)', () => {
+    // A whitespace-only value trims to '' and used to take the clear branch,
+    // silently wiping the stored vendor field (contact_person, email, notes, …)
+    // while the route flashed "Vendor updated.". The shared resolver now
+    // fails closed on it, so every update route behaves identically.
+    expect(resolveOptionalField(' ', '', 100, 'existing')).toEqual({ error: true });
+    expect(resolveOptionalField('   ', null, 100, 'existing')).toEqual({ error: true });
+    // An explicit empty string still clears the field.
+    expect(resolveOptionalField('', '', 100, 'existing')).toBeNull();
   });
 
   it('accepts a new value and truncates to maxLen', () => {

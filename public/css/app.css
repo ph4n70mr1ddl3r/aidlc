@@ -131,28 +131,14 @@ tr:last-child td { border-bottom: none; }
 .badge-high { background: #fff7ed; color: #ea580c; }
 .badge-medium, .badge-warning { background: var(--warning-light); color: var(--warning); }
 .badge-low { background: var(--success-light); color: var(--success); }
-.badge-open { background: var(--primary-light); color: var(--primary); }
-.badge-in_progress { background: var(--warning-light); color: var(--warning); }
-.badge-waiting { background: #f3e8ff; color: #7c3aed; }
-.badge-resolved { background: var(--success-light); color: var(--success); }
-.badge-closed { background: #f1f5f9; color: var(--secondary); }
-.badge-in_use { background: var(--success-light); color: var(--success); }
-.badge-in_storage { background: #f1f5f9; color: var(--secondary); }
-.badge-in_repair { background: var(--warning-light); color: var(--warning); }
-.badge-disposed { background: var(--danger-light); color: var(--danger); }
-.badge-reserved { background: var(--primary-light); color: var(--primary); }
-.badge-planning { background: var(--primary-light); color: var(--primary); }
-.badge-on_hold { background: var(--warning-light); color: var(--warning); }
-.badge-completed { background: var(--success-light); color: var(--success); }
-.badge-cancelled { background: var(--danger-light); color: var(--danger); }
-.badge-scheduled { background: var(--primary-light); color: var(--primary); }
-.badge-failed { background: var(--danger-light); color: var(--danger); }
-.badge-draft { background: #f1f5f9; color: var(--secondary); }
-.badge-published { background: var(--success-light); color: var(--success); }
-.badge-archived { background: var(--danger-light); color: var(--danger); }
-.badge-todo { background: #f1f5f9; color: var(--secondary); }
-.badge-review { background: #f3e8ff; color: #7c3aed; }
-.badge-done { background: var(--success-light); color: var(--success); }
+/* Severity is always rendered through badgeClass(value, BADGE_MAP), which can
+   only ever emit badge-low / badge-medium / badge-high / badge-critical (the
+   four severities above). The per-enum rules this stylesheet used to carry
+   (.badge-open, .badge-in_progress, …) were unreachable — every template renders
+   badges through the badge maps in src/constants.js — and several of them
+   contradicted those maps (.badge-failed was red while CHANGE_STATUS_BADGE maps
+   failed → critical). They were removed rather than left as a trap for the next
+   maintainer. */
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 500;

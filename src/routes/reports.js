@@ -69,12 +69,12 @@ const stmts = {
   ticketsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count FROM tickets
     WHERE created_at >= date('now', '-' || ? || ' days')
-    GROUP BY category ORDER BY count DESC
+    GROUP BY category ORDER BY count DESC, category ASC
   `),
   ticketsByPriority: db.prepare(`
     SELECT priority, COUNT(*) as count FROM tickets
     WHERE created_at >= date('now', '-' || ? || ' days')
-    GROUP BY priority ORDER BY count DESC
+    GROUP BY priority ORDER BY count DESC, priority ASC
   `),
   // Resolution metrics (avgResolution, slaStats, topResolvers) window on the
   // RESOLUTION date (resolved_at >= cutoff), matching staffPerformance's
@@ -107,7 +107,7 @@ const stmts = {
     JOIN users u ON t.assigned_to = u.id
     WHERE t.resolved_at IS NOT NULL AND t.resolved_at >= date('now', '-' || ? || ' days')
     GROUP BY t.assigned_to
-    ORDER BY resolved DESC LIMIT 10
+    ORDER BY resolved DESC, t.assigned_to ASC LIMIT 10
   `),
   // Asset Report. The VALUE-oriented queries (assetsByCategory,
   // assetsTotalValue, and the warranty queries below) exclude disposed assets
@@ -119,13 +119,13 @@ const stmts = {
   // labeled "Active Assets" so it does not contradict the status totals.
   assetsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count, SUM(purchase_price) as total_value
-    FROM assets WHERE status != 'disposed' GROUP BY category ORDER BY count DESC
+    FROM assets WHERE status != 'disposed' GROUP BY category ORDER BY count DESC, category ASC
   `),
   assetsByStatus: db.prepare(`
-    SELECT status, COUNT(*) as count FROM assets GROUP BY status ORDER BY count DESC
+    SELECT status, COUNT(*) as count FROM assets GROUP BY status ORDER BY count DESC, status ASC
   `),
   assetsByCondition: db.prepare(`
-    SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC
+    SELECT condition_rating, COUNT(*) as count FROM assets GROUP BY condition_rating ORDER BY count DESC, condition_rating ASC
   `),
   assetsTotalValue: db.prepare('SELECT COALESCE(SUM(purchase_price), 0) as total FROM assets WHERE status != \'disposed\''),
   // Also include already-expired warranties — they are more urgent than expiring-soon.
@@ -143,7 +143,7 @@ const stmts = {
   `),
   warrantyExpiring: db.prepare(`
     SELECT name, asset_tag, warranty_expiry FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
-    ORDER BY warranty_expiry ASC LIMIT 500
+    ORDER BY warranty_expiry ASC, id ASC LIMIT 500
   `),
   // ORDER BY age_group sorts the buckets LEXICOGRAPHICALLY, which puts '< 1 year'
   // LAST (because '<' is ASCII 60, after the digits '1'..'4'). Use an explicit
@@ -205,7 +205,7 @@ const stmts = {
     WHERE u.is_active = 1
     /* ^ current-roster view, as opposed to topResolvers' attribution view —
        see the comment above the topResolvers statement. */
-    ORDER BY resolved_tickets DESC
+    ORDER BY resolved_tickets DESC, u.id ASC
     LIMIT 200
   `)
 };

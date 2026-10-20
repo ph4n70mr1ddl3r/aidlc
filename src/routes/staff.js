@@ -47,7 +47,14 @@ const _projectMembershipsStmt = db.prepare(`
   `);
 const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');
-const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = datetime(\'now\'), updated_at = datetime(\'now\') WHERE id = ?');
+// Password-reset marker. The value is compared against the copy stored in the
+// target user's session (middleware/auth.js) to invalidate sessions issued
+// against the old credential. It uses MILLISECOND resolution
+// (strftime('%Y-%m-%d %H:%M:%f')) rather than datetime('now')'s one-second
+// resolution: with a one-second marker, a reset that landed in the same second
+// as the session's marker compared EQUAL, so the old session survived a
+// credential change for its full lifetime.
+const _passwordResetStmt = db.prepare('UPDATE users SET password = ?, password_changed_at = strftime(\'%Y-%m-%d %H:%M:%f\', \'now\'), updated_at = datetime(\'now\') WHERE id = ?');
 const _adminPasswordStmt = db.prepare('SELECT password FROM users WHERE id = ?');
 const _deactivateStmt = db.prepare('UPDATE users SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ?');
 const _unassignTicketsStmt = db.prepare('UPDATE tickets SET assigned_to = NULL, updated_at = datetime(\'now\') WHERE assigned_to = ? AND status IN (\'open\', \'in_progress\', \'waiting\')');

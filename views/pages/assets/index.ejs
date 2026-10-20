@@ -33,6 +33,16 @@
     <% }) %>
   </select>
   <% } %>
+  <% // Sort control — the route already honours a `sort` query parameter
+     // (SORT_MAP in assets.js); exposing it here makes the server-side sort
+     // reachable from the UI, matching the tickets list. %>
+  <select name="sort" aria-label="Sort order">
+    <option value="name_asc" <%= !filters.sort || filters.sort === 'name_asc' ? 'selected' : '' %>>Name (A-Z)</option>
+    <option value="name_desc" <%= filters.sort === 'name_desc' ? 'selected' : '' %>>Name (Z-A)</option>
+    <option value="newest" <%= filters.sort === 'newest' ? 'selected' : '' %>>Newest First</option>
+    <option value="oldest" <%= filters.sort === 'oldest' ? 'selected' : '' %>>Oldest First</option>
+    <option value="status" <%= filters.sort === 'status' ? 'selected' : '' %>>Status</option>
+  </select>
   <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
   <a href="/assets" class="btn btn-sm btn-outline">Clear</a>
 </form>
