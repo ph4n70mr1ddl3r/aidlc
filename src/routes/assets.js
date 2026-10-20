@@ -33,7 +33,18 @@ const _showStmt = db.prepare(`
   `);
 const _relatedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, assigned_to, created_at
-    FROM tickets WHERE asset_id = ? ORDER BY created_at DESC LIMIT ${ASSIGNED_ITEMS_CAP}
+    FROM tickets WHERE asset_id = ?
+    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP}
+  `);
+// Non-privileged variant: the access predicate is applied IN SQL so the
+// LIMIT caps the rows the viewer may actually see. Applying the cap first and
+// filtering afterwards (the previous shape) let an authorised viewer be shown
+// "No tickets linked to this asset" whenever their own ticket fell outside the
+// newest-N window, while a privileged viewer saw the newest N.
+const _relatedTicketsOwnedStmt = db.prepare(`
+    SELECT id, ticket_number, title, status, priority, assigned_to, created_at
+    FROM tickets WHERE asset_id = ? AND assigned_to = ?
+    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 const _editStmt = db.prepare('SELECT id, asset_tag, name, category, manufacturer, model, serial_number, status, condition_rating, purchase_date, purchase_price, warranty_expiry, assigned_to, location, notes FROM assets WHERE id = ?');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL, updated_at = datetime(\'now\') WHERE asset_id = ?');
@@ -59,6 +70,10 @@ const _assetCounterGetStmt = db.prepare(`
     ON CONFLICT(counter_key) DO UPDATE SET next_seq = next_seq + 1
     RETURNING next_seq
   `);
+// Maximum number of tag attempts inside a single create transaction. The
+// counter advances on every attempt, so a bounded loop walks past a small
+// number of already-taken tags without ever spinning forever.
+const MAX_TAG_ATTEMPTS = 10;
 // Read-only preview of next tag (does NOT increment the counter)
 const _assetCounterPreviewStmt = db.prepare(`
     SELECT COALESCE(MAX(next_seq), 0) + 1 as next_seq FROM asset_counter WHERE counter_key = 'asset_tag'
@@ -287,17 +302,46 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         throw new Error('ASSIGNEE_NOT_AVAILABLE');
       }
 
-      const counterRow = _assetCounterGetStmt.get();
-      const asset_tag = ASSET_TAG_PREFIX + String(counterRow.next_seq).padStart(3, '0');
-
-      const result = _insertStmt.run(
-        asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
-        (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
-        safeStatus, safeCondition, sPurchase,
-        safePurchasePrice,
-        sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
-      );
-      return { asset_tag, id: result.lastInsertRowid };
+      // Generate the tag from the counter and INSERT it. A tag collision is
+      // possible because asset_tag is admin-editable on the update route: an
+      // admin can rename an asset to the exact tag the counter will hand out
+      // next. The counter increment lives in the same transaction as the
+      // INSERT, so a failed INSERT rolled the increment back too — the next
+      // attempt regenerated the SAME colliding tag and the create route was
+      // wedged for good (every retry failed identically until an admin
+      // renamed the conflicting asset by hand).
+      //
+      // Fix: retry inside the transaction. Each attempt consumes another
+      // counter value, so the loop walks past the taken tag(s) and commits
+      // the accumulated increments; only the successfully inserted tag is
+      // persisted. A serial_number collision is a DIFFERENT unique constraint
+      // and must NOT be retried — it is rethrown so the catch block below
+      // can report it accurately.
+      let lastTagError = null;
+      for (let attempt = 0; attempt < MAX_TAG_ATTEMPTS; attempt++) {
+        const counterRow = _assetCounterGetStmt.get();
+        const asset_tag = ASSET_TAG_PREFIX + String(counterRow.next_seq).padStart(3, '0');
+        try {
+          const result = _insertStmt.run(
+            asset_tag, name.substring(0, MAX_MEDIUM_STR), category, (manufacturer || '').substring(0, MAX_SHORT_STR) || null,
+            (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
+            safeStatus, safeCondition, sPurchase,
+            safePurchasePrice,
+            sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
+          );
+          return { asset_tag, id: result.lastInsertRowid };
+        } catch (insertErr) {
+          // Only a UNIQUE violation on asset_tag is retryable — a serial_number
+          // collision (or any other error) must surface to the catch block.
+          if (insertErr.code !== 'SQLITE_CONSTRAINT_UNIQUE' || !/asset_tag/.test(insertErr.message)) {
+            throw insertErr;
+          }
+          lastTagError = insertErr;
+        }
+      }
+      // Every attempt hit an already-taken tag — surface the last collision so
+      // the catch block reports the tag conflict rather than a generic error.
+      throw lastTagError;
     });
 
     const { asset_tag, id } = createAsset();
@@ -355,8 +399,15 @@ router.get('/:id', (req, res) => {
   // asymmetry the link itself was meant to prevent. The template still applies
   // its own per-row canView check for the link vs. text rendering, which now
   // matches the route-level scoping.
-  const relatedTickets = _relatedTicketsStmt.all(id)
-    .filter(t => canAccessResource(req, t));
+  //
+  // The access predicate is applied IN SQL for non-privileged viewers so the
+  // LIMIT caps the *accessible* rows rather than the newest rows overall.
+  // The JS canAccessResource filter is retained as defence-in-depth.
+  const viewerPrivileged = isPrivileged(req.session.user);
+  const relatedTickets = (viewerPrivileged
+    ? _relatedTicketsStmt.all(id)
+    : _relatedTicketsOwnedStmt.all(id, req.session.user.id)
+  ).filter(t => canAccessResource(req, t));
 
   // Redact assigned_email for non-privileged viewers — staff should not be able
   // to harvest other users' emails from asset detail pages. Shallow-copy before

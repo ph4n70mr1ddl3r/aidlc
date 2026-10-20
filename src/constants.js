@@ -77,11 +77,15 @@ const MAX_EMAIL = 200;            // email addresses
 const MAX_PHONE = 50;             // phone numbers
 const MAX_ADDRESS = 500;          // vendor address
 const MIN_PASSWORD = 12;          // password minimum length
-const MAX_PASSWORD = 128;         // password max field length (UI/storage cap)
+const MAX_PASSWORD = 128;         // password max character length (hard char cap)
 // bcrypt silently truncates inputs at 72 BYTES, so two passwords differing only
 // after the 72nd byte hash identically. Cap the byte length — not just the
 // character length — to avoid silently-equivalent credentials. Use 72 as the
 // hard upper bound; UTF-8 multibyte chars reduce the effective character budget.
+// This is the binding limit in practice: every password field in the UI
+// declares maxlength=MAX_PASSWORD_BYTES so the browser cannot accept input the
+// server will always reject (MAX_PASSWORD remains the absolute character cap
+// enforced by validatePassword for non-browser callers).
 const MAX_PASSWORD_BYTES = 72;
 const MAX_SEARCH = 100;           // search box input (list filters)
 const MAX_ASSET_TAG = 50;         // asset tag format AST-<digits> (incl. prefix)

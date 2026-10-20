@@ -68,7 +68,7 @@ const _showCommentsStmt = db.prepare(`
     FROM ticket_comments tc
     LEFT JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
-    ORDER BY tc.created_at DESC
+    ORDER BY tc.created_at DESC, tc.id DESC
     LIMIT ${COMMENT_LIST_CAP}
   `);
 const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
@@ -131,6 +131,10 @@ const _ticketCounterStmt = db.prepare(`
     ON CONFLICT(counter_date) DO UPDATE SET next_seq = next_seq + 1
     RETURNING next_seq
   `);
+// Maximum number of ticket-number attempts inside a single create
+// transaction. The counter advances on every attempt, so a bounded loop walks
+// past a small number of already-taken numbers without spinning forever.
+const MAX_TICKET_NUMBER_ATTEMPTS = 10;
 const _ticketInsertStmt = db.prepare(`
     INSERT INTO tickets (ticket_number, title, description, category, priority,
       requester_name, requester_email, requester_department, requester_phone,
@@ -373,14 +377,37 @@ router.post('/', ticketWriteLimiter, (req, res) => {
 
     const now = new Date();
     const todayStr = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
-    const row = _ticketCounterStmt.get(todayStr);
-    const seq = row.next_seq;
-    const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
 
-    const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
-      requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
-      safeAssignee, safeAssetId, safeDueDate);
-    return { ticket_number, id: result.lastInsertRowid };
+    // The counter increment lives in the same transaction as the INSERT, so a
+    // failed INSERT rolled the increment back too — a ticket-number collision
+    // (counter drift after a partial restore, a manual insert, or a migrated
+    // DB without the counter row) regenerated the SAME colliding number on
+    // every retry and wedged the create route for the whole UTC day.
+    //
+    // Fix: retry inside the transaction. Each attempt consumes another
+    // counter value, so the loop walks past the taken number(s) and commits
+    // the accumulated increments; only the successfully inserted ticket is
+    // persisted. Any other error is rethrown untouched.
+    let lastNumberError = null;
+    for (let attempt = 0; attempt < MAX_TICKET_NUMBER_ATTEMPTS; attempt++) {
+      const row = _ticketCounterStmt.get(todayStr);
+      const seq = row.next_seq;
+      const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
+      try {
+        const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
+          requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
+          safeAssignee, safeAssetId, safeDueDate);
+        return { ticket_number, id: result.lastInsertRowid };
+      } catch (insertErr) {
+        if (insertErr.code !== 'SQLITE_CONSTRAINT_UNIQUE') {
+          throw insertErr;
+        }
+        lastNumberError = insertErr;
+      }
+    }
+    // Every attempt hit an already-taken number — surface the last collision
+    // so the catch block below can report it accurately.
+    throw lastNumberError;
   });
 
   try {
@@ -399,8 +426,16 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       req.flash('error', 'Selected asset does not exist');
       return res.redirect('/tickets/new');
     }
-    logError('Ticket create error:', err);
-    req.flash('error', 'Error creating ticket. Please try again.');
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      // A ticket_number collision survives the retry loop only when the counter
+      // is permanently behind the stored rows. Report it accurately instead of
+      // the generic "Error creating ticket" message, which misattributed the
+      // failure to the server rather than to a duplicate number.
+      req.flash('error', 'A ticket with this number already exists. Please try again.');
+    } else {
+      logError('Ticket create error:', err);
+      req.flash('error', 'Error creating ticket. Please try again.');
+    }
     return res.redirect('/tickets/new');
   }
 });
@@ -947,8 +982,15 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
         // 'no') so it cannot be coerced truthy, and it gates on privilege.
         commentInternalFlag);
 
-      // Refresh ticket updated_at so it sorts as recently active
-      _commentTouchStmt.run(id);
+      // Refresh ticket updated_at so it sorts as recently active. A zero-row
+      // write means the ticket disappeared between the existence re-read above
+      // and this touch — treat it as not-found rather than reporting a
+      // successful comment on a ticket that is gone (mirrors the `changes ===
+      // 0` no-op guard applied to every other mutation in the app).
+      const touchResult = _commentTouchStmt.run(id);
+      if (touchResult.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
     });
     addComment();
 
@@ -973,7 +1015,12 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
         req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket (inactive account)');
       }
       req.flash('error', 'Your account is no longer active.');
-      return res.redirect('/login?reason=session_expired');
+      // The app has a dedicated 'deactivated' login reason; redirecting with
+      // 'session_expired' made the login page claim the session "expired
+      // after reaching its maximum lifetime" — a contradictory message for a
+      // deactivated account. Mirrors middleware/auth.js's deactivation
+      // redirect.
+      return res.redirect('/login?reason=deactivated');
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');

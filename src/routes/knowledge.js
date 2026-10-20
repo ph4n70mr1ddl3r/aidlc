@@ -530,7 +530,11 @@ router.get('/:id/edit', kbReadLimiter, (req, res) => {
   const isOwner = Number(article.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
-    req.flash('error', 'You do not have permission to edit this article.');
+    // Use the same non-enumerating wording as the show route: a distinct
+    // "you do not have permission" message reveals that the article ID
+    // exists even though the index deliberately hides non-published articles
+    // from this viewer.
+    req.flash('error', 'Article not found');
     // Redirect to the list, not the detail page: the show route denies
     // non-owners on non-published articles, so redirecting to detail would
     // trigger a second access_denied flash + audit. Mirrors the delete-denial
@@ -568,7 +572,11 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article');
-    req.flash('error', 'You do not have permission to edit this article.');
+    // Use the same non-enumerating wording as the show route: a distinct
+    // "you do not have permission" message reveals that the article ID
+    // exists even though the index deliberately hides non-published articles
+    // from this viewer.
+    req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
 
@@ -698,7 +706,8 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     }
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized edit attempt on article (concurrent ownership change)');
-      req.flash('error', 'You do not have permission to edit this article.');
+      // Non-enumerating wording — mirrors the show route and the outer guard.
+      req.flash('error', 'Article not found');
       return res.redirect('/knowledge');
     }
     logError('Article update error:', err);
@@ -732,7 +741,8 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
   const isOwner = Number(existing.author_id) === Number(req.session.user.id);
   if (!isOwner && !isPrivileged(req.session.user)) {
     req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article');
-    req.flash('error', 'You do not have permission to delete this article.');
+    // Non-enumerating wording — mirrors the show route and the outer guard.
+    req.flash('error', 'Article not found');
     return res.redirect('/knowledge');
   }
 
@@ -771,7 +781,8 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
       req.flash('error', 'Article not found');
     } else if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
-      req.flash('error', 'You do not have permission to delete this article.');
+      // Non-enumerating wording — mirrors the show route and the outer guard.
+      req.flash('error', 'Article not found');
     } else {
       logError('Article delete error:', err);
       req.flash('error', 'Error deleting article.');

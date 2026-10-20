@@ -186,12 +186,18 @@ describe('tickets.js error-message consistency and session-redirect reason (regr
     expect(errorMsg[1]).toBe('Error updating status. Please try again.');
   });
 
-  it('USER_INACTIVE comment-path redirect carries session_expired reason', () => {
+  it('USER_INACTIVE comment-path redirect carries the deactivated reason', () => {
     // When a comment handler detects the user's account is no longer active,
     // the redirect to /login must carry a ?reason= query parameter so the
     // login page can explain why the user was sent there (matching the
     // pattern used by requireAuth / destroySessionAndRedirect throughout
     // the middleware and all other routes).
+    //
+    // Historical pin updated in the 368th review pass: the reason used to be
+    // 'session_expired', which made the login page claim the session "expired
+    // after reaching its maximum lifetime" — a contradictory message for a
+    // deactivated account. The app already has a dedicated 'deactivated'
+    // reason (middleware/auth.js uses it for the same condition).
     const db = jest.requireMock('../src/models/database');
     db.transaction.mockImplementation(() => {
       throw new Error('USER_INACTIVE');
@@ -200,7 +206,7 @@ describe('tickets.js error-message consistency and session-redirect reason (regr
     const { redirectCalls, flashCalls } = runHandler(handler, { comment: 'test' }, { id: '1' });
     const reasonRedirect = redirectCalls.find((r) => r && r.startsWith('/login'));
     expect(reasonRedirect).toBeDefined();
-    expect(reasonRedirect).toBe('/login?reason=session_expired');
+    expect(reasonRedirect).toBe('/login?reason=deactivated');
     // The flash should still inform the user about the account status.
     const infoMsg = flashCalls.find(([type, msg]) => type === 'error' && msg.includes('account is no longer active'));
     expect(infoMsg).toBeDefined();

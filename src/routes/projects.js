@@ -45,7 +45,7 @@ const _showTasksStmt = db.prepare(`
     FROM project_tasks pt
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
-    ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC
+    ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC, pt.id ASC
     LIMIT ${TASK_LIST_CAP}
   `);
 const _showMembersStmt = db.prepare(`
@@ -265,8 +265,11 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // Fail closed on malformed budget (LOW). A present, non-empty budget that
   // fails to parse must be rejected rather than silently coerced to 0, which
   // would drop a legitimate budget on a typo'd submission. An empty/omitted
-  // budget is allowed (falls back to 0, consistent with the update path's
-  // Infinity-sentinel handling). Mirrors the projects UPDATE path (2nd pass).
+  // budget is allowed and falls back to 0 — the schema's column default and
+  // the "no amount recorded" representation. The UPDATE path has no such
+  // fallback: a blank budget there preserves the stored value (see the
+  // money-field convention in the update transaction). Mirrors the projects
+  // UPDATE path (2nd pass).
   let safeBudget;
   if (budget === undefined || budget === null || budget === '') {
     safeBudget = 0;
@@ -280,9 +283,9 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   // Fail closed on malformed spent, mirroring budget above: a present,
   // non-empty value that fails to parse is rejected rather than silently
-  // coerced to 0. An empty/omitted value is allowed (falls back to 0,
-  // consistent with the column default and the update path's preserve-on-
-  // absent semantics).
+  // coerced to 0. An empty/omitted value is allowed and falls back to 0 — the
+  // column default and the "no amount recorded" representation (the UPDATE
+  // path instead preserves the stored value).
   let safeSpent;
   if (spent === undefined || spent === null || spent === '') {
     safeSpent = 0;
@@ -506,12 +509,18 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         ? (existingProject.owner_id ?? null)
         : (owner_id === '' ? null : safeId(owner_id));
 
-      // Distinguish "field not submitted" (preserve stored value) from
-      // "field submitted with an invalid/empty value" (fail closed — reject
-      // rather than silently keep the old value). Using Infinity as the
-      // fallback sentinel lets safePositiveFloat signal invalid input without
-      // masking it as a legitimate 0, so an empty budget/spent can no longer
-      // be silently ignored and a typo'd value is surfaced to the user.
+      // Resolve money fields against the freshly-read row to avoid a TOCTOU
+      // between this SELECT and the UPDATE.
+      // - Budget/spent (money): an ABSENT *or* EMPTY field preserves the
+      //   stored value — a blank money field is not a "clear to NULL" signal
+      //   (NULL is indistinguishable from "not recorded" and would blank the
+      //   financial columns in the index/show views). Only an explicit
+      //   numeric value replaces it, and an explicit 0 is a legitimate value
+      //   that clears the amount to zero. This mirrors the assets
+      //   purchase_price and licenses cost handling.
+      //   Using Infinity as the fallback sentinel lets safePositiveFloat
+      //   signal invalid input without masking it as a legitimate 0, so a
+      //   typo'd value is surfaced to the user rather than stored as 0.
       let preservedSpent;
       if (spent === undefined || spent === null || spent === '') {
         // Preserve existing value (including NULL) rather than defaulting to 0.

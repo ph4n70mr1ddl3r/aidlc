@@ -328,7 +328,16 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
   }
-  res.render('pages/licenses/form', { title: 'Edit License', license, isEdit: true });
+  // Defense-in-depth: never hand the plaintext license_key to the edit
+  // template. The form never pre-fills the key (the input carries no `value`
+  // attribute) and only needs to know whether a key IS stored, so the secret
+  // is replaced with a boolean. The sibling list route omits license_key from
+  // its SELECT entirely and the dashboard does the same — the edit form now
+  // follows the same rule instead of loading the secret into a render
+  // context. The full key remains reachable only through the audited,
+  // rate-limited POST /licenses/:id/key reveal endpoint.
+  const safeLicense = { ...license, license_key: undefined, has_license_key: Boolean(license.license_key) };
+  res.render('pages/licenses/form', { title: 'Edit License', license: safeLicense, isEdit: true });
 });
 
 // Update license

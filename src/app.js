@@ -496,6 +496,7 @@ const TEMPLATE_CONSTANTS = Object.freeze({
   MAX_PHONE: constantsModule.MAX_PHONE,
   MAX_ADDRESS: constantsModule.MAX_ADDRESS,
   MAX_PASSWORD: constantsModule.MAX_PASSWORD,
+  MAX_PASSWORD_BYTES: constantsModule.MAX_PASSWORD_BYTES,
   MIN_PASSWORD: constantsModule.MIN_PASSWORD,
   MAX_USERNAME: constantsModule.MAX_USERNAME,
   MAX_ASSET_TAG: constantsModule.MAX_ASSET_TAG,

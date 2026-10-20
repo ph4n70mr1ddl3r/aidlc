@@ -209,10 +209,17 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
   const db = require('../src/models/database');
   const knowledgeRouter = require('../src/routes/knowledge');
 
-  it('shows permission error (not generic) when concurrent role change triggers ACCESS_DENIED inside transaction', () => {
+  it('shows the non-enumerating not-found message when concurrent role change triggers ACCESS_DENIED inside transaction', () => {
     // First get() call (outer existence check): article exists, user IS the author.
     // Second get() call (transaction recheck): author changed concurrently,
     // so the user is no longer the owner — this triggers ACCESS_DENIED.
+    //
+    // Historical pin updated in the 368th review pass: the denial used to
+    // flash "You do not have permission to delete this article.", which
+    // revealed that the article ID exists even though the index deliberately
+    // hides non-published articles from a non-owner. The show route already
+    // used the neutral "Article not found" wording; the mutation routes now
+    // match it. The access_denied audit entry is unchanged.
     db.prepare.mock.calls.forEach(([_sql]) => {
       // We only care about the statement objects; the mockGet is on each stmt.
     });
@@ -243,7 +250,7 @@ describe('delete article route — ACCESS_DENIED handling (regression)', () => {
     handler(req, res, () => {});
 
     expect(redirectedTo).toBe('/knowledge');
-    expect(flashCalls).toEqual([['error', 'You do not have permission to delete this article.']]);
+    expect(flashCalls).toEqual([['error', 'Article not found']]);
     // The recheck denial inside the transaction must leave an audit trail too
     // (mirrors the outer guard's access_denied audit).
     expect(auditCalls).toEqual([['access_denied', 'knowledge_article', 1, 'Unauthorized delete attempt on article (concurrent ownership change)']]);

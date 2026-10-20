@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (367th pass)
+**Date:** 2026-10-20 (368th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (366 consecutive hardening reviews) was
+`npm audit`. Prior review history (367 consecutive hardening reviews) was
 cross-checked.
 
 ---
@@ -12693,4 +12693,291 @@ fail against the pre-fix template (3 of 4 fail when the fix is reverted).
 - `npm test` — 1388 passed / 1388 total (82 suites, +1 from #360).
 - `npm run test:coverage` — global thresholds pass (statements 67.68%,
   branches 65.25%, functions 76.75%, lines 67.68%).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-20 (368th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, `app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`,
+all 39 EJS templates (34 page + 5 partial), `public/js/app.js`, the CSS classes
+referenced by templates, `README.md`, `.env.example`, `eslint.config.js`, both
+jest setup files, the CI workflow, and the `CODE_REVIEW.md` history). **One
+functional defect that made a core write path permanently unusable was found
+and fixed**, plus eight correctness/consistency items. No new SQL injection,
+IDOR, CSRF, XSS, auth, rate-limit, or error-leakage defects were found.
+
+1. **Asset creation was permanently wedged by a tag collision — the counter
+   increment was rolled back with the failed INSERT** (HIGH, correctness).
+   `assets.js` generated the asset tag from `asset_counter` *inside the same
+   transaction* as the INSERT:
+
+   ```js
+   const counterRow = _assetCounterGetStmt.get();   // next_seq incremented here
+   const asset_tag = ASSET_TAG_PREFIX + String(counterRow.next_seq).padStart(3, '0');
+   const result = _insertStmt.run(asset_tag, ...);  // INSERT here
+   ```
+
+   `asset_tag` is UNIQUE **and admin-editable** on `PUT /assets/:id` — an admin
+   can rename an asset to the exact tag the counter is about to hand out. When
+   the INSERT then violated the constraint, the transaction rolled back the
+   counter increment *as well*, so the next attempt regenerated the identical
+   colliding tag. Verified against real SQLite: three consecutive creates all
+   produced `AST-001` and all failed, with the counter frozen at `next_seq = 1`.
+   Asset creation was unrecoverable by retry — the only remedy was an admin
+   manually renaming the conflicting asset (or hand-editing the counter table)
+   — and the error message ("An asset with this tag already exists") gave no
+   hint of that. Fix: retry inside the transaction. Each attempt consumes
+   another counter value, so the loop walks past the taken tag(s) and commits
+   the accumulated increments; only the successfully inserted row is persisted.
+   The loop is bounded (`MAX_TAG_ATTEMPTS = 10`) so it can never spin, and it
+   retries **only** a UNIQUE violation on `asset_tag` — the separate
+   `serial_number` partial unique index is rethrown untouched so the existing
+   "An asset with this serial number already exists" message still fires and
+   no counter value is burned on it.
+
+2. **Ticket creation had the identical counter-rollback wedge, and reported it
+   as a generic server error** (MEDIUM, correctness). `tickets.js` incremented
+   the per-UTC-date `ticket_counter` in the same transaction as the ticket
+   INSERT, so a `ticket_number` collision (counter drift after a partial
+   restore, a manual insert, or a migrated DB with no counter row) regenerated
+   the same number on every retry and failed for the whole UTC day. Worse, the
+   catch block had **no** `SQLITE_CONSTRAINT_UNIQUE` branch (unlike
+   `assets.js`), so a duplicate number was mis-reported as "Error creating
+   ticket. Please try again." — blaming the server for a data condition. Fixed
+   with the same bounded in-transaction retry (`MAX_TICKET_NUMBER_ATTEMPTS =
+   10`) plus an explicit UNIQUE branch that reports the duplicate number
+   accurately.
+
+3. **The asset page applied the related-ticket LIMIT before the access
+   filter** (MEDIUM, correctness). `_relatedTicketsStmt` selected the newest
+   N linked tickets and the route then filtered the already-truncated set
+   through `canAccessResource`. An authorised viewer (the asset's assignee)
+   whose own ticket fell outside the newest-N window was shown "No tickets
+   linked to this asset" while a privileged viewer saw the newest N. The
+   access predicate is now applied **in SQL** for non-privileged viewers
+   (`WHERE asset_id = ? AND assigned_to = ?`), so the LIMIT caps the rows the
+   viewer may actually see; the JS `canAccessResource` filter is retained as
+   defence-in-depth. Because `tickets` carries only `assigned_to` among the
+   ownership columns, the SQL predicate is exactly equivalent to the JS check
+   for non-privileged viewers.
+
+4. **The ticket comment route's `updated_at` touch had no no-op guard**
+   (LOW, consistency). Every other mutation in the app captures the affected-row
+   count and treats `changes === 0` as `NOT_FOUND` — a convention the 367th
+   pass applied to the staff/vendor state mutations. The comment route's
+   `_commentTouchStmt.run(id)` was the one remaining unguarded UPDATE. It now
+   throws `NOT_FOUND` on a zero-row write (inside the transaction, so the
+   comment INSERT rolls back with it).
+
+5. **A deactivated account was redirected with the wrong login reason**
+   (LOW, correctness). The comment route's `USER_INACTIVE` branch redirected
+   to `/login?reason=session_expired`, which the login page renders as "Your
+   session has expired after reaching its maximum lifetime." — a
+   self-contradictory message for a deactivated employee ("Your account is no
+   longer active." + "…maximum lifetime"). The app already has a dedicated
+   `deactivated` reason, used by `middleware/auth.js` for the same condition;
+   the comment route now uses it too.
+
+6. **The knowledge mutation routes leaked article existence** (LOW,
+   information disclosure). The show route deliberately normalises a denial to
+   "Article not found" so a non-privileged viewer cannot distinguish "exists
+   but not yours" from "does not exist". The edit / update / delete routes
+   used a distinct "You do not have permission to … this article." message,
+   which let a plain staff account probe `/knowledge/<id>/edit` and learn
+   which article IDs exist — including the draft/archived articles the index
+   deliberately hides from them. All four denial paths now use the show
+   route's non-enumerating wording; the `access_denied` audit entries are
+   unchanged.
+
+7. **The license edit form loaded the plaintext key into the render context**
+   (LOW, defence-in-depth). `GET /licenses/:id/edit` handed the full row —
+   including the plaintext `license_key` — to the EJS template. The form
+   never pre-fills the key (the input carries no `value` attribute) and only
+   needs to know whether a key *is* stored, so the secret is now replaced by
+   a `has_license_key` boolean. This matches the sibling list route (which
+   omits `license_key` from its SELECT entirely) and the dashboard (which
+   deliberately avoids `SELECT *` for the same reason). The full key remains
+   reachable only through the audited, rate-limited
+   `POST /licenses/:id/key` reveal endpoint.
+
+8. **A whitespace-only department silently cleared the stored value while the
+   sibling phone field failed closed** (LOW, consistency/data loss). In the
+   staff update handler, `department` was trimmed before it reached
+   `resolveOptionalField`, so a value of `"   "` looked like an explicit
+   empty string and cleared the stored department — with a "success" flash and
+   no warning. The phone field two lines away already rejects a
+   present-but-blank value ("Please enter a valid phone number"). Department
+   now behaves the same way: a present-but-blank value is rejected, while an
+   ABSENT field still preserves the stored value and an explicit `''` still
+   clears it.
+
+9. **The staff directory search matched the redacted email column**
+   (LOW, information disclosure). The index nulls `email`/`phone`/
+   `department`/`last_login`/`avatar` for non-privileged viewers (rendered as
+   "Restricted"), but the search predicate still matched `u.email` and
+   `u.username` for those viewers — so the returned row **count** was an
+   email-existence oracle: a staff member could submit
+   `?search=someone@company.com` and learn whether that address belongs to an
+   account without ever seeing the address. The searchable column set is now
+   privilege-dependent: privileged viewers keep all four columns,
+   non-privileged viewers search only the two name columns the directory
+   actually renders for them. (`username` is not rendered in the directory at
+   all, so it is excluded from the non-privileged set for the same reason.)
+
+10. **Password inputs declared a `maxlength` the server would always reject**
+    (LOW, view/route contract mismatch). Every password field declared
+    `maxlength="<%= CONSTANTS.MAX_PASSWORD %>"` (128 characters) while the
+    server rejects any password over `MAX_PASSWORD_BYTES` (72 **bytes**) —
+    the binding limit, since bcrypt truncates at 72 bytes. A user could type
+    80 characters and be told "Password must be at most 72 bytes" (a unit the
+    UI never mentions). All password inputs now declare
+    `maxlength="<%= CONSTANTS.MAX_PASSWORD_BYTES %>"`, and
+    `MAX_PASSWORD_BYTES` was wired into `TEMPLATE_CONSTANTS` (the existing
+    `templates.test.js` guard verifies every `CONSTANTS.*` referenced by a
+    template is exported and wired).
+
+11. **Capped list queries without a total ordering** (LOW, convention). The
+    codebase documents the rule explicitly (`tickets.js`: "Every ORDER BY
+    carries an `id` tiebreaker: created_at/updated_at have second-resolution
+    ties … without a unique trailing key SQLite's sort order is not total, so
+    LIMIT/OFFSET paging could hide or duplicate rows across pages"), and the
+    358th pass applied it to every paginated list. Four **capped** sidebar /
+    detail queries still lacked it: `projects._showTasksStmt` (its own
+    sibling `_showMembersStmt` already carried `pm.id ASC`),
+    `tickets._showCommentsStmt`, `staff._assignedTicketsStmt` /
+    `_assignedTasksStmt` / `_projectMembershipsStmt`, and
+    `assets._relatedTicketsStmt`. In addition,
+    `staff._assignedAssetsStmt` had **no ORDER BY at all**, so which assets
+    appeared in the sidebar of an employee with more than ten assets was not
+    defined by the query. All five now carry a unique trailing key.
+
+12. **Two stale comments contradicted the code they documented**
+    (LOW, documentation consistency). `projects.js` claimed that an empty
+    budget/spent is "fail closed — reject rather than silently keep the old
+    value" and that "an empty budget/spent can no longer be silently ignored",
+    while the code has always preserved the stored value on an absent **or**
+    empty money field — the same convention `assets.purchase_price` and
+    `licenses.cost` follow, for the documented reason that a NULL amount is
+    indistinguishable from "not recorded". The comments now state the
+    implemented convention (and note that an explicit `0` is a legitimate
+    value that clears an amount to zero). Separately, the staff deactivation
+    flash said "open tickets/tasks/changes unassigned" while the route also
+    clears the ownership of in-progress projects — a fact the audit string
+    already recorded. The flash now names all four.
+
+13. **The staff profile sidebars did not disclose their cap** (LOW, display
+    consistency). "Assigned Tickets (N+)" and "Active Tasks (N+)" show a `+`
+    when the sidebar query's LIMIT was hit; the "Projects" and "Assets" cards
+    on the same page did not, so a viewer could not tell that 10 of N assets
+    were shown. Both now carry the same `(N+)` indicator.
+
+Cross-cutting checks re-verified this pass: every paginated list route clamps
+the requested page to `totalPages` with an `id` tiebreaker in every ORDER BY
+used with LIMIT/OFFSET; every write route rejects HPP arrays before
+`safeQueryValue` collapses them (the knowledge form's intentional
+`is_featured` checkbox-array exception remains documented and resolves
+last-element); the absent-vs-empty partial-update convention is uniformly
+applied (dates/prices/PII/enums resolve against the transaction-consistent
+re-fetch); every update transaction captures the `run()` result and throws
+`NOT_FOUND` on 0 changes; deactivated assignees/owners are preserved on
+unchanged resubmission via `ensureAssigneeInList` + the equal-id exemption in
+`isActiveUser` checks; requester PII is redacted for non-privileged viewers on
+both the show and edit paths and preserved on partial submissions; the
+knowledge index/show/edit/delete visibility rules agree (published OR author
+OR privileged) and the denial wording now agrees too; the changes list is
+scoped to `assigned_to = user.id` for non-privileged users matching the show
+gate; the licenses/vendors surfaces are coherently admin/manager-only; list
+rows link only where the viewer can pass the corresponding show-route gate;
+seed counters continue the AST-/TK- sequences correctly and `runSeed()`
+normalizes NODE_ENV like `app.js`; the `licenses/form.ejs` never pre-fills the
+stored key and masks reveal output to `****`; `staff/index.ejs` and
+`staff/show.ejs` PII redaction markers ("Restricted") match the route-level
+nulling; the `.env.example` documents all 17 env vars exactly as read in
+`src/` (and the README's env table matches); and `README.md` (structure, env
+table, scripts, security summary) matches the current code.
+
+### Fixes applied
+1. `src/routes/assets.js` — bounded in-transaction retry around the asset-tag
+   INSERT (the counter increment no longer rolls back on a tag collision);
+   `MAX_TAG_ATTEMPTS = 10`; only `asset_tag` UNIQUE violations are retried.
+2. `src/routes/assets.js` — related-ticket access predicate moved into SQL
+   (`_relatedTicketsOwnedStmt`) so the LIMIT caps the *accessible* rows; the
+   JS `canAccessResource` filter is retained as defence-in-depth.
+3. `src/routes/assets.js` — `_relatedTicketsStmt` gained an `id DESC`
+   tiebreaker.
+4. `src/routes/tickets.js` — bounded in-transaction retry around the
+   ticket-number INSERT (`MAX_TICKET_NUMBER_ATTEMPTS = 10`).
+5. `src/routes/tickets.js` — the create catch block gained a
+   `SQLITE_CONSTRAINT_UNIQUE` branch reporting a duplicate ticket number
+   accurately instead of the generic server-error message.
+6. `src/routes/tickets.js` — the comment route's `_commentTouchStmt` now
+   throws `NOT_FOUND` on a zero-row write.
+7. `src/routes/tickets.js` — the deactivated-account redirect now uses
+   `?reason=deactivated`.
+8. `src/routes/tickets.js` — `_showCommentsStmt` gained a `tc.id DESC`
+   tiebreaker.
+9. `src/routes/knowledge.js` — the four edit/update/delete denial paths now
+   use the show route's non-enumerating "Article not found" wording.
+10. `src/routes/licenses.js` — the edit route passes
+    `{ ...license, license_key: undefined, has_license_key }` so the plaintext
+    key never reaches the template.
+11. `src/routes/staff.js` — a present-but-blank department is rejected
+    (mirrors the sibling phone field); absent still preserves, `''` still
+    clears.
+12. `src/routes/staff.js` — the directory search column set is now
+    privilege-dependent, removing the email-existence oracle.
+13. `src/routes/staff.js` — the four sidebar queries gained `id` tiebreakers
+    and `_assignedAssetsStmt` gained the missing `ORDER BY name ASC, id ASC`.
+14. `src/routes/staff.js` — the deactivation flash now names projects.
+15. `src/routes/projects.js` — `_showTasksStmt` gained a `pt.id ASC`
+    tiebreaker; the budget/spent comments were corrected to match the
+    implemented money-field convention.
+16. `src/constants.js` + `src/app.js` — `MAX_PASSWORD_BYTES` wired into
+    `TEMPLATE_CONSTANTS`; the `MAX_PASSWORD` comment now explains the
+    relationship between the two limits.
+17. `views/pages/auth/login.ejs`, `views/pages/auth/profile.ejs`,
+    `views/pages/staff/form.ejs`, `views/pages/staff/show.ejs` — password
+    inputs cap at `MAX_PASSWORD_BYTES`.
+18. `views/pages/licenses/form.ejs` — the "Clear existing key" checkbox now
+    keys off `has_license_key`.
+19. `views/pages/staff/show.ejs` — the Projects and Assets sidebar cards now
+    carry the `(N+)` cap indicator.
+
+### Regression tests added
+`tests/code_review_368.test.js` (15 tests) and
+`tests/code_review_368_counter.test.js` (5 tests) — 20 new tests, +20 net.
+
+- `tests/code_review_368_counter.test.js` runs against a **real in-memory
+  SQLite database** (not the shared jest mock) so the transaction semantics
+  that caused the wedge are genuinely exercised: an admin-renamed asset that
+  occupies the counter's next tag still creates successfully with the next
+  free tag and the counter commits the consumed sequence value; the same for
+  the daily ticket number; the no-collision path still yields `AST-001` /
+  `TK-<today>-001`; and a `serial_number` collision is **not** retried and is
+  still reported as a serial-number conflict. Verified that 2 of these tests
+  fail against the pre-fix code (the create returned "An asset with this tag
+  already exists" / "Error creating ticket. Please try again." and no row was
+  written).
+- `tests/code_review_368.test.js` (per-SQL statement mock) covers: the
+  access-scoped related-ticket query for both viewer classes plus the
+  retained JS filter; the comment route's zero-row no-op guard (not-found
+  flash, no success audit); the license edit route's key redaction and
+  `has_license_key` flag; the whitespace-only department rejection and the
+  still-working explicit-empty clear; the privilege-dependent directory
+  search columns; the deactivation flash wording; and source-level pins for
+  every `id` tiebreaker, the `deactivated` reason, the non-enumerating
+  knowledge wording, the password `maxlength` wiring, and the corrected
+  projects money-field comment. Verified that 12 of the 15 fail against the
+  pre-fix code.
+- Historical pins updated per convention: `tests/code_review_136.test.js`
+  (the `USER_INACTIVE` redirect reason is now `deactivated`) and
+  `tests/knowledge.test.js` (the in-transaction delete denial now flashes
+  "Article not found"). The three suites that mock `../src/constants` gained
+  `MAX_PASSWORD_BYTES: 72` so the template constant resolves under the mock.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1432 passed / 1432 total** (90 suites, +20 from #367).
+- `npm run test:coverage` — global thresholds pass (statements 70.59%,
+  branches 67.91%, functions 79.61%, lines 70.59%; up from 67.68/65.25/76.75/67.68).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

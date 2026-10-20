@@ -16,7 +16,7 @@ const _showStaffStmt = db.prepare('SELECT id, username, email, first_name, last_
 const _assignedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE assigned_to = ?
-    ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC
+    ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC, id DESC
     LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 const _assignedTasksStmt = db.prepare(`
@@ -24,7 +24,7 @@ const _assignedTasksStmt = db.prepare(`
     FROM project_tasks pt
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
-    ORDER BY pt.due_date ASC
+    ORDER BY pt.due_date ASC, pt.id ASC
     LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 // Cap the result set like every sibling sidebar query in this module — a user
@@ -32,6 +32,7 @@ const _assignedTasksStmt = db.prepare(`
 const _assignedAssetsStmt = db.prepare(`
     SELECT id, asset_tag, name, category, status
     FROM assets WHERE assigned_to = ?
+    ORDER BY name ASC, id ASC
     LIMIT ${ASSIGNED_ITEMS_CAP}
   `);
 // Cap the result set like every sibling sidebar query in this module — a user
@@ -41,7 +42,7 @@ const _projectMembershipsStmt = db.prepare(`
     FROM project_members pm
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
-    ORDER BY p.updated_at DESC
+    ORDER BY p.updated_at DESC, p.id DESC
     LIMIT ${MEMBER_LIST_CAP}
   `);
 const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
@@ -108,7 +109,21 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, safeQueryValue(req.query.search), ['u.first_name', 'u.last_name', 'u.email', 'u.username']);
+  // PII disclosure control: the email column is redacted for non-privileged
+  // viewers further down (rendered as "Restricted"), so matching the search
+  // term against u.email for those viewers turns the row COUNT into an
+  // email-existence oracle — a staff member could probe whether a given
+  // address belongs to an account without ever seeing the address. Restrict
+  // the searchable columns for non-privileged viewers to the ones the
+  // directory actually renders for them (first_name / last_name). The
+  // username column is not rendered in the directory at all, so it is
+  // likewise excluded. Privileged viewers keep the full search surface.
+  const viewer = req.session.user;
+  const viewerPrivileged = isPrivileged(viewer);
+  const searchColumns = viewerPrivileged
+    ? ['u.first_name', 'u.last_name', 'u.email', 'u.username']
+    : ['u.first_name', 'u.last_name'];
+  addSearch(where, params, safeQueryValue(req.query.search), searchColumns);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
@@ -156,8 +171,6 @@ router.get('/', (req, res) => {
   // column would leak the data. Use a shallow copy per row to avoid mutating
   // the DB query result objects in-place — a mutated row object could leak
   // through a cache or middleware.
-  const viewer = req.session.user;
-  const viewerPrivileged = isPrivileged(viewer);
   const renderedStaff = staff.map(s => {
     if (viewerPrivileged || Number(s.id) === Number(viewer.id)) {
       return { ...s };
@@ -415,11 +428,24 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
-  const department = trim(safeQueryValue(req.body.department));
+  const rawDepartment = req.body.department;
+  const department = trim(safeQueryValue(rawDepartment));
+  // Fail closed on a present-but-blank department (whitespace only). The
+  // raw value is kept so an ABSENT field (partial submission — preserve the
+  // stored value) and an EXPLICIT empty string (clear the field) stay
+  // distinguishable. A whitespace-only value is neither: it trimmed to an
+  // empty string, so resolveOptionalField treated it as an explicit clear and
+  // silently wiped the stored department while the route flashed "success".
+  // The sibling phone field in this same handler already rejects a
+  // present-but-blank value; department now behaves the same way.
+  if (typeof rawDepartment === 'string' && rawDepartment !== '' && rawDepartment.trim() === '') {
+    req.flash('error', 'Please enter a valid department');
+    return res.redirect(`/staff/${id}/edit`);
+  }
   // Fail closed on a present-but-non-string department (e.g. a JSON number):
   // trim() coerces it to '', which would silently clear the stored department
   // on update — the same fail-closed convention applied to phone below.
-  if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
+  if (rawDepartment !== undefined && rawDepartment !== null && rawDepartment !== '' && typeof rawDepartment !== 'string') {
     req.flash('error', 'Invalid Department');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -554,7 +580,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // empty string (clear the field). trim() collapses undefined to '', so the raw
       // values are captured here for the resolveOptionalField resolution inside the
       // transaction. Mirrors the raw-vs-processed split in assets.js and vendors.js.
-      const rawDept = req.body.department;
+      const rawDept = rawDepartment;
       const resolvedDepartment = resolveOptionalField(rawDept, department || null, MAX_SHORT_STR, recheck.department);
       if (resolvedDepartment && resolvedDepartment.error) {
         throw new Error('INVALID_DEPARTMENT');
@@ -940,7 +966,10 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // lockout to clear here.
 
       req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
-      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes unassigned.');
+      // The audit trail already names projects; the user-facing flash must
+      // match the actual effect — deactivating a user also clears the
+      // ownership of in-progress projects (the unassign statement above).
+      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes/projects unassigned.');
       invalidateActiveStaffCache();
       invalidateDashboardCache();
     }
