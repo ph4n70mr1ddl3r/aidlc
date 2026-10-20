@@ -565,7 +565,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
         throw new Error('INVALID_PHONE');
       }
       wasInactive = !recheck.is_active;
-      _staffUpdateStmt.run(
+      const updateResult = _staffUpdateStmt.run(
         email.substring(0, MAX_EMAIL),
         first_name.substring(0, MAX_SHORT_STR),
         last_name.substring(0, MAX_SHORT_STR),
@@ -574,6 +574,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
         resolvedPhone,
         id
       );
+      // Belt-and-braces NOT_FOUND guard mirroring the tickets/assets/projects/
+      // licenses/changes update transactions: the recheck above guarantees the
+      // row exists at this point, but checking the affected-row count keeps the
+      // convention uniform across every update route (and catches any future
+      // statement edit that drops the WHERE id term).
+      if (updateResult.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
     });
     updateStaff();
 
@@ -680,7 +688,12 @@ router.put('/:id/reactivate', requireAdmin, reactivateLimiter, (req, res) => {
         return { alreadyActive: true };
       }
 
-      _reactivateStmt.run(id);
+      const reactivateResult = _reactivateStmt.run(id);
+      // Belt-and-braces: the recheck above guarantees the row is inactive, but
+      // keep the changes === 0 convention uniform across every mutation route.
+      if (reactivateResult.changes === 0) {
+        return { notFound: true };
+      }
       targetUsername = target.username;
       return { ok: true };
     });
@@ -872,7 +885,13 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
         return { alreadyInactive: true };
       }
 
-      _deactivateStmt.run(id);
+      const deactivateResult = _deactivateStmt.run(id);
+      // Belt-and-braces: the recheck above guarantees the row is active, but
+      // keep the changes === 0 convention uniform across every mutation route
+      // (and avoid unassigning dependent records / auditing a no-op).
+      if (deactivateResult.changes === 0) {
+        return { notFound: true };
+      }
 
       // Unassign open/in_progress/waiting tickets so they don't stall on an inactive user
       _unassignTicketsStmt.run(id);

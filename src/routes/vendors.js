@@ -711,7 +711,10 @@ router.put('/:id/deactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       if (!existing.is_active) {
         return { alreadyInactive: true };
       }
-      _deactivateStmt.run(id);
+      const deactivateResult = _deactivateStmt.run(id);
+      if (deactivateResult.changes === 0) {
+        return { notFound: true };
+      }
       return { ok: true };
     });
     const result = deactivateVendor();
@@ -761,7 +764,10 @@ router.put('/:id/reactivate', requireAdminOrManager, vendorWriteLimiter, (req, r
       if (existing.is_active) {
         return { alreadyActive: true };
       }
-      _reactivateStmt.run(id);
+      const reactivateResult = _reactivateStmt.run(id);
+      if (reactivateResult.changes === 0) {
+        return { notFound: true };
+      }
       return { ok: true };
     });
     const result = reactivateVendor();

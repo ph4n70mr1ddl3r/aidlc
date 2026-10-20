@@ -1,14 +1,61 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (366th pass)
+**Date:** 2026-10-20 (367th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (365 consecutive hardening reviews) was
+`npm audit`. Prior review history (366 consecutive hardening reviews) was
 cross-checked.
 
 ---
+
+## Review cycle 2026-10-20 (367th pass)
+
+An independent pass re-read every route module, both middleware modules, utils,
+constants, the schema, and the EJS views, and re-verified the documented
+consistency invariants (HPP rejection, absent-vs-empty partial updates,
+transaction-consistent rechecks, `changes === 0` no-op guards, access-scoped
+list queries, cache invalidation, and view-to-route gating). No new functional
+defect was found; one consistency gap remained in the `changes === 0`
+convention.
+
+1. **Missing no-op guards on staff and vendor state mutations** (consistency
+   defect, fixed). Five statements were executed without inspecting their
+   affected-row count: the staff edit UPDATE and the staff/vendor
+   deactivate/reactivate UPDATEs. Each already re-reads the row and its state
+   inside a transaction, so `changes === 0` is currently unreachable; but the
+   rest of the codebase (tickets, assets, projects, licenses, changes,
+   knowledge, vendor update) treats a zero-row mutation as `NOT_FOUND`. Without
+   the check, a future statement edit that dropped the `WHERE id` term could
+   cause the route to unassign dependent records and emit a success audit for
+   an update that touched nothing. Fix: capture the result and treat
+   `changes === 0` as not-found, skipping dependent unassignments and audits.
+
+Also verified this pass: `.env.example` still matches every env read in
+`src/`; every `name=` field in every form (including login and profile) is
+consumed by its route; every view link/action resolves to an existing route;
+asset related-ticket filtering still selects `assigned_to`; staff index PII
+redaction remains intact; knowledge per-field validation and HPP guards remain
+fail-closed; reports/dashboard aggregation and pagination clamping are correct.
+
+### Fixes applied
+1. `src/routes/staff.js` — check `_staffUpdateStmt.run`, `_reactivateStmt.run`,
+   and `_deactivateStmt.run` for `changes === 0`; deactivate/reactivate return
+   the existing `notFound` result so no unassignment or success audit runs.
+2. `src/routes/vendors.js` — check `_deactivateStmt.run` and
+   `_reactivateStmt.run` for `changes === 0` and return `notFound`.
+
+### Regression tests added
+- `tests/code_review_367.test.js` — 5 tests: staff update, reactivate, and
+  deactivate report not found and skip success audits (deactivate also skips
+  dependent unassignment) when `changes === 0`; vendor deactivate and reactivate
+  report not found when `changes === 0`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1412 passed / 1412 total (88 suites).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
 
 ## Review cycle 2026-10-20 (366th pass)
 
