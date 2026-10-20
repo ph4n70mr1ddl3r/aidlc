@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (364th pass)
+**Date:** 2026-10-20 (365th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
@@ -9,6 +9,57 @@ constants.
 cross-checked.
 
 ---
+
+## Review cycle 2026-10-20 (365th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, plus ESLint, Jest, and `npm audit`) surfaced one real
+defect — a delete-path audit inconsistency in the knowledge base.
+
+1. **Knowledge article delete audited success on a no-op DELETE**
+   (confirmed correctness/consistency defect, fixed). `DELETE /knowledge/:id`
+   ran the existence/authorization recheck and the delete in one transaction,
+   but returned `{ changes: result.changes }` and never inspected it — the
+   `changes` field was dead. Every sibling delete route (assets, changes,
+   licenses, projects, tickets) treats `changes === 0` as `NOT_FOUND` and
+   skips the success audit. As written, any future reorder that let the
+   DELETE affect zero rows would still emit a `delete` audit entry and a
+   success flash for an article that was never removed. Fix: throw
+   `NOT_FOUND` from the transaction when `changes === 0`, and handle
+   `NOT_FOUND` in the outer catch so the request flashes "Article not found"
+   and writes no success audit — matching the update route's sentinel style.
+
+Also verified this pass: every write route still carries `rejectHppArrays`
+HPP guards (including the knowledge delete `id` guard); all update routes
+still implement absent-preserves / explicit-empty-clears through
+`resolveOptionalField` or the raw-vs-trimmed split; every update transaction
+still has a belt-and-braces `changes === 0` `NOT_FOUND` guard, and every
+delete transaction now does too; present-but-non-string enum/text values
+fail closed on create and update; knowledge index/show still hide
+drafts/archived from non-owners and non-privileged users; markdown rendering
+still fails closed to escaped plain text if `marked`/`sanitize-html` is
+missing or malformed; login/profile/password routes still regenerate the
+session and keep timing-enumeration defenses; all authenticated-route
+limiters remain per-account (`authKeyGenerator`); and all 17
+`.env.example` variables match the reads in `src/`.
+
+### Fixes applied
+1. `src/routes/knowledge.js` — treat `changes === 0` as `NOT_FOUND` inside
+   the delete transaction, remove the unreachable `notFound` return shape,
+   and handle `NOT_FOUND` in the catch instead of only auditing (`delete`)
+   whenever the recheck found a row.
+
+### Regression tests added
+- `tests/code_review_365.test.js` — 3 tests: a normal delete still writes the
+  `delete` audit and success flash; a zero-row DELETE flashes "Article not
+  found" and writes no success audit; an article that vanished before the
+  transaction is reported not found with no success audit.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1405 passed / 1405 total (86 suites).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
 
 ## Review cycle 2026-10-20 (364th pass)
 

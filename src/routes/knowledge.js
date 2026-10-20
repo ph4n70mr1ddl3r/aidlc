@@ -738,7 +738,7 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
     const deleteArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
-        return { notFound: true, title: null };
+        throw new Error('NOT_FOUND');
       }
       // Recheck authorization inside the transaction so a concurrent role
       // change between the outer check and the DELETE cannot bypass it.
@@ -747,18 +747,23 @@ router.delete('/:id', kbWriteLimiter, (req, res) => {
         throw new Error('ACCESS_DENIED');
       }
       const result = _deleteArticleStmt.run(id);
-      return { notFound: false, changes: result.changes, title: recheck.title };
+      // Fail closed when the DELETE affects no row. The recheck above makes this
+      // unreachable today, but every sibling delete route (assets/changes/
+      // licenses/projects/tickets) guards on changes === 0 so a future reorder
+      // cannot turn a no-op DELETE into a success audit entry.
+      if (result.changes === 0) {
+        throw new Error('NOT_FOUND');
+      }
+      return { title: recheck.title };
     });
     const deleteResult = deleteArticle();
-    if (deleteResult.notFound) {
-      req.flash('error', 'Article not found');
-    } else {
-      req.audit('delete', 'knowledge_article', id, `Deleted article "${deleteResult.title}"`);
-      req.flash('success', 'Article deleted.');
-      invalidateDashboardCache();
-    }
+    req.audit('delete', 'knowledge_article', id, `Deleted article "${deleteResult.title}"`);
+    req.flash('success', 'Article deleted.');
+    invalidateDashboardCache();
   } catch (err) {
-    if (err.message === 'ACCESS_DENIED') {
+    if (err.message === 'NOT_FOUND') {
+      req.flash('error', 'Article not found');
+    } else if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'knowledge_article', id, 'Unauthorized delete attempt on article (concurrent ownership change)');
       req.flash('error', 'You do not have permission to delete this article.');
     } else {
