@@ -1,18 +1,73 @@
 # Code Review Notes
 
-**Date:** 2026-10-19 (362nd pass)
+**Date:** 2026-10-20 (363rd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (361 consecutive hardening reviews) was
+`npm audit`. Prior review history (362 consecutive hardening reviews) was
 cross-checked.
 
 ---
 
+## Review cycle 2026-10-20 (363rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, the EJS
+list/form/show templates, `public/js/app.js`, `.env.example`, plus ESLint,
+Jest, and `npm audit`) found no new code defects. One documentation defect was
+confirmed and fixed.
+
+1. **362nd-pass entry intro was truncated** (confirmed documentation defect,
+   fixed). The cycle entry began with a dangling sentence —
+   "An independent pass (full re-read of all 12 route modules, both middleware"
+   — followed immediately by the numbered findings, so the paragraph never
+   said what the pass covered or how many defects it found. Restored the
+   complete scope/method sentence (matching the convention used by every other
+   cycle entry) and stated the six defects the pass fixed.
+
+Also verified this pass: every write route still carries `rejectHppArrays`
+HPP guards (including the intentionally exempt `is_featured` checkbox pair in
+knowledge.js and the array-resolving `resolveSafeFeatured`); every update
+route still enforces the absent-preserves / explicit-empty-clears convention
+through `resolveOptionalField` or the raw-vs-trimmed split
+(tickets, assets, projects, tasks, staff, vendors, licenses, changes,
+knowledge tags); every update transaction still has a belt-and-braces
+`changes === 0` `NOT_FOUND` guard; present-but-non-string enum/text values
+fail closed on create and update; `safeId` / `isPresentInvalidId` reject
+non-integer and array ids; inactive assignees are preserved only when
+unchanged and otherwise rejected; deactivation still unassigns
+tickets/tasks/changes/projects inside its transaction; ticket show/edit and
+asset show still redact requester/assignee PII for non-privileged viewers;
+ticket show still filters internal comments server-side; staff show still
+gates cross-profile PII by privilege/self; all authenticated-route limiters
+remain per-account (`authKeyGenerator`); dashboard/report queries still
+exclude disposed assets and use uncapped COUNT companions for capped alert
+lists; the 404/error/CSRF handlers still negotiate JSON vs HTML and avoid
+open redirects; and all 17 `.env.example` variables match the reads in
+`src/`.
+
+### Fixes applied
+1. `CODE_REVIEW.md` — completed the truncated 362nd-pass introductory
+   paragraph so the entry records its scope, method, and defect count.
+
+### Regression tests added
+None — this pass changed documentation only. The existing 84 suites /
+1399 tests continue to pin the runtime behavior listed above.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1399 passed / 1399 total (84 suites, unchanged).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
 ## Review cycle 2026-10-19 (362nd pass)
 
 An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, `.env.example`, plus ESLint, Jest, and `npm audit`)
+surfaced six real defects — one correctness/data-loss wipe, two
+confidentiality leaks, one fail-open sanitizer shape check, one brute-force
+lockout bypass, and one session-fixation residual. All are fixed this pass.
 
 1. **`requester_name` wiped on partial ticket updates** (confirmed
    correctness/data-loss defect, fixed). `PUT /tickets/:id` wrote
