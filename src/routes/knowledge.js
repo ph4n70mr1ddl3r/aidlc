@@ -638,8 +638,9 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // projects/changes): an ABSENT tags field (partial API PUT omitting it) preserves
   // the stored value; an explicit empty string clears it to NULL. Previously an
   // absent field trimmed to '' and wiped the stored tags with a success flash.
+  // Resolution happens inside the transaction against the rechecked row (see
+  // below) so a concurrent tags edit cannot be overwritten by a stale value.
   const rawTagsAbsent = req.body.tags === undefined || req.body.tags === null;
-  const safeTags = rawTagsAbsent ? existing.tags : sanitized.safeTags;
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);
@@ -674,7 +675,12 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       }
       const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
-      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, safeTags, txnSafeStatus, txnSafeFeatured, id);
+      // Resolve tags from the transaction-consistent row: an absent field
+      // preserves the CURRENT stored tags rather than the value read outside
+      // the transaction, closing the same TOCTOU window already closed for
+      // status/is_featured. An explicit empty submission still clears tags.
+      const txnSafeTags = rawTagsAbsent ? recheck.tags : sanitized.safeTags;
+      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, txnSafeTags, txnSafeStatus, txnSafeFeatured, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }

@@ -50,7 +50,9 @@ describe('code review 163: consistency/completeness/correctness', () => {
     it('preserves stored tags when the field is absent', () => {
       const src = readSrc('routes/knowledge.js');
       expect(src).toContain('rawTagsAbsent');
-      expect(src).toContain('existing.tags');
+      // Pass 366 moved the preserved value resolution inside the transaction
+      // (recheck.tags) to close the stale-read TOCTOU window.
+      expect(src).toContain('recheck.tags');
     });
   });
 

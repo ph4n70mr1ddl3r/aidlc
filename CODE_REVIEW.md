@@ -1,14 +1,67 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (365th pass)
+**Date:** 2026-10-20 (366th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (363 consecutive hardening reviews) was
+`npm audit`. Prior review history (365 consecutive hardening reviews) was
 cross-checked.
 
 ---
+
+## Review cycle 2026-10-20 (366th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, plus ESLint, Jest, and `npm audit`) surfaced one real
+defect — a remaining TOCTOU window in the knowledge-base update path.
+
+1. **Knowledge article tags were preserved from a stale pre-transaction row**
+   (confirmed correctness/consistency defect, fixed). The update route resolves
+   `status`, `is_featured`, ownership, and the existence check from the row
+   re-read inside its transaction specifically to avoid overwriting concurrent
+   changes. Tags were the lone exception: for an ABSENT `tags` field (the
+   documented partial-update convention), the route used
+   `existing.tags` captured by the authorisation SELECT *before* the
+   transaction. A concurrent edit that changed tags between that SELECT and
+   the UPDATE would therefore be silently reverted by an unrelated partial
+   PUT. Fix: compute the preserved tags from `recheck.tags` inside the
+   transaction, alongside `txnSafeStatus`/`txnSafeFeatured`; an explicit empty
+   `tags` submission still clears to NULL.
+
+Also verified this pass: every update transaction resolves absent-vs-empty
+fields against the transaction-consistent re-fetch (tickets, assets, projects,
+vendors, licenses, changes, staff, knowledge — post-fix); every update/delete
+transaction still checks `changes === 0`; all write routes retain their
+`rejectHppArrays` guards; knowledge index/show/edit/delete visibility remains
+consistent (published OR author OR privileged); markdown rendering still fails
+closed when `marked`/`sanitize-html` is missing or malformed; every
+view-to-route link is gated to match the show route's access check (tickets,
+assets, projects, changes, staff, licenses, vendors, knowledge); badge/CSS
+classes referenced by templates still exist in `app.css`; all authenticated
+route limiters remain per-account; mutation routes continue to invalidate the
+dashboard cache (and the active-staff cache on user writes); and
+`.env.example` still matches every env read in `src/`.
+
+### Fixes applied
+1. `src/routes/knowledge.js` — move absent-tags preservation inside the update
+   transaction and resolve it from the rechecked row, closing the TOCTOU window
+   already closed for status/is_featured/ownership.
+2. `tests/code_review_163.test.js` — historical pin updated: the absent-tags
+   assertion now targets `recheck.tags` (the transaction-consistent resolution)
+   instead of the removed `existing.tags` stale read, preserving the original
+   pass-163 intent (tags must not be wiped on absence).
+
+### Regression tests added
+- `tests/code_review_366.test.js` — 2 tests: an absent `tags` field persists
+  the value re-read inside the transaction (not the stale outer value), and an
+  explicit empty `tags` submission still clears the column to NULL.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1407 passed / 1407 total (87 suites).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
 
 ## Review cycle 2026-10-20 (365th pass)
 
