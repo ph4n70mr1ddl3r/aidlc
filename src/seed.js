@@ -181,12 +181,21 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // project 1 has 2/5 tasks done (40), project 3 has 2/4 done (50), project
     // 5 has 1/1 done (100). Taskless projects seed progress 0 — recalc maps a
     // zero task count to 0, so any other seeded value would visibly jump.
+    // Project windows and task due dates are anchored relative to seed time,
+    // exactly like the ticket due date above and the scheduled changes below.
+    // The hardcoded windows had already drifted into the past: a fresh seed
+    // showed an "in_progress" project whose end date was two months ago, a
+    // "planning" project that started four months ago, and five open tasks
+    // whose due date had already passed (every one of them rendered as
+    // "Overdue"). The relative anchors keep the seeded portfolio coherent
+    // whenever the seed runs.
+    const daysAgo = (days) => isoDateDaysFromNow(-days);
     const projects = [
-      { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: '2026-01-15', end_date: '2026-08-30', budget: 150000, spent: 45000, progress: 40, owner_id: 2 },
-      { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: '2026-06-01', end_date: '2026-12-31', budget: 200000, spent: 5000, progress: 0, owner_id: 2 },
-      { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: '2026-03-01', end_date: '2026-07-31', budget: 50000, spent: 32000, progress: 50, owner_id: 3 },
-      { name: 'Office 365 Copilot Rollout', description: 'Deploy Microsoft Copilot to all departments with training and governance policies.', status: 'planning', priority: 'high', start_date: '2026-07-01', end_date: '2026-09-30', budget: 75000, spent: 0, progress: 0, owner_id: 1 },
-      { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: '2026-02-01', end_date: '2026-04-30', budget: 85000, spent: 82000, progress: 100, owner_id: 6 }
+      { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: daysAgo(270), end_date: isoDateDaysFromNow(90), budget: 150000, spent: 45000, progress: 40, owner_id: 2 },
+      { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: isoDateDaysFromNow(60), end_date: isoDateDaysFromNow(240), budget: 200000, spent: 5000, progress: 0, owner_id: 2 },
+      { name: 'IT Service Desk Upgrade', description: 'Migrate from legacy ticketing system to modern ITSM platform with automation.', status: 'in_progress', priority: 'medium', start_date: daysAgo(210), end_date: isoDateDaysFromNow(30), budget: 50000, spent: 32000, progress: 50, owner_id: 3 },
+      { name: 'Office 365 Copilot Rollout', description: 'Deploy Microsoft Copilot to all departments with training and governance policies.', status: 'planning', priority: 'high', start_date: isoDateDaysFromNow(21), end_date: isoDateDaysFromNow(120), budget: 75000, spent: 0, progress: 0, owner_id: 1 },
+      { name: 'Data Center Cooling Upgrade', description: 'Replace aging HVAC units in Data Center A with efficient cooling system.', status: 'completed', priority: 'high', start_date: daysAgo(240), end_date: daysAgo(150), budget: 85000, spent: 82000, progress: 100, owner_id: 6 }
     ];
 
     const insertProject = db.prepare(`
@@ -200,21 +209,25 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     }
 
     // Project tasks
+    // Project tasks — due dates anchored relative to seed time for the same
+    // reason as the project windows above: a task that is still open must not
+    // be born overdue. Completed tasks keep a due date in the past and a
+    // completion date just before it.
     const tasks = [
-      { project_id: 1, title: 'Assessment of current workloads', description: 'Document all on-prem workloads and dependencies', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-02-15', completed_at: '2026-02-14' },
-      { project_id: 1, title: 'AWS Landing Zone setup', description: 'Configure multi-account AWS environment', status: 'done', priority: 'high', assigned_to: 6, due_date: '2026-03-01', completed_at: '2026-02-28' },
-      { project_id: 1, title: 'Database migration planning', description: 'Plan PostgreSQL to RDS migration strategy', status: 'in_progress', priority: 'high', assigned_to: 3, due_date: '2026-05-15' },
-      { project_id: 1, title: 'CDN configuration', description: 'Set up CloudFront distributions', status: 'todo', priority: 'medium', assigned_to: 6, due_date: '2026-06-01' },
-      { project_id: 1, title: 'Testing & validation', description: 'Full regression testing of migrated workloads', status: 'todo', priority: 'high', assigned_to: 4, due_date: '2026-07-15' },
-      { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: '2026-03-15', completed_at: '2026-03-14' },
-      { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: '2026-04-30', completed_at: '2026-04-29' },
-      { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: '2026-06-15' },
-      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: '2026-07-15' },
+      { project_id: 1, title: 'Assessment of current workloads', description: 'Document all on-prem workloads and dependencies', status: 'done', priority: 'high', assigned_to: 3, due_date: daysAgo(240), completed_at: daysAgo(243) },
+      { project_id: 1, title: 'AWS Landing Zone setup', description: 'Configure multi-account AWS environment', status: 'done', priority: 'high', assigned_to: 6, due_date: daysAgo(210), completed_at: daysAgo(213) },
+      { project_id: 1, title: 'Database migration planning', description: 'Plan PostgreSQL to RDS migration strategy', status: 'in_progress', priority: 'high', assigned_to: 3, due_date: isoDateDaysFromNow(10) },
+      { project_id: 1, title: 'CDN configuration', description: 'Set up CloudFront distributions', status: 'todo', priority: 'medium', assigned_to: 6, due_date: isoDateDaysFromNow(45) },
+      { project_id: 1, title: 'Testing & validation', description: 'Full regression testing of migrated workloads', status: 'todo', priority: 'high', assigned_to: 4, due_date: isoDateDaysFromNow(75) },
+      { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: daysAgo(180), completed_at: daysAgo(183) },
+      { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: daysAgo(150), completed_at: daysAgo(152) },
+      { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: isoDateDaysFromNow(20) },
+      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: isoDateDaysFromNow(60) },
       // Project 5 ('completed', progress 100) needs at least one done task so
       // its seeded progress matches recalcProjectProgress (1/1 = 100) — a
       // taskless completed project would snap from 100% to 0% on its first
       // task edit (recalc maps zero tasks to 0).
-      { project_id: 5, title: 'HVAC unit replacement', description: 'Replace all aging HVAC units and commission the new cooling system', status: 'done', priority: 'high', assigned_to: 6, due_date: '2026-04-15', completed_at: '2026-04-14' }
+      { project_id: 5, title: 'HVAC unit replacement', description: 'Replace all aging HVAC units and commission the new cooling system', status: 'done', priority: 'high', assigned_to: 6, due_date: daysAgo(160), completed_at: daysAgo(163) }
     ];
 
     const insertTask = db.prepare(`
@@ -300,14 +313,22 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       const d = new Date(now.getTime() + daysFromNow * 86400000);
       const [hours, minutes] = time.split(':');
       d.setUTCHours(Number(hours), Number(minutes), 0, 0);
-      return d.toISOString().replace('T', ' ').slice(0, 19);
+      // Minute precision ("YYYY-MM-DD HH:MM") — the exact shape the routes
+      // write (safeDateTimeLocal). The seeder used to append ":SS", which made
+      // every seeded row a different shape from every application-written row:
+      // the change route compares a stored datetime against a submitted one as
+      // strings, and "2026-05-20 02:00" sorts BEFORE "2026-05-20 02:00:00"
+      // even though both denote the same instant, so the range validation
+      // rejected valid updates on seeded records. Canonical format on both
+      // sides removes the ambiguity entirely.
+      return d.toISOString().replace('T', ' ').slice(0, 16);
     };
     const changes = [
-      { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: '2026-05-20 02:00:00', scheduled_end: '2026-05-20 03:00:00', actual_start: '2026-05-20 02:00:00', actual_end: '2026-05-20 02:35:00', impact: 'No user impact expected', assigned_to: 6 },
-      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00:00'), scheduled_end: changeAt(6, '02:00:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
-      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00:00'), scheduled_end: changeAt(12, '08:00:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
-      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00:00'), scheduled_end: changeAt(16, '22:00:00'), impact: 'AD replication delay possible', assigned_to: 2 },
-      { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00:00', scheduled_end: '2026-05-19 01:00:00', actual_start: '2026-05-18 23:00:00', actual_end: '2026-05-18 23:45:00', impact: 'No impact - hot spare active', assigned_to: 6 }
+      { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: '2026-05-20 02:00', scheduled_end: '2026-05-20 03:00', actual_start: '2026-05-20 02:00', actual_end: '2026-05-20 02:35', impact: 'No user impact expected', assigned_to: 6 },
+      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
+      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00'), scheduled_end: changeAt(12, '08:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
+      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00'), scheduled_end: changeAt(16, '22:00'), impact: 'AD replication delay possible', assigned_to: 2 },
+      { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00', scheduled_end: '2026-05-19 01:00', actual_start: '2026-05-18 23:00', actual_end: '2026-05-18 23:45', impact: 'No impact - hot spare active', assigned_to: 6 }
     ];
 
     const insertChange = db.prepare(`

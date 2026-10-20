@@ -65,6 +65,39 @@ const INVALID_DATE_FIELDS = Object.freeze({
   INVALID_ACTUAL_END: 'Actual End Date'
 });
 
+/**
+ * Compare two canonical datetime strings ("YYYY-MM-DD HH:MM") at MINUTE
+ * precision.
+ *
+ * The stored value can carry a seconds suffix: the routes always write
+ * "YYYY-MM-DD HH:MM" (safeDateTimeLocal), but the seeder — and any row
+ * imported from another system or written by an older build — stores
+ * "YYYY-MM-DD HH:MM:SS". A raw lexicographic comparison of the two formats
+ * reports "2026-05-20 02:00" < "2026-05-20 02:00:00" (the shorter prefix
+ * sorts first) even though both denote the SAME instant. The range validation
+ * therefore rejected a legitimate update — moving the scheduled end to the
+ * same minute as the scheduled start — with "Scheduled end must be on or
+ * after scheduled start", and the change was silently not saved.
+ *
+ * Truncating both sides to minute precision compares instants instead of
+ * strings, so the two storage shapes can no longer disagree.
+ *
+ * @param {string} a - Left-hand datetime string
+ * @param {string} b - Right-hand datetime string
+ * @returns {number} -1 when a is before b, 0 when equal, 1 when a is after b
+ */
+function _compareDateTimeMinutes(a, b) {
+  const am = String(a).slice(0, 16);
+  const bm = String(b).slice(0, 16);
+  if (am < bm) {
+    return -1;
+  }
+  if (am > bm) {
+    return 1;
+  }
+  return 0;
+}
+
 const _changeUpdateStmt = db.prepare(`
     UPDATE change_log SET title = ?, description = ?, change_type = ?, status = ?,
       priority = ?, scheduled_start = ?, scheduled_end = ?, actual_start = ?, actual_end = ?,
@@ -465,7 +498,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('INVALID_SCHEDULED_END');
       }
 
-      if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
+      if (sSchedStart.value && sSchedEnd.value && _compareDateTimeMinutes(sSchedEnd.value, sSchedStart.value) < 0) {
         throw new Error('SCHEDULED_END_BEFORE_START');
       }
 
@@ -481,7 +514,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
         throw new Error('INVALID_ACTUAL_END');
       }
 
-      if (sActStart.value && sActEnd.value && sActEnd.value < sActStart.value) {
+      if (sActStart.value && sActEnd.value && _compareDateTimeMinutes(sActEnd.value, sActStart.value) < 0) {
         throw new Error('ACTUAL_END_BEFORE_START');
       }
 
@@ -602,4 +635,5 @@ router.delete('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
 module.exports = router;
 // Exposed for unit testing (mirrors the pattern in tickets.js / knowledge.js).
 module.exports.resolveDateTimeField = _resolveDateTimeField;
+module.exports.compareDateTimeMinutes = _compareDateTimeMinutes;
 module.exports.resetCachedStatements = () => {};

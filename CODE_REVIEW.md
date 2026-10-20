@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (370th pass)
+**Date:** 2026-10-20 (371st pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (369 consecutive hardening reviews) was
+`npm audit`. Prior review history (370 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -13329,4 +13329,142 @@ unchanged.
 - `npm test` — **1461 passed / 1461 total** (92 suites, +7 from #369).
 - `npm run test:coverage` — global thresholds pass (statements 71.19%,
   branches 68.38%, functions 81.64%, lines 71.20%).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-20 (371st pass)
+
+An independent pass re-read every route module, both middleware modules,
+`app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`, all 39
+EJS templates (34 page + 5 partial), `public/js/app.js`, `public/css/app.css`,
+`README.md`, `.env.example`, `eslint.config.js`, both jest setup files and the
+CI workflow, and re-verified the documented invariants (HPP rejection,
+absent-vs-empty partial updates, transaction-consistent rechecks,
+`changes === 0` no-op guards, access-scoped list queries, cache invalidation,
+ordering determinism, and view-to-route gating). One correctness defect, one
+consistency defect and three completeness defects were found and fixed. No new
+SQL injection, IDOR, CSRF, XSS, rate-limit or error-leakage defect was found.
+
+1. **The change-log range validation compared datetime *strings* instead of
+   *instants*** (MEDIUM, correctness). The update route resolved the
+   scheduled/actual start and end and then compared them with a raw `<`:
+
+   ```js
+   if (sSchedStart.value && sSchedEnd.value && sSchedEnd.value < sSchedStart.value) {
+     throw new Error('SCHEDULED_END_BEFORE_START');
+   }
+   ```
+
+   The two sides do not necessarily have the same shape. The routes always
+   write `"YYYY-MM-DD HH:MM"` (`safeDateTimeLocal`), but the seeder — and any
+   row imported from another system, or written by an older build — stores
+   `"YYYY-MM-DD HH:MM:SS"`. Lexicographically the shorter prefix sorts
+   **first**, so `"2026-05-20 02:00" < "2026-05-20 02:00:00"` is true even
+   though both denote the same instant. The range check therefore rejected a
+   legitimate update — moving the scheduled end to the same minute as the
+   stored scheduled start — with *"Scheduled end must be on or after scheduled
+   start"*, and the change was silently **not saved** (reproduced against the
+   real app stack: the request bounced back to `/changes/:id/edit` with the row
+   untouched). Fix: the comparison now runs at minute precision
+   (`_compareDateTimeMinutes()` truncates both sides to 16 characters), so the
+   two storage shapes can no longer disagree; and the seeder writes the
+   canonical minute format the routes use, so a freshly seeded row is
+   indistinguishable from an application-written one.
+
+2. **`DASHBOARD_LIMITS.myTickets` was a dead knob** (LOW, consistency). The
+   constants file declares one cap per dashboard widget and states that "the
+   dashboard route imports this object so the two can never drift" — the
+   template reads `DASHBOARD_LIMITS.myTickets` to decide whether to render the
+   `(N+)` truncation marker, but the query that fills that card was capped
+   with `DASHBOARD_LIMITS.recentTickets` instead. The two numbers were
+   independent: raising `myTickets` alone would have produced a list that is
+   truncated but never says so (and lowering it would have cut rows the
+   marker still claimed were complete). Fix: the "My Active Tickets" query
+   now reads its own knob, `_DASH_MY_TICKETS_LIMIT = DASHBOARD_LIMITS.myTickets`.
+
+3. **Five of the app's 25 rate limiters were missing from the README**
+   (LOW, completeness). The Security section enumerates the rate-limit
+   budgets, but the list omitted the profile-update limiter (30 / 15 min),
+   the ticket quick-status limiter (20 / min), the ticket satisfaction-rating
+   limiter (10 / min), the staff reactivation limiter (10 / min) and the
+   admin password-reset limiter (20 / 15 min) — an operator reading the
+   README could not tell that those endpoints are throttled at all. The
+   bullet now lists all of them, and a regression test derives the budgets
+   from the `rateLimit({...})` declarations in `src/` and asserts that every
+   distinct `max/window` pair appears in the README.
+
+4. **The seeded project windows and task due dates had already drifted into
+   the past** (LOW, completeness). The seeder already anchors the ticket due
+   date and the scheduled changes to the seed date ("so a fresh seed never
+   shows an immediately overdue ticket" / "the Dashboard 'Upcoming Changes'
+   panel always has data no matter when the seed runs"), but the five seeded
+   projects and their ten tasks still carried hardcoded absolute dates. A
+   freshly seeded database therefore showed an `in_progress` project whose
+   end date was two months ago, a `planning` project that had started four
+   months ago, and five open tasks whose due date had already passed — each
+   rendering as "Overdue" — while the statuses claimed otherwise. Fix: the
+   project windows and task due dates are now anchored to the seed date
+   (`daysAgo()` / `isoDateDaysFromNow()`), preserving the same narrative
+   (a project mid-flight, completed tasks in the past, open tasks ahead).
+
+5. **The README claimed the no-store policy applies to "every response"**
+   (LOW, documentation precision). The cache-control middleware runs after
+   `express.static`, so static assets keep their own headers
+   (`Cache-Control: public, max-age=…`) while every dynamic response carries
+   `no-store, must-revalidate, private` — verified against a live server
+   (`/css/app.css` → `public, max-age=0`, `/login` → `no-store, …`). The
+   README now says "every dynamic response (static assets are served by
+   `express.static` with their own cache headers)".
+
+Also verified this pass: every write route still rejects HPP array payloads
+before any value is consumed; every update transaction still re-reads the row
+inside the transaction and throws `NOT_FOUND` on a zero-row write; the
+absent-vs-empty convention remains uniform (absent ⇒ preserve, `''` ⇒ clear,
+present-but-blank ⇒ fail closed) across tickets, projects, tasks, assets,
+vendors, licenses, changes, staff, knowledge and the profile route; every
+paginated and capped query still carries a unique trailing `id` tiebreaker;
+every list route's access scope still matches its show route (tickets and
+assets stay open to all staff, the change log and knowledge base stay scoped,
+licenses and vendors stay privileged-only); requester PII is still redacted
+for non-privileged viewers on both the show and the edit path; the login
+lockout, the CSRF double-submit, the audit allowlists and the
+`Cache-Control`/`Permissions-Policy` header set are unchanged; every `name=`
+field in every form is still consumed by its route and every view link and
+form action still resolves to an existing route; every CSS class referenced
+by a template still exists in `app.css`; `.env.example` still documents
+exactly the 17 env vars read in `src/`; and a live-app fuzz sweep (814
+malformed write payloads across 37 of the app's write routes, plus an
+access-control sweep over every show/edit route) produced no 5xx and no
+bypass for a non-privileged or manager account.
+
+### Fixes applied
+1. `src/routes/changes.js` — the scheduled/actual range checks now compare at
+   minute precision (`_compareDateTimeMinutes()`), so a stored value that
+   carries a seconds suffix can no longer make a valid update look like
+   "end before start"; the helper is exported for unit testing.
+2. `src/routes/dashboard.js` — the "My Active Tickets" query is capped with
+   `DASHBOARD_LIMITS.myTickets` (the constant the truncation marker reads)
+   instead of `DASHBOARD_LIMITS.recentTickets`.
+3. `src/seed.js` — change-log datetimes are written in the canonical
+   `"YYYY-MM-DD HH:MM"` format the routes use, and the seeded project windows
+   and task due dates are anchored relative to the seed date.
+4. `README.md` — the rate-limiting bullet now enumerates all 25 limiters, and
+   the no-store policy is described as applying to every dynamic response.
+
+### Regression tests added
+- `tests/code_review_371.test.js` — 10 tests: the minute-precision datetime
+  comparison (unit) plus an end-to-end check that moving a scheduled end to
+  the stored start minute is accepted and applied, and that a genuine
+  end-before-start update is still rejected; the dashboard's my-tickets cap is
+  pinned to `DASHBOARD_LIMITS.myTickets` both structurally and behaviourally
+  (the card renders at most N rows and discloses the truncation); the README
+  rate-limit budgets are derived from the `rateLimit({...})` declarations in
+  `src/` and compared against the documentation; and the seeded portfolio is
+  asserted to contain no overdue open task, no status/date contradiction, and
+  only canonical minute-format change datetimes.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1471 passed / 1471 total** (93 suites, +10 from #370).
+- `npm run test:coverage` — global thresholds pass (statements 71.38%,
+  branches 68.55%, functions 82.38%, lines 71.38%).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

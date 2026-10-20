@@ -52,6 +52,15 @@ router.use(requireAuth, auditMiddleware, dashboardLimiter); // Added dashboardLi
 // values are shared with src/constants.js (DASHBOARD_LIMITS) so the template
 // can disclose the truncation with an "(N+)" marker — the two can never drift.
 const _DASH_RECENT_TICKETS_LIMIT = DASHBOARD_LIMITS.recentTickets;
+// The "My Active Tickets" widget has its own cap: it is a per-viewer query
+// and the template compares the rendered row count against
+// DASHBOARD_LIMITS.myTickets to decide whether to show the "(N+)" truncation
+// marker. It used to reuse DASHBOARD_LIMITS.recentTickets, which made the
+// marker threshold and the query limit two independent numbers — changing
+// only myTickets in constants.js would have produced a list that is
+// truncated but never says so. Reading the knob the template reads keeps the
+// two in lockstep (the property the constants comment promises).
+const _DASH_MY_TICKETS_LIMIT = DASHBOARD_LIMITS.myTickets;
 const _DASH_WARRANTY_LIMIT = DASHBOARD_LIMITS.warrantyAlerts;
 const _DASH_UPCOMING_CHANGES_LIMIT = DASHBOARD_LIMITS.upcomingChanges;
 const _DASH_STAFF_WORKLOAD_LIMIT = DASHBOARD_LIMITS.staffWorkload;
@@ -211,7 +220,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.assigned_to = ? AND t.status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC, t.id ASC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
+    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC, t.id ASC LIMIT ${_DASH_MY_TICKETS_LIMIT}
   `)
 };
 
