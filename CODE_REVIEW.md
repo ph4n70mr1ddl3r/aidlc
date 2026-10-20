@@ -1,14 +1,71 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (363rd pass)
+**Date:** 2026-10-20 (364th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (362 consecutive hardening reviews) was
+`npm audit`. Prior review history (363 consecutive hardening reviews) was
 cross-checked.
 
 ---
+
+## Review cycle 2026-10-20 (364th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, models, database schema, seed data, EJS views,
+`public/js/app.js`, `.env.example`, plus ESLint, Jest, and `npm audit`)
+surfaced one real defect — a partial-update inconsistency that made the
+documented absent-preserves behavior false for privileged ticket editors.
+
+1. **Privileged ticket update rejected an absent `requester_email`**
+   (confirmed API/correctness inconsistency, fixed). `PUT /tickets/:id`
+   preserved requester email, department, and phone on absence for
+   non-privileged editors, and the 362nd-pass entry documented email as
+   following the same rule. But for privileged (admin/manager) editors the
+   route required a non-empty `requester_email` on every request, so a valid
+   partial API `PUT` that changed only `title`/`status` failed with
+   "Requester email is required" unless the caller re-sent PII they were not
+   changing. Fix: capture the raw email, preserve
+   `ticket.requester_email` when the field is absent, keep rejecting an
+   explicit empty value (the email is required), and fail closed on a
+   present-but-non-string value instead of coercing it to `''`. The resolved
+   email is now read from the transaction-consistent row, matching the
+   department/phone resolution path.
+
+Also verified this pass: every write route still carries `rejectHppArrays`
+HPP guards; all update routes still implement absent-preserves /
+explicit-empty-clears through `resolveOptionalField` or the raw-vs-trimmed
+split (including the newly fixed ticket email); every update transaction
+still has a belt-and-braces `changes === 0` `NOT_FOUND` guard;
+present-but-non-string enum/text values fail closed on create and update;
+`safeId` / `isPresentInvalidId` reject non-integer and array ids; inactive
+assignees are preserved only when unchanged and otherwise rejected; ticket
+show/edit and asset show still redact requester/assignee PII for
+non-privileged viewers; staff show still restricts cross-profile PII and
+staff list still redacts `last_login`/`avatar`; ticket show still filters
+internal comments server-side; all authenticated-route limiters remain
+per-account (`authKeyGenerator`); dashboard/report queries still exclude
+disposed assets and use uncapped COUNT companions for capped alert lists;
+the 404/error/CSRF handlers still negotiate JSON vs HTML and avoid open
+redirects; and all 17 `.env.example` variables match the reads in `src/`.
+
+### Fixes applied
+1. `src/routes/tickets.js` — capture `rawRequesterEmail`, apply the
+   absent-preserves / explicit-empty-required / non-string-fail-closed rules
+   to privileged ticket updates, and resolve the persisted email from the
+   rechecked row inside the update transaction.
+
+### Regression tests added
+- `tests/code_review_364.test.js` — 3 tests: an absent `requester_email` on a
+  privileged partial `PUT` preserves the stored address; a present
+  non-string email is rejected fail-closed; an explicit empty email is still
+  rejected as a required-field miss.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — 1402 passed / 1402 total (85 suites).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
 
 ## Review cycle 2026-10-20 (363rd pass)
 

@@ -543,7 +543,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const resolution_notes = trim(safeQueryValue(req.body.resolution_notes));
   const rawRequesterName = req.body.requester_name;
   const requester_name = trim(safeQueryValue(rawRequesterName));
-  const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
+  const rawRequesterEmail = req.body.requester_email;
+  const requester_email = trim(safeQueryValue(rawRequesterEmail)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
   // Requester PII (email/phone/department) is only editable by privileged users
   // (admin/manager). The edit form omits these fields entirely for non-
@@ -667,17 +668,31 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
   if (canEditRequesterPII) {
+    // Same absent-vs-empty rule as requester_name and every sibling optional
+    // field: an ABSENT email on a partial API PUT preserves the stored value,
+    // while a present empty string is rejected because the email is required
+    // (the create route and edit form both require it). Fail closed on a
+    // present-but-non-string value so trim() cannot coerce it to '' and turn
+    // it into either a spurious "required" error or a silent wipe.
+    if (rawRequesterEmail !== undefined && rawRequesterEmail !== null && rawRequesterEmail !== '' && typeof rawRequesterEmail !== 'string') {
+      req.flash('error', 'Invalid Requester Email');
+      return res.redirect(`/tickets/${id}/edit`);
+    }
+    const requesterEmailAbsent = rawRequesterEmail === undefined || rawRequesterEmail === null;
     if (!requester_email) {
-      req.flash('error', 'Requester email is required');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
-    if (requester_email.length > MAX_EMAIL) {
-      req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
-      return res.redirect(`/tickets/${id}/edit`);
-    }
-    if (!isValidEmail(requester_email)) {
-      req.flash('error', 'Please enter a valid requester email address');
-      return res.redirect(`/tickets/${id}/edit`);
+      if (!requesterEmailAbsent) {
+        req.flash('error', 'Requester email is required');
+        return res.redirect(`/tickets/${id}/edit`);
+      }
+    } else {
+      if (requester_email.length > MAX_EMAIL) {
+        req.flash('error', `Requester email must be at most ${MAX_EMAIL} characters`);
+        return res.redirect(`/tickets/${id}/edit`);
+      }
+      if (!isValidEmail(requester_email)) {
+        req.flash('error', 'Please enter a valid requester email address');
+        return res.redirect(`/tickets/${id}/edit`);
+      }
     }
     if (requester_department && requester_department.length > MAX_SHORT_STR) {
       req.flash('error', `Requester department must be at most ${MAX_SHORT_STR} characters`);
@@ -754,14 +769,18 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       // form redacts these fields, so absent submissions must preserve the
       // stored values rather than failing validation or wiping the data.
       const resolvedRequesterEmail = canEditRequesterPII
-        ? (requester_email || '').substring(0, MAX_EMAIL)
+        ? ((rawRequesterEmail === undefined || rawRequesterEmail === null)
+          ? ticket.requester_email
+          : requester_email.substring(0, MAX_EMAIL))
         : ticket.requester_email;
-      // Absent-vs-empty convention for requester PII: an explicit empty string
-      // in the form ("Clear") wipes the stored value, while an ABSENT field on
-      // a partial API submission preserves it. A present non-string value
-      // (e.g. a JSON number) is rejected via resolveOptionalField's error
-      // sentinel — previously it coerced to '' and silently wiped the stored
-      // department while the create route rejected the identical payload.
+      // Absent-vs-empty convention for the optional requester department/phone:
+      // an explicit empty string in the form ("Clear") wipes the stored value,
+      // while an ABSENT field on a partial API submission preserves it. A
+      // present non-string value (e.g. a JSON number) is rejected via
+      // resolveOptionalField's error sentinel — previously it coerced to '' and
+      // silently wiped the stored department while the create route rejected
+      // the identical payload. (Email is required, so an explicit empty value
+      // is rejected rather than clearing it.)
       const resolvedRequesterDept = canEditRequesterPII
         ? resolveOptionalField(rawRequesterDepartment, requester_department || null, MAX_SHORT_STR, ticket.requester_department)
         : ticket.requester_department;
