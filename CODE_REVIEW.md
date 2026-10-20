@@ -1,12 +1,17 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (369th pass)
+**Date:** 2026-10-20 (370th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
 constants.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (368 consecutive hardening reviews) was
+`npm audit`. Prior review history (369 consecutive hardening reviews) was
 cross-checked.
+**Layout:** the review cycles are appended **chronologically at the end** of
+this file, so the newest cycle is the **last** section — not the first. (The
+block at the top is the original history, ordered newest-first back to the 91st
+pass; every cycle since then was appended below it.) Jump to the end of the
+file for the most recent review.
 
 ---
 
@@ -13184,4 +13189,144 @@ env vars exactly as read in `src/`; and `README.md` still matches the code.
 - `npm run test:coverage` — global thresholds pass (statements 70.94%,
   branches 68.26%, functions 80.25%, lines 70.94%; up from
   70.59/67.91/79.61/70.59).
+- `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-20 (370th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, `app.js`, `utils.js`, `constants.js`, `models/database.js`, `seed.js`,
+all 39 EJS templates, `public/js/app.js`, the CSS classes referenced by the
+templates, `README.md`, `.env.example`, `eslint.config.js`, both jest setup
+files, the CI workflow, and the `CODE_REVIEW.md` history) surfaced **three real
+defects, two of them user-visible functional breakages**, plus four
+documentation/completeness gaps. The method this pass added a **runtime smoke
+sweep** — every GET route exercised as both an admin and a regular staff user
+against a seeded in-memory database — and that sweep is what exposed the first
+defect, which no amount of static re-reading had caught.
+
+1. **Every authenticated `GET /profile` returned HTTP 500** (HIGH,
+   correctness). `src/routes/auth.js` logged the profile read through
+   `req.audit('read', 'user', ...)` — the app-wide convention for read
+   surfaces — but the auth router was the only route module that never
+   mounted `auditMiddleware`, so `req.audit` was `undefined` and the handler
+   died with `TypeError: req.audit is not a function` before it could render.
+   The "My Profile" page, which the header links from every screen, was
+   therefore broken for every user of every role. The unit test that pinned
+   the read audit (`tests/code_review_192.test.js`) injected `req.audit` into
+   its fake request by hand, so it exercised the handler but never the router's
+   middleware chain — the missing wiring was invisible to it, and to every
+   other route-level test in the suite. Fix: mount `auditMiddleware` on the
+   auth router (`router.use(auditMiddleware)` — deliberately without
+   `requireAuth`, since `/login` and `/logout` are public routes).
+
+2. **The `Permissions-Policy` header was never sent** (MEDIUM, correctness).
+   `src/app.js` configured `permissionsPolicy: { camera: [], microphone: [],
+   geolocation: [], usb: [], bluetooth: [], payment: [], midi: [],
+   gyroscope: [], accelerometer: [], magnetometer: [] }` on `helmet()`, under a
+   comment explaining that helmet does not set the header by default "so we add
+   one explicitly". Helmet 8.2.0 **removed** its Permissions-Policy
+   middleware entirely, and `helmet()` builds its middleware list from a fixed
+   set of known options and silently ignores anything else — the option was
+   therefore dead configuration and no `permissions-policy` header was emitted
+   on any response of the app. The documented "restrict browser features"
+   control did not exist. Fix: set the header explicitly with the same feature
+   list (`camera=()`, `microphone=()`, …) and delete the dead helmet option.
+
+3. **The TRACE/TRACK 405 response was the only response in the app without
+   security headers** (MEDIUM, consistency). The disallowed-methods guard was
+   registered as the very first middleware — ahead of `helmet()` — so the 405
+   it returned shipped with no CSP, no `X-Frame-Options`, no `nosniff`, no
+   `Referrer-Policy`, no `Permissions-Policy` and no `Cache-Control:
+   no-store`, while every other response carried the full set (verified
+   against a live server: the TRACE response had exactly four headers). Fix:
+   move the guard to just after `helmet()` and `morgan()` — it still
+   short-circuits before the body parsers, the CSRF middleware and every
+   route, so the documented invariant ("no downstream handler ever processes
+   them") is unchanged — and apply the app's no-store policy to the 405 through
+   the shared `_applyNoStoreHeaders()` helper, which the global cache-control
+   middleware now also uses. The rejected request is additionally recorded in
+   the access log.
+
+Also fixed this pass (documentation / completeness):
+
+4. **`.env.example` advertised a `SESSION_STORE` package the loader cannot
+   load.** The example named `connect-redis`, but the loader only supports the
+   classic connect-session factory shape (`module.exports = function (connect)
+   { return StoreClass; }`). `connect-redis@10` exports an object
+   (`module.exports = { RedisStore }`), so `new Store()` throws "Store is not a
+   constructor" and the server exits at startup with a cryptic message — and
+   no `connect-redis` version can work as-is, because the loader passes no
+   store options (a Redis client can never be supplied). The example now names
+   only `connect-sqlite3`, and `.env.example`, the README configuration table
+   and the loader's error message all state the required export shape.
+
+5. **Stale `SESSION_COOKIE_OPTIONS` comment.** `src/constants.js` claimed the
+   constant carried the `secure` flag; it does not — the flag is injected per
+   call site from `NODE_ENV` (app.js session config, middleware/auth.js
+   `clearCookie`, routes/auth.js logout `clearCookie`). The comment now says
+   exactly that, so the next reader does not assume the production behaviour
+   is implied by the constant.
+
+6. **The README's "seed output" block was not the literal output.** It showed
+   a parenthetical ("also trodriguez, akimura, dmuller share the same staff
+   password") that the seeder never prints. The block now reproduces the real
+   output and the shared-staff-password fact moved into prose.
+
+7. **`CODE_REVIEW.md` gave no hint about its own layout.** The header names the
+   latest cycle, but the review cycles are appended chronologically at the END
+   of the file (the descending block at the top is the original history), so a
+   reader starting at the top met the 367th pass and could mistake it for the
+   most recent review. A short layout note now points to the newest cycle.
+
+Also verified this pass: every write route still rejects HPP array payloads
+(a mechanical sweep of all 12 route modules found only the two documented
+`is_featured` exceptions, which the hidden-input + checkbox idiom requires);
+every mutation still guards on `changes === 0`; every paginated or capped
+query still carries an `id`/`assigned_to` tiebreaker; `.env.example` still
+matches every env read in `src/` in both directions (17 variables, all
+defaults in agreement with the code and the README); every view link and form
+action still resolves to an existing route with a matching method; every
+`name=` field in every form is still consumed by its route; every enum
+`<option>` value is still a member of its allowlist and every badge map still
+covers its enum; every CSS class referenced by a template still exists in
+`app.css`; the absent-vs-empty partial-update convention, the
+transaction-consistent re-checks and the access-scoped list queries are intact
+on every update route; the sanitize-html allowlist still has no attribute
+wildcard and permits no `script`/`style`/`iframe`; and the login lockout,
+password-policy byte cap, session cookie options and CSRF wiring are
+unchanged.
+
+### Fixes applied
+1. `src/routes/auth.js` — mount `auditMiddleware` on the auth router so
+   `req.audit` is defined for every route in the module; GET /profile now
+   renders instead of throwing.
+2. `src/app.js` — set an explicit `Permissions-Policy` header (helmet v8
+   ignores the removed `permissionsPolicy` option) and drop the dead option.
+3. `src/app.js` — move the TRACE/TRACK guard after `helmet()`/`morgan()` and
+   apply the shared no-store policy to its 405 response.
+4. `src/app.js` — extract the no-store header block into
+   `_applyNoStoreHeaders()` and reuse it in the global cache-control
+   middleware; add an actionable hint to the `SESSION_STORE` load error.
+5. `src/constants.js` — correct the stale `SESSION_COOKIE_OPTIONS` comment.
+6. `.env.example`, `README.md` — correct the `SESSION_STORE` example and the
+   required export shape; correct the seed-output block; document the
+   `Permissions-Policy` header in the Security section.
+
+### Regression tests added
+- `tests/code_review_370.test.js` — 7 tests against the **real** app stack
+  (in-memory SQLite, real session/CSRF, real login): GET /profile returns 200
+  for an authenticated admin and no longer contains the `req.audit` TypeError;
+  the profile read is recorded in `audit_log`; a structural sweep asserts
+  that **no** route module calls `req.audit()` without mounting
+  `auditMiddleware` (the class-level guard for defect 1); the TRACE/TRACK 405
+  carries the full helmet header set, the `Permissions-Policy` header and the
+  no-store policy; a TRACE request still never reaches a route (no audit
+  entry, no session cookie); and ordinary responses carry the
+  `Permissions-Policy` header.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1461 passed / 1461 total** (92 suites, +7 from #369).
+- `npm run test:coverage` — global thresholds pass (statements 71.19%,
+  branches 68.38%, functions 81.64%, lines 71.20%).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.

@@ -119,10 +119,15 @@ app.disable('x-powered-by');
 // through safeQueryValue()/buildFilters() which already collapse/validate input.
 app.set('query parser', 'simple');
 
-// Reject TRACE/TRACK as the very first middleware so no downstream handler
-// (static, parsers, CSRF, routes) ever processes them. These methods are rarely
-// needed and have been associated with cross-protocol/cross-site tracing
-// attacks; dropping them at the edge is cheap defense-in-depth.
+// Reject TRACE/TRACK before any downstream handler (static, parsers, CSRF,
+// routes) ever processes them. These methods are rarely needed and have been
+// associated with cross-protocol/cross-site tracing attacks; dropping them at
+// the edge is cheap defense-in-depth.
+//
+// The guard is registered AFTER helmet() and morgan() (see the note at its
+// definition site below) so the 405 response carries the SAME security headers
+// and no-store policy as every other response — while still short-circuiting
+// before the body parsers, the CSRF middleware, and the routes.
 const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
 // OPTIONS is deliberately advertised: the app genuinely serves it (Express's
 // automatic OPTIONS handler answers matching routes, and doubleCsrfProtection
@@ -138,12 +143,23 @@ const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE']);
 // preventing a POST from being downgraded to GET (which would skip CSRF
 // validation). PATCH is excluded because no route handles it.
 const _OVERRIDE_METHODS = new Set(['PUT', 'DELETE']);
-app.use((req, res, next) => {
-  if (_DISALLOWED_METHODS.has(req.method)) {
-    return res.status(405).set('Allow', _ALLOWED_METHODS).end();
-  }
-  next();
-});
+
+// Baseline no-store policy shared by every response the app produces.
+// Extracted into a helper so the disallowed-methods guard can apply the SAME
+// headers to its 405 response — otherwise that response was the only one in the
+// app that shipped without Cache-Control: no-store (and, because it ran before
+// helmet, without CSP/X-Frame-Options/nosniff either).
+function _applyNoStoreHeaders(res) {
+  res.set('Cache-Control', 'no-store, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  // Expires header omitted — Cache-Control: no-store already prevents caching;
+  // a fixed 1970 date is redundant and may confuse some HTTP intermediaries.
+  res.set('Surrogate-Control', 'no-store');
+  // Prevent JavaScript from reading the CSRF cookie (mitigates XSS-based
+  // token theft). The cookie is httpOnly so JS cannot read it anyway, but
+  // this header provides defense-in-depth in case httpOnly is misconfigured.
+  res.set('X-Content-Type-Options', 'nosniff');
+}
 
 // ---------------------------------------------------------------------------
 // Security headers via Helmet
@@ -176,25 +192,42 @@ app.use(helmet({
     maxAge: 365 * 24 * 60 * 60,
     includeSubDomains: true,
     preload: true
-  } : false,
-  // Permissions-Policy: disable powerful browser features the app never uses
-  // (camera, microphone, geolocation, USB, etc.). Even though this is a
-  // server-rendered internal tool, restricting these reduces the impact of any
-  // future XSS that attempted to leverage device APIs. Helmet does not set a
-  // Permissions-Policy by default, so we add one explicitly.
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-    usb: [],
-    bluetooth: [],
-    payment: [],
-    midi: [],
-    gyroscope: [],
-    accelerometer: [],
-    magnetometer: []
-  }
+  } : false
 }));
+
+// ---------------------------------------------------------------------------
+// Permissions-Policy
+// ---------------------------------------------------------------------------
+// Disable powerful browser features the app never uses (camera, microphone,
+// geolocation, USB, …). Even though this is a server-rendered internal tool,
+// restricting these reduces the impact of any future XSS that attempted to
+// leverage device APIs.
+//
+// IMPORTANT: this header is set EXPLICITLY because helmet v8 REMOVED its
+// Permissions-Policy middleware. The app used to pass a `permissionsPolicy`
+// option to helmet(), but helmet v8 builds its middleware list from a fixed
+// set of known options and silently ignores anything else — so that block was
+// dead configuration and NO Permissions-Policy header was ever sent (verified
+// against helmet 8.2.0: the option is not in the module's export list and the
+// emitted header set contained no `permissions-policy`). The empty allowlist
+// `feature=()` denies the feature outright, which is the intent the original
+// (non-functional) option expressed.
+const _PERMISSIONS_POLICY = [
+  'camera=()',
+  'microphone=()',
+  'geolocation=()',
+  'usb=()',
+  'bluetooth=()',
+  'payment=()',
+  'midi=()',
+  'gyroscope=()',
+  'accelerometer=()',
+  'magnetometer=()'
+].join(', ');
+app.use((req, res, next) => {
+  res.set('Permissions-Policy', _PERMISSIONS_POLICY);
+  next();
+});
 
 // ---------------------------------------------------------------------------
 // View engine
@@ -207,6 +240,27 @@ app.set('view cache', process.env.NODE_ENV === 'production');
 // Core middleware
 // ---------------------------------------------------------------------------
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// Disallowed-methods guard. Registered here — after helmet() and morgan(),
+// but still BEFORE the body parsers, the CSRF middleware, and every route —
+// so the 405 response it returns is byte-for-byte as protected as any other
+// response the app produces (helmet's CSP/X-Frame-Options/nosniff/Referrer-
+// Policy/Permissions-Policy set plus the no-store policy below), and so the
+// rejected request is still recorded in the access log.
+//
+// Previously this guard ran FIRST, ahead of helmet(), so its 405 response was
+// the ONLY response in the app that shipped with no security headers and no
+// Cache-Control policy at all. The documented invariant it protects is
+// unchanged: no body parser, no CSRF check, and no route handler ever sees a
+// TRACE/TRACK request.
+app.use((req, res, next) => {
+  if (_DISALLOWED_METHODS.has(req.method)) {
+    _applyNoStoreHeaders(res);
+    return res.status(405).set('Allow', _ALLOWED_METHODS).end();
+  }
+  next();
+});
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 // Only honor method override from POST requests. Prefer the body `_method`
@@ -263,7 +317,17 @@ if (!sessionSecret) {
 // This prevents arbitrary code execution via a SESSION_STORE pointing at any
 // module. The anchored regex permits exactly one '/' (the scope delimiter) and
 // rejects path traversal, backslashes, and extra separators.
+//
+// The store must ALSO export the classic connect-session factory shape:
+//   module.exports = function (connect) { ...; return StoreClass; };
+// The loader calls the factory with the `session` module and instantiates the
+// returned class. Packages that export an OBJECT instead (e.g. connect-redis@10,
+// which ships `module.exports = { RedisStore }`) cannot be constructed by this
+// loader — `new Store()` throws "Store is not a constructor" and the process
+// exits. That is the only shape the loader supports, so the error message below
+// states it explicitly instead of leaving the operator with a bare TypeError.
 const SESSION_STORE_RE = /^(connect-[\w-]+|@[\w-]+\/connect-[\w-]+)$/;
+const SESSION_STORE_SHAPE_HINT = 'The package must export a connect-session store factory: module.exports = function (connect) { return StoreClass; }';
 let sessionStore;
 if (process.env.SESSION_STORE) {
   if (!SESSION_STORE_RE.test(process.env.SESSION_STORE)) {
@@ -276,6 +340,7 @@ if (process.env.SESSION_STORE) {
     sessionStore = new Store();
   } catch (err) {
     console.error(`ERROR: Failed to load session store "${process.env.SESSION_STORE}": ${(err && err.message) || String(err)}`);
+    console.error(SESSION_STORE_SHAPE_HINT);
     process.exit(1);
   }
 } else if (process.env.NODE_ENV === 'production') {
@@ -597,15 +662,7 @@ app.use((req, res, next) => {
 // (and touches the store) on every authenticated response automatically.
 // ---------------------------------------------------------------------------
 app.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, must-revalidate, private');
-  res.set('Pragma', 'no-cache');
-  // Expires header omitted — Cache-Control: no-store already prevents caching;
-  // a fixed 1970 date is redundant and may confuse some HTTP intermediaries.
-  res.set('Surrogate-Control', 'no-store');
-  // Prevent JavaScript from reading the CSRF cookie (mitigates XSS-based
-  // token theft). The cookie is httpOnly so JS cannot read it anyway, but
-  // this header provides defense-in-depth in case httpOnly is misconfigured.
-  res.set('X-Content-Type-Options', 'nosniff');
+  _applyNoStoreHeaders(res);
   next();
 });
 

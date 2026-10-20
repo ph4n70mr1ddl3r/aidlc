@@ -71,8 +71,12 @@ SEED_VERBOSE=1 npm run seed
 Default login credentials:
   Admin:    admin / <random>
   Manager:  jwilliams / <random>
-  Staff:    mpatel / <random> (also trodriguez, akimura, dmuller share the same staff password)
+  Staff:    mpatel / <random>
 ```
+
+The printed output lists one admin password and one shared manager/staff
+password. The `trodriguez`, `akimura`, and `dmuller` accounts are seeded with
+that same shared staff password (they are not listed separately).
 
 Copy the printed passwords from the seed output to sign in. Without
 `SEED_VERBOSE=1` the passwords are never displayed and cannot be recovered
@@ -167,7 +171,7 @@ Environment variables (set in `.env`):
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0`; set to `0` to disable periodic pruning (invalid values fall back to `86400000`) |
 | `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
-| `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); MemoryStore is not suitable for production |
+| `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); must export the classic connect-session factory (`module.exports = function (connect) { return StoreClass; }`) — packages that export an object (e.g. `connect-redis@10`) are not supported; MemoryStore is not suitable for production |
 | `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; invalid values fall back to `900`; values below 60 are raised to 60 (lastAccess write-throttle floor) with a warning |
 | `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100` with a warning; invalid values fall back to `25` with a warning |
@@ -181,7 +185,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 ## Security
 
 - **CSRF protection** on all state-changing requests
-- **Helmet** for security headers (CSP, X-Frame-Options, etc.)
+- **Helmet** for security headers (CSP, X-Frame-Options, Referrer-Policy, etc.), plus an explicit `Permissions-Policy` header disabling camera/microphone/geolocation/USB/Bluetooth and other device APIs (helmet v8 dropped its own Permissions-Policy middleware) and a `Cache-Control: no-store` policy on every response
 - **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout), dashboard (10/min), health (30/min), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each) and staff updates (50/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production

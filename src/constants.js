@@ -45,8 +45,15 @@ const SESSION_COOKIE = 'itm_sid';
 // Session cookie options (minus maxAge, which is set by SESSION_MAX_AGE).
 // Must match the app.js session config so that res.clearCookie() can delete
 // the cookie correctly in production (where secure:true requires matching
-// options on the Clear-Cookie header). The secure flag is set to true in
-// production to ensure cookies are only sent over HTTPS.
+// options on the Clear-Cookie header).
+//
+// NOTE: `secure` is deliberately NOT part of this constant. It is injected per
+// call site from `process.env.NODE_ENV === 'production'` (app.js session
+// config, middleware/auth.js clearCookie, routes/auth.js logout clearCookie),
+// so that the Clear-Cookie header always matches the flags the original
+// cookie was set with. A stale copy of this comment once claimed the constant
+// carried the flag, which read as if the production behaviour were implied
+// here rather than injected at the three call sites that actually set it.
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',

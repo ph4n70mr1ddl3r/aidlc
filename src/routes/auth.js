@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
-const { audit } = require('../middleware/audit');
+const { audit, auditMiddleware } = require('../middleware/audit');
 const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, resolveOptionalField, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -14,6 +14,25 @@ function _regenerateSession(session) {
 }
 
 const router = require('express').Router();
+
+// Mount the audit middleware on this router so `req.audit(...)` is defined for
+// every route below — the same convention every other route module follows
+// (`router.use(requireAuth, auditMiddleware)`).
+//
+// This module was the ONLY one that called `req.audit()` without mounting the
+// middleware: GET /profile logged its read through `req.audit('read', 'user',
+// ...)` (the app-wide convention for read surfaces), but the auth router never
+// installed auditMiddleware, so `req.audit` was undefined and EVERY
+// authenticated GET /profile request died with
+// "TypeError: req.audit is not a function" — a 500 on the My Profile page that
+// the header links from every screen. The unit test that pinned the read audit
+// (tests/code_review_192.test.js) injected `req.audit` into its fake request
+// by hand, so it exercised the handler but never the router's middleware
+// chain, and could not see the missing wiring.
+//
+// NOTE: no requireAuth here — /login and /logout are public routes, so the
+// middleware is mounted on its own and every route keeps its own auth guard.
+router.use(auditMiddleware);
 
 // Rate limit password-related endpoints to prevent brute-force. Keyed per
 // account (the routes are authenticated) so one user's actions never consume
