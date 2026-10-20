@@ -387,7 +387,14 @@ router.post('/logout', asyncHandler(async (req, res) => {
   // logout handler does not read body fields today, so a polluted payload
   // cannot currently affect behavior — the guard is a regression-proofing
   // measure in case body-field processing is added in the future.
-  const hppErrors = rejectHppArrays(req, []);
+  //
+  // The check is over EVERY body key, not a fixed field list: the previous
+  // call passed an empty list, and rejectHppArrays() iterates that list, so
+  // the guard could never fire — dead code that read like a fail-closed
+  // check. Rejecting any array-valued body key actually implements the
+  // stated intent, and a polluted `_csrf` is rejected by the CSRF middleware
+  // anyway.
+  const hppErrors = rejectHppArrays(req, Object.keys(req.body || {}));
   if (hppErrors.length > 0) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/login');
@@ -493,6 +500,25 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const rawPhone = safeQueryValue(req.body.phone);
+  // Absent-vs-present markers for the required profile fields. An ABSENT
+  // field in a partial API submission preserves the stored value; a PRESENT
+  // field must carry a valid value. The phone field on this route already
+  // follows the resolveOptionalField convention (absent ⇒ preserve, '' ⇒
+  // clear) — the three required fields were the sole exception, so a client
+  // that submitted only a phone number was rejected with "First name, last
+  // name, and email are required" even though the stored values were
+  // perfectly valid. The stored values are read from the current row below.
+  const firstNameAbsent = req.body.first_name === undefined || req.body.first_name === null;
+  const lastNameAbsent = req.body.last_name === undefined || req.body.last_name === null;
+  const emailAbsent = req.body.email === undefined || req.body.email === null;
+  const currentProfile = _getProfileSelectStmt().get(req.session.user.id);
+  if (!currentProfile) {
+    req.flash('error', 'User not found. Please log in again.');
+    return res.redirect('/login');
+  }
+  const resolvedFirstName = firstNameAbsent ? currentProfile.first_name : first_name;
+  const resolvedLastName = lastNameAbsent ? currentProfile.last_name : last_name;
+  const resolvedEmail = emailAbsent ? currentProfile.email : email;
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
     req.flash('error', `Phone number must be at most ${MAX_PHONE} characters`);
@@ -508,12 +534,12 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     return res.redirect('/profile');
   }
 
-  if (!first_name || !last_name || !email) {
+  if (!resolvedFirstName || !resolvedLastName || !resolvedEmail) {
     req.flash('error', 'First name, last name, and email are required');
     return res.redirect('/profile');
   }
 
-  if (!isValidEmail(email)) {
+  if (!isValidEmail(resolvedEmail)) {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect('/profile');
   }
@@ -522,31 +548,30 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/profile');
   }
-  if (first_name.length > MAX_SHORT_STR) {
+  if (resolvedFirstName.length > MAX_SHORT_STR) {
     req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/profile');
   }
-  if (last_name.length > MAX_SHORT_STR) {
+  if (resolvedLastName.length > MAX_SHORT_STR) {
     req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect('/profile');
   }
 
-  if (email.length > MAX_EMAIL) {
+  if (resolvedEmail.length > MAX_EMAIL) {
     req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
     return res.redirect('/profile');
   }
 
-  const safeFirstName = first_name.substring(0, MAX_SHORT_STR);
-  const safeLastName = last_name.substring(0, MAX_SHORT_STR);
-  const safeEmail = email.substring(0, MAX_EMAIL);
+  const safeFirstName = resolvedFirstName.substring(0, MAX_SHORT_STR);
+  const safeLastName = resolvedLastName.substring(0, MAX_SHORT_STR);
+  const safeEmail = resolvedEmail.substring(0, MAX_EMAIL);
   const userId = req.session.user.id;
   // Preserve the stored phone when the field is ABSENT from a partial
   // submission; an explicit empty string clears it. Mirrors the
   // resolveOptionalField convention used by the staff/vendors/assets update
   // routes. Previously an absent phone was unconditionally written as NULL,
   // silently wiping the stored value on any partial PUT.
-  const currentProfile = _getProfileSelectStmt().get(userId);
-  const resolvedPhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, currentProfile ? currentProfile.phone : null);
+  const resolvedPhone = resolveOptionalField(req.body.phone, phone || null, MAX_PHONE, currentProfile.phone);
   if (resolvedPhone && resolvedPhone.error) {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect('/profile');
@@ -560,13 +585,34 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
       return res.redirect('/login');
     }
 
-    // Regenerate session to prevent fixation — consistent with the password-change route
+    // Regenerate session to prevent fixation — consistent with the password-change route.
+    //
+    // The session-id change is a fixation defence, but session.regenerate()
+    // also REPLACES req.session with a brand-new object that carries only the
+    // cookie — every other session property is dropped. The app's idle and
+    // absolute timeout anchors (sessionStart / lastAccess) live on the
+    // session, so they were silently reset here. That made the documented
+    // hard session-lifetime cap (SESSION_ABSOLUTE_TIMEOUT_SECONDS, 8h by
+    // default) restart on every routine profile save, so a session could be
+    // kept alive indefinitely by saving the profile page. The anchors are
+    // carried across the regeneration: a profile save is the SAME
+    // authentication, not a new one, so the absolute window must keep
+    // running. (A genuine re-authentication — the login route and the
+    // password-change route — deliberately starts a fresh window.)
+    const previousSessionStart = req.session.sessionStart;
+    const previousLastAccess = req.session.lastAccess;
     try {
       await _regenerateSession(req.session);
     } catch (regErr) {
       logError('Session regeneration error during profile update:', regErr);
       req.flash('error', 'An error occurred. Please try again.');
       return res.redirect('/profile');
+    }
+    if (previousSessionStart) {
+      req.session.sessionStart = previousSessionStart;
+    }
+    if (previousLastAccess) {
+      req.session.lastAccess = previousLastAccess;
     }
 
     // Fetch fresh user data from DB for the new session (consistent with

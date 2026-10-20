@@ -49,7 +49,10 @@ describe('code review 163: consistency/completeness/correctness', () => {
   describe('knowledge.js update tags absent-preserve', () => {
     it('preserves stored tags when the field is absent', () => {
       const src = readSrc('routes/knowledge.js');
-      expect(src).toContain('rawTagsAbsent');
+      // The tags field is resolved through the shared resolveOptionalField
+      // helper, which implements the app-wide absent/blank/empty contract:
+      // absent => preserve, explicit '' => clear, present-but-blank => error.
+      expect(src).toContain('resolveOptionalField(req.body.tags, sanitized.safeTags, MAX_LONG_STR, recheck.tags)');
       // Pass 366 moved the preserved value resolution inside the transaction
       // (recheck.tags) to close the stale-read TOCTOU window.
       expect(src).toContain('recheck.tags');

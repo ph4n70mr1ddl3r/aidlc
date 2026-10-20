@@ -58,7 +58,7 @@ const _showMembersStmt = db.prepare(`
   `);
 // Loads the full set of columns the update transaction preserves on partial
 // submissions (budget/spent plus status/priority/dates/owner/description).
-const _projectUpdateBaseStmt = db.prepare('SELECT budget, spent, status, priority, start_date, end_date, owner_id, description FROM projects WHERE id = ?');
+const _projectUpdateBaseStmt = db.prepare('SELECT name, budget, spent, status, priority, start_date, end_date, owner_id, description FROM projects WHERE id = ?');
 const _projectExistsStmt = db.prepare('SELECT 1 FROM projects WHERE id = ?');
 const _deleteProjectTasksStmt = db.prepare('DELETE FROM project_tasks WHERE project_id = ?');
 const _deleteProjectMembersStmt = db.prepare('DELETE FROM project_members WHERE project_id = ?');
@@ -415,11 +415,22 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const spent = safeQueryValue(req.body.spent);
   const owner_id = safeQueryValue(req.body.owner_id);
 
-  if (!name) {
+  // Absent-vs-present marker for the project's name. An ABSENT name in a
+  // partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract every other field
+  // on this route already follows and the one the route's own comment states
+  // ("an absent field means 'keep what's stored'"). Previously the name was
+  // the sole exception and a partial PUT that only changed, say, the status
+  // was rejected outright with "Project name is required". A PRESENT but
+  // empty name is still rejected: the column is NOT NULL and an empty name
+  // has no valid meaning.
+  const nameAbsent = req.body.name === undefined || req.body.name === null;
+
+  if (!nameAbsent && !name) {
     req.flash('error', 'Project name is required');
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (name.length > MAX_MEDIUM_STR) {
+  if (!nameAbsent && name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/projects/${id}/edit`);
   }
@@ -486,6 +497,10 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     // Verify project exists, validate owner, and update in a single transaction
     // to avoid TOCTOU races: the project could be deleted or the owner deactivated
     // between the checks and the UPDATE.
+    // `resolvedName` is hoisted out of the transaction so the audit entry can
+    // name the project even when the request omitted the name field (a partial
+    // update) and the effective value came from the re-read row.
+    let resolvedName = name;
     const updateProject = db.transaction(() => {
       // Fetch existing budget/spent/status/priority inside the transaction to
       // preserve values when the submitted fields are absent, eliminating a
@@ -497,6 +512,11 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       }
       const effectiveStatus = statusProvided ? status : existingProject.status;
       const effectivePriority = priorityProvided ? priority : existingProject.priority;
+      // The name follows the same absent-vs-present rule: an absent field
+      // preserves the stored name (resolved from the re-read row so a
+      // concurrent rename cannot be clobbered), a present field replaces it.
+      const effectiveName = nameAbsent ? existingProject.name : name.substring(0, MAX_MEDIUM_STR);
+      resolvedName = effectiveName;
 
       // Resolve the owner against the transaction-consistent re-fetch using the
       // same absent-vs-empty convention as the dates on this route: an ABSENT
@@ -587,7 +607,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
         throw new Error('INVALID_DESCRIPTION');
       }
 
-      const result = _projectUpdateStmt.run(name.substring(0, MAX_MEDIUM_STR), resolvedDescription, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
+      const result = _projectUpdateStmt.run(effectiveName, resolvedDescription, effectiveStatus, effectivePriority, resolvedStart, resolvedEnd,
         preservedBudget, preservedSpent, resolvedOwnerId, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -605,7 +625,7 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       logError(`Progress recalculation error for project #${id}:`, err);
     }
 
-    req.audit('update', 'project', id, `Updated project ${name}`);
+    req.audit('update', 'project', id, `Updated project ${resolvedName}`);
     req.flash('success', 'Project updated successfully.');
     invalidateDashboardCache();
     return res.redirect(`/projects/${id}`);

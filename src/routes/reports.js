@@ -207,7 +207,13 @@ const stmts = {
        see the comment above the topResolvers statement. */
     ORDER BY resolved_tickets DESC, u.id ASC
     LIMIT 200
-  `)
+  `),
+  // Roster size for the truncation disclosure. The staffPerformance list is
+  // capped at 200 rows, so performance.length undercounts the roster; the
+  // report must be able to say "Showing 200 of N staff" instead of silently
+  // presenting a partial roster as the whole one. Mirrors the
+  // warrantyExpiringCount / warrantyExpiring split on the asset report.
+  activeStaffCount: db.prepare('SELECT COUNT(*) as c FROM users WHERE is_active = 1')
 };
 
 // Reports dashboard
@@ -296,10 +302,17 @@ router.get('/staff', reportLimiter, (req, res) => {
     // Two ? placeholders: resolved_tickets period, completed_tasks period
     // (open_tickets is an unwindowed current snapshot — see the statement).
     const performance = stmts.staffPerformance.all(period, period);
+    // The list is capped at 200 rows, so disclose the truncation: the roster
+    // count is what the report is a sample of. Without this the reader cannot
+    // tell that a large roster was cut off — and the sort (resolved_tickets
+    // DESC) drops the staff with the FEWEST resolutions first, which are
+    // often exactly the people carrying a high open-ticket workload this
+    // report exists to surface.
+    const staffCount = stmts.activeStaffCount.get().c;
 
     req.audit('read', 'user', null, `Viewed staff performance report (period: ${period} days)`);
 
-    res.render('pages/reports/staff', { title: 'Staff Performance', performance, period });
+    res.render('pages/reports/staff', { title: 'Staff Performance', performance, staffCount, period });
   } catch (err) {
     logError('Staff report error:', err);
     req.flash('error', 'Error generating staff report.');

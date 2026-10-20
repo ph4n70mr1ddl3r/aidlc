@@ -191,8 +191,26 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
 - **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
+- **License-key disclosure**: the plaintext key is never rendered into a page. The show/edit views receive only a `has_license_key` flag and a `****` mask; the full key is reachable exclusively through the audited, rate-limited `POST /licenses/:id/key` endpoint
 - **HTML sanitization** on user-generated markdown content
 - **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
+
+### Partial-update (PUT) convention
+
+Every `PUT` route implements the same three-way contract, so a client can
+submit only the fields it wants to change:
+
+| Submission | Effect |
+| --- | --- |
+| field absent (or `null`) | the stored value is **preserved** |
+| field present and valid | the stored value is **replaced** |
+| field present but invalid (bad enum, malformed date, whitespace-only text) | the request is **rejected** with an error — nothing is written |
+
+Required columns follow the same rule: omitting a project's name, a change's
+title or type, or an article's title/content/category preserves the stored
+value rather than failing the request. An explicit empty string clears a
+nullable optional field, and the dedicated `clear_key` / `clear` controls
+clear the fields where an empty string is not a valid value.
 
 ## Scripts
 

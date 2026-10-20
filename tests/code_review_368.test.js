@@ -213,8 +213,11 @@ describe('licenses edit form — the plaintext key never reaches the template (p
 
   it('redacts license_key and exposes only a has_license_key flag', () => {
     const h = lastHandlerFor(licensesRouter, 'get', '/:id/edit');
+    // The edit route now reads the key-free statement: it never selects
+    // license_key and exposes a has_license_key flag computed in SQL, so the
+    // plaintext cannot reach the render context at all.
     db.__stmt('FROM licenses WHERE id = ?').get.mockReturnValue({
-      id: 1, software_name: 'MS365', vendor: 'Microsoft', license_key: 'SECRET-KEY',
+      id: 1, software_name: 'MS365', vendor: 'Microsoft', has_license_key: 1,
       license_type: 'subscription', total_seats: 10, used_seats: 5,
       purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null
     });

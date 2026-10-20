@@ -53,13 +53,15 @@ describe('code review 208 — self-role-change denial audits access_denied', () 
     // The self-role-change guard should carry an access_denied audit line.
     expect(src).toMatch(/self-role-change attempt/);
     // It must follow the guard check (not the privileged-role guard above it).
+    // The guard compares the EFFECTIVE role (the submitted role, or the
+    // stored role when the field is absent) against the viewer's own role.
     const lines = src.split('\n');
     let foundSelfRoleGuard = false;
     let foundAuditAfterSelfRole = false;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (line.includes('Number(id) === Number(req.session.user.id)') &&
-          line.includes('safeRole !== req.session.user.role')) {
+          line.includes('effectiveRole !== req.session.user.role')) {
         foundSelfRoleGuard = true;
       }
       if (foundSelfRoleGuard && line.includes('access_denied') &&

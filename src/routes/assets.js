@@ -112,7 +112,14 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.serial_number', 'a.manufacturer']);
+  // Search only over the columns the list itself renders. `a.serial_number`
+  // is deliberately NOT searchable: it is shown exclusively on the detail
+  // page, which a staff user can only open for an asset assigned to them
+  // (canAccessResource), so matching against it turned the search box into a
+  // content oracle — a viewer denied GET /assets/:id could confirm that a
+  // serial number they guessed belonged to an inventory asset. Same defect
+  // class the change-log list closed in an earlier pass.
+  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.manufacturer']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');

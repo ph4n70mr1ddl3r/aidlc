@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (372nd pass)
+**Date:** 2026-10-21 (373rd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (371 consecutive hardening reviews) was
+`npm audit`. Prior review history (372 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -13656,3 +13656,220 @@ licenses, lapsed contracts and canonical change-log datetime formats.
   branches 69.39%, functions 83.38%, lines 71.92%).
 - `npm audit --omit=dev` — **0 vulnerabilities** (previously 1 moderate
   `sanitize-html` advisory, now patched).
+
+## Review cycle 2026-10-21 (373rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+fourteen real defects. The most serious was a **secret disclosure in the
+license show page**: the view rendered `****` + the last four characters of
+the license key, so every admin/manager page view shipped part of the secret
+in the HTML body — outside the audited and rate-limited
+`POST /licenses/:id/key` reveal path, and in direct contradiction of the
+app-wide rule recorded in the 99th pass ("no partial-key preview is ever
+rendered server-side or client-side"). The rest were consistency and
+completeness defects in the app's own partial-update contract, one session
+control that could be reset at will, two content oracles and a handful of
+silently-discarded fields.
+
+1. **The license show page disclosed the last four characters of the key**
+   (MEDIUM, security — fixed). `src/routes/licenses.js` selected
+   `license_key` for the show route and `views/pages/licenses/show.ejs`
+   rendered `'****' + license_key.slice(-4)`. The reveal endpoint
+   (`POST /licenses/:id/key`) is audited and capped at 20 per 15 min
+   precisely because it is the module's anti-exfiltration control; the
+   server-rendered preview bypassed both, and put the partial secret into
+   the response body, the bfcache and any intermediary. The edit route
+   already refused to hand the plaintext to its template, the list route
+   omitted the column, and the dashboard avoided `SELECT *` for the same
+   reason — the show route was the only one that broke the rule. Fix: a
+   dedicated `_licenseShowStmt` never selects the column and exposes a
+   `has_license_key` flag instead; the show, edit and delete paths use it,
+   and the template renders the same `****` token the client-side mask
+   emits. The plaintext statement is now reachable only from the update
+   transaction (which genuinely needs the stored key to preserve it) and
+   from the audited reveal endpoint.
+
+2. **`clear_key` silently discarded a simultaneously submitted key**
+   (LOW/MEDIUM, correctness — fixed). The edit form offers the new-key
+   input and the "clear key" checkbox side by side, so ticking both is a
+   natural action; the clear flag won unconditionally, the typed key was
+   thrown away, and the route flashed "License updated." Fix: the
+   contradictory combination is rejected with an explicit error.
+
+3. **A whitespace-only `tags` value wiped the stored article tags**
+   (MEDIUM, consistency — fixed). `src/routes/knowledge.js` trimmed the
+   field *before* the absent/present test, so `'   '` became `''`, was
+   normalized to `NULL`, and the route flashed "Article updated." The
+   knowledge base was the only optional text field in the app that did not
+   use `resolveOptionalField`, whose documented rule is that a
+   present-but-blank value is rejected (it is neither an absent field nor
+   an explicit clear). Fix: the field is resolved through the shared helper
+   inside the transaction, so absent ⇒ preserve, `''` ⇒ clear and
+   blank ⇒ rejected.
+
+4. **The required primary columns rejected partial updates** (MEDIUM,
+   consistency — fixed). `PUT /projects/:id` demanded a project name,
+   `PUT /changes/:id` a title and a change type, and `PUT /knowledge/:id` a
+   title, content and category — while every *other* field on those same
+   routes implemented the documented "absent ⇒ keep what's stored" rule and
+   the routes' own comments stated it. A client that PATCHed a single field
+   had to resend the whole entity. Fix: the required columns are now
+   resolved from the transaction-consistent row when absent, exactly like
+   the optional ones; a present-but-empty value is still rejected. The
+   convention is now uniform across the app and is documented in the
+   README.
+
+5. **The profile route reset the hard session-lifetime cap** (MEDIUM,
+   security — fixed). `PUT /profile` regenerates the session to defeat
+   fixation, but `session.regenerate()` replaces `req.session` with a new
+   object that carries only the cookie — the `sessionStart` / `lastAccess`
+   anchors the timeout middleware uses are dropped with it. The documented
+   `SESSION_ABSOLUTE_TIMEOUT_SECONDS` cap (8 h by default) therefore
+   restarted on every routine profile save, so a session could be kept
+   alive indefinitely by saving a page. Fix: the anchors are carried across
+   the regeneration — a profile save is the same authentication, not a new
+   one. A genuine re-authentication (login, password change) still starts a
+   fresh window, as documented.
+
+6. **The profile route was not a partial-update route** (LOW,
+   consistency — fixed). `first_name` / `last_name` / `email` were required
+   on every save while the sibling `phone` field on the same route
+   preserved the stored value when absent. Fix: the three fields now
+   resolve against the current row (absent ⇒ preserve, present-but-empty ⇒
+   "required" error).
+
+7. **The logout HPP guard was dead code** (LOW, correctness — fixed). It
+   called `rejectHppArrays(req, [])`, and the helper iterates the field
+   list — so the guard could never fire, while its comment claimed it was a
+   fail-closed regression-proofing measure. Fix: the guard now checks every
+   body key.
+
+8. **The ticket create route accepted a status it never read** (LOW/MEDIUM,
+   consistency — fixed). `status` appeared in the create route's HPP
+   allowlist and in its present-but-non-string type guard, but was never
+   read, never validated and never inserted — the column took its schema
+   default, so a submitted status was silently discarded and the ticket was
+   always created `open`, while the same route rejected an invalid
+   `category`. Fix: the submitted status is validated against
+   `TICKET_STATUSES` and applied (default `open`), and a ticket created
+   directly in a terminal state gets a `resolved_at` timestamp, exactly like
+   the update route's `resolved_at` CASE expression.
+
+9. **The ticket and asset list searches were content oracles** (MEDIUM,
+   security — fixed). The searches matched `t.description` and
+   `a.serial_number`, which are shown exclusively on the detail pages —
+   and those pages are access-gated, so a staff viewer denied
+   `GET /tickets/:id` could confirm that a phrase occurred in a
+   description they are not allowed to read. Same defect class the
+   change-log list closed in an earlier pass. Fix: the searches cover only
+   the columns the list itself renders.
+
+10. **The capped Related-Asset dropdown had no tiebreaker** (LOW,
+    consistency — fixed). `ORDER BY name LIMIT 1000` over a table with
+    duplicate names is not a total order, so the option set could differ
+    between two page loads and an option the user had seen could vanish on
+    refresh. Every other capped query in the app carries a unique trailing
+    `id`; this one now does too.
+
+11. **An absent staff role was rejected as invalid** (LOW, consistency —
+    fixed). `PUT /staff/:id` resolved the role with `trim(req.body.role)`,
+    so an absent role collapsed to `''`, failed the `USER_ROLES` check and
+    rejected the whole request with "Invalid Role" — while the sibling
+    optional fields on the same form (department, phone) correctly
+    preserved the stored value. Fix: the role follows the same
+    absent-vs-present rule, and every guard (privileged-role assignment,
+    self-role change) evaluates the *effective* role.
+
+12. **The staff directory handed every viewer every username** (LOW,
+    consistency — fixed). The route redacts `email`, `phone`, `department`,
+    `last_login` and `avatar` for non-privileged viewers — precisely so a
+    future template change cannot revive a column — but left the `username`
+    (the login identifier) in the render context even though the directory
+    never renders it. Fix: the username joins the redaction list.
+
+13. **The dashboard's truncation markers claimed a truncation that did not
+    exist** (LOW, correctness — fixed). The warranty and license alert
+    headers appended `+` when the rendered list length was `>=` the cap —
+    but for these two lists the exact count is already in the render
+    context, so a list holding exactly as many rows as the cap is complete
+    and was still marked as truncated. Fix: the marker compares the
+    rendered length against the exact count.
+
+14. **The seeded tickets and the staff report were incoherent** (LOW,
+    completeness — fixed). Seeded tickets took `updated_at` from the schema
+    default (the seed moment), i.e. *after* their own resolution
+    timestamp, so a resolved ticket read as "Updated <after> Resolved
+    <before>" and every seeded ticket looked "just updated" in the
+    recently-active list. The staff performance report silently truncated
+    its list at 200 rows with no disclosure, while every other capped list
+    in the app discloses its cap — and the sort (`resolved_tickets DESC`)
+    drops the staff with the fewest resolutions first, which are often
+    exactly the people carrying the high open-ticket workload the report
+    exists to surface. Fix: the seeder sets `updated_at` explicitly, and
+    the report discloses "Showing the top N of M active staff".
+
+### Fixes applied
+1. `src/routes/licenses.js` — dedicated key-free `_licenseShowStmt` for the
+   show/edit/delete paths; the plaintext statement is used only by the
+   update transaction and the audited reveal endpoint; `clear_key` combined
+   with a submitted key is rejected.
+2. `views/pages/licenses/show.ejs` — renders the `****` mask (never a
+   partial preview) and uses the shared `usagePercent()` helper for the
+   seat figure, matching the list page.
+3. `src/routes/knowledge.js` — the tags field is resolved through
+   `resolveOptionalField`; the required columns (title / content / category)
+   are absent-preserving.
+4. `src/routes/projects.js` — the project name is absent-preserving
+   (resolved from the in-transaction re-read).
+5. `src/routes/changes.js` — the title and change type are absent-preserving.
+6. `src/routes/auth.js` — the session anchors survive the profile-update
+   regeneration; the three required profile fields are absent-preserving;
+   the logout HPP guard checks every body key.
+7. `src/app.js` — the session-timeout comment records that the profile route
+   preserves the anchors while login/password-change start a fresh window.
+8. `src/routes/tickets.js` — the create route applies a submitted status
+   (and stamps `resolved_at` for a terminal status); the description is no
+   longer searchable; the asset dropdown query has an `id` tiebreaker.
+9. `src/routes/assets.js` — the serial number is no longer searchable.
+10. `src/routes/staff.js` — an absent role preserves the stored role; the
+    username joins the non-privileged redaction list.
+11. `views/pages/dashboard.ejs` — the two truncation markers use the exact
+    counts already in the render context.
+12. `src/seed.js` — seeded tickets set `updated_at` explicitly.
+13. `src/routes/reports.js` + `views/pages/reports/staff.ejs` — the staff
+    report discloses its 200-row cap.
+14. `README.md` — documents the license-key disclosure control and the
+    app-wide partial-update (PUT) convention.
+15. `tests/templates.test.js`, `tests/code_review_163.test.js`,
+    `tests/code_review_204.test.js`, `tests/code_review_208.test.js`,
+    `tests/code_review_368.test.js` — the source/template pins that encoded
+    the old behaviour were updated to the corrected contract (the license
+    mask assertion, the knowledge tags resolution, the knowledge import
+    list, the staff self-role guard, and the license edit-route fixture).
+
+### Regression tests added
+- `tests/code_review_373.test.js` — 22 tests, all verified to FAIL against
+  the pre-fix tree: the license show page ships no partial key and the
+  show/edit statements never select the column; setting and clearing the
+  key at once is rejected and the stored key survives; a whitespace-only
+  tags value is rejected and the stored tags survive; the knowledge,
+  project and change required columns are preserved when absent; the
+  profile route preserves the stored name/email and the session anchors
+  across the regeneration; a polluted logout body is rejected; a submitted
+  ticket status is applied (with a resolution timestamp) while an invalid
+  one is rejected and an absent one still defaults to `open`; the ticket
+  description and the asset serial number are not searchable; the asset
+  dropdown query has the `id` tiebreaker; an absent staff role preserves
+  the stored role while an invalid one is still rejected; the directory
+  redacts other users' usernames; the dashboard does not claim a
+  truncation for a complete list; the seeded tickets' `updated_at` never
+  postdates their resolution; and the staff report discloses its cap.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1508 passed / 1508 total** (95 suites, +22 from #372).
+- `npm run test:coverage` — global thresholds pass (statements 72.41%,
+  branches 70.37%, functions 84.01%, lines 72.41%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

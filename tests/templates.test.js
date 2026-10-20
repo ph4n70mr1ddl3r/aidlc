@@ -396,25 +396,31 @@ describe('every template renders without error (regression)', () => {
   });
 
   it('licenses/show masks the license key for privileged users and hides it for staff', () => {
+    // The template never receives the plaintext key: the route's statement
+    // does not select license_key and passes a has_license_key flag instead.
+    // The mask is the same '****' token the client-side mask emits — a
+    // partial preview would ship part of the secret in the HTML body, outside
+    // the audited and rate-limited POST /licenses/:id/key reveal path.
     const priv = render('licenses/show.ejs', {
       ...baseLocals(), title: 'License',
-      license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
+      license: { id: 1, software_name: 'MS365', vendor: 'MS', has_license_key: true, license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
     });
-    expect(priv).toContain('****1234');
+    expect(priv).toContain('****');
+    expect(priv).not.toContain('1234');
     expect(priv).not.toContain('SECRET-KEY-1234');
     expect(priv).not.toContain('SECRET-KEY');
     const restricted = render('licenses/show.ejs', {
       ...baseLocals(), user: { ...staffViewer, role: 'staff' }, title: 'License',
-      license: { id: 1, software_name: 'MS365', vendor: 'MS', license_key: 'SECRET-KEY-1234', license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
+      license: { id: 1, software_name: 'MS365', vendor: 'MS', has_license_key: true, license_type: 'subscription', total_seats: 10, used_seats: 5, purchase_date: '2024-01-01', expiry_date: '2099-01-01', cost: 1000, notes: null }
     });
     expect(restricted).toContain('Restricted');
-    expect(restricted).not.toContain('SECRET-KEY-1234');
+    expect(restricted).not.toContain('****');
   });
 
   it('licenses/show seat percentage is guarded against total_seats = 0', () => {
     const html = render('licenses/show.ejs', {
       ...baseLocals(), title: 'License',
-      license: { id: 2, software_name: 'Win Server', vendor: 'MS', license_key: null, license_type: 'perpetual', total_seats: 0, used_seats: 0, purchase_date: '2024-01-01', expiry_date: null, cost: null, notes: null }
+      license: { id: 2, software_name: 'Win Server', vendor: 'MS', has_license_key: false, license_type: 'perpetual', total_seats: 0, used_seats: 0, purchase_date: '2024-01-01', expiry_date: null, cost: null, notes: null }
     });
     expect(html).toContain('Perpetual');
     expect(html).not.toContain('NaN');

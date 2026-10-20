@@ -183,8 +183,8 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
 
     const insertTicket = db.prepare(`
       INSERT INTO tickets (ticket_number, title, description, category, priority, status,
-        requester_name, requester_email, requester_department, assigned_to, asset_id, due_date, resolution_notes, resolved_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        requester_name, requester_email, requester_department, assigned_to, asset_id, due_date, resolution_notes, resolved_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Relative due date (14 days out) so a fresh seed never shows an immediately
@@ -201,9 +201,19 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       // while created_at defaulted to datetime('now'), yielding negative duration.
       const createdAt = isResolved ? isoDaysAgo(3) : isoDaysAgo(2);
       const resolvedAt = isResolved ? isoDaysAgo(1) : null;
+      // updated_at is set explicitly instead of taking the schema default
+      // (datetime('now') = the seed moment). The default made every seeded
+      // ticket read as "Updated <seed time>", i.e. AFTER its own resolution
+      // timestamp, so the ticket show page rendered "Created … / Updated … /
+      // Resolved …" with the update after the resolution — the ticket looked
+      // as if it had been edited after it was closed, and every seeded ticket
+      // looked "just updated" in the dashboard's recently-active list. The
+      // last meaningful event is the resolution for a closed ticket and the
+      // creation for an open one.
+      const updatedAt = resolvedAt || createdAt;
       insertTicket.run(num, t.title, t.description, t.category, t.priority, t.status,
         t.requester_name, t.requester_email, t.requester_department, t.assigned_to,
-        t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt, createdAt);
+        t.asset_id || null, t.due_date || null, t.resolution_notes || null, resolvedAt, createdAt, updatedAt);
     }
     insertCounter.run(today, tickets.length, tickets.length);
 

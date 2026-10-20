@@ -15,6 +15,10 @@
 </div>
 
 <div class="card"><div class="card-body" style="padding:0;">
+  <% // Disclose the 200-row cap: the roster may be larger than the list, and
+     // the sort drops the staff with the fewest resolutions first. Same
+     // disclosure the asset report gives ("Showing the soonest N of M assets"). %>
+  <% if (typeof staffCount !== 'undefined' && typeof performance !== 'undefined' && staffCount > performance.length) { %><p class="text-muted text-sm" style="padding:12px;">Showing the top <%= performance.length %> of <%= staffCount %> active staff.</p><% } %>
   <div class="table-responsive"><table>
     <thead><tr><th>Staff Member</th><th>Role</th><th>Open Tickets</th><th>Resolved</th><th>Avg Resolution</th><th>Tasks Done</th><th>Workload</th></tr></thead>
     <tbody><% if (typeof performance !== 'undefined') { performance.forEach(p => { %><tr>

@@ -77,6 +77,23 @@ const licenseKeyLimiter = rateLimit({
 });
 
 // Cached prepared statements for show/edit routes (static SQL).
+//
+// Two variants, deliberately separated by the sensitive column:
+// - `_licenseShowStmt` NEVER selects license_key. It is used by the GET show
+//   route and the GET edit route, so the plaintext secret is never loaded
+//   into a render context. `has_license_key` carries the only thing those
+//   views need: whether a key IS stored (the reveal button's condition).
+// - `_showLicenseStmt` selects the plaintext and is used ONLY by the update
+//   route's transaction, which genuinely needs the stored key to preserve it
+//   when the submitted field is absent. It never reaches a template.
+//
+// The show route previously rendered '****' + key.slice(-4) — a partial
+// preview that shipped the last four characters of the secret in the HTML
+// body, outside the audited and rate-limited POST /licenses/:id/key reveal
+// path. That also contradicted the documented app-wide rule that "no
+// partial-key preview is ever rendered server-side or client-side" (the
+// client-side mask in public/js/app.js emits '****' only).
+const _licenseShowStmt = db.prepare("SELECT id, software_name, vendor, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes, created_at, updated_at, (license_key IS NOT NULL AND license_key <> '') AS has_license_key FROM licenses WHERE id = ?");
 const _showLicenseStmt = db.prepare('SELECT id, software_name, vendor, license_key, license_type, total_seats, used_seats, purchase_date, expiry_date, cost, notes, created_at, updated_at FROM licenses WHERE id = ?');
 const _deleteLicenseStmt = db.prepare('DELETE FROM licenses WHERE id = ?');
 
@@ -272,11 +289,15 @@ router.get('/:id', requireAdminOrManager, (req, res) => {
     return res.redirect('/licenses');
   }
 
-  const license = _showLicenseStmt.get(id);
+  const license = _licenseShowStmt.get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
   }
+  // Defense-in-depth: the show route renders the masked key only. The
+  // plaintext secret is not selected by the statement above, so it never
+  // reaches the render context — the full key is reachable exclusively
+  // through the audited, rate-limited POST /licenses/:id/key reveal endpoint.
   req.audit('read', 'license', id, `Viewed license: ${license.software_name}`);
   res.render('pages/licenses/show', { title: license.software_name, license });
 });
@@ -323,7 +344,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     return res.redirect('/licenses');
   }
 
-  const license = _showLicenseStmt.get(id);
+  const license = _licenseShowStmt.get(id);
   if (!license) {
     req.flash('error', 'License not found');
     return res.redirect('/licenses');
@@ -336,7 +357,7 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
   // follows the same rule instead of loading the secret into a render
   // context. The full key remains reachable only through the audited,
   // rate-limited POST /licenses/:id/key reveal endpoint.
-  const safeLicense = { ...license, license_key: undefined, has_license_key: Boolean(license.license_key) };
+  const safeLicense = { ...license, license_key: undefined, has_license_key: Boolean(license.has_license_key) };
   res.render('pages/licenses/form', { title: 'Edit License', license: safeLicense, isEdit: true });
 });
 
@@ -400,6 +421,15 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
   if (license_key && license_key.length > MAX_LONG_STR) {
     req.flash('error', `License key must be at most ${MAX_LONG_STR} characters`);
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  // The edit form offers the new-key input and the "clear key" checkbox side
+  // by side, so ticking both is a natural action. Previously the clear flag
+  // won unconditionally and the freshly typed key was discarded with a
+  // success flash — the typed secret was silently lost. The combination is
+  // contradictory, so fail closed and tell the operator which half to drop.
+  if (clearKey && license_key) {
+    req.flash('error', 'Cannot set and clear the license key at the same time');
     return res.redirect(`/licenses/${id}/edit`);
   }
   if (notes && notes.length > MAX_NOTES) {
@@ -569,7 +599,7 @@ router.delete('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => 
     // TOCTOU race where the license is deleted between the earlier existence
     // check and the DELETE (mirrors the license update transaction pattern).
     const deleteLicense = db.transaction(() => {
-      const existing = _showLicenseStmt.get(id);
+      const existing = _licenseShowStmt.get(id);
       if (!existing) {
         return { changes: 0 };
       }

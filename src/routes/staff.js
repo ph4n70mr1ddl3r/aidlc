@@ -175,14 +175,17 @@ router.get('/', (req, res) => {
   // else gets them zeroed out before rendering. last_login and avatar are
   // zeroed too — the email/phone/department redaction only controls what the
   // index template renders today, so any future template change reviving a
-  // column would leak the data. Use a shallow copy per row to avoid mutating
-  // the DB query result objects in-place — a mutated row object could leak
-  // through a cache or middleware.
+  // column would leak the data. The username is zeroed for the same reason:
+  // it is the login identifier (half of the credential pair) and the
+  // directory does not render it at all, so keeping it in the render context
+  // only risks a future template change disclosing it. Use a shallow copy per
+  // row to avoid mutating the DB query result objects in-place — a mutated
+  // row object could leak through a cache or middleware.
   const renderedStaff = staff.map(s => {
     if (viewerPrivileged || Number(s.id) === Number(viewer.id)) {
       return { ...s };
     }
-    return { ...s, email: null, phone: null, department: null, last_login: null, avatar: null };
+    return { ...s, email: null, phone: null, department: null, last_login: null, avatar: null, username: null };
   });
 
   res.render('pages/staff/index', {
@@ -499,8 +502,18 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', `Department must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
-  const safeRole = trim(safeQueryValue(req.body.role));
-  if (!USER_ROLES.includes(safeRole)) {
+  // Absent-vs-present marker for the role. An ABSENT role in a partial API
+  // submission preserves the stored role — the same convention the optional
+  // fields on this route (department, phone) already follow, resolved inside
+  // the transaction against the re-read row. Previously an absent role
+  // collapsed to '' via trim(), failed the USER_ROLES check and rejected the
+  // whole request with "Invalid Role", so a partial update that only wanted
+  // to change the department was refused outright. A PRESENT but empty or
+  // unknown role is still rejected — the column is NOT NULL and only the
+  // three canonical roles are valid.
+  const roleAbsent = req.body.role === undefined || req.body.role === null;
+  const safeRole = roleAbsent ? '' : trim(safeQueryValue(req.body.role));
+  if (!roleAbsent && !USER_ROLES.includes(safeRole)) {
     req.flash('error', 'Invalid Role');
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -515,12 +528,20 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     return res.redirect('/staff');
   }
 
+  // The EFFECTIVE role: the submitted value when present, otherwise the
+  // stored role. Every guard below evaluates the effective role, so a
+  // partial submission that omits the role is judged by the role the account
+  // actually has (and is not mistaken for an attempt to assign a privileged
+  // role). The stored value is re-read inside the transaction below, so a
+  // concurrent role change is still caught.
+  const effectiveRole = roleAbsent ? targetUser.role : safeRole;
+
   // Only admins can assign privileged roles (manager/admin). A manager must
   // not be able to escalate a staff user to manager (or another admin), which
   // would grant near-admin capabilities. Managers are limited to editing
   // staff-role users.
-  if (safeRole !== 'staff' && req.session.user.role !== 'admin') {
-    req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${safeRole})`);
+  if (effectiveRole !== 'staff' && req.session.user.role !== 'admin') {
+    req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${effectiveRole})`);
     req.flash('error', 'Only administrators can assign the manager or admin role.');
     return res.redirect('/staff');
   }
@@ -529,7 +550,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // audits on the privileged-role guard above and the admin-protection guard
   // below. Self-role changes are benign but must not silently disappear from
   // the audit log.
-  if (Number(id) === Number(req.session.user.id) && safeRole !== req.session.user.role) {
+  if (Number(id) === Number(req.session.user.id) && effectiveRole !== req.session.user.role) {
     req.audit('access_denied', 'user', id, 'Unauthorized self-role-change attempt');
     req.flash('error', 'You cannot change your own role.');
     return res.redirect('/staff');
@@ -598,11 +619,16 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
         throw new Error('INVALID_PHONE');
       }
       wasInactive = !recheck.is_active;
+      // The role follows the same absent-vs-present rule as the optional text
+      // fields: an absent role preserves the CURRENT stored role (read inside
+      // the transaction, so a concurrent role change is not clobbered), a
+      // present role replaces it.
+      const resolvedRole = roleAbsent ? recheck.role : safeRole;
       const updateResult = _staffUpdateStmt.run(
         email.substring(0, MAX_EMAIL),
         first_name.substring(0, MAX_SHORT_STR),
         last_name.substring(0, MAX_SHORT_STR),
-        safeRole,
+        resolvedRole,
         resolvedDepartment,
         resolvedPhone,
         id

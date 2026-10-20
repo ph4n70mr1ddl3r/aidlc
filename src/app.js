@@ -431,7 +431,11 @@ function createSessionTimeoutMiddleware(idleMs, absoluteMs) {
     // Absolute timeout checked first so a both-expired session reports the
     // more security-relevant reason. The absolute window is anchored to the
     // first post-login request (session regeneration on login/password change
-    // discards prior state, so a fresh window starts there).
+    // discards prior state, so a fresh window starts there). The profile
+    // route's regeneration is the exception: it carries the anchors across,
+    // because saving your profile is the SAME authentication, not a new one —
+    // otherwise the hard lifetime cap could be reset indefinitely by a
+    // routine form post.
     if (now - sessionStart > absoluteMs) {
       return destroySessionAndRedirect(req, res, '/login?reason=session_expired', 'Session destroy error (absolute timeout):');
     }

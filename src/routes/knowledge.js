@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -601,7 +601,21 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     }
   }
 
-  if (!title || !content || !category) {
+  // Absent-vs-present markers for the fields this route resolves. An ABSENT
+  // field in a partial API submission preserves the stored value; a PRESENT
+  // field must carry a valid value. This is the contract every other field on
+  // this route already follows (status, is_featured, tags) and the one the
+  // route's own comment states — "an absent field means 'keep what's stored'".
+  // The three required columns (title / content / category) were the sole
+  // exception: a partial PUT that only changed the tags was rejected with
+  // "Title, content, and category are required" even though the stored values
+  // were perfectly valid. The stored values are re-read inside the
+  // transaction below, so an absent field resolves to the CURRENT row.
+  const titleAbsent = req.body.title === undefined || req.body.title === null;
+  const contentAbsent = req.body.content === undefined || req.body.content === null;
+  const categoryAbsent = req.body.category === undefined || req.body.category === null;
+
+  if ((!titleAbsent && !title) || (!contentAbsent && !content) || (!categoryAbsent && !category)) {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -618,7 +632,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  if (!VALID_CATEGORIES.includes(category)) {
+  if (!categoryAbsent && !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -648,12 +662,18 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // absent field trimmed to '' and wiped the stored tags with a success flash.
   // Resolution happens inside the transaction against the rechecked row (see
   // below) so a concurrent tags edit cannot be overwritten by a stale value.
-  const rawTagsAbsent = req.body.tags === undefined || req.body.tags === null;
-  if (!safeTitle) {
+  //
+  // A present-but-whitespace-only value is REJECTED rather than treated as a
+  // clear: it is neither an absent field (preserve) nor an explicit empty
+  // string (clear), yet it trims to an empty string — so it used to silently
+  // wipe the stored tags while the route flashed "Article updated." That is
+  // exactly the failure mode resolveOptionalField's blank-value rule exists
+  // to prevent; the helper is used below so this route cannot regress again.
+  if (!titleAbsent && !safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);
   }
-  if (!safeContent) {
+  if (!contentAbsent && !safeContent) {
     req.flash('error', 'Content is required after removing invalid content');
     return res.redirect(`/knowledge/${id}/edit`);
   }
@@ -683,12 +703,20 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       }
       const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
-      // Resolve tags from the transaction-consistent row: an absent field
-      // preserves the CURRENT stored tags rather than the value read outside
-      // the transaction, closing the same TOCTOU window already closed for
-      // status/is_featured. An explicit empty submission still clears tags.
-      const txnSafeTags = rawTagsAbsent ? recheck.tags : sanitized.safeTags;
-      const result = _articleUpdateStmt.run(safeTitle, safeContent, category, txnSafeTags, txnSafeStatus, txnSafeFeatured, id);
+      // Resolve the required columns from the transaction-consistent row: an
+      // ABSENT field preserves the CURRENT stored value (the partial-update
+      // contract every other field on this route already follows), while a
+      // PRESENT field uses the submitted (sanitized) value. A present-but-blank
+      // tags value is rejected by resolveOptionalField instead of silently
+      // clearing the stored tags.
+      const txnTitle = titleAbsent ? recheck.title : safeTitle;
+      const txnContent = contentAbsent ? recheck.content : safeContent;
+      const txnCategory = categoryAbsent ? recheck.category : category;
+      const txnSafeTags = resolveOptionalField(req.body.tags, sanitized.safeTags, MAX_LONG_STR, recheck.tags);
+      if (txnSafeTags && txnSafeTags.error) {
+        throw new Error('INVALID_TAGS');
+      }
+      const result = _articleUpdateStmt.run(txnTitle, txnContent, txnCategory, txnSafeTags, txnSafeStatus, txnSafeFeatured, id);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
       }
@@ -709,6 +737,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       // Non-enumerating wording — mirrors the show route and the outer guard.
       req.flash('error', 'Article not found');
       return res.redirect('/knowledge');
+    }
+    if (err.message === 'INVALID_TAGS') {
+      req.flash('error', 'Invalid Tags');
+      return res.redirect(`/knowledge/${id}/edit`);
     }
     logError('Article update error:', err);
     req.flash('error', 'Error updating article. Please try again.');

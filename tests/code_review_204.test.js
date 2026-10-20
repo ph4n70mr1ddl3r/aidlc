@@ -8,7 +8,10 @@ describe('code review 204 — logError consistency in knowledge.js', () => {
       path.join(__dirname, '..', 'src', 'routes', 'knowledge.js'),
       'utf8'
     );
-    expect(src).toContain("logError } = require('../utils')");
+    // The named-import list grows over time (resolveOptionalField was added
+    // for the absent/blank tags rule), so match the import rather than the
+    // exact tail of the destructuring list.
+    expect(src).toMatch(/logError[^}]*\} = require\('\.\.\/utils'\)/);
   });
 
   it('knowledge.js uses logError for HTML sanitization error logging', () => {

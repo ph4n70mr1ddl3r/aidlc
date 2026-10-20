@@ -396,11 +396,24 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const impact = trim(safeQueryValue(req.body.impact));
   const assigned_to = safeQueryValue(req.body.assigned_to);
 
-  if (!title || !change_type) {
+  // Absent-vs-present markers for the two required columns. An ABSENT field in
+  // a partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract every other field
+  // on this route already follows and the one the route's own comments state
+  // ("an absent/empty field means 'keep what's stored'"). The title and the
+  // change type were the sole exception: a partial PUT that only changed the
+  // status was rejected with "Title and change type are required" even though
+  // the stored values were perfectly valid. A PRESENT but empty value is
+  // still rejected — both columns are NOT NULL and an empty value has no
+  // valid meaning.
+  const titleAbsent = req.body.title === undefined || req.body.title === null;
+  const changeTypeAbsent = req.body.change_type === undefined || req.body.change_type === null;
+
+  if ((!titleAbsent && !title) || (!changeTypeAbsent && !change_type)) {
     req.flash('error', 'Title and change type are required');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (title.length > MAX_MEDIUM_STR) {
+  if (!titleAbsent && title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -412,7 +425,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', `Impact must be at most ${MAX_LONG_STR} characters`);
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (!VALID_CHANGE_TYPES.includes(change_type)) {
+  if (!changeTypeAbsent && !VALID_CHANGE_TYPES.includes(change_type)) {
     req.flash('error', 'Invalid Change Type');
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -461,6 +474,9 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     // EFFECTIVE (resolved) status rather than the raw submitted value — an absent
     // status on a partial submission must audit the persisted value.
     let effectiveStatus;
+    // effectiveTitle is hoisted so the post-transaction audit entry names the
+    // EFFECTIVE (resolved) title even when the request omitted it.
+    let effectiveTitle;
     const updateChange = db.transaction(() => {
       const existingChange = _editChangeStmt.get(id);
       if (!existingChange) {
@@ -542,7 +558,14 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       // but-invalid status was already rejected by the outer guard above.
       effectiveStatus = status || existingChange.status;
 
-      const result = _changeUpdateStmt.run(title.substring(0, MAX_MEDIUM_STR), resolvedDescription, change_type, effectiveStatus, safePriority,
+      // The required columns follow the same absent-vs-present rule as every
+      // other field on this route: an absent field preserves the CURRENT stored
+      // value (read inside the transaction, so a concurrent edit cannot be
+      // clobbered), a present field replaces it.
+      effectiveTitle = titleAbsent ? existingChange.title : title.substring(0, MAX_MEDIUM_STR);
+      const effectiveChangeType = changeTypeAbsent ? existingChange.change_type : change_type;
+
+      const result = _changeUpdateStmt.run(effectiveTitle, resolvedDescription, effectiveChangeType, effectiveStatus, safePriority,
         sSchedStart.value, sSchedEnd.value, sActStart.value, sActEnd.value,
         resolvedImpact, resolvedAssignee, id);
       // Belt-and-braces NOT_FOUND guard mirroring the tickets/assets/projects/
@@ -556,7 +579,7 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     });
     updateChange();
 
-    req.audit('update', 'change', id, `Updated change "${title}" (status: ${effectiveStatus})`);
+    req.audit('update', 'change', id, `Updated change "${effectiveTitle}" (status: ${effectiveStatus})`);
     req.flash('success', 'Change updated.');
     invalidateDashboardCache();
     return res.redirect(`/changes/${id}`);

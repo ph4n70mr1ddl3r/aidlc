@@ -44,7 +44,12 @@ router.use(requireAuth, auditMiddleware);
 // represented as "selected" when it falls outside this cap, so re-saving
 // can never silently unlink an asset.
 const _ASSET_DROPDOWN_LIMIT = 1000;
-const _assetListStmt = db.prepare(`SELECT id, asset_tag, name FROM assets ORDER BY name LIMIT ${_ASSET_DROPDOWN_LIMIT}`);
+// Every ORDER BY carries a unique trailing key: without it SQLite's sort
+// order over the capped set is not total, so the set of assets in the
+// dropdown could differ between two page loads and an option the user had
+// seen could vanish on refresh. Mirrors the tiebreaker convention every
+// other capped/ordered query in the app follows.
+const _assetListStmt = db.prepare(`SELECT id, asset_tag, name FROM assets ORDER BY name ASC, id ASC LIMIT ${_ASSET_DROPDOWN_LIMIT}`);
 // Fetch a single asset's dropdown columns — used by the edit route to guarantee
 // the linked asset appears in the <select> even past the LIMIT above.
 const _assetByIdStmt = db.prepare('SELECT id, asset_tag, name FROM assets WHERE id = ?');
@@ -136,10 +141,10 @@ const _ticketCounterStmt = db.prepare(`
 // past a small number of already-taken numbers without spinning forever.
 const MAX_TICKET_NUMBER_ATTEMPTS = 10;
 const _ticketInsertStmt = db.prepare(`
-    INSERT INTO tickets (ticket_number, title, description, category, priority,
+    INSERT INTO tickets (ticket_number, title, description, category, priority, status,
       requester_name, requester_email, requester_department, requester_phone,
-      assigned_to, asset_id, due_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      assigned_to, asset_id, due_date, resolved_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END)
   `);
 
 // Every ORDER BY carries an `id` tiebreaker: created_at/updated_at have
@@ -196,7 +201,15 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.description', 't.ticket_number']);
+  // Search only over the columns the list itself renders. `t.description` is
+  // deliberately NOT searchable: the description is shown exclusively on the
+  // detail page, which a staff user can only open for a ticket assigned to
+  // them (canAccessResource), so matching against it turned the search box
+  // into a content oracle — a viewer denied GET /tickets/:id could confirm
+  // that a phrase occurred in a description they are not allowed to read by
+  // observing which rows came back. Same defect class the change-log list
+  // closed in an earlier pass.
+  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.ticket_number']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
@@ -268,6 +281,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   }
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
+  const status = trim(safeQueryValue(req.body.status));
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
@@ -336,6 +350,22 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     req.flash('error', priority ? 'Invalid Priority' : 'Priority is required');
     return res.redirect('/tickets/new');
   }
+  // The status is optional on create and defaults to 'open' (the new-ticket
+  // form does not offer a status control). A present value must be a member
+  // of the allowlist — the create route previously listed 'status' in its HPP
+  // and type guards but never read it, so a submitted status was silently
+  // discarded and the ticket was always created 'open'. Mirrors the
+  // changes.js create route, which applies the submitted status.
+  if (status && !VALID_STATUSES.includes(status)) {
+    req.flash('error', 'Invalid Status');
+    return res.redirect('/tickets/new');
+  }
+  const safeStatus = status || 'open';
+  // A ticket created directly in a terminal state gets a resolution timestamp,
+  // exactly like the update route's `resolved_at = CASE WHEN ... THEN
+  // datetime('now')` — otherwise the row would claim to be resolved/closed
+  // with no resolution time, which the SLA and resolution-time reports read.
+  const isTerminalStatus = (safeStatus === 'resolved' || safeStatus === 'closed') ? 1 : 0;
 
   // Reject a present, non-empty due date that fails to parse (fail-closed)
   // instead of silently storing NULL — mirrors projects/assets/vendors/change-log.
@@ -394,9 +424,9 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       const seq = row.next_seq;
       const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
       try {
-        const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority,
+        const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, safeStatus,
           requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
-          safeAssignee, safeAssetId, safeDueDate);
+          safeAssignee, safeAssetId, safeDueDate, isTerminalStatus);
         return { ticket_number, id: result.lastInsertRowid };
       } catch (insertErr) {
         if (insertErr.code !== 'SQLITE_CONSTRAINT_UNIQUE') {
