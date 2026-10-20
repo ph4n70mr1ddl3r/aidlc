@@ -28,7 +28,7 @@ const sanitizeHtml = (() => {
   try {
     loaded = require('sanitize-html');
   } catch (err) {
-    console.error(`ERROR: sanitize-html package failed to load: ${(err && err.message) || String(err)}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
+    console.error(`ERROR: sanitize-html package failed to load: ${(err && err.message) || String(err)}. Run \`npm install\` to ensure sanitize-html ^2.18.1 is installed.`);
     // Fail closed: escape all HTML instead of passing it through unsanitized
     // (a no-op fallback would turn renderMarkdown into a stored-XSS surface).
     // Mirrors the marked fallback above, which degrades to plain text.
@@ -49,7 +49,7 @@ const sanitizeHtml = (() => {
   }
   // A loaded-but-unexpected shape cannot be verified as a sanitizer — fail
   // closed by crashing at startup rather than trusting an unknown object.
-  console.error(`ERROR: sanitize-html loaded but has an unexpected shape: ${Object.keys(loaded).join(', ')}. Run \`npm install\` to ensure sanitize-html ^2.17.7 is installed.`);
+  console.error(`ERROR: sanitize-html loaded but has an unexpected shape: ${Object.keys(loaded).join(', ')}. Run \`npm install\` to ensure sanitize-html ^2.18.1 is installed.`);
   throw new Error('unexpected sanitize-html shape');
 })();
 const rateLimit = require('express-rate-limit');

@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-20 (371st pass)
+**Date:** 2026-10-21 (372nd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
-(`src/`, `tests/`). 12 route modules, 2 middleware modules, models, utils,
-constants.
+(`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
+utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (370 consecutive hardening reviews) was
+`npm audit`. Prior review history (371 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -13468,3 +13468,191 @@ bypass for a non-privileged or manager account.
 - `npm run test:coverage` — global thresholds pass (statements 71.38%,
   branches 68.55%, functions 82.38%, lines 71.38%).
 - `npm audit --omit=dev --audit-level=high` — 0 vulnerabilities.
+
+## Review cycle 2026-10-21 (372nd pass)
+
+An independent pass re-read every route module, both middleware modules, utils,
+constants, the schema, the seeder, all 34 EJS templates, `public/js/app.js`
+and `public/css/app.css`, plus ESLint, Jest coverage and `npm audit`. The pass
+also replayed the seeder against a throwaway in-memory database and asserted
+the resulting portfolio against the seed date, which surfaced three seeded-data
+contradictions the previous cycle's fix had not covered. Six defects were
+found and fixed: one functional inconsistency (the dashboard's two alert
+lists), one dependency advisory with a stored-XSS impact (the knowledge base's
+sanitizer release) and four smaller correctness/precision issues.
+
+1. **The dashboard loaded two bounded alert lists it never rendered**
+   (MEDIUM, consistency/completeness). `src/routes/dashboard.js` queried a
+   20-row warranty list (`expiringWarranties`) and a 20-row license list
+   (`licenseAlerts`) on every cache refresh, stored both in the shared TTL
+   cache, deep-copied them per request and handed them to the template — but
+   `views/pages/dashboard.ejs` used only their `.length`, and only as the
+   "is there anything to report?" condition for an alert card whose *number*
+   came from separate uncapped COUNT queries. Not a single row of either list
+   reached the page. Two consequences: the app told the reader "6 assets have
+   a warranty ending" without saying which six, and the two
+   `DASHBOARD_LIMITS` entries that cap those lists (`warrantyAlerts: 20`,
+   `licenseAlerts: 20`) were dead knobs — the constants file promises that
+   "the template can disclose the truncation with the same `(N+)` marker the
+   staff profile sidebars use", but no list existed that could disclose
+   anything. This is the same dead-knob class the previous cycle closed for
+   `DASHBOARD_LIMITS.myTickets`. Fix: the dashboard now renders both lists
+   with the `(N+)` marker wired to the very cap the query uses, so the caps are
+   live and the reader can act on the rows.
+
+   The license list is additionally **viewer-scoped**: the licenses module is
+   `requireAdminOrManager` (its list and show routes are, because license
+   cost/seat data is business-sensitive), so the software names must not be
+   handed to a regular staff member's dashboard. The list therefore moved out
+   of the shared (all-users) cache into a per-request query gated on
+   `isPrivileged(user)` — exactly the pattern the "Upcoming Changes" widget
+   already used for the same reason. The bare COUNT stays in the shared cache
+   (it carries no license identity), and the alert cards now key their
+   "is there anything to report?" condition on that uncapped count instead of
+   on the capped list length. The warranty list stays in the shared cache
+   because the assets module is open to every authenticated viewer.
+
+2. **A seeded task was due a month after its own project had ended** (LOW,
+   correctness). The previous cycle anchored the seeded project windows and
+   task due dates to the seed date, but the anchor was applied per field and
+   not per constraint: "Staff training" (project 3, "IT Service Desk
+   Upgrade", whose window ends 30 days out) was still anchored 60 days out, so
+   a fresh seed rendered a task due 2026-12-19 inside a project that ended
+   2026-11-19 — the project page showed an open task that could not be
+   finished in time, and the seeded portfolio contradicted itself. Fix: the
+   due date moved inside the window (25 days out), and every seeded task due
+   date now sits between its owning project's start and end date.
+
+3. **Every seeded license had already expired and three of five vendor
+   contracts had already ended** (LOW, correctness/completeness). The same
+   "hardcoded absolute dates drift into the past" defect the previous cycle
+   closed for the ticket due date, the project windows and the task due dates
+   was still present in the license and vendor rows: all five seeded
+   licenses that carry an expiry date had expired between 2025-07-01 and
+   2026-03-01, so the dashboard's "License Expiring Soon" alert (a 30-day
+   window) could only ever report long-expired records — the case it names
+   was never represented — and the license list showed an entirely dead
+   subscription portfolio. Three of the five vendor contracts had likewise
+   lapsed, leaving no running contract at all. Fix: the license terms and
+   vendor contract windows are anchored to the seed date (the shared date
+   helpers moved to the top of the seed transaction so every section can use
+   them in any order). Each subscription keeps its ~1-year story, two of them
+   now expire *inside* the 30-day alert window so a fresh seed exercises that
+   path, four vendors hold a live contract and one keeps a recently-ended
+   contract so the "contract lapsed" state is still represented. The seeded
+   *asset* fleet deliberately keeps its absolute purchase/warranty history —
+   the age-distribution report depends on that spread, and the dashboard
+   warranty alert says "expired **or** expiring within 30 days".
+
+4. **The change-log create route used a second, different comparison rule**
+   (LOW, consistency). The update route compares the scheduled/actual windows
+   with the minute-precision `_compareDateTimeMinutes()` helper (added in the
+   previous cycle to stop "2026-05-20 02:00" < "2026-05-20 02:00:00" from
+   rejecting a valid update), while the create route still compared the two
+   canonical strings with a raw `<`. Both are correct today — the create path
+   canonicalises both values through `safeDateTimeLocal` — but two subtly
+   different rules for the same validation inside one module is exactly the
+   drift the shared helper exists to prevent, and the create path is the one
+   the next format change would break. Fix: the create route uses the same
+   helper.
+
+5. **The knowledge base ran a sanitizer release with three known bypasses**
+   (MEDIUM, security). The knowledge-base article body is rendered with
+   `<%- article.renderedContent %>` — deliberately UNESCAPED, because
+   `sanitize-html` is what vets it. The pinned release, `sanitize-html@2.17.7`,
+   carries three published advisories, all of them stored-XSS vectors in
+   exactly that context: a `<noscript>` region whose implied close ends the
+   tag early (letting the following markup through), an SMIL
+   namespace-prefix bypass that smuggles a `javascript:` URI past the scheme
+   allowlist, and a `meta http-equiv=refresh` whose `content` still ships
+   `javascript:`/`data:` URLs. The repo's own tooling line
+   (`npm audit --omit=dev --audit-level=high`) did not surface them — the
+   advisories are rated *moderate*, so a high-severity audit run reported
+   "0 vulnerabilities" while the vulnerable code was live. Fix: the
+   dependency now resolves to the patched `sanitize-html@2.18.1` (verified
+   against the real library, not the Jest mock: the `<noscript>`, SMIL and
+   `meta`-refresh vectors are now neutralised, and the app's own allowlist
+   extension — `img`, `details`, `summary`, `del` — is unchanged), and
+   `npm audit --omit=dev` now reports 0 vulnerabilities at any severity.
+
+6. **The asset report advertised a period it does not filter by** (LOW,
+   documentation precision). `views/pages/reports/assets.ejs` rendered "No
+   data for this period" in four empty states, but the asset report is not
+   period-scoped: none of its queries (`assetsByCategory`, `assetsByStatus`,
+   `assetsByCondition`, `assetsTotalValue`, `warrantyExpiring*`,
+   `ageDistribution`) take a window, and the page has no period selector
+   (only the ticket and staff reports do). The empty states now use
+   period-neutral copy. The route's array-valued-parameter guard was
+   deliberately left in place — it is the app-wide convention for GET routes
+   and is pinned by an existing regression test.
+
+Also verified this pass: every write route still rejects HPP array payloads
+before any value is consumed, and every update/delete transaction still
+re-reads its row inside the transaction and throws `NOT_FOUND` on a zero-row
+write; the absent-vs-empty convention remains uniform (absent ⇒ preserve,
+`''` ⇒ clear, present-but-blank ⇒ fail closed) across tickets, projects,
+tasks, assets, vendors, licenses, changes, staff, knowledge and the profile
+route; every paginated and capped query still carries a unique trailing `id`
+tiebreaker and clamps an out-of-range page to the last one; every list route's
+access scope still matches its show route (tickets and assets stay open to
+all staff, the change log and knowledge base stay scoped, licenses and
+vendors stay privileged-only); requester PII is still redacted for
+non-privileged viewers on both the show and the edit path; the dashboard's
+"Upcoming Changes" widget is still viewer-scoped and never served from the
+shared cache; every `name=` field in every form is still consumed by its
+route and every view link and form action still resolves to an existing
+route; every CSS class referenced by a template still exists in `app.css`;
+`.env.example` still documents exactly the env vars read in `src/`; and the
+seeded portfolio was re-checked against the seed date for overdue open tasks,
+project/status contradictions, out-of-window task due dates, expired
+licenses, lapsed contracts and canonical change-log datetime formats.
+
+### Fixes applied
+1. `src/routes/dashboard.js` — the license alert list is queried per request
+   for privileged viewers only and removed from the shared TTL cache; the
+   alert-card conditions now key on the uncapped counts.
+2. `views/pages/dashboard.ejs` — renders the "Warranty Ending or Expired" and
+   "Licenses Ending or Expired" lists, each disclosing its truncation with the
+   `(N+)` marker bound to `DASHBOARD_LIMITS.warrantyAlerts` /
+   `DASHBOARD_LIMITS.licenseAlerts`; the license list is rendered for
+   privileged viewers only.
+3. `src/constants.js` — the `DASHBOARD_LIMITS` comment now states that the
+   license-alert list is privileged-only and the warranty-alert list is open
+   to every viewer.
+4. `src/seed.js` — the shared date helpers moved to the top of the seed
+   transaction; the license terms and vendor contract windows are anchored to
+   the seed date; the "Staff training" due date moved inside its project's
+   window.
+5. `src/routes/changes.js` — the create route compares the scheduled window
+   with the shared minute-precision helper.
+6. `package.json` / `package-lock.json` — `sanitize-html` bumped to the
+   patched `^2.18.1` (was `^2.17.7`); `src/routes/knowledge.js` — the
+   "package failed to load" diagnostics now name the patched version.
+7. `views/pages/reports/assets.ejs` — period-neutral empty-state copy.
+8. `tests/code_review_166.test.js` — the empty-hint probe now pins the
+   period-neutral wording (the assertion's intent — "every section renders an
+   empty hint" — is unchanged).
+
+### Regression tests added
+- `tests/code_review_372.test.js` — 15 tests: the dashboard renders the
+  warranty alert list rows and discloses the truncation at
+  `DASHBOARD_LIMITS.warrantyAlerts`; the license alert list is rendered for an
+  admin but its software names never reach a staff viewer (while the bare
+  count still does); the license list is absent from the shared cached
+  payload and privilege-gated at the query site; the seeded portfolio has no
+  task due outside its project's window, no already-expired license, at least
+  one license inside the 30-day alert window, and coherent vendor contracts
+  with at least one still running; the change-log create route uses the
+  minute-precision comparison and still accepts an equal start/end while
+  rejecting an end before the start; the asset report uses period-neutral
+  empty-state copy; and the knowledge-base sanitizer is pinned and locked to
+  a patched `sanitize-html` release with only inert tags added to the
+  allowlist.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1486 passed / 1486 total** (94 suites, +15 from #371).
+- `npm run test:coverage` — global thresholds pass (statements 71.92%,
+  branches 69.39%, functions 83.38%, lines 71.92%).
+- `npm audit --omit=dev` — **0 vulnerabilities** (previously 1 moderate
+  `sanitize-html` advisory, now patched).

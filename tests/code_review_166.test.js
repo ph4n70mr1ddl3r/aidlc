@@ -237,7 +237,10 @@ describe('code review 166: consistency/completeness/correctness', () => {
     });
     it('renders empty hints for every section', () => {
       const src = readSrc('views/pages/reports/assets.ejs');
-      expect(src).toContain('No data for this period');
+      // The asset report is not period-scoped (none of its queries take a
+      // window and the page has no period selector), so its empty hints use
+      // period-neutral copy — updated from the period wording in cycle 372.
+      expect(src).toContain('No data available');
       expect(readSrc('views/pages/dashboard.ejs')).toContain('No workload data');
     });
     it('falls back for nullable badge values', () => {

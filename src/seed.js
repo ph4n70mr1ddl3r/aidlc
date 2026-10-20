@@ -47,6 +47,31 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       DELETE FROM sqlite_sequence WHERE name = 'audit_log';
     `);
 
+    // -----------------------------------------------------------------------
+    // Shared date helpers.
+    //
+    // Every seeded date that must stay meaningful whenever the seed runs is
+    // derived from the seed moment instead of a hardcoded literal: a literal
+    // drifts into the past, and a fresh seed then contradicts itself (a
+    // ticket that is born overdue, a project that ended two months ago, a
+    // license that expired a year ago). The helpers are declared HERE, at the
+    // top of the transaction, because the sections below use them in
+    // different orders (licenses before tickets, vendors last) and a
+    // `const` declared further down would still be in its temporal dead zone
+    // when an earlier section calls it.
+    //
+    // All of them work in UTC, matching the DB's datetime('now') /
+    // date('now') and the routes' UTC-based ticket counter.
+    // -----------------------------------------------------------------------
+    const now = new Date();
+    const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
+    // Full timestamp "YYYY-MM-DD HH:MM:SS", N days in the past.
+    const isoDaysAgo = (days) => new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+    // Calendar date "YYYY-MM-DD", N days in the future (negative = past).
+    const isoDateDaysFromNow = (days) => new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
+    // Convenience alias for a calendar date N days in the past.
+    const daysAgo = (days) => isoDateDaysFromNow(-days);
+
     // ========================
     // USERS
     // ========================
@@ -107,14 +132,27 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // LICENSES
     // ========================
+    // License terms are anchored to the seed date for the same reason as the
+    // ticket due date and the project windows below: hardcoded absolute dates
+    // drift into the past, and every seeded license that carried an expiry
+    // date had already expired — the dashboard's "License Expiring Soon"
+    // alert (a 30-day window) therefore only ever reported long-expired
+    // records, and the "expiring soon" case it names was never represented.
+    // Each entry keeps its original ~1-year subscription story, and two
+    // subscriptions now expire INSIDE the 30-day alert window so a fresh
+    // seed exercises that path.
+    const licenseTerm = (daysAgoPurchased, daysUntilExpiry) => ({
+      purchase_date: isoDateDaysFromNow(-daysAgoPurchased),
+      expiry_date: isoDateDaysFromNow(daysUntilExpiry)
+    });
     const licenses = [
-      { software_name: 'Microsoft 365 E3', vendor: 'Microsoft', license_key: 'MS365-E3-VOL-001', license_type: 'subscription', total_seats: 200, used_seats: 187, purchase_date: '2025-01-01', expiry_date: '2026-01-01', cost: 28000 },
-      { software_name: 'Adobe Creative Cloud', vendor: 'Adobe', license_key: 'ADB-CC-ENT-050', license_type: 'subscription', total_seats: 50, used_seats: 42, purchase_date: '2025-03-01', expiry_date: '2026-03-01', cost: 15000 },
-      { software_name: 'Jira Software', vendor: 'Atlassian', license_key: 'ATL-JIRA-500', license_type: 'subscription', total_seats: 500, used_seats: 323, purchase_date: '2024-07-01', expiry_date: '2025-07-01', cost: 18000 },
-      { software_name: 'Windows Server 2022', vendor: 'Microsoft', license_key: 'MS-WS2022-DATA', license_type: 'perpetual', total_seats: 10, used_seats: 8, purchase_date: '2022-05-15', expiry_date: null, cost: 6200 },
-      { software_name: 'VMware vSphere', vendor: 'Broadcom', license_key: 'VMW-VSP-ENT-020', license_type: 'perpetual', total_seats: 3, used_seats: 3, purchase_date: '2023-11-01', expiry_date: null, cost: 12500 },
-      { software_name: 'CrowdStrike Falcon', vendor: 'CrowdStrike', license_key: 'CS-FALC-EP-500', license_type: 'subscription', total_seats: 500, used_seats: 480, purchase_date: '2025-01-15', expiry_date: '2026-01-15', cost: 35000 },
-      { software_name: 'Slack Business+', vendor: 'Salesforce', license_key: 'SLK-BIZ-0300', license_type: 'subscription', total_seats: 300, used_seats: 287, purchase_date: '2025-02-01', expiry_date: '2026-02-01', cost: 10800 }
+      { software_name: 'Microsoft 365 E3', vendor: 'Microsoft', license_key: 'MS365-E3-VOL-001', license_type: 'subscription', total_seats: 200, used_seats: 187, ...licenseTerm(330, 12), cost: 28000 },
+      { software_name: 'Adobe Creative Cloud', vendor: 'Adobe', license_key: 'ADB-CC-ENT-050', license_type: 'subscription', total_seats: 50, used_seats: 42, ...licenseTerm(200, 165), cost: 15000 },
+      { software_name: 'Jira Software', vendor: 'Atlassian', license_key: 'ATL-JIRA-500', license_type: 'subscription', total_seats: 500, used_seats: 323, ...licenseTerm(300, 65), cost: 18000 },
+      { software_name: 'Windows Server 2022', vendor: 'Microsoft', license_key: 'MS-WS2022-DATA', license_type: 'perpetual', total_seats: 10, used_seats: 8, purchase_date: isoDateDaysFromNow(-1600), expiry_date: null, cost: 6200 },
+      { software_name: 'VMware vSphere', vendor: 'Broadcom', license_key: 'VMW-VSP-ENT-020', license_type: 'perpetual', total_seats: 3, used_seats: 3, purchase_date: isoDateDaysFromNow(-1000), expiry_date: null, cost: 12500 },
+      { software_name: 'CrowdStrike Falcon', vendor: 'CrowdStrike', license_key: 'CS-FALC-EP-500', license_type: 'subscription', total_seats: 500, used_seats: 480, ...licenseTerm(350, 15), cost: 35000 },
+      { software_name: 'Slack Business+', vendor: 'Salesforce', license_key: 'SLK-BIZ-0300', license_type: 'subscription', total_seats: 300, used_seats: 287, ...licenseTerm(320, 45), cost: 10800 }
     ];
 
     const insertLicense = db.prepare(`
@@ -149,12 +187,8 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const now = new Date();
-    const today = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`;
-    const isoDaysAgo = (days) => new Date(now.getTime() - days * 86400000).toISOString().replace('T', ' ').slice(0, 19);
     // Relative due date (14 days out) so a fresh seed never shows an immediately
     // overdue ticket — mirrors the relative changeAt() helper for scheduled changes.
-    const isoDateDaysFromNow = (days) => new Date(now.getTime() + days * 86400000).toISOString().slice(0, 10);
     // Anchor the single seeded due date relative to now (was a hardcoded
     // 2026-05-25 that drifted into the past).
     tickets[0].due_date = isoDateDaysFromNow(14);
@@ -189,7 +223,6 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // whose due date had already passed (every one of them rendered as
     // "Overdue"). The relative anchors keep the seeded portfolio coherent
     // whenever the seed runs.
-    const daysAgo = (days) => isoDateDaysFromNow(-days);
     const projects = [
       { name: 'Cloud Migration Phase 2', description: 'Migrate remaining on-premises workloads to AWS. Includes database migration and CDN setup.', status: 'in_progress', priority: 'high', start_date: daysAgo(270), end_date: isoDateDaysFromNow(90), budget: 150000, spent: 45000, progress: 40, owner_id: 2 },
       { name: 'Zero Trust Network Implementation', description: 'Implement Zero Trust security architecture across all network segments.', status: 'planning', priority: 'critical', start_date: isoDateDaysFromNow(60), end_date: isoDateDaysFromNow(240), budget: 200000, spent: 5000, progress: 0, owner_id: 2 },
@@ -213,6 +246,13 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // reason as the project windows above: a task that is still open must not
     // be born overdue. Completed tasks keep a due date in the past and a
     // completion date just before it.
+    //
+    // A task due date must also fall INSIDE its own project's window. The
+    // relative anchoring alone was not enough: 'Staff training' (project 3,
+    // which ends 30 days out) was still anchored 60 days out, so a fresh seed
+    // showed a task due a month after the project it belongs to had already
+    // finished. Every due date below now sits between the owning project's
+    // start and end date.
     const tasks = [
       { project_id: 1, title: 'Assessment of current workloads', description: 'Document all on-prem workloads and dependencies', status: 'done', priority: 'high', assigned_to: 3, due_date: daysAgo(240), completed_at: daysAgo(243) },
       { project_id: 1, title: 'AWS Landing Zone setup', description: 'Configure multi-account AWS environment', status: 'done', priority: 'high', assigned_to: 6, due_date: daysAgo(210), completed_at: daysAgo(213) },
@@ -222,7 +262,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       { project_id: 3, title: 'Vendor evaluation', description: 'Evaluate ServiceNow vs Jira Service Management', status: 'done', priority: 'high', assigned_to: 3, due_date: daysAgo(180), completed_at: daysAgo(183) },
       { project_id: 3, title: 'Data migration scripts', description: 'Write scripts to migrate data from old system', status: 'done', priority: 'high', assigned_to: 5, due_date: daysAgo(150), completed_at: daysAgo(152) },
       { project_id: 3, title: 'Workflow automation setup', description: 'Configure automated workflows and SLAs', status: 'in_progress', priority: 'medium', assigned_to: 3, due_date: isoDateDaysFromNow(20) },
-      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: isoDateDaysFromNow(60) },
+      { project_id: 3, title: 'Staff training', description: 'Train IT staff on new platform', status: 'todo', priority: 'medium', assigned_to: 4, due_date: isoDateDaysFromNow(25) },
       // Project 5 ('completed', progress 100) needs at least one done task so
       // its seeded progress matches recalcProjectProgress (1/1 = 100) — a
       // taskless completed project would snap from 100% to 0% on its first
@@ -262,12 +302,18 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // VENDORS
     // ========================
+    // Contract windows are anchored to the seed date for the same reason as
+    // the license terms above: the hardcoded literals had all drifted into
+    // the past, so a fresh seed showed three of the five vendors with a
+    // contract that had already ended and no running contract at all. Four
+    // vendors now hold a live contract and one (TechCorp Support) keeps a
+    // recently-ended contract so the "contract lapsed" state is represented.
     const vendors = [
-      { name: 'Dell Technologies', contact_person: 'Mike Thompson', email: 'mike.t@dell.com', phone: '800-555-1234', category: 'hardware', contract_start: '2024-01-01', contract_end: '2026-12-31', rating: 4 },
-      { name: 'Amazon Web Services', contact_person: 'Jennifer Liu', email: 'j.liu@aws.amazon.com', phone: '800-555-2345', category: 'cloud', contract_start: '2025-01-01', contract_end: '2027-12-31', rating: 5 },
-      { name: 'CrowdStrike', contact_person: 'Alex Rivera', email: 'a.rivera@crowdstrike.com', phone: '800-555-3456', category: 'security', contract_start: '2025-01-15', contract_end: '2026-01-15', rating: 4 },
-      { name: 'Cisco Systems', contact_person: 'Patricia Nguyen', email: 'p.nguyen@cisco.com', phone: '800-555-4567', category: 'network', contract_start: '2023-06-01', contract_end: '2026-06-01', rating: 5 },
-      { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'maintenance', contract_start: '2024-03-01', contract_end: '2025-03-01', rating: 3 }
+      { name: 'Dell Technologies', contact_person: 'Mike Thompson', email: 'mike.t@dell.com', phone: '800-555-1234', category: 'hardware', contract_start: daysAgo(400), contract_end: isoDateDaysFromNow(320), rating: 4 },
+      { name: 'Amazon Web Services', contact_person: 'Jennifer Liu', email: 'j.liu@aws.amazon.com', phone: '800-555-2345', category: 'cloud', contract_start: daysAgo(200), contract_end: isoDateDaysFromNow(530), rating: 5 },
+      { name: 'CrowdStrike', contact_person: 'Alex Rivera', email: 'a.rivera@crowdstrike.com', phone: '800-555-3456', category: 'security', contract_start: daysAgo(300), contract_end: isoDateDaysFromNow(65), rating: 4 },
+      { name: 'Cisco Systems', contact_person: 'Patricia Nguyen', email: 'p.nguyen@cisco.com', phone: '800-555-4567', category: 'network', contract_start: daysAgo(300), contract_end: isoDateDaysFromNow(240), rating: 5 },
+      { name: 'TechCorp Support', contact_person: 'Frank Miller', email: 'f.miller@techcorp.com', phone: '800-555-5678', category: 'maintenance', contract_start: daysAgo(500), contract_end: daysAgo(20), rating: 3 }
     ];
 
     const insertVendor = db.prepare(`

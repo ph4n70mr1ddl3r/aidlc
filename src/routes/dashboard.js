@@ -198,6 +198,15 @@ const stmts = {
   // ordering/display). Avoid SELECT * so the sensitive license_key column is
   // never loaded into the shared/rendered data object — defense-in-depth that
   // shrinks the credential-exposure surface of the cached dashboard payload.
+  //
+  // VIEWER-SCOPED: the licenses module is admin/manager-only (its list and
+  // show routes are requireAdminOrManager because license cost/seat data is
+  // business-sensitive), so the software names must not be handed to a regular
+  // staff member's dashboard. This list is therefore queried PER REQUEST for
+  // privileged viewers only and is deliberately NOT part of the shared cached
+  // payload below — the same pattern the Upcoming Changes widget uses. Only
+  // the COUNT (no names) stays in the shared cache, because the alert card
+  // reports a number to every viewer.
   licenseAlerts: db.prepare(`
     SELECT id, software_name, vendor, expiry_date FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
@@ -242,7 +251,6 @@ function getDashboardData(user) {
         expiringWarrantiesCount: stmts.expiringWarrantiesCount.get().c,
         ticketsByCategory: stmts.ticketsByCategory.all(),
         staffWorkload: stmts.staffWorkload.all(),
-        licenseAlerts: stmts.licenseAlerts.all(),
         licenseAlertsCount: stmts.licenseAlertsCount.get().c
       };
 
@@ -279,6 +287,20 @@ function getDashboardData(user) {
     logError('Dashboard upcomingChanges query error:', err);
   }
 
+  // Expiring licenses — viewer-scoped for the same reason as the upcoming
+  // changes above: the licenses module is admin/manager-only, so the software
+  // names are only ever fetched for a privileged viewer. A regular staff
+  // member receives an empty list (the alert card still shows the count,
+  // which carries no license identity).
+  let licenseAlerts = [];
+  if (isPrivileged(user)) {
+    try {
+      licenseAlerts = stmts.licenseAlerts.all();
+    } catch (err) {
+      logError('Dashboard licenseAlerts query error:', err);
+    }
+  }
+
   // Deep-merge defaults to avoid shared nested object references between cache
   // and rendered data.  Object.assign only copies one level deep, so mutating a
   // nested object in a template (e.g. ticketStats.open) would corrupt the cache.
@@ -293,7 +315,7 @@ function getDashboardData(user) {
     upcomingChanges: upcomingChanges.map(r => ({ ...r })),
     ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
     staffWorkload: (shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload).map(r => ({ ...r })),
-    licenseAlerts: (shared.licenseAlerts || EMPTY_DEFAULTS.licenseAlerts).map(r => ({ ...r })),
+    licenseAlerts: licenseAlerts.map(r => ({ ...r })),
     licenseAlertsCount: shared.licenseAlertsCount ?? EMPTY_DEFAULTS.licenseAlertsCount,
     myTickets: myTickets.map(r => ({ ...r }))
   };

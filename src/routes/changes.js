@@ -263,7 +263,13 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   }
   const sStart = sStartRes.value;
   const sEnd = sEndRes.value;
-  if (sStart && sEnd && sEnd < sStart) {
+  // Compare at MINUTE precision, exactly like the update route below. The
+  // create path canonicalises both values through safeDateTimeLocal (so they
+  // are always "YYYY-MM-DD HH:MM"), but a raw string comparison would still
+  // be a second, subtly different rule inside the same module — the same
+  // "2026-05-20 02:00" < "2026-05-20 02:00:00" trap the update route hit.
+  // One helper, one comparison rule, both directions.
+  if (sStart && sEnd && _compareDateTimeMinutes(sEnd, sStart) < 0) {
     req.flash('error', 'Scheduled end must be on or after scheduled start');
     return res.redirect('/changes/new');
   }

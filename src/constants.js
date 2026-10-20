@@ -194,19 +194,26 @@ const TASK_LIST_CAP = 200;                             // max tasks rendered in 
 const MEMBER_LIST_CAP = 100;                           // max members rendered in project show page
 
 // Dashboard widget caps — the dashboard renders several bounded lists (recent
-// tickets, upcoming changes, team workload, warranty/license alerts). The caps
-// live here (rather than as route-local constants in dashboard.js) so the
-// template can disclose the truncation with the same "(N+)" marker the staff
-// profile sidebars use — a silently truncated list reads as a complete one.
-// Keep the values in sync with the LIMITs in src/routes/dashboard.js; the
-// dashboard route imports this object so the two can never drift.
+// tickets, my tickets, upcoming changes, team workload, warranty alerts,
+// license alerts). The caps live here (rather than as route-local constants
+// in dashboard.js) so the template can disclose the truncation with the same
+// "(N+)" marker the staff profile sidebars use — a silently truncated list
+// reads as a complete one. Keep the values in sync with the LIMITs in
+// src/routes/dashboard.js; the dashboard route imports this object so the two
+// can never drift.
+//
+// The license-alert list is additionally VIEWER-SCOPED: the licenses module is
+// admin/manager-only, so the dashboard renders that list for privileged
+// viewers only (the route queries it per request, never through the shared
+// TTL cache). The warranty-alert list is open to every viewer because the
+// assets module is.
 const DASHBOARD_LIMITS = Object.freeze({
   recentTickets: 10,      // "Recently Active Tickets" card
   myTickets: 10,          // "My Active Tickets" card
   upcomingChanges: 5,     // "Upcoming Changes" card
   staffWorkload: 8,       // "Team Workload" card
   warrantyAlerts: 20,     // expiring/expired warranty list
-  licenseAlerts: 20       // expiring/expired license list
+  licenseAlerts: 20       // expiring/expired license list (privileged viewers only)
 });
 
 module.exports = {
