@@ -48,8 +48,10 @@
   <!-- Tasks -->
   <div class="card">
     <div class="card-header">
-      <!-- "N+" when the 200-task cap was hit — the list is a capped subset. -->
-      <h3><i class="fas fa-tasks" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Tasks (<%= tasks.length %><%= tasks.length >= CONSTANTS.TASK_LIST_CAP ? '+' : '' %>)</h3>
+      <!-- "N+" when the 200-task cap really dropped rows — the list is a capped
+           subset. The flag is exact (the query fetches one row beyond the cap
+           as a probe), so a complete list is not marked. -->
+      <h3><i class="fas fa-tasks" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Tasks (<%= tasks.length %><%= (typeof tasksTruncated !== 'undefined' && tasksTruncated) ? '+' : '' %>)</h3>
     </div>
     <div class="card-body">
       <!-- Add Task -->
@@ -105,8 +107,9 @@
   <!-- Sidebar -->
   <div>
     <div class="card mb-2">
-      <div class="card-header">      <!-- "N+" when the 100-member cap was hit — the list is a capped subset. -->
-      <h3><i class="fas fa-users" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %><%= members.length >= CONSTANTS.MEMBER_LIST_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header">      <!-- "N+" when the 100-member cap really dropped rows — the list is a capped
+           subset. The flag is exact (one row beyond the cap is fetched as a probe). -->
+      <h3><i class="fas fa-users" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team (<%= members.length %><%= (typeof membersTruncated !== 'undefined' && membersTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% if (isPrivileged(user)) { %>
         <form action="/projects/<%= project.id %>/members" method="POST" class="flex gap-2 mb-2">

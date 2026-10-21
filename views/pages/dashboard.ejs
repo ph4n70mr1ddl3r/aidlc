@@ -1,6 +1,13 @@
 <%- include('../partials/header') %>
 <%- include('../partials/nav') %>
 
+<% // The "(N+)" markers on the capped cards below are driven by the EXACT
+   // `*Truncated` flags the route computes (the queries fetch one row beyond
+   // the cap as a probe, so a list holding exactly as many rows as the cap is
+   // complete and is NOT marked). The old `length >= cap` heuristic claimed a
+   // truncation that did not exist. The warranty/license alert lists further
+   // down use the equivalent uncapped count already in the render context. %>
+
 <!-- Stats Cards -->
 <div class="stats-grid">
   <div class="stat-card">
@@ -64,14 +71,20 @@
 
 <% if (expiringWarrantiesCount > 0) { %>
   <div class="alert-card">
-    <h4><i class="fas fa-shield-alt" aria-hidden="true"></i> Warranty Expiring Soon</h4>
+    <% // The count includes ALREADY-EXPIRED warranties (the query uses
+       // `warranty_expiry <= date('now', '+30 days')`), so the heading must
+       // not say "Expiring Soon" — an expired warranty is the more urgent
+       // case. Mirrors the list card's "Warranty Ending or Expired" heading
+       // and the body copy below. %>
+    <h4><i class="fas fa-shield-alt" aria-hidden="true"></i> Warranty Ending or Expired</h4>
     <p><%= expiringWarrantiesCount %> asset(s) with a warranty expired or expiring within 30 days</p>
   </div>
 <% } %>
 
 <% if (licenseAlertsCount > 0) { %>
   <div class="alert-card">
-    <h4><i class="fas fa-key" aria-hidden="true"></i> License Expiring Soon</h4>
+    <% // Same expired-inclusive semantics as the warranty alert above. %>
+    <h4><i class="fas fa-key" aria-hidden="true"></i> Licenses Ending or Expired</h4>
     <p><%= licenseAlertsCount %> software license(s) expired or expiring within 30 days</p>
   </div>
 <% } %>
@@ -80,7 +93,7 @@
   <!-- My Tickets -->
   <div class="card">
     <div class="card-header">
-      <h3><i class="fas fa-user-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets (<%= myTickets.length %><%= myTickets.length >= CONSTANTS.DASHBOARD_LIMITS.myTickets ? '+' : '' %>)</h3>
+      <h3><i class="fas fa-user-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>My Active Tickets (<%= myTickets.length %><%= (typeof myTicketsTruncated !== 'undefined' && myTicketsTruncated) ? '+' : '' %>)</h3>
       <a href="/tickets?assigned_to=<%= user.id %>" class="btn btn-sm btn-outline">View All</a>
     </div>
     <div class="card-body" style="padding:0;">
@@ -115,7 +128,7 @@
   <div>
     <!-- Staff Workload -->
     <div class="card mb-2">
-      <div class="card-header"><h3><i class="fas fa-chart-bar" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team Workload (<%= staffWorkload.length %><%= staffWorkload.length >= CONSTANTS.DASHBOARD_LIMITS.staffWorkload ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-chart-bar" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Team Workload (<%= staffWorkload.length %><%= (typeof staffWorkloadTruncated !== 'undefined' && staffWorkloadTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% if (Array.isArray(staffWorkload)) { staffWorkload.forEach(s => { %>
           <div style="margin-bottom:12px;">
@@ -136,7 +149,7 @@
     <!-- Upcoming Changes -->
     <% if (Array.isArray(upcomingChanges) && upcomingChanges.length > 0) { %>
     <div class="card">
-      <div class="card-header"><h3><i class="fas fa-calendar" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes (<%= upcomingChanges.length %><%= upcomingChanges.length >= CONSTANTS.DASHBOARD_LIMITS.upcomingChanges ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-calendar" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Upcoming Changes (<%= upcomingChanges.length %><%= (typeof upcomingChangesTruncated !== 'undefined' && upcomingChangesTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% upcomingChanges.forEach(c => { %>
           <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">
@@ -154,7 +167,7 @@
      matching the "active" definition used by every other widget on this page. -->
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets (<%= recentTickets.length %><%= recentTickets.length >= CONSTANTS.DASHBOARD_LIMITS.recentTickets ? '+' : '' %>)</h3>
+    <h3><i class="fas fa-clock" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Recently Active Tickets (<%= recentTickets.length %><%= (typeof recentTicketsTruncated !== 'undefined' && recentTicketsTruncated) ? '+' : '' %>)</h3>
     <a href="/tickets" class="btn btn-sm btn-outline">View All</a>
   </div>
   <div class="card-body" style="padding:0;">

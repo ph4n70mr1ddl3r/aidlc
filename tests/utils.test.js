@@ -2098,3 +2098,44 @@ describe('ensureAssigneeInList happy path', () => {
     expect(db.prepare).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * capList — the shared helper that turns a capped query result (fetched with
+ * one row beyond the cap as a truncation probe) into the visible rows plus an
+ * EXACT truncation flag.
+ */
+describe('capList', () => {
+  it('reports no truncation when the query returned exactly cap rows', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({ id: i + 1 }));
+    const result = utils.capList(rows, 10);
+    expect(result.rows).toHaveLength(10);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('reports truncation and drops the probe row when the query returned more than cap rows', () => {
+    const rows = Array.from({ length: 11 }, (_, i) => ({ id: i + 1 }));
+    const result = utils.capList(rows, 10);
+    expect(result.rows).toHaveLength(10);
+    expect(result.rows[9].id).toBe(10);
+    expect(result.truncated).toBe(true);
+  });
+
+  it('leaves a short list untouched', () => {
+    const rows = [{ id: 1 }, { id: 2 }];
+    const result = utils.capList(rows, 10);
+    expect(result.rows).toEqual(rows);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('tolerates a non-array input', () => {
+    expect(utils.capList(null, 10)).toEqual({ rows: [], truncated: false });
+    expect(utils.capList(undefined, 10)).toEqual({ rows: [], truncated: false });
+  });
+
+  it('does not truncate an invalid cap', () => {
+    const rows = [{ id: 1 }];
+    expect(utils.capList(rows, 0)).toEqual({ rows, truncated: false });
+    expect(utils.capList(rows, -1)).toEqual({ rows, truncated: false });
+    expect(utils.capList(rows, 1.5)).toEqual({ rows, truncated: false });
+  });
+});

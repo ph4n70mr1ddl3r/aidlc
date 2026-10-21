@@ -1019,6 +1019,35 @@ function isExpiringSoon(dateStr, withinDays = 30) {
 }
 
 /**
+ * Apply a list cap to a query result and report whether the list was
+ * truncated.
+ *
+ * The query that feeds a capped list MUST fetch one row beyond the cap
+ * (LIMIT cap + 1): the extra row is the truncation probe. Without it the
+ * route cannot distinguish "the list holds exactly `cap` rows and is
+ * complete" from "the list holds `cap` rows and more exist" — a LIMIT cap
+ * alone makes both cases look identical, which is why the templates used to
+ * guess with a `length >= cap` heuristic and claimed a truncation that did
+ * not exist.
+ *
+ * With the probe the answer is exact: the list is truncated iff the query
+ * returned MORE than `cap` rows. This is the same rule the report pages
+ * already apply with their uncapped counts ("Showing the top N of M") and
+ * the same rule the dashboard's warranty/license alert lists apply.
+ *
+ * @param {Array} rows - the rows returned by the capped query (cap + 1 at most)
+ * @param {number} cap - the maximum number of rows to display
+ * @returns {{ rows: Array, truncated: boolean }}
+ */
+function capList(rows, cap) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!Number.isInteger(cap) || cap <= 0) {
+    return { rows: list, truncated: false };
+  }
+  return { rows: list.length > cap ? list.slice(0, cap) : list, truncated: list.length > cap };
+}
+
+/**
  * Touch a key in a Map for LRU eviction.
  * Deletes and re-inserts the entry so it moves to the end of the
  * Map's insertion-order iteration. If the cache has reached its
@@ -1259,6 +1288,7 @@ module.exports = {
   createAuditLogPruner,
   ensureAssigneeInList, invalidateActiveStaffCache,
   asyncHandler, countQuery, selectQuery,
+  capList,
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
   isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,

@@ -12,7 +12,7 @@
 <div class="stats-grid">
   <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-box" aria-hidden="true"></i></div><div><div class="stat-value"><%= byCategory.reduce((a,b) => a + b.count, 0) %></div><div class="stat-label">Active Assets</div></div></div>
   <div class="stat-card"><div class="stat-icon green"><i class="fas fa-dollar-sign" aria-hidden="true"></i></div><div><div class="stat-value"><%= totalValue.total ? '$' + Number(totalValue.total).toLocaleString() : '-' %></div><div class="stat-label">Total Value</div></div></div>
-  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt" aria-hidden="true"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Ending (90d)</div></div></div>
+  <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-shield-alt" aria-hidden="true"></i></div><div><div class="stat-value"><%= warrantyCount %></div><div class="stat-label">Warranty Ending or Expired (90d)</div></div></div>
 </div>
 
 <div class="grid-2">

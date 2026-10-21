@@ -249,7 +249,11 @@ describe('code review 372 — dashboard alert lists', () => {
     // The licenses module is admin/manager-only, so a staff member must not
     // see the software name — but the bare count is still reported.
     expect(res.body).not.toContain('CR372 Secret Suite');
-    expect(res.body).not.toContain('Licenses Ending or Expired');
+    // The privileged-only license LIST card must not be rendered either. The
+    // alert card above it IS rendered for everyone (it carries only the bare
+    // count), so the list is probed by its parenthesized row count — the
+    // heading text alone is shared by both cards (pass 374).
+    expect(res.body).not.toContain('Licenses Ending or Expired (');
     expect(res.body).toContain('software license(s) expired or expiring within 30 days');
   });
 

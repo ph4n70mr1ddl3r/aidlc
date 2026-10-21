@@ -28,7 +28,10 @@ describe('code review 163: consistency/completeness/correctness', () => {
   describe('staff.js _staffUserStmt includes department/phone (partial-update preserve)', () => {
     it('selects department and phone for transaction-consistent resolution', () => {
       const src = readSrc('routes/staff.js');
-      expect(src).toContain('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
+      // The update transaction resolves the ABSENT-required fields (email,
+      // first name, last name) from the re-read row, so the statement must
+      // carry them too — it selects every column the update resolves.
+      expect(src).toContain('SELECT id, role, username, is_active, department, phone, email, first_name, last_name FROM users WHERE id = ?');
     });
   });
 

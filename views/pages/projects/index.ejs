@@ -78,7 +78,7 @@
   </div>
   <% }) %>
   <% if (projects.length === 0) { %>
-    <div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-project-diagram" aria-hidden="true"></i><h3>No projects found</h3><p>Create your first project or adjust filters</p></div>
+    <div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-project-diagram" aria-hidden="true"></i><h3>No projects found</h3><p><%= isPrivileged(user) ? 'Create your first project or adjust filters' : 'Adjust filters or clear them to see all projects' %></p></div>
   <% } %>
 </div>
 

@@ -378,6 +378,10 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   }
 
   const software_name = trim(safeQueryValue(req.body.software_name));
+  // Raw body value (NOT trimmed) so an ABSENT software name can be told apart
+  // from an explicit empty one — the same raw-vs-processed convention the
+  // optional fields below use.
+  const rawSoftwareName = req.body.software_name;
   // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
   // field (partial submission — preserve stored value) from an explicit empty
   // string (clear the field). trim() collapses undefined to '', so the raw
@@ -407,11 +411,23 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const cost = safeQueryValue(req.body.cost);
   const notes = trim(safeQueryValue(req.body.notes));
 
-  if (!software_name) {
+  // Absent-vs-present marker for the software name. An ABSENT name in a
+  // partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract every optional field
+  // on this route already follows. The name was the sole exception: a partial
+  // PUT that only changed the seats was rejected outright with "Software name
+  // is required" even though the stored name was perfectly valid. A PRESENT
+  // but empty name is still rejected — the column is NOT NULL.
+  const softwareNameAbsent = rawSoftwareName === undefined || rawSoftwareName === null;
+  if (rawSoftwareName !== undefined && rawSoftwareName !== null && rawSoftwareName !== '' && typeof rawSoftwareName !== 'string') {
+    req.flash('error', 'Invalid Software Name');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (!softwareNameAbsent && !software_name) {
     req.flash('error', 'Software name is required');
     return res.redirect(`/licenses/${id}/edit`);
   }
-  if (software_name.length > MAX_MEDIUM_STR) {
+  if (!softwareNameAbsent && software_name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/licenses/${id}/edit`);
   }
@@ -479,6 +495,9 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     // as their key and wipe it.
     // Verify license exists and update in a single transaction to avoid a TOCTOU
     // race where the license is deleted between the existence check and the UPDATE.
+    // resolvedSoftwareName is hoisted out of the transaction so the audit entry
+    // names the EFFECTIVE (resolved) software even when the request omitted it.
+    let resolvedSoftwareName = software_name;
     const updateLicense = db.transaction(() => {
       const existing = _showLicenseStmt.get(id);
       if (!existing) {
@@ -537,7 +556,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (resolvedPurchase && resolvedExpiry && resolvedExpiry < resolvedPurchase) {
         throw Object.assign(new Error('DATE_RANGE_INVALID'), { flash: 'Expiry date must be on or after purchase date' });
       }
-      const updateResult = _licenseUpdateStmt.run(software_name.substring(0, MAX_MEDIUM_STR), resolvedVendor, resolvedKey, resolvedLicenseType,
+      // The software name follows the same absent-vs-present rule as the
+      // optional fields on this route: an absent field preserves the CURRENT
+      // stored name (read inside the transaction, so a concurrent edit cannot
+      // be clobbered), a present field replaces it. A present-but-empty name
+      // was rejected above.
+      const effectiveSoftwareName = softwareNameAbsent
+        ? existing.software_name
+        : software_name.substring(0, MAX_MEDIUM_STR);
+      resolvedSoftwareName = effectiveSoftwareName;
+      const updateResult = _licenseUpdateStmt.run(effectiveSoftwareName, resolvedVendor, resolvedKey, resolvedLicenseType,
         resolved.seats, resolved.used,
         resolvedPurchase, resolvedExpiry, resolvedCost, resolvedNotes, id);
       if (updateResult.changes === 0) {
@@ -546,7 +574,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     });
     updateLicense();
 
-    req.audit('update', 'license', id, `Updated license for ${software_name}`);
+    req.audit('update', 'license', id, `Updated license for ${resolvedSoftwareName}`);
     req.flash('success', 'License updated.');
     invalidateDashboardCache();
     return res.redirect(`/licenses/${id}`);

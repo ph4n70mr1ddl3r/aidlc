@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { authKeyGenerator, logError, prefersJson, parseEnvInt, isPrivileged } = require('../utils');
+const { authKeyGenerator, logError, prefersJson, parseEnvInt, isPrivileged, capList } = require('../utils');
 const { DASHBOARD_LIMITS } = require('../constants');
 const rateLimit = require('express-rate-limit');
 
@@ -51,6 +51,12 @@ router.use(requireAuth, auditMiddleware, dashboardLimiter); // Added dashboardLi
 // the caps in one place instead of hunting through raw SQL literals. The
 // values are shared with src/constants.js (DASHBOARD_LIMITS) so the template
 // can disclose the truncation with an "(N+)" marker — the two can never drift.
+//
+// Every capped query fetches ONE ROW BEYOND its cap (the "+ 1" below). The
+// extra row is the truncation probe: without it a list that happens to hold
+// exactly `cap` rows is indistinguishable from a list that was cut off, and
+// the template's "(N+)" marker would claim a truncation that does not exist.
+// capList() turns the probe into an exact `truncated` flag.
 const _DASH_RECENT_TICKETS_LIMIT = DASHBOARD_LIMITS.recentTickets;
 // The "My Active Tickets" widget has its own cap: it is a per-viewer query
 // and the template compares the rendered row count against
@@ -80,11 +86,16 @@ const EMPTY_DEFAULTS = {
   projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
   staffCount: { total: 0 },
   recentTickets: [],
+  recentTicketsTruncated: false,
   expiringWarranties: [],
   expiringWarrantiesCount: 0,
   upcomingChanges: [],
+  upcomingChangesTruncated: false,
   ticketsByCategory: [],
   staffWorkload: [],
+  staffWorkloadTruncated: false,
+  myTickets: [],
+  myTicketsTruncated: false,
   licenseAlerts: [],
   licenseAlertsCount: 0
 };
@@ -136,7 +147,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.status NOT IN ('closed', 'resolved')
-    ORDER BY t.updated_at DESC, t.id DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT}
+    ORDER BY t.updated_at DESC, t.id DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT + 1}
   `),
   // Include already-expired warranties — they are more urgent than expiring-soon.
   // Must use `<=` instead of `BETWEEN` because BETWEEN excludes dates before today.
@@ -171,13 +182,13 @@ const stmts = {
   upcomingChangesAll: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
-    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
+    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT + 1}
   `),
   upcomingChangesOwned: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
     WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
       AND assigned_to = ?
-    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT}
+    ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT + 1}
   `),
   ticketsByCategory: db.prepare(`
     SELECT category, COUNT(*) as count FROM tickets
@@ -192,7 +203,7 @@ const stmts = {
     WHERE u.is_active = 1
     GROUP BY u.id
     ORDER BY open_tickets DESC, u.id ASC
-    LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT}
+    LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT + 1}
   `),
   // Only select the columns the dashboard template renders (expiry_date for
   // ordering/display). Avoid SELECT * so the sensitive license_key column is
@@ -229,7 +240,7 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.assigned_to = ? AND t.status IN ('open', 'in_progress', 'waiting')
-    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC, t.id ASC LIMIT ${_DASH_MY_TICKETS_LIMIT}
+    ORDER BY CASE t.priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, t.created_at ASC, t.id ASC LIMIT ${_DASH_MY_TICKETS_LIMIT + 1}
   `)
 };
 
@@ -304,20 +315,36 @@ function getDashboardData(user) {
   // Deep-merge defaults to avoid shared nested object references between cache
   // and rendered data.  Object.assign only copies one level deep, so mutating a
   // nested object in a template (e.g. ticketStats.open) would corrupt the cache.
+  //
+  // The capped lists are sliced to their cap here and carry an EXACT
+  // `truncated` flag, computed from the one-row-beyond-the-cap probe the
+  // queries fetch (see capList). The template's "(N+)" marker therefore
+  // appears only when rows were really dropped — a list that happens to hold
+  // exactly as many rows as the cap is complete and is not marked. (The
+  // warranty/license alert lists below use the equivalent uncapped count
+  // instead, which is already in the render context.)
+  const recentTicketsCap = capList(shared.recentTickets || [], DASHBOARD_LIMITS.recentTickets);
+  const staffWorkloadCap = capList(shared.staffWorkload || [], DASHBOARD_LIMITS.staffWorkload);
+  const myTicketsCap = capList(myTickets, DASHBOARD_LIMITS.myTickets);
+  const upcomingChangesCap = capList(upcomingChanges, DASHBOARD_LIMITS.upcomingChanges);
   const result = {
     ticketStats: { ...EMPTY_DEFAULTS.ticketStats, ...(shared.ticketStats || {}) },
     assetStats: { ...EMPTY_DEFAULTS.assetStats, ...(shared.assetStats || {}) },
     projectStats: { ...EMPTY_DEFAULTS.projectStats, ...(shared.projectStats || {}) },
     staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
-    recentTickets: (shared.recentTickets || EMPTY_DEFAULTS.recentTickets).map(r => ({ ...r })),
+    recentTickets: recentTicketsCap.rows.map(r => ({ ...r })),
+    recentTicketsTruncated: recentTicketsCap.truncated,
     expiringWarranties: (shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties).map(r => ({ ...r })),
     expiringWarrantiesCount: shared.expiringWarrantiesCount ?? EMPTY_DEFAULTS.expiringWarrantiesCount,
-    upcomingChanges: upcomingChanges.map(r => ({ ...r })),
+    upcomingChanges: upcomingChangesCap.rows.map(r => ({ ...r })),
+    upcomingChangesTruncated: upcomingChangesCap.truncated,
     ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
-    staffWorkload: (shared.staffWorkload || EMPTY_DEFAULTS.staffWorkload).map(r => ({ ...r })),
+    staffWorkload: staffWorkloadCap.rows.map(r => ({ ...r })),
+    staffWorkloadTruncated: staffWorkloadCap.truncated,
     licenseAlerts: licenseAlerts.map(r => ({ ...r })),
     licenseAlertsCount: shared.licenseAlertsCount ?? EMPTY_DEFAULTS.licenseAlertsCount,
-    myTickets: myTickets.map(r => ({ ...r }))
+    myTickets: myTicketsCap.rows.map(r => ({ ...r })),
+    myTicketsTruncated: myTicketsCap.truncated
   };
   return result;
 }

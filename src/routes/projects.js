@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, authKeyGenerator, logError, capList } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -39,6 +39,9 @@ const _showProjectStmt = db.prepare(`
 // Cap the task list on the show page to bound memory/render cost on large
 // projects — every other list/sidebar query in the app is capped (e.g.
 // tickets _assignedTicketsStmt LIMIT 10, assets _assetDropdownLimit).
+// The query fetches ONE ROW BEYOND the cap: the extra row is the truncation
+// probe, so the "(N+)" marker in the view is exact (a list holding exactly
+// as many rows as the cap is complete and is not marked).
 const _showTasksStmt = db.prepare(`
     SELECT pt.id, pt.title, pt.status, pt.priority, pt.due_date,
       u.first_name || ' ' || u.last_name as assigned_name
@@ -46,7 +49,7 @@ const _showTasksStmt = db.prepare(`
     LEFT JOIN users u ON pt.assigned_to = u.id
     WHERE pt.project_id = ?
     ORDER BY CASE pt.status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 WHEN 'review' THEN 3 WHEN 'done' THEN 4 END, CASE pt.priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, pt.due_date ASC, pt.id ASC
-    LIMIT ${TASK_LIST_CAP}
+    LIMIT ${TASK_LIST_CAP + 1}
   `);
 const _showMembersStmt = db.prepare(`
     SELECT pm.id, pm.role, u.first_name || ' ' || u.last_name as member_name
@@ -54,7 +57,7 @@ const _showMembersStmt = db.prepare(`
     JOIN users u ON pm.user_id = u.id
     WHERE pm.project_id = ?
     ORDER BY pm.id ASC
-    LIMIT ${MEMBER_LIST_CAP}
+    LIMIT ${MEMBER_LIST_CAP + 1}
   `);
 // Loads the full set of columns the update transaction preserves on partial
 // submissions (budget/spent plus status/priority/dates/owner/description).
@@ -359,13 +362,21 @@ router.get('/:id', (req, res) => {
 
   req.audit('read', 'project', id, `Viewed project: ${project.name}`);
 
-  const tasks = _showTasksStmt.all(id);
+  const tasksCap = capList(_showTasksStmt.all(id), TASK_LIST_CAP);
+  const tasks = tasksCap.rows;
 
-  const members = _showMembersStmt.all(id);
+  const membersCap = capList(_showMembersStmt.all(id), MEMBER_LIST_CAP);
+  const members = membersCap.rows;
 
   const staff = getActiveStaff(db);
 
-  res.render('pages/projects/show', { title: project.name, project, tasks, members, staff });
+  res.render('pages/projects/show', {
+    title: project.name, project, tasks, members, staff,
+    // Exact truncation flags for the two capped lists (computed from the
+    // one-row-beyond-the-cap probe the queries fetch).
+    tasksTruncated: tasksCap.truncated,
+    membersTruncated: membersCap.truncated
+  });
 });
 
 // Edit project form
@@ -918,12 +929,28 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // HPP arrays and present-but-non-string values. Mirrors the project-update
   // route above and the convention used by changes.js / licenses.js / vendors.js.
   const rawDescription = req.body.description;
+  // Raw body value (NOT trimmed) so an ABSENT title can be told apart from an
+  // explicit empty one — the task title is absent-preserving.
+  const rawTitle = req.body.title;
 
-  if (!title) {
+  // Absent-vs-present marker for the task title. An ABSENT title in a partial
+  // API submission preserves the stored value (resolved inside the transaction
+  // from the re-read row) — the same contract every other field on this route
+  // already follows (status, priority, assignee, due date, description). The
+  // title was the sole exception: a partial PUT that only changed the
+  // assignee was rejected outright with "Task title is required" even though
+  // the stored title was perfectly valid. A PRESENT but empty title is still
+  // rejected — the column is NOT NULL.
+  const titleAbsent = rawTitle === undefined || rawTitle === null;
+  if (rawTitle !== undefined && rawTitle !== null && rawTitle !== '' && typeof rawTitle !== 'string') {
+    req.flash('error', 'Invalid Task Title');
+    return res.redirect(`/projects/${projectId}`);
+  }
+  if (!titleAbsent && !title) {
     req.flash('error', 'Task title is required');
     return res.redirect(`/projects/${projectId}`);
   }
-  if (title.length > MAX_MEDIUM_STR) {
+  if (!titleAbsent && title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Task title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
@@ -973,6 +1000,9 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   try {
     // Validate assignee inside the transaction so a concurrent deactivation
     // between the check and the UPDATE is not possible.
+    // resolvedTaskTitle is hoisted out of the transaction so the audit entry
+    // names the EFFECTIVE (resolved) task even when the request omitted it.
+    let resolvedTaskTitle = title;
     const updateTask = db.transaction(() => {
       const existingTask = _taskExistsStmt.get(taskId, projectId);
       if (!existingTask) {
@@ -1030,7 +1060,13 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       // RESOLVED status so a partial edit cannot clobber the completion
       // timestamp of a stored 'done' task.
       const effectiveStatus = status || existingTask.status;
-      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedTaskDescription, effectiveStatus, effectivePriority, resolvedTaskAssignee, effectiveDueDate, effectiveStatus === 'done' ? 1 : 0, taskId, projectId];
+      // The title follows the same absent-vs-present rule as every other field
+      // on this route: an absent field preserves the CURRENT stored title
+      // (read inside the transaction, so a concurrent rename cannot be
+      // clobbered), a present field replaces it.
+      const effectiveTitle = titleAbsent ? existingTask.title : title.substring(0, MAX_MEDIUM_STR);
+      resolvedTaskTitle = effectiveTitle;
+      const params = [effectiveTitle, resolvedTaskDescription, effectiveStatus, effectivePriority, resolvedTaskAssignee, effectiveDueDate, effectiveStatus === 'done' ? 1 : 0, taskId, projectId];
       const result = _taskFullUpdateStmt.run(...params);
       if (result.changes === 0) {
         throw new Error('NOT_FOUND');
@@ -1046,7 +1082,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       logError(`Progress recalculation error for project #${projectId}:`, err);
     }
 
-    req.audit('update', 'project_task', taskId, `Updated task "${title}"`);
+    req.audit('update', 'project_task', taskId, `Updated task "${resolvedTaskTitle}"`);
     req.flash('success', 'Task updated.');
     invalidateDashboardCache();
     return res.redirect(`/projects/${projectId}`);

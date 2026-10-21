@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS, ASSIGNED_ITEMS_CAP, MEMBER_LIST_CAP } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -12,12 +12,18 @@ const router = require('express').Router();
 router.use(requireAuth, auditMiddleware);
 
 // Cached prepared statements for show/edit routes (static SQL).
+//
+// The four sidebar queries below are capped, and each fetches ONE ROW BEYOND
+// its cap: the extra row is the truncation probe, so the "(N+)" marker in the
+// view is exact (a list holding exactly as many rows as the cap is complete
+// and is not marked). The old `length >= cap` heuristic claimed a truncation
+// that did not exist.
 const _showStaffStmt = db.prepare('SELECT id, username, email, first_name, last_name, role, department, phone, avatar, is_active, last_login, password_changed_at, created_at, updated_at FROM users WHERE id = ?');
 const _assignedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, created_at
     FROM tickets WHERE assigned_to = ?
     ORDER BY CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'waiting' THEN 3 ELSE 4 END, created_at DESC, id DESC
-    LIMIT ${ASSIGNED_ITEMS_CAP}
+    LIMIT ${ASSIGNED_ITEMS_CAP + 1}
   `);
 const _assignedTasksStmt = db.prepare(`
     SELECT pt.id, pt.title, pt.due_date, p.name as project_name, p.id as project_id, p.owner_id
@@ -25,7 +31,7 @@ const _assignedTasksStmt = db.prepare(`
     JOIN projects p ON pt.project_id = p.id
     WHERE pt.assigned_to = ? AND pt.status != 'done'
     ORDER BY pt.due_date ASC, pt.id ASC
-    LIMIT ${ASSIGNED_ITEMS_CAP}
+    LIMIT ${ASSIGNED_ITEMS_CAP + 1}
   `);
 // Cap the result set like every sibling sidebar query in this module — a user
 // who is a member of many projects must not render an unbounded list.
@@ -33,7 +39,7 @@ const _assignedAssetsStmt = db.prepare(`
     SELECT id, asset_tag, name, category, status
     FROM assets WHERE assigned_to = ?
     ORDER BY name ASC, id ASC
-    LIMIT ${ASSIGNED_ITEMS_CAP}
+    LIMIT ${ASSIGNED_ITEMS_CAP + 1}
   `);
 // Cap the result set like every sibling sidebar query in this module — a user
 // who is a member of many projects must not render an unbounded list.
@@ -43,9 +49,9 @@ const _projectMembershipsStmt = db.prepare(`
     JOIN projects p ON pm.project_id = p.id
     WHERE pm.user_id = ?
     ORDER BY p.updated_at DESC, p.id DESC
-    LIMIT ${MEMBER_LIST_CAP}
+    LIMIT ${MEMBER_LIST_CAP + 1}
   `);
-const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?');
+const _staffUserStmt = db.prepare('SELECT id, role, username, is_active, department, phone, email, first_name, last_name FROM users WHERE id = ?');
 const _reactivateStmt = db.prepare('UPDATE users SET is_active = 1, updated_at = datetime(\'now\') WHERE id = ? AND is_active = 0');
 // Password-reset marker. The value is compared against the copy stored in the
 // target user's session (middleware/auth.js) to invalidate sessions issued
@@ -378,21 +384,28 @@ router.get('/:id', (req, res) => {
 
   req.audit('read', 'user', id, `Viewed staff profile: ${staffUser.first_name} ${staffUser.last_name}`);
 
-  const assignedTickets = _assignedTicketsStmt.all(id);
+  const assignedTicketsCap = capList(_assignedTicketsStmt.all(id), ASSIGNED_ITEMS_CAP);
+  const assignedTickets = assignedTicketsCap.rows;
 
-  const assignedTasks = _assignedTasksStmt.all(id);
+  const assignedTasksCap = capList(_assignedTasksStmt.all(id), ASSIGNED_ITEMS_CAP);
+  const assignedTasks = assignedTasksCap.rows;
 
-  const assignedAssets = _assignedAssetsStmt.all(id);
+  const assignedAssetsCap = capList(_assignedAssetsStmt.all(id), ASSIGNED_ITEMS_CAP);
+  const assignedAssets = assignedAssetsCap.rows;
 
-  const projectMemberships = _projectMembershipsStmt.all(id);
+  const projectMembershipsCap = capList(_projectMembershipsStmt.all(id), MEMBER_LIST_CAP);
+  const projectMemberships = projectMembershipsCap.rows;
 
   res.render('pages/staff/show', {
     title: `${staffUser.first_name} ${staffUser.last_name}`,
     staffUser,
-    assignedTickets,
-    assignedTasks,
-    assignedAssets,
-    projectMemberships
+    assignedTickets, assignedTasks, assignedAssets, projectMemberships,
+    // Exact truncation flags for the four capped sidebar lists (computed from
+    // the one-row-beyond-the-cap probe the queries fetch).
+    assignedTicketsTruncated: assignedTicketsCap.truncated,
+    assignedTasksTruncated: assignedTasksCap.truncated,
+    assignedAssetsTruncated: assignedAssetsCap.truncated,
+    projectMembershipsTruncated: projectMembershipsCap.truncated
   });
 });
 
@@ -438,6 +451,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
+  // Raw body values (NOT trimmed) so an ABSENT field can be told apart from
+  // an explicit empty one. The three required columns are absent-preserving
+  // (resolved inside the transaction from the re-read row), so the raw values
+  // are needed for the presence test. Mirrors the raw-vs-processed split in
+  // assets.js and vendors.js.
+  const rawEmail = req.body.email;
+  const rawFirstName = req.body.first_name;
+  const rawLastName = req.body.last_name;
   const rawDepartment = req.body.department;
   const department = trim(safeQueryValue(rawDepartment));
   // Fail closed on a present-but-blank department (whitespace only). The
@@ -474,23 +495,45 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (!email || !first_name || !last_name) {
+  // Absent-vs-present markers for the three required columns. An ABSENT field
+  // in a partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract the optional fields
+  // on this route (department, phone, role) already follow. The email, first
+  // name and last name were the sole exception: a partial PUT that only
+  // changed the department was rejected outright with "Email, first name, and
+  // last name are required" even though the stored values were perfectly
+  // valid. A PRESENT but empty value is still rejected — all three columns are
+  // NOT NULL and an empty value has no valid meaning.
+  const emailAbsent = rawEmail === undefined || rawEmail === null;
+  const firstNameAbsent = rawFirstName === undefined || rawFirstName === null;
+  const lastNameAbsent = rawLastName === undefined || rawLastName === null;
+  // Fail closed on present-but-non-string values (e.g. a JSON number): trim()
+  // coerces them to '', which would turn a valid partial update into a
+  // spurious "required" error.
+  for (const field of ['email', 'first_name', 'last_name']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/staff/${id}/edit`);
+    }
+  }
+  if ((!emailAbsent && !email) || (!firstNameAbsent && !first_name) || (!lastNameAbsent && !last_name)) {
     req.flash('error', 'Email, first name, and last name are required');
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (email.length > MAX_EMAIL) {
+  if (!emailAbsent && email.length > MAX_EMAIL) {
     req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (!isValidEmail(email)) {
+  if (!emailAbsent && !isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (first_name.length > MAX_SHORT_STR) {
+  if (!firstNameAbsent && first_name.length > MAX_SHORT_STR) {
     req.flash('error', `First name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
-  if (last_name.length > MAX_SHORT_STR) {
+  if (!lastNameAbsent && last_name.length > MAX_SHORT_STR) {
     req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
     return res.redirect(`/staff/${id}/edit`);
   }
@@ -572,7 +615,11 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // Capture the deactivation state from inside the transaction (recheck) rather
   // than the stale outer fetch, so the informational flash reflects the actual
   // row state at update time (consistent with the role recheck below).
+  // resolvedStaffName is hoisted out of the transaction so the audit entry
+  // names the EFFECTIVE (resolved) staff member even when the request
+  // omitted the name fields.
   let wasInactive = false;
+  let resolvedStaffName = `${first_name} ${last_name}`;
   try {
     // Verify the user still exists, recheck admin protection, and update in a
     // single transaction to avoid TOCTOU races: the user could be deleted or
@@ -624,10 +671,18 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // the transaction, so a concurrent role change is not clobbered), a
       // present role replaces it.
       const resolvedRole = roleAbsent ? recheck.role : safeRole;
+      // The three required columns follow the same rule: an absent field
+      // preserves the CURRENT stored value (read inside the transaction, so a
+      // concurrent edit cannot be clobbered), a present field replaces it. A
+      // present-but-empty value was already rejected above.
+      const resolvedEmail = emailAbsent ? recheck.email : email.substring(0, MAX_EMAIL);
+      const resolvedFirstName = firstNameAbsent ? recheck.first_name : first_name.substring(0, MAX_SHORT_STR);
+      const resolvedLastName = lastNameAbsent ? recheck.last_name : last_name.substring(0, MAX_SHORT_STR);
+      resolvedStaffName = `${resolvedFirstName} ${resolvedLastName}`;
       const updateResult = _staffUpdateStmt.run(
-        email.substring(0, MAX_EMAIL),
-        first_name.substring(0, MAX_SHORT_STR),
-        last_name.substring(0, MAX_SHORT_STR),
+        resolvedEmail,
+        resolvedFirstName,
+        resolvedLastName,
         resolvedRole,
         resolvedDepartment,
         resolvedPhone,
@@ -648,7 +703,7 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       req.flash('info', 'This account is deactivated. Editing will not reactivate it — use the Reactivate button on the show page.');
     }
 
-    req.audit('update', 'user', id, `Updated staff ${first_name} ${last_name}`);
+    req.audit('update', 'user', id, `Updated staff ${resolvedStaffName}`);
     invalidateActiveStaffCache();
     invalidateDashboardCache();
 

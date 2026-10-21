@@ -260,7 +260,7 @@ describe('staff update — whitespace-only department fails closed (pass 368)', 
 
   it('still lets an explicit empty department clear the stored value', () => {
     const h = lastHandlerFor(staffRouter, 'put', '/:id');
-    db.__stmt('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?')
+    db.__stmt('SELECT id, role, username, is_active, department, phone, email, first_name, last_name FROM users WHERE id = ?')
       .get.mockReturnValue({ id: 7, role: 'staff', username: 'staff7', is_active: 1, department: 'Engineering', phone: null });
 
     const { flashCalls } = runHandler(h, {
@@ -304,7 +304,7 @@ describe('staff deactivation flash names every unassigned record type (pass 368)
 
   it('mentions projects alongside tickets/tasks/changes', () => {
     const h = lastHandlerFor(staffRouter, 'delete', '/:id');
-    db.__stmt('SELECT id, role, username, is_active, department, phone FROM users WHERE id = ?')
+    db.__stmt('SELECT id, role, username, is_active, department, phone, email, first_name, last_name FROM users WHERE id = ?')
       .get.mockReturnValue({ id: 7, role: 'staff', username: 'staff7', is_active: 1, department: null, phone: null });
 
     const { flashCalls } = runHandler(h, { method: 'DELETE', params: { id: '7' }, sessionUser: ADMIN });

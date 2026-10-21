@@ -13873,3 +13873,150 @@ silently-discarded fields.
 - `npm run test:coverage` — global thresholds pass (statements 72.41%,
   branches 70.37%, functions 84.01%, lines 72.41%).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-21 (374th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+six defect classes. The most consequential was a **contract violation the
+README itself documents**: the app-wide partial-update (PUT) rule — "a field
+absent from the request preserves the stored value" — was implemented for
+every *optional* field of every PUT route, but six routes still rejected a
+partial submission outright because of a *required* column. The rest were a
+twelve-site inconsistency in the truncation disclosure, three audit trails
+that named the wrong entity, and two labels that asserted facts the record
+does not carry.
+
+1. **Six PUT routes still rejected partial updates over their required
+   columns** (MEDIUM, consistency — fixed). `PUT /tickets/:id` demanded a
+   title, `PUT /assets/:id` a tag/name/category, `PUT /vendors/:id` a name,
+   `PUT /licenses/:id` a software name, `PUT /staff/:id` an
+   email/first/last name and `PUT /projects/:p/tasks/:t` a task title — while
+   every *other* field on the same routes (and every required column of the
+   project, change, knowledge and profile routes) implemented the documented
+   "absent ⇒ preserve" rule. A client that submitted a single field had to
+   resend the whole entity, and the ticket route was internally inconsistent:
+   its sibling `requester_name` was already absent-preserving. The README
+   claimed the contract was app-wide. Fix: every required column is now
+   resolved from the transaction-consistent row when the field is absent, and
+   a *present but empty* value is still rejected (the columns are `NOT NULL`,
+   so an empty value has no valid meaning) — nothing is written on rejection.
+
+2. **Twelve "(N+)" markers claimed truncations that did not exist** (LOW,
+   consistency — fixed). The marker compared the rendered length against the
+   cap with `>=`, so a list holding exactly as many rows as its cap — i.e. a
+   *complete* list — was still marked as truncated. The 373rd pass had
+   already replaced that heuristic with an exact count on the two dashboard
+   lists that had an uncapped count available (and the two report pages
+   disclose their cap as "Showing the top N of M"), but the remaining twelve
+   markers kept the approximation. The dashboard's "Team Workload" card was
+   the worst case: its query is always `LIMIT 8` over the whole active
+   roster, so any organisation with eight or more staff permanently rendered
+   "Team Workload (8+)" whether or not anything was cut. Fix: every capped
+   query now fetches one row beyond its cap (the truncation probe) and a
+   shared `capList()` helper turns the probe into an exact `truncated` flag,
+   which the templates render. A list at exactly the cap is complete and is
+   no longer marked.
+
+3. **Three audit trails named the submitted value instead of the effective
+   one** (LOW, correctness — fixed). A partial knowledge-article update
+   audited `Updated article ""` (the submitted — absent — title, not the
+   stored one); the same class of defect applied to the asset, vendor and
+   licence audit details, which named an empty tag/name when the field was
+   omitted. Fix: the effective value is hoisted out of the update
+   transaction (the same pattern the change and ticket routes already use)
+   and named in the audit entry.
+
+4. **A licence with no expiry date was labelled "Perpetual" whatever its
+   type** (MEDIUM, correctness — fixed). `licenses.expiry_date` is nullable
+   and the create route stores a NULL type, so a *subscription* whose renewal
+   date simply was not recorded rendered "Expiry Date: Perpetual" next to
+   "Type: Subscription" — a false claim on the very page used to chase
+   renewals. Fix: "Perpetual" is now rendered only for a licence whose type
+   is perpetual; every other type with no expiry renders "-" (the unset
+   type keeps the badge fallback pass 175 established).
+
+5. **The dashboard's alert cards contradicted their own counts** (LOW,
+   documentation precision — fixed). The warranty and licence alert cards
+   were headed "Expiring Soon" while the counts they report *include*
+   already-expired records (`warranty_expiry <= date('now', '+30 days')`) —
+   the same page's list cards were already correctly headed "Ending or
+   Expired", and the body copy said "expired or expiring". Fix: the alert
+   headings now match the counts and the list cards.
+
+6. **Three empty states invited a record the viewer cannot create** (LOW,
+   consistency — fixed). The assets, projects and changes lists are open to
+   every authenticated user, but their empty states said "Add your first
+   asset / Create your first project / Add your first change" — an action
+   the UI hides and the route rejects for a regular staff member. Fix: the
+   create hint is shown to privileged viewers only; everyone else gets the
+   filter-neutral wording the staff directory already uses.
+
+### Fixes applied
+1. `src/routes/tickets.js` — the ticket title is absent-preserving (and a
+   present-but-non-string title is rejected); the update statement re-reads
+   the title inside the transaction.
+2. `src/routes/assets.js` — the asset tag, name and category are
+   absent-preserving; the update reads them from the re-read row.
+3. `src/routes/vendors.js` — the vendor name is absent-preserving; the
+   duplicate-name check and the license-reference sync use the resolved
+   name.
+4. `src/routes/licenses.js` — the software name is absent-preserving.
+5. `src/routes/staff.js` — the email, first name and last name are
+   absent-preserving; the re-read statement now carries the three columns
+   the update resolves.
+6. `src/routes/projects.js` — the task title is absent-preserving.
+7. `src/routes/tickets.js`, `assets.js`, `vendors.js`, `licenses.js`,
+   `staff.js`, `projects.js`, `knowledge.js` — the audit details name the
+   effective entity, not the (absent) submitted value.
+8. `src/utils.js` — new `capList(rows, cap)` helper: slices a capped query
+   result and reports whether rows were really dropped.
+9. `src/routes/dashboard.js`, `assets.js`, `projects.js`, `staff.js`,
+   `tickets.js` — every capped query fetches one row beyond its cap, and the
+   routes pass the exact `*Truncated` flag to their template.
+10. `views/pages/dashboard.ejs`, `assets/show.ejs`, `projects/show.ejs`,
+    `staff/show.ejs`, `tickets/show.ejs` — the twelve "(N+)" markers are
+    driven by the exact flag.
+11. `views/pages/licenses/index.ejs`, `licenses/show.ejs` — the expiry cell
+    says "Perpetual" only for a perpetual licence.
+12. `views/pages/dashboard.ejs`, `reports/assets.ejs` — the expired-inclusive
+    alerts are headed accordingly.
+13. `views/pages/assets/index.ejs`, `projects/index.ejs`, `changes/index.ejs`
+    — the create hint is shown to privileged viewers only.
+14. `README.md` — documents that *every* required column follows the
+    absent-preserves rule, and documents the exact truncation disclosure.
+
+### Regression tests added
+- `tests/code_review_374.test.js` — 27 tests, 22 of them verified to FAIL
+  against the pre-fix tree: the six routes preserve their required columns
+  when the field is absent and reject a present-but-empty value without
+  writing anything; the article, asset and licence audit entries name the
+  effective entity; a complete dashboard ticket list, related-ticket list
+  and comment list are not marked as truncated while an over-cap list is;
+  a subscription without an expiry date is not called "Perpetual" (and a
+  perpetual one still is); the dashboard alert cards carry the
+  expired-inclusive wording; and the empty states do not offer a create
+  action to a viewer who cannot create records.
+- `tests/utils.test.js` — 5 unit tests for the new `capList()` helper.
+
+### Existing tests updated
+- `tests/code_review_369.test.js` — the two "capped list" cases now drive
+  the marker with the exact truncation flag (and a new case asserts that a
+  complete list is NOT marked).
+- `tests/code_review_371.test.js` — the structural pin now asserts that the
+  my-tickets query is capped by the *same* constant plus the one-row
+  truncation probe.
+- `tests/code_review_372.test.js` — the "no license identities for a staff
+  viewer" probe now targets the list card's row count instead of the
+  heading text, which the alert card shares.
+- `tests/code_review_163.test.js`, `tests/code_review_368.test.js` — the
+  staff re-read statement now selects the three additional columns the
+  update route resolves.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1542 passed / 1542 total** (96 suites, +34 from #373).
+- `npm run test:coverage` — global thresholds pass (statements 72.72%,
+  branches 71.50%, functions 84.06%, lines 72.72%).
+- `npm audit --omit=dev` — **0 vulnerabilities**.

@@ -222,10 +222,15 @@ describe('code review 371 — dashboard my-tickets cap wiring', () => {
     // DASHBOARD_LIMITS.myTickets, so the query that fills that card must be
     // capped by the SAME constant. It used to reuse
     // DASHBOARD_LIMITS.recentTickets, leaving the two free to drift.
+    //
+    // The query fetches ONE row beyond the cap — the truncation probe — so
+    // the marker can be exact (a list holding exactly as many rows as the cap
+    // is complete and must not be marked). The probe is derived from the same
+    // constant, so the two can still never drift apart (pass 374).
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'dashboard.js'), 'utf8');
     expect(src).toContain('const _DASH_MY_TICKETS_LIMIT = DASHBOARD_LIMITS.myTickets;');
     const myTicketsBlock = src.slice(src.indexOf('myTickets: db.prepare('));
-    expect(myTicketsBlock).toContain('LIMIT ${_DASH_MY_TICKETS_LIMIT}');
+    expect(myTicketsBlock).toContain('LIMIT ${_DASH_MY_TICKETS_LIMIT + 1}');
     expect(myTicketsBlock).not.toContain('_DASH_RECENT_TICKETS_LIMIT');
     expect(DASHBOARD_LIMITS.myTickets).toBeGreaterThan(0);
   });

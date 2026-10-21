@@ -50,7 +50,7 @@
 <div class="card">
   <div class="card-body" style="padding:0;">
     <% if (assets.length === 0) { %>
-      <div class="empty-state"><i class="fas fa-box" aria-hidden="true"></i><h3>No assets found</h3><p>Add your first asset or adjust filters</p></div>
+      <div class="empty-state"><i class="fas fa-box" aria-hidden="true"></i><h3>No assets found</h3><p><%= isPrivileged(user) ? 'Add your first asset or adjust filters' : 'Adjust filters or clear them to see all assets' %></p></div>
     <% } else { %>
     <div class="table-responsive">
       <table>

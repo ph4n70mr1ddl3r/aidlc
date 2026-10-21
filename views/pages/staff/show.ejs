@@ -20,9 +20,11 @@
     <!-- Assigned Tickets (ALL assigned tickets, open statuses first — the
          sidebar query has no status filter, only the LIMIT cap below) -->
     <div class="card mb-3">
-      <!-- The parenthesized count shows "N+" when the sidebar query's LIMIT cap
-           was hit — the displayed rows are a capped subset, not the total. -->
-      <div class="card-header"><h3><i class="fas fa-ticket" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Assigned Tickets (<%= assignedTickets.length %><%= assignedTickets.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
+      <!-- The parenthesized count shows "N+" when the sidebar query really did
+           drop rows — the displayed rows are a capped subset, not the total.
+           The flag is exact (the query fetches one row beyond the cap as a
+           probe), so a complete list is not marked. -->
+      <div class="card-header"><h3><i class="fas fa-ticket" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Assigned Tickets (<%= assignedTickets.length %><%= (typeof assignedTicketsTruncated !== 'undefined' && assignedTicketsTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body" style="padding:0;">
         <% if (assignedTickets.length) { %>
         <div class="table-responsive"><table>
@@ -39,7 +41,7 @@
 
     <!-- Active Tasks -->
     <div class="card mb-3">
-      <div class="card-header"><h3><i class="fas fa-tasks" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Active Tasks (<%= assignedTasks.length %><%= assignedTasks.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3><i class="fas fa-tasks" aria-hidden="true" style="margin-right:8px;color:var(--primary)"></i>Active Tasks (<%= assignedTasks.length %><%= (typeof assignedTasksTruncated !== 'undefined' && assignedTasksTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% assignedTasks.forEach(t => {
           const canViewTaskProject = isPrivileged(user) || Number(t.owner_id) === Number(user.id); %>
@@ -74,7 +76,7 @@
 
     <!-- Projects -->
     <div class="card mb-2">
-      <div class="card-header"><h3>Projects (<%= projectMemberships.length %><%= projectMemberships.length >= CONSTANTS.MEMBER_LIST_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3>Projects (<%= projectMemberships.length %><%= (typeof projectMembershipsTruncated !== 'undefined' && projectMembershipsTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% projectMemberships.forEach(pm => {
           const canViewProject = isPrivileged(user) || Number(pm.owner_id) === Number(user.id); %>
@@ -86,7 +88,7 @@
 
     <!-- Assigned Assets -->
     <div class="card mb-2">
-      <div class="card-header"><h3>Assets (<%= assignedAssets.length %><%= assignedAssets.length >= CONSTANTS.ASSIGNED_ITEMS_CAP ? '+' : '' %>)</h3></div>
+      <div class="card-header"><h3>Assets (<%= assignedAssets.length %><%= (typeof assignedAssetsTruncated !== 'undefined' && assignedAssetsTruncated) ? '+' : '' %>)</h3></div>
       <div class="card-body">
         <% assignedAssets.forEach(a => { %>
         <div style="padding:4px 0;"><a href="/assets/<%= a.id %>" style="text-decoration:none;color:var(--text);font-size:13px;"><%= a.asset_tag %> - <%= a.name %></a> <span class="badge badge-<%= badgeClass(a.status || 'in_storage', ASSET_STATUS_BADGE) %>"><%= titleCase(a.status || 'in_storage') %></span></div>

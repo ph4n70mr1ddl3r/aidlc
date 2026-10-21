@@ -426,6 +426,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
 
   const name = trim(safeQueryValue(req.body.name));
+  // Raw body value (NOT trimmed) so an ABSENT name can be told apart from an
+  // explicit empty one. Mirrors the raw-vs-processed split used by the
+  // optional text fields below.
+  const rawName = req.body.name;
   const contact_person = trim(safeQueryValue(req.body.contact_person));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const rawPhone = safeQueryValue(req.body.phone);
@@ -452,11 +456,23 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   const notes = trim(safeQueryValue(req.body.notes));
   const rawRating = safeQueryValue(req.body.rating);
 
-  if (!name) {
+  // Absent-vs-present marker for the vendor name. An ABSENT name in a partial
+  // API submission preserves the stored value (resolved inside the transaction
+  // from the re-read row) — the same contract every optional field on this
+  // route already follows. The name was the sole exception: a partial PUT that
+  // only changed the rating was rejected outright with "Vendor name is
+  // required" even though the stored name was perfectly valid. A PRESENT but
+  // empty name is still rejected — the column is NOT NULL.
+  const nameAbsent = rawName === undefined || rawName === null;
+  if (rawName !== undefined && rawName !== null && rawName !== '' && typeof rawName !== 'string') {
+    req.flash('error', 'Invalid Vendor Name');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+  if (!nameAbsent && !name) {
     req.flash('error', 'Vendor name is required');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (name.length > MAX_MEDIUM_STR) {
+  if (!nameAbsent && name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Vendor name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/vendors/${id}/edit`);
   }
@@ -520,7 +536,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   try {
     // Count of license rows the rename below rewrote (0 when the name is
     // unchanged) — surfaced in the audit details after the transaction.
+    // resolvedVendorName is hoisted out of the transaction so the audit entry
+    // names the EFFECTIVE (resolved) vendor even when the request omitted it.
     let renamedLicenseRefs = 0;
+    let resolvedVendorName = name;
     const updateVendor = db.transaction(() => {
       // Verify vendor exists and fetch current state inside the transaction
       // to avoid a TOCTOU race with concurrent activate/deactivate requests.
@@ -585,7 +604,12 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // Must check BEFORE the UPDATE so the transaction does not throw after
       // already applying the write (even though SQLite rollback would undo it,
       // checking first is semantically correct and avoids wasted work).
-      const safeName = name.substring(0, MAX_MEDIUM_STR);
+      // The name follows the same absent-vs-present rule as the optional fields
+      // on this route: an absent field preserves the CURRENT stored name (read
+      // inside the transaction, so a concurrent rename cannot be clobbered), a
+      // present field replaces it. A present-but-empty name was rejected above.
+      const safeName = nameAbsent ? existing.name : name.substring(0, MAX_MEDIUM_STR);
+      resolvedVendorName = safeName;
       if (existing.name !== safeName && _vendorNameExistsStmt.get(safeName, id)) {
         throw new Error('NAME_EXISTS');
       }
@@ -645,8 +669,8 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     // — otherwise an auditor cannot tell why N licenses' vendor/updated_at
     // changed alongside a vendor rename.
     req.audit('update', 'vendor', id, renamedLicenseRefs > 0
-      ? `Updated vendor ${name} (renamed from previous name; ${renamedLicenseRefs} license reference(s) updated)`
-      : `Updated vendor ${name}`);
+      ? `Updated vendor ${resolvedVendorName} (renamed from previous name; ${renamedLicenseRefs} license reference(s) updated)`
+      : `Updated vendor ${resolvedVendorName}`);
     req.flash('success', 'Vendor updated.');
     invalidateDashboardCache();
     return res.redirect(`/vendors/${id}`);

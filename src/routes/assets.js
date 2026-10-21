@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -31,10 +31,15 @@ const _showStmt = db.prepare(`
     LEFT JOIN users u ON a.assigned_to = u.id
     WHERE a.id = ?
   `);
+// The related-ticket queries fetch ONE ROW BEYOND the cap (the "+ 1"): the
+// extra row is the truncation probe, so the route can tell "the list holds
+// exactly cap rows and is complete" apart from "rows were dropped". The
+// "(N+)" marker in the view is driven by that exact flag — the old
+// `length >= cap` heuristic claimed a truncation that did not exist.
 const _relatedTicketsStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, assigned_to, created_at
     FROM tickets WHERE asset_id = ?
-    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP}
+    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP + 1}
   `);
 // Non-privileged variant: the access predicate is applied IN SQL so the
 // LIMIT caps the rows the viewer may actually see. Applying the cap first and
@@ -44,7 +49,7 @@ const _relatedTicketsStmt = db.prepare(`
 const _relatedTicketsOwnedStmt = db.prepare(`
     SELECT id, ticket_number, title, status, priority, assigned_to, created_at
     FROM tickets WHERE asset_id = ? AND assigned_to = ?
-    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP}
+    ORDER BY created_at DESC, id DESC LIMIT ${ASSIGNED_ITEMS_CAP + 1}
   `);
 const _editStmt = db.prepare('SELECT id, asset_tag, name, category, manufacturer, model, serial_number, status, condition_rating, purchase_date, purchase_price, warranty_expiry, assigned_to, location, notes FROM assets WHERE id = ?');
 const _deleteDetachTicketsStmt = db.prepare('UPDATE tickets SET asset_id = NULL, updated_at = datetime(\'now\') WHERE asset_id = ?');
@@ -411,10 +416,13 @@ router.get('/:id', (req, res) => {
   // LIMIT caps the *accessible* rows rather than the newest rows overall.
   // The JS canAccessResource filter is retained as defence-in-depth.
   const viewerPrivileged = isPrivileged(req.session.user);
-  const relatedTickets = (viewerPrivileged
-    ? _relatedTicketsStmt.all(id)
-    : _relatedTicketsOwnedStmt.all(id, req.session.user.id)
-  ).filter(t => canAccessResource(req, t));
+  const relatedTicketsCap = capList(
+    viewerPrivileged
+      ? _relatedTicketsStmt.all(id)
+      : _relatedTicketsOwnedStmt.all(id, req.session.user.id),
+    ASSIGNED_ITEMS_CAP
+  );
+  const relatedTickets = relatedTicketsCap.rows.filter(t => canAccessResource(req, t));
 
   // Redact assigned_email for non-privileged viewers — staff should not be able
   // to harvest other users' emails from asset detail pages. Shallow-copy before
@@ -426,7 +434,14 @@ router.get('/:id', (req, res) => {
     safeAsset.assigned_email = null;
   }
 
-  res.render('pages/assets/show', { title: asset.name, asset: safeAsset, relatedTickets });
+  res.render('pages/assets/show', {
+    title: asset.name,
+    asset: safeAsset,
+    relatedTickets,
+    // The exact truncation flag for the related-ticket list (computed from the
+    // one-row-beyond-the-cap probe the query fetches).
+    relatedTicketsTruncated: relatedTicketsCap.truncated
+  });
 });
 
 // Edit asset form
@@ -476,6 +491,9 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // values are captured here for the resolveOptionalField resolution inside the
   // transaction below. Mirrors the raw-vs-processed split in vendors.js and
   // licenses.js.
+  const rawAssetTag = req.body.asset_tag;
+  const rawName = req.body.name;
+  const rawCategory = req.body.category;
   const rawManufacturer = req.body.manufacturer;
   const rawModel = req.body.model;
   const rawSerialNumber = req.body.serial_number;
@@ -493,15 +511,39 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const location = trim(safeQueryValue(req.body.location));
   const notes = trim(safeQueryValue(req.body.notes));
 
-  if (!asset_tag || !name || !category) {
+  // Absent-vs-present markers for the three required columns. An ABSENT field
+  // in a partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract every other field
+  // on this route already follows and the one the route's own comments state
+  // ("an absent field means 'keep what's stored'"). The tag, name and category
+  // were the sole exception: a partial PUT that only changed the status was
+  // rejected outright with "Asset tag, name, and category are required" even
+  // though the stored values were perfectly valid. A PRESENT but empty value
+  // is still rejected — all three columns are NOT NULL and an empty value has
+  // no valid meaning.
+  const assetTagAbsent = rawAssetTag === undefined || rawAssetTag === null;
+  const nameAbsent = rawName === undefined || rawName === null;
+  const categoryAbsent = rawCategory === undefined || rawCategory === null;
+  // Fail closed on present-but-non-string values (e.g. a JSON number): trim()
+  // coerces them to '', which would silently become a "required" error rather
+  // than the specific invalid-value error the sibling guards report. Absent and
+  // empty submissions are allowed (absent ⇒ preserve).
+  for (const field of ['asset_tag', 'name', 'category']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/assets/${id}/edit`);
+    }
+  }
+  if ((!assetTagAbsent && !asset_tag) || (!nameAbsent && !name) || (!categoryAbsent && !category)) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG) {
+  if (!assetTagAbsent && (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG)) {
     req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (name.length > MAX_MEDIUM_STR) {
+  if (!nameAbsent && name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Asset name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
@@ -539,7 +581,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect(`/assets/${id}/edit`);
     }
   }
-  if (!VALID_CATEGORIES.includes(category)) {
+  if (!categoryAbsent && !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/assets/${id}/edit`);
   }
@@ -602,6 +644,9 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     // assignee, and update in a single transaction to avoid TOCTOU races: the
     // asset could be deleted, prices/dates modified, or the assignee deactivated
     // between the outer checks and the UPDATE.
+    // effectiveTag is hoisted out of the transaction so the audit entry names
+    // the EFFECTIVE (resolved) tag even when the request omitted it.
+    let effectiveTag = asset_tag;
     const updateAsset = db.transaction(() => {
       const current = _editStmt.get(id);
       if (!current) {
@@ -696,8 +741,18 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
         throw new Error('INVALID_NOTES');
       }
 
+      // The required columns follow the same absent-vs-present rule as every
+      // other field on this route: an absent field preserves the CURRENT stored
+      // value (read inside the transaction, so a concurrent edit cannot be
+      // clobbered), a present field replaces it. A present-but-empty value was
+      // already rejected above.
+      const effectiveAssetTag = assetTagAbsent ? current.asset_tag : asset_tag.substring(0, MAX_ASSET_TAG);
+      const effectiveName = nameAbsent ? current.name : name.substring(0, MAX_MEDIUM_STR);
+      const effectiveCategory = categoryAbsent ? current.category : category;
+      effectiveTag = effectiveAssetTag;
+
       const result = _updateStmt.run(
-        asset_tag.substring(0, MAX_ASSET_TAG), name.substring(0, MAX_MEDIUM_STR), category,
+        effectiveAssetTag, effectiveName, effectiveCategory,
         resolvedManufacturer, resolvedModel, resolvedSerialNumber, safeStatus, resolvedCondition,
         resolvedPurchase, resolvedPrice,
         resolvedWarranty, resolvedAssignee,
@@ -709,7 +764,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     });
     updateAsset();
 
-    req.audit('update', 'asset', id, `Updated asset ${asset_tag}`);
+    req.audit('update', 'asset', id, `Updated asset ${effectiveTag}`);
     req.flash('success', 'Asset updated successfully.');
     invalidateDashboardCache();
     return res.redirect(`/assets/${id}`);

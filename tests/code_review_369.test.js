@@ -265,15 +265,34 @@ describe('a whitespace-only optional field fails closed instead of clearing (pas
 
 describe('capped lists disclose their truncation (pass 369)', () => {
   it('asset detail marks the related-ticket list as capped', () => {
+    // The truncation flag is computed by the route from the one-row-beyond-
+    // the-cap probe the query fetches, so the template renders the marker
+    // from that flag. A list holding exactly as many rows as the cap is
+    // COMPLETE and must not be marked (pass 374).
     const html = render('assets/show.ejs', {
       ...baseLocals(),
       title: 'Asset',
       asset: { id: 1, name: 'MacBook Pro', asset_tag: 'AST-001', status: 'in_use', condition_rating: 'good', category: 'laptop' },
       relatedTickets: Array.from({ length: 10 }, (_, i) => ({
         id: i + 1, ticket_number: `TK-${i}`, title: `Ticket ${i}`, status: 'open', priority: 'medium', assigned_to: 1, created_at: '2026-01-01 09:00'
-      }))
+      })),
+      relatedTicketsTruncated: true
     });
     expect(html).toContain('Related Tickets (10+)');
+  });
+
+  it('asset detail does not mark a complete list as truncated', () => {
+    const html = render('assets/show.ejs', {
+      ...baseLocals(),
+      title: 'Asset',
+      asset: { id: 1, name: 'MacBook Pro', asset_tag: 'AST-001', status: 'in_use', condition_rating: 'good', category: 'laptop' },
+      relatedTickets: Array.from({ length: 10 }, (_, i) => ({
+        id: i + 1, ticket_number: `TK-${i}`, title: `Ticket ${i}`, status: 'open', priority: 'medium', assigned_to: 1, created_at: '2026-01-01 09:00'
+      })),
+      relatedTicketsTruncated: false
+    });
+    expect(html).toContain('Related Tickets (10)');
+    expect(html).not.toContain('Related Tickets (10+)');
   });
 
   it('asset detail shows an exact count when the cap was not reached', () => {
@@ -317,15 +336,51 @@ describe('capped lists disclose their truncation (pass 369)', () => {
       expiringWarranties: [], expiringWarrantiesCount: 0,
       licenseAlerts: [], licenseAlertsCount: 0,
       myTickets: Array.from({ length: 10 }, (_, i) => ({ id: i, ticket_number: `TK-${i}`, title: 't', priority: 'low', status: 'open', created_at: '2026-01-01 09:00' })),
+      myTicketsTruncated: true,
       staffWorkload: Array.from({ length: 8 }, (_, i) => ({ id: i, name: `w${i}`, role: 'staff', open_tickets: 1 })),
+      staffWorkloadTruncated: true,
       upcomingChanges: Array.from({ length: 5 }, (_, i) => ({ id: i, title: `c${i}`, scheduled_start: '2099-01-01 09:00' })),
+      upcomingChangesTruncated: true,
       recentTickets: Array.from({ length: 10 }, (_, i) => ({ id: i, ticket_number: `TK-R-${i}`, title: 't', category: 'network', priority: 'low', status: 'open', assigned_to: 1, assigned_name: 'A', created_at: '2026-01-01 09:00' })),
+      recentTicketsTruncated: true,
       ticketsByCategory: []
     });
     expect(html).toContain('My Active Tickets (10+)');
     expect(html).toContain('Team Workload (8+)');
     expect(html).toContain('Upcoming Changes (5+)');
     expect(html).toContain('Recently Active Tickets (10+)');
+  });
+
+  it('dashboard widgets do not claim a truncation for a complete list', () => {
+    // Same lists, but complete (the route's probe found no extra row): the
+    // "(N+)" marker must not be rendered (pass 374).
+    const html = render('dashboard.ejs', {
+      ...baseLocals(),
+      title: 'Dashboard',
+      ticketStats: { open: 0, in_progress: 0, waiting: 0, resolved: 0, closed: 0, critical_open: 0, total: 0 },
+      assetStats: { total: 0, in_use: 0, in_storage: 0, in_repair: 0, reserved: 0 },
+      projectStats: { total: 0, in_progress: 0, planning: 0, completed: 0, on_hold: 0 },
+      staffCount: { total: 0 },
+      expiringWarranties: [], expiringWarrantiesCount: 0,
+      licenseAlerts: [], licenseAlertsCount: 0,
+      myTickets: Array.from({ length: 10 }, (_, i) => ({ id: i, ticket_number: `TK-${i}`, title: 't', priority: 'low', status: 'open', created_at: '2026-01-01 09:00' })),
+      myTicketsTruncated: false,
+      staffWorkload: Array.from({ length: 8 }, (_, i) => ({ id: i, name: `w${i}`, role: 'staff', open_tickets: 1 })),
+      staffWorkloadTruncated: false,
+      upcomingChanges: Array.from({ length: 5 }, (_, i) => ({ id: i, title: `c${i}`, scheduled_start: '2099-01-01 09:00' })),
+      upcomingChangesTruncated: false,
+      recentTickets: Array.from({ length: 10 }, (_, i) => ({ id: i, ticket_number: `TK-R-${i}`, title: 't', category: 'network', priority: 'low', status: 'open', assigned_to: 1, assigned_name: 'A', created_at: '2026-01-01 09:00' })),
+      recentTicketsTruncated: false,
+      ticketsByCategory: []
+    });
+    expect(html).toContain('My Active Tickets (10)');
+    expect(html).not.toContain('My Active Tickets (10+)');
+    expect(html).toContain('Team Workload (8)');
+    expect(html).not.toContain('Team Workload (8+)');
+    expect(html).toContain('Upcoming Changes (5)');
+    expect(html).not.toContain('Upcoming Changes (5+)');
+    expect(html).toContain('Recently Active Tickets (10)');
+    expect(html).not.toContain('Recently Active Tickets (10+)');
   });
 });
 

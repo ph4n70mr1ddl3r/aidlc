@@ -74,7 +74,7 @@ const _showCommentsStmt = db.prepare(`
     LEFT JOIN users u ON tc.user_id = u.id
     WHERE tc.ticket_id = ?
     ORDER BY tc.created_at DESC, tc.id DESC
-    LIMIT ${COMMENT_LIST_CAP}
+    LIMIT ${COMMENT_LIST_CAP + 1}
   `);
 const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
 // Also selects `status` so the quick-status route's no-op guard
@@ -94,7 +94,7 @@ const _deleteTicketStmt = db.prepare('DELETE FROM tickets WHERE id = ?');
 // preserve them on partial submissions and for non-privileged editors whose
 // edit form redacts requester PII (mirrors the show route).
 const _updateCheckStmt = db.prepare(
-  'SELECT status, category, priority, assigned_to, asset_id, due_date, description, resolution_notes, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
+  'SELECT title, status, category, priority, assigned_to, asset_id, due_date, description, resolution_notes, requester_name, requester_email, requester_department, requester_phone FROM tickets WHERE id = ?'
 );
 const _updateTicketStmt = db.prepare(`
     UPDATE tickets SET title = ?, description = ?, category = ?, priority = ?,
@@ -493,7 +493,17 @@ router.get('/:id', (req, res) => {
 
   req.audit('read', 'ticket', id, `Viewed ticket: ${ticket.ticket_number}`);
 
+  // The comment query fetches ONE ROW BEYOND the cap: the extra row is the
+  // truncation probe, so the "N+" marker is exact — a ticket with exactly
+  // COMMENT_LIST_CAP comments is complete and is not marked as truncated.
+  // The internal-comment filter runs AFTER the cap, so the truncation flag is
+  // computed from the PRE-FILTER row count (the visible count alone cannot
+  // express it for a non-privileged viewer: the displayed count is smaller
+  // than the number of rows the query returned, so the template's marker
+  // would under-report — or hide — the truncation).
   const rawComments = _showCommentsStmt.all(id);
+  const commentsTruncated = rawComments.length > COMMENT_LIST_CAP;
+  const cappedComments = commentsTruncated ? rawComments.slice(0, COMMENT_LIST_CAP) : rawComments;
   // Filter internal comments server-side — non-privileged users must not
   // receive internal comments even if the template rendering fails.
   // Always create a new array before reversing to avoid mutating the DB
@@ -501,8 +511,8 @@ router.get('/:id', (req, res) => {
   // better-sqlite3 ever caches result objects). Mirrors the shallow-copy
   // pattern used for safeTicket above.
   const comments = isPrivileged(req.session.user)
-    ? [...rawComments].reverse()
-    : rawComments.filter(c => !c.is_internal).reverse();
+    ? [...cappedComments].reverse()
+    : cappedComments.filter(c => !c.is_internal).reverse();
 
   // Redact end-user (requester) PII for non-privileged viewers. Requester
   // email/phone/department belong to non-staff end users and must not be
@@ -521,13 +531,9 @@ router.get('/:id', (req, res) => {
     title: `Ticket ${ticket.ticket_number}`,
     ticket: safeTicket,
     comments,
-    // Whether the comment query hit its cap. The visible count alone cannot
-    // express this for a non-privileged viewer, because the internal-comment
-    // filter runs AFTER the cap — the displayed count is smaller than the
-    // number of rows the query returned, so the template's "N+" marker would
-    // under-report (or hide) the truncation. The flag is computed from the
-    // pre-filter row count.
-    commentsTruncated: rawComments.length >= COMMENT_LIST_CAP
+    // Whether the comment query really dropped rows (computed from the
+    // one-row-beyond-the-cap probe the query fetches).
+    commentsTruncated
   });
 });
 
@@ -607,6 +613,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // text field (partial submission — preserve stored value) from an explicit
   // empty string (clear the field). Mirrors the raw-vs-processed split used by
   // assets.js / vendors.js / licenses.js updates.
+  const rawTitle = req.body.title;
   const rawDescription = req.body.description;
   const rawResolutionNotes = req.body.resolution_notes;
   const description = trim(safeQueryValue(req.body.description));
@@ -650,11 +657,28 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     }
   }
 
-  if (!title) {
+  // Absent-vs-present marker for the ticket title. An ABSENT title in a
+  // partial API submission preserves the stored value (resolved inside the
+  // transaction from the re-read row) — the same contract every other field
+  // on this route already follows, including the sibling requester_name
+  // field on the same form. The title was the sole exception: a partial PUT
+  // that only changed the priority was rejected outright with "Title is
+  // required" even though the stored title was perfectly valid. A PRESENT but
+  // empty title is still rejected — the column is NOT NULL and an empty title
+  // has no valid meaning.
+  const titleAbsent = rawTitle === undefined || rawTitle === null;
+  // Fail closed on a present-but-non-string title (e.g. a JSON number):
+  // trim() coerces it to '', which would turn it into either a spurious
+  // "required" error or a silent wipe. Mirrors the requester_name guard.
+  if (rawTitle !== undefined && rawTitle !== null && rawTitle !== '' && typeof rawTitle !== 'string') {
+    req.flash('error', 'Invalid Title');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+  if (!titleAbsent && !title) {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (title.length > MAX_MEDIUM_STR) {
+  if (!titleAbsent && title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -900,7 +924,13 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
         ? (ticket.requester_name ?? '')
         : requester_name.substring(0, MAX_SHORT_STR);
 
-      const params = [title.substring(0, MAX_MEDIUM_STR), resolvedDescription, effectiveCategory, effectivePriority, effectiveStatus,
+      // The title follows the same absent-vs-present rule as every other field
+      // on this route: an ABSENT field (partial API submission) preserves the
+      // CURRENT stored title (read inside the transaction, so a concurrent
+      // rename cannot be clobbered), a present field replaces it.
+      const effectiveTitle = titleAbsent ? ticket.title : title.substring(0, MAX_MEDIUM_STR);
+
+      const params = [effectiveTitle, resolvedDescription, effectiveCategory, effectivePriority, effectiveStatus,
         resolvedAssignee, resolvedAssetId, resolvedDueDate, resolvedResolutionNotes,
         resolvedRequesterName, resolvedRequesterEmail, resolvedRequesterDept, resolvedRequesterPhone];
 

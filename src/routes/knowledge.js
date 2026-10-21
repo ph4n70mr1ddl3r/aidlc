@@ -689,6 +689,12 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     // on the user's next request. What the recheck does close is the window
     // where the article's ownership changed between the outer check and the
     // UPDATE.
+    //
+    // effectiveTitle is hoisted out of the transaction so the audit entry
+    // names the EFFECTIVE (resolved) article title. The submitted `safeTitle`
+    // is empty on a partial update that omits the title, which made the
+    // audit log record `Updated article ""` for every such request.
+    let effectiveTitle = safeTitle;
     const updateArticle = db.transaction(() => {
       const recheck = _editArticleStmt.get(id);
       if (!recheck) {
@@ -710,6 +716,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       // tags value is rejected by resolveOptionalField instead of silently
       // clearing the stored tags.
       const txnTitle = titleAbsent ? recheck.title : safeTitle;
+      effectiveTitle = txnTitle;
       const txnContent = contentAbsent ? recheck.content : safeContent;
       const txnCategory = categoryAbsent ? recheck.category : category;
       const txnSafeTags = resolveOptionalField(req.body.tags, sanitized.safeTags, MAX_LONG_STR, recheck.tags);
@@ -723,7 +730,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     });
     updateArticle();
 
-    req.audit('update', 'knowledge_article', id, `Updated article "${safeTitle}"`);
+    req.audit('update', 'knowledge_article', id, `Updated article "${effectiveTitle}"`);
     req.flash('success', 'Article updated.');
     invalidateDashboardCache();
     return res.redirect(`/knowledge/${id}`);

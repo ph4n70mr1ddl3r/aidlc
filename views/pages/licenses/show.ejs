@@ -22,7 +22,12 @@
   <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(license.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(license.license_type || 'perpetual') %></span></div></div>
   <div class="detail-row"><div class="detail-label">Seats</div><div class="detail-value"><%= license.used_seats %> / <%= license.total_seats %> used (<%= usagePercent(license.used_seats, license.total_seats) %>%)</div></div>
   <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(license.purchase_date) %></div></div>
-  <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? formatDate(license.expiry_date) : 'Perpetual' %></div></div>
+  <% // "Perpetual" is only true for a licence whose TYPE is perpetual (the
+     // badge fallback above). A missing expiry date on a subscription/volume/
+     // oem/academic licence means "not recorded" — labelling it "Perpetual"
+     // asserted a term the record does not carry, on the very page used to
+     // chase renewals. %>
+  <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? formatDate(license.expiry_date) : ((license.license_type || 'perpetual') === 'perpetual' ? 'Perpetual' : '-') %></div></div>
   <% // `> 0` guard: create defaults an unpriced license to 0, which is
      // indistinguishable from "free" — render '-' instead (projects pages use
      // the same convention for zero budgets). %>

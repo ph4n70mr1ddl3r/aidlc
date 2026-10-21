@@ -206,11 +206,28 @@ submit only the fields it wants to change:
 | field present and valid | the stored value is **replaced** |
 | field present but invalid (bad enum, malformed date, whitespace-only text) | the request is **rejected** with an error — nothing is written |
 
-Required columns follow the same rule: omitting a project's name, a change's
-title or type, or an article's title/content/category preserves the stored
-value rather than failing the request. An explicit empty string clears a
-nullable optional field, and the dedicated `clear_key` / `clear` controls
-clear the fields where an empty string is not a valid value.
+**Required** columns follow the same rule: omitting a field preserves the
+stored value rather than failing the request. This holds for every required
+column in the app — a ticket's title, an asset's tag/name/category, a
+vendor's name, a licence's software name, a staff member's email/first/last
+name, a project's name, a task's title, a change's title/type, an article's
+title/content/category, and the profile route's name/email. A *present but
+empty* value is still rejected (the columns are `NOT NULL`, so an empty value
+has no valid meaning).
+
+An explicit empty string clears a nullable optional field, and the dedicated
+`clear_key` / `clear` controls clear the fields where an empty string is not
+a valid value.
+
+### List caps and truncation disclosure
+
+Every list in the app is bounded by a cap (page size for the paginated lists,
+a per-widget cap for the dashboard cards and the detail-page sidebars). When
+a cap actually drops rows, the list says so with an `(N+)` marker next to the
+row count. The marker is **exact**: a list that holds exactly as many rows as
+its cap is complete and is never marked. (Each capped query fetches one row
+beyond its cap as a truncation probe; the two report pages that show an
+uncapped total instead disclose it as "Showing the top N of M".)
 
 ## Scripts
 
