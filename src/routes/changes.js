@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, isPrivileged, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, isPrivileged, logError } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -143,6 +143,14 @@ router.get('/', (req, res) => {
     where.push('c.assigned_to = ?');
     params.push(req.session.user.id);
   }
+  // The search surface may cover a column the list does not render ONLY when
+  // every row the list can return is fully readable by the viewer — the scope
+  // above guarantees that here (a staff viewer sees only their own changes,
+  // a privileged viewer sees all of them and can open every one). `c.description`
+  // is therefore searchable. The same does NOT hold for the asset, ticket and
+  // project lists, which are portfolio-visible to every authenticated user
+  // while their detail pages are assignment/ownership-gated: there the search
+  // covers exactly what the list renders.
   addSearch(where, params, safeQueryValue(req.query.search), ['c.title', 'c.description']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
@@ -194,8 +202,6 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const title = trim(safeQueryValue(req.body.title));
   const description = trim(safeQueryValue(req.body.description));
   const change_type = trim(safeQueryValue(req.body.change_type));
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const scheduled_start = safeQueryValue(req.body.scheduled_start);
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
   const impact = trim(safeQueryValue(req.body.impact));
@@ -235,16 +241,21 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Change Type');
     return res.redirect('/changes/new');
   }
-  if (status && !VALID_STATUSES.includes(status)) {
+  // Enum resolution — a present-but-blank status/priority (a whitespace-only
+  // value) is an invalid value, not an omitted one: it used to trim to '' and
+  // silently take the create default with a success flash.
+  const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  const createPriorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/changes/new');
   }
-  const safeStatus = status || 'scheduled';
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
+  const safeStatus = createStatusEnum.state === 'valid' ? createStatusEnum.value : 'scheduled';
+  if (createPriorityEnum.state === 'blank' || createPriorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Priority');
     return res.redirect('/changes/new');
   }
-  const safePriority = priority || 'medium';
+  const safePriority = createPriorityEnum.state === 'valid' ? createPriorityEnum.value : 'medium';
 
   // Validate datetimes via the same resolver the update route uses so create
   // and edit behave identically for malformed input. Previously an invalid
@@ -386,8 +397,6 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const rawDescription = req.body.description;
   const description = trim(safeQueryValue(req.body.description));
   const change_type = trim(safeQueryValue(req.body.change_type));
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const scheduled_start = safeQueryValue(req.body.scheduled_start);
   const scheduled_end = safeQueryValue(req.body.scheduled_end);
   const actual_start = safeQueryValue(req.body.actual_start);
@@ -429,16 +438,24 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Change Type');
     return res.redirect(`/changes/${id}/edit`);
   }
-  // A present-but-invalid status is rejected; an absent/empty field means
+  // A present-but-invalid status is rejected; an absent field means
   // "keep what's stored" — consistent with assets.js, tickets.js, and
   // projects.js update conventions. The form HTML uses `required` so browsers
   // block empty submissions client-side, but API callers can hit this route
   // directly and must be handled correctly here.
-  if (status && !VALID_STATUSES.includes(status)) {
+  //
+  // The presence test runs against the RAW submitted value, so a
+  // present-but-blank enum is rejected rather than silently ignored.
+  // `status` is a NOT NULL column (an empty value has no valid meaning);
+  // `priority` is nullable with a meaningful default, so an explicit empty
+  // value is treated as "not submitted" and the stored priority is preserved.
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  const priorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect(`/changes/${id}/edit`);
   }
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
+  if (priorityEnum.state === 'blank' || priorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Priority');
     return res.redirect(`/changes/${id}/edit`);
   }
@@ -504,9 +521,10 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       }
 
       // The earlier guard already redirected when priority is present-but-invalid,
-      // so a truthy priority here is guaranteed valid; fall back to the existing
-      // value when the field is absent (mirrors the create route's `priority || 'medium'`).
-      const safePriority = priority || existingChange.priority;
+      // so a valid priority here is guaranteed valid; fall back to the existing
+      // value when the field is absent (mirrors the create route's `priority ||
+      // 'medium'`).
+      const safePriority = priorityEnum.state === 'valid' ? priorityEnum.value : existingChange.priority;
 
       // --- scheduled_start ---
       const sSchedStart = _resolveDateTimeField(scheduled_start, existingChange.scheduled_start);
@@ -551,12 +569,13 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       if (resolvedImpact && resolvedImpact.error) {
         throw new Error('INVALID_IMPACT');
       }
-      // Resolve status from the transaction-consistent re-fetch: an ABSENT or
-      // empty field preserves the stored status instead of writing '' into the
+      // Resolve status from the transaction-consistent re-fetch: an ABSENT field
+      // preserves the stored status instead of writing '' into the
       // CHECK-constrained column (which would throw SQLITE_CONSTRAINT). Mirrors
       // the effectiveStatus resolution in tickets.js and assets.js. A present-
-      // but-invalid status was already rejected by the outer guard above.
-      effectiveStatus = status || existingChange.status;
+      // but-invalid or present-but-blank status was already rejected by the
+      // outer guard above.
+      effectiveStatus = statusEnum.state === 'valid' ? statusEnum.value : existingChange.status;
 
       // The required columns follow the same absent-vs-present rule as every
       // other field on this route: an absent field preserves the CURRENT stored

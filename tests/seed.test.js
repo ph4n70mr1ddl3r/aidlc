@@ -32,7 +32,7 @@ describe('seed.js runSeed', () => {
     db.exec(getSchemaSQL());
 
     const { runSeed } = require('../src/seed');
-    runSeed(db, 'Admin123!', 'Staff123!');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
 
     const counter = db.prepare("SELECT next_seq FROM asset_counter WHERE counter_key = 'asset_tag'").get();
     expect(counter).toBeTruthy();
@@ -48,7 +48,7 @@ describe('seed.js runSeed', () => {
     db.exec(getSchemaSQL());
 
     const { runSeed } = require('../src/seed');
-    runSeed(db, 'Admin123!', 'Staff123!');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
 
     const count = (table) => db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get().c;
     expect(count('users')).toBe(6);
@@ -74,7 +74,7 @@ describe('seed.js runSeed', () => {
 
     const { runSeed } = require('../src/seed');
     const before = Date.now();
-    runSeed(db, 'Admin123!', 'Staff123!');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
 
     // Scheduled changes are anchored relative to seed time (not hardcoded
     // absolute dates, which drift into the past and empty the dashboard panel).
@@ -93,7 +93,7 @@ describe('seed.js runSeed', () => {
     db.exec(getSchemaSQL());
 
     const { runSeed } = require('../src/seed');
-    runSeed(db, 'Admin123!', 'Staff123!');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
 
     const lastAsset = db.prepare('SELECT asset_tag FROM assets ORDER BY id DESC LIMIT 1').get();
     expect(lastAsset.asset_tag).toBe('AST-012');
@@ -116,13 +116,13 @@ describe('seed.js runSeed', () => {
     db.exec(getSchemaSQL());
 
     const { runSeed } = require('../src/seed');
-    runSeed(db, 'Admin123!', 'Staff123!');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
 
     const bcrypt = require('bcryptjs');
     const user = db.prepare("SELECT password FROM users WHERE username = 'admin'").get();
     expect(user.password).toBeTruthy();
     expect(user.password).toMatch(/^\$2[aby]\$/);
-    expect(bcrypt.compareSync('Admin123!', user.password)).toBe(true);
+    expect(bcrypt.compareSync('AdminPassword123!', user.password)).toBe(true);
     db.close();
   });
 
@@ -137,7 +137,7 @@ describe('seed.js runSeed', () => {
       // app.js normalizes NODE_ENV via trim().toLowerCase(); the runSeed guard
       // must do the same so "Production " (or "PRODUCTION") cannot bypass it.
       process.env.NODE_ENV = 'Production ';
-      expect(() => runSeed(db, 'Admin123!', 'Staff123!')).toThrow(/Seeding in production is disabled/);
+      expect(() => runSeed(db, 'AdminPassword123!', 'StaffPassword123!')).toThrow(/Seeding in production is disabled/);
       // Nothing may be written when the guard fires.
       expect(db.prepare('SELECT COUNT(*) as c FROM users').get().c).toBe(0);
     } finally {

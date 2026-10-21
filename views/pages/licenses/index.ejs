@@ -13,9 +13,14 @@
     <thead><tr><th>Software</th><th>Vendor</th><th>Type</th><th>Seats</th><th>Usage</th><th>Expiry</th><th>Cost</th><th>Actions</th></tr></thead>
     <tbody><% licenses.forEach(l => { 
       const _usagePct = usagePercent(l.used_seats, l.total_seats);
-      // Effective type: the column is nullable, and the badge/text fall back to
-      // 'perpetual' (pass 175) so an unset type never renders an empty label.
-      const _licType = l.license_type || 'perpetual';
+      // The type column is nullable, so a licence can carry NO recorded type.
+      // "Perpetual" is a term the record must actually assert: the badge
+      // falls back to a neutral "Unspecified" label (the column must render
+      // something) and the expiry cell below never claims a perpetual term
+      // the record does not carry. The old `|| 'perpetual'` fallback made the
+      // expiry check tautological — an unset type was labelled perpetual.
+      const _licType = l.license_type || null;
+      const _licLabel = _licType ? titleCase(_licType) : 'Unspecified';
       // Highlight both soon-to-expire AND already-expired licenses — an expired
       // license is at least as urgent (mirrors the dashboard's expiringWarranties
       // and the asset show page's Expired badge; isExpiringSoon alone ignores
@@ -25,15 +30,16 @@
     %><tr>
       <td><% if (isPrivileged(user)) { %><a href="/licenses/<%= l.id %>" style="color:var(--text);font-weight:600;text-decoration:none;"><%= l.software_name %></a><% } else { %><span style="font-weight:600;"><%= l.software_name %></span><% } %></td>
       <td class="text-sm"><%= l.vendor || '-' %></td>
-       <td><span class="badge badge-<%= badgeClass(l.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(_licType) %></span></td>
+       <td><span class="badge badge-<%= badgeClass(l.license_type, LICENSE_TYPE_BADGE) %>"><%= _licLabel %></span></td>
       <td class="text-sm"><%= l.used_seats %>/<%= l.total_seats %></td>
       <td><div class="progress-bar" role="progressbar" aria-valuenow="<%= _usagePct %>" aria-valuemin="0" aria-valuemax="100" aria-label="<%= l.software_name %>: <%= _usagePct %>% seat usage" style="flex:1;">
         <div class="progress-fill <%= _usagePct >= CONSTANTS.PROGRESS_GREEN_THRESHOLD ? 'green' : _usagePct >= CONSTANTS.PROGRESS_BLUE_THRESHOLD ? 'blue' : _usagePct >= CONSTANTS.PROGRESS_ORANGE_THRESHOLD ? 'orange' : 'red' %>" style="width:<%= _usagePct %>%"></div>
       </div> <span class="text-sm"><%= _usagePct %>%</span></td>
       <% // "Perpetual" is only true for a licence whose TYPE is perpetual. A
          // missing expiry date on a subscription/volume/oem/academic licence
-         // means "not recorded" — labelling it "Perpetual" asserted a term
-         // the record does not carry, on the very page used to chase renewals. %>
+         // — or on a licence whose type was never recorded — means "not
+         // recorded": labelling it "Perpetual" asserted a term the record does
+         // not carry, on the very page used to chase renewals. %>
       <td class="text-sm" style="<%= _expSoon ? 'color:var(--danger);font-weight:600;' : '' %>"><%= l.expiry_date ? formatDate(l.expiry_date) : (_licType === 'perpetual' ? 'Perpetual' : '-') %></td>
       <% // `> 0` guard mirrors the show page: create defaults an unpriced
          // license to cost 0, which is indistinguishable from "free" — render

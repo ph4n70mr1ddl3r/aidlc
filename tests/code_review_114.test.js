@@ -109,15 +109,30 @@ describe('assets update — present-but-invalid status is rejected', () => {
     expect(db.prepare().run).not.toHaveBeenCalled();
   });
 
-  it('still preserves the stored status when the field is absent/empty (partial submission)', () => {
+  it('still preserves the stored status when the field is absent (partial submission)', () => {
     const h = lastHandlerFor(assetsRouter, 'put', '/:id');
     const { redirectCalls } = runHandler(h, {
-      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: ''
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop'
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/assets/1']);
     const calls = jest.requireMock('../src/models/database').prepare().run.mock.calls;
     const params = calls[calls.length - 1];
     expect(params[6]).toBe('in_use'); // status column (index 6) — preserved from stored row
+  });
+
+  // The status column is NOT NULL: a present-but-blank value has no valid
+  // meaning, so it is rejected exactly like the sibling required columns
+  // (tag/name/category). It used to be silently preserved with a success
+  // flash — the "present but invalid values are rejected" half of the
+  // partial-update contract.
+  it('rejects a present-but-empty status instead of silently keeping the stored one', () => {
+    const h = lastHandlerFor(assetsRouter, 'put', '/:id');
+    const { redirectCalls, flashCalls } = runHandler(h, {
+      asset_tag: 'AST-001', name: 'Laptop', category: 'laptop', status: ''
+    }, { id: '1' });
+    expect(redirectCalls).toEqual(['/assets/1/edit']);
+    expect(errorFlash(flashCalls)).toBe('Invalid Status');
+    expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 });
 

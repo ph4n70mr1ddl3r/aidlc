@@ -425,6 +425,21 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_changes_updated ON change_log(updated_at);
     CREATE INDEX IF NOT EXISTS idx_kb_updated ON knowledge_articles(updated_at);
     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+    -- Indexes for the ORDER BY of the list queries the app actually issues.
+    -- Without them SQLite scans the whole table and materialises a temp
+    -- B-tree for the sort (verified with EXPLAIN QUERY PLAN): the assets
+    -- list sorts on assets(name), the vendors list on vendors(name), the
+    -- staff directory on users(first_name), and the dashboard's
+    -- "Recently Active Tickets" card on tickets(updated_at) — the landing
+    -- page for every authenticated user. The dashboard's team-workload
+    -- query sorts on users(first_name) as well.
+    CREATE INDEX IF NOT EXISTS idx_assets_name ON assets(name);
+    CREATE INDEX IF NOT EXISTS idx_vendors_name ON vendors(name);
+    CREATE INDEX IF NOT EXISTS idx_users_first_name ON users(first_name);
+    CREATE INDEX IF NOT EXISTS idx_tickets_updated ON tickets(updated_at);
+    -- The staff show page's "Active Tasks" sidebar filters on the assignee
+    -- and orders by the due date; a composite index serves both.
+    CREATE INDEX IF NOT EXISTS idx_project_tasks_assignee_due ON project_tasks(assigned_to, due_date);
   `);
 }
 try {

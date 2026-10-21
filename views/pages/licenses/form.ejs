@@ -10,6 +10,11 @@
       <div class="form-group"><label for="license_key">License Key</label><input type="text" name="license_key" id="license_key" class="form-control" placeholder="Enter new key or leave blank to keep current" maxlength="<%= CONSTANTS.MAX_LONG_STR %>" style="font-family:monospace;" autocomplete="off"></div>
       <% if (isEdit && license.has_license_key) { %><div class="form-group"><label for="clear_key"><input type="checkbox" name="clear_key" id="clear_key" value="on"> Clear existing key</label></div><% } %>
       <div class="form-group"><label for="license_type">License Type</label><select name="license_type" id="license_type" class="form-control">
+        <% // An explicit "not recorded" option: the type column is nullable, and
+           // without this option the browser submitted the FIRST enum value
+           // (perpetual) for a licence whose type was never set, silently
+           // turning it into a perpetual licence on the next save. %>
+        <option value="" <%= !license.license_type ? 'selected' : '' %>>Unspecified</option>
         <% CONSTANTS.LICENSE_TYPES.forEach(t => { %><option value="<%= t %>" <%= license.license_type === t ? 'selected' : '' %>><%= titleCase(t) %></option><% }) %>
       </select></div>
       <div class="form-group"><label for="total_seats">Total Seats</label><input type="number" name="total_seats" id="total_seats" class="form-control" value="<%= license.total_seats != null ? license.total_seats : 1 %>" min="1" max="1000000" required></div>

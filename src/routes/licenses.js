@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, logError } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -222,7 +222,11 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect('/licenses/new');
   }
 
-  if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
+  // Enum resolution — a present-but-blank licence type (a whitespace-only
+  // value) is an invalid value, not an omitted one: it used to trim to '' and
+  // silently store NULL while the route flashed a success.
+  const createLicenseTypeEnum = resolveEnumField(req.body.license_type, VALID_LICENSE_TYPES);
+  if (createLicenseTypeEnum.state === 'blank' || createLicenseTypeEnum.state === 'invalid') {
     req.flash('error', 'Invalid License Type');
     return res.redirect('/licenses/new');
   }
@@ -402,6 +406,15 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid License Key');
     return res.redirect(`/licenses/${id}/edit`);
   }
+  // A present-but-whitespace-only key is neither an absent field (preserve) nor
+  // an explicit clear (the clear_key checkbox) — it trims to an empty string,
+  // so the resolution below silently KEPT THE OLD SECRET while the route
+  // flashed "License updated." and the operator's typed value was discarded
+  // without any feedback. Reject it like every other present-but-blank value.
+  if (typeof req.body.license_key === 'string' && req.body.license_key !== '' && req.body.license_key.trim() === '') {
+    req.flash('error', 'Invalid License Key');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
   const clearKey = parseBooleanFlag(safeQueryValue(req.body.clear_key));
   const license_type = trim(safeQueryValue(req.body.license_type));
   const total_seats = safeQueryValue(req.body.total_seats);
@@ -452,7 +465,14 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/licenses/${id}/edit`);
   }
-  if (license_type && !VALID_LICENSE_TYPES.includes(license_type)) {
+  // Enum resolution — the presence test runs against the RAW submitted value
+  // so a present-but-blank licence type is rejected rather than silently
+  // ignored. `license_type` is a nullable column whose stored default carries
+  // no meaning, so an explicit empty string CLEARS it to NULL (the same
+  // behaviour the vendors.js category field follows); a whitespace-only value
+  // is rejected.
+  const licenseTypeEnum = resolveEnumField(req.body.license_type, VALID_LICENSE_TYPES);
+  if (licenseTypeEnum.state === 'blank' || licenseTypeEnum.state === 'invalid') {
     req.flash('error', 'Invalid License Type');
     return res.redirect(`/licenses/${id}/edit`);
   }

@@ -603,7 +603,7 @@ describe('code review 373 — seed ordering and report disclosure', () => {
     tmp.pragma('foreign_keys = ON');
     tmp.exec(schemaSQL);
     const { runSeed } = require('../src/seed');
-    runSeed(tmp, 'Admin123!', 'Staff123!');
+    runSeed(tmp, 'AdminPassword123!', 'StaffPassword123!');
 
     const rows = tmp.prepare('SELECT ticket_number, status, created_at, updated_at, resolved_at FROM tickets').all();
     expect(rows.length).toBe(10);

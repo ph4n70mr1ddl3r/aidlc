@@ -148,18 +148,20 @@ describe('staff index — last_login/avatar redacted for non-privileged non-self
     const db = jest.requireMock('../src/models/database');
     const stmt = db.prepare();
     stmt.get.mockClear();
-    stmt.all.mockReturnValue([
-      { id: 2, username: 'alice', email: 'a@x.com', first_name: 'Alice', last_name: 'L', role: 'staff', department: 'IT', phone: '555', avatar: 'a.png', is_active: 1, last_login: '2026-01-01 00:00:00', created_at: null, updated_at: null, open_tickets: 0, open_tasks: 0 }
-    ]);
-    // departments subquery
-    stmt.all
-      .mockReturnValueOnce(['IT'])
-      .mockReturnValueOnce([
-        { id: 2, username: 'alice', email: 'a@x.com', first_name: 'Alice', last_name: 'L', role: 'staff', department: 'IT', phone: '555', avatar: 'a.png', is_active: 1, last_login: '2026-01-01 00:00:00', created_at: null, updated_at: null, open_tickets: 0, open_tasks: 0 }
-      ]);
+    // The departments query now runs for PRIVILEGED viewers only (the
+    // directory redacts each row's department for everyone else), so the
+    // per-test setup below decides whether the first .all() call is the
+    // departments lookup or the staff listing.
+    stmt.all.mockReset();
   });
 
+  const STAFF_ROW = {
+    id: 2, username: 'alice', email: 'a@x.com', first_name: 'Alice', last_name: 'L', role: 'staff', department: 'IT', phone: '555', avatar: 'a.png', is_active: 1, last_login: '2026-01-01 00:00:00', created_at: null, updated_at: null, open_tickets: 0, open_tasks: 0
+  };
+
   it('nulls last_login + avatar (alongside email/phone/department) for non-self rows', () => {
+    const db = jest.requireMock('../src/models/database');
+    db.prepare().all.mockReturnValue([STAFF_ROW]);
     const h = lastHandlerFor(staffRouter, 'get', '/');
     let renderLocals = null;
     const req = { query: {}, session: { user: { id: 1, role: 'staff' } }, flash: () => {}, audit: jest.fn(), get: (k) => (k === 'Referer' ? undefined : (k === 'Accept' ? 'text/html' : undefined)) };
@@ -174,9 +176,14 @@ describe('staff index — last_login/avatar redacted for non-privileged non-self
     expect(row.department).toBeNull();
     expect(row.last_login).toBeNull();
     expect(row.avatar).toBeNull();
+    // A non-privileged viewer is not given the organisation's department list.
+    expect(renderLocals.departments).toEqual([]);
   });
 
   it('keeps all fields for privileged viewers', () => {
+    const db = jest.requireMock('../src/models/database');
+    // Privileged viewers get the departments lookup first, then the listing.
+    db.prepare().all.mockReturnValueOnce([{ department: 'IT' }]).mockReturnValue([STAFF_ROW]);
     const h = lastHandlerFor(staffRouter, 'get', '/');
     let renderLocals = null;
     const req = { query: {}, session: { user: { id: 9, role: 'admin' } }, flash: () => {}, audit: jest.fn(), get: (k) => (k === 'Accept' ? 'text/html' : undefined) };
@@ -189,6 +196,7 @@ describe('staff index — last_login/avatar redacted for non-privileged non-self
     expect(row.email).toBe('a@x.com');
     expect(row.last_login).toBe('2026-01-01 00:00:00');
     expect(row.avatar).toBe('a.png');
+    expect(renderLocals.departments).toEqual(['IT']);
   });
 });
 

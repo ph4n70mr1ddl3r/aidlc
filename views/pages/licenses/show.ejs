@@ -1,5 +1,13 @@
 <%- include('../../partials/header') %>
 <%- include('../../partials/nav') %>
+<% // The type column is nullable, so a licence can carry NO recorded type.
+   // "Perpetual" is a term the record must actually assert: the badge falls
+   // back to a neutral "Unspecified" label (the column must render something)
+   // instead of asserting a term the record does not carry, and the expiry
+   // cell below never claims a perpetual term either. The old
+   // `|| 'perpetual'` fallback made the expiry check tautological — an unset
+   // type was labelled perpetual. Mirrors the list page. %>
+<% const _licType = license.license_type || null; const _licLabel = _licType ? titleCase(_licType) : 'Unspecified'; %>
 <div class="page-header">
   <div><h2><%= license.software_name %></h2><div class="breadcrumb"><a href="/dashboard">Dashboard</a> / <a href="/licenses">Licenses</a> / <%= license.software_name %></div></div>
   <% if (isPrivileged(user)) { %>
@@ -19,15 +27,19 @@
      // POST /licenses/:id/key reveal path. The plaintext never reaches this
      // template — the route's statement does not select license_key. %>
   <div class="detail-row"><div class="detail-label">License Key</div><div class="detail-value" style="font-family:monospace;background:var(--bg);padding:4px 8px;border-radius:4px;display:inline-block;"><% if (isPrivileged(user)) { %><span id="license-key-display" aria-live="polite"><%= license.has_license_key ? '****' : '-' %></span><% if (license.has_license_key) { %> <button type="button" class="btn btn-sm btn-outline" data-license-reveal="<%= license.id %>" aria-label="Reveal license key" title="Reveal license key"><i class="fas fa-eye" aria-hidden="true"></i></button><% } %><% } else { %><span class="text-muted">Restricted</span><% } %></div></div>
-  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(license.license_type || 'perpetual', LICENSE_TYPE_BADGE) %>"><%= titleCase(license.license_type || 'perpetual') %></span></div></div>
+  <% // The type column is nullable. A licence with no recorded type is NOT
+     // perpetual: the badge falls back to a neutral "Unspecified" label (the
+     // column must render something) instead of asserting a term the record
+     // does not carry. %>
+  <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-<%= badgeClass(license.license_type, LICENSE_TYPE_BADGE) %>"><%= _licLabel %></span></div></div>
   <div class="detail-row"><div class="detail-label">Seats</div><div class="detail-value"><%= license.used_seats %> / <%= license.total_seats %> used (<%= usagePercent(license.used_seats, license.total_seats) %>%)</div></div>
   <div class="detail-row"><div class="detail-label">Purchase Date</div><div class="detail-value"><%= formatDate(license.purchase_date) %></div></div>
-  <% // "Perpetual" is only true for a licence whose TYPE is perpetual (the
-     // badge fallback above). A missing expiry date on a subscription/volume/
-     // oem/academic licence means "not recorded" — labelling it "Perpetual"
-     // asserted a term the record does not carry, on the very page used to
-     // chase renewals. %>
-  <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? formatDate(license.expiry_date) : ((license.license_type || 'perpetual') === 'perpetual' ? 'Perpetual' : '-') %></div></div>
+  <% // "Perpetual" is only true for a licence whose TYPE is perpetual. A
+     // missing expiry date on a subscription/volume/oem/academic licence —
+     // or on a licence whose type was never recorded — means "not recorded":
+     // labelling it "Perpetual" asserted a term the record does not carry, on
+     // the very page used to chase renewals. %>
+  <div class="detail-row"><div class="detail-label">Expiry Date</div><div class="detail-value"><%= license.expiry_date ? formatDate(license.expiry_date) : (license.license_type === 'perpetual' ? 'Perpetual' : '-') %></div></div>
   <% // `> 0` guard: create defaults an unpriced license to 0, which is
      // indistinguishable from "free" — render '-' instead (projects pages use
      // the same convention for zero budgets). %>

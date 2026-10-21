@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (375th pass)
+**Date:** 2026-10-21 (376th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (374 consecutive hardening reviews) was
+`npm audit`. Prior review history (375 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -14157,4 +14157,279 @@ still accurate.
 - `npm test` — **1554 passed / 1554 total** (97 suites, +12 from #374).
 - `npm run test:coverage` — global thresholds pass (statements 72.75%,
   branches 71.50%, functions 84.11%, lines 72.74%).
+- `npm audit --omit=dev` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-21 (376th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+eighteen defect classes. The most consequential was an **app-wide gap in the
+partial-update contract the README documents**: every *enum* field decided
+whether a submission was present by testing the **trimmed** value for
+truthiness — and a trimmed whitespace-only value is `''`, which is
+indistinguishable from "absent". A present-but-blank enum was therefore
+silently **ignored** while the route flashed "updated successfully", on every
+`PUT` route in the app, while the *free-text* fields of the very same forms
+rejected a whitespace-only value and `staff.js`'s role field rejected a
+present-but-empty one.
+
+1. **A present-but-blank enum was silently accepted on every `PUT` route**
+   (MEDIUM, correctness/consistency — fixed). The presence test must run
+   against the **raw** submitted value: a whitespace-only submission is
+   neither an absent field (preserve) nor an intentional empty string (clear),
+   so it is invalid and must be rejected — exactly as every free-text field
+   on the same form already was. The same gap existed on the *create* routes,
+   where a whitespace-only value silently took the column default. Fix: a new
+   shared helper `utils.resolveEnumField(raw, allowlist)` classifies a
+   submission as `absent` / `empty` / `blank` / `invalid` / `valid`, and
+   every enum field of every write route now resolves through it. A
+   present-but-empty value is rejected on the `NOT NULL` enum columns (the
+   same rule the required text columns follow) and treated as "not submitted"
+   on the nullable ones whose stored default carries meaning (a priority, a
+   condition rating).
+
+2. **A licence with no recorded type was labelled "Perpetual"** (MEDIUM,
+   correctness — fixed). Pass 374 stopped the *expiry cell* from claiming a
+   perpetual term for a subscription, but the guard compared the DEFAULTED
+   type (`license_type || 'perpetual'`), which made it tautological for a
+   `NULL` type — and the type badge asserted the same false fact. The record
+   does not carry a perpetual term, and these are the pages used to chase
+   renewals. Fix: an unset type renders the neutral label "Unspecified"; the
+   expiry cell says "Perpetual" only for a licence whose type really is
+   `perpetual`; the edit form gained an explicit "Unspecified" option so a
+   `NULL` type survives a save instead of being silently turned into
+   `perpetual` by the browser's first-option default.
+
+3. **The projects list search covered a column the list does not render**
+   (MEDIUM, content oracle — fixed). The list is portfolio-visible to every
+   authenticated user while the detail page is ownership-gated, and the card
+   renders only the first 120 characters of the description — but the search
+   matched the WHOLE column, so a viewer could confirm the existence of text
+   they are not allowed to read (and bisect it character by character). Fix:
+   `utils.addSearch` accepts a `{ column, prefix }` descriptor and the
+   projects list matches the same 120-character prefix it renders.
+
+4. **The staff directory leaked every department name to every viewer**
+   (MEDIUM, PII — fixed). The directory redacts each row's department for a
+   viewer who may not see it, but the same page handed every authenticated
+   user the complete department list (a named dropdown) and a working
+   `?department=X` filter (a per-department headcount) — the redaction
+   protected nothing. Fix: the department list and the department filter are
+   now restricted to privileged viewers, whose rows are not redacted.
+
+5. **The `.env.example` placeholder secrets passed the production gate**
+   (MEDIUM, security — fixed). The placeholders are 46 and 50 characters
+   long, so they satisfied the ">= 32 characters" check; the documented
+   workflow (`cp .env.example .env`) would start a production server signing
+   sessions and CSRF tokens with keys published in the repository — arbitrary
+   session cookies and a complete CSRF bypass, with no error. Fix: the
+   production gate now rejects a `CHANGE_ME…` placeholder explicitly.
+
+6. **A staff edit denial misdescribed the attempt in the audit log**
+   (LOW, audit accuracy — fixed). The privileged-role guard is evaluated
+   against the EFFECTIVE role, which falls back to the target's stored role
+   when the request omits the role — so a manager who simply edited a
+   manager/admin account was audited as a "privileged role assignment
+   attempt": a fabricated privilege-escalation event for an actor who made
+   none, while the real event was never recorded with its own message. Fix:
+   the audit entry (and the flash) now name the attempt that was actually
+   made.
+
+7. **The profile route's email-length message was unreachable** (LOW,
+   correctness — fixed). `isValidEmail()` already caps the length, so an
+   over-long address failed the format check and the user was told "Please
+   enter a valid email address"; the dedicated length message could never
+   fire. The `staff.js` sibling checks the length first — the two routes
+   reported the same condition differently. Fix: the length check now runs
+   first.
+
+8. **A whitespace-only licence key was silently discarded** (LOW, data
+   loss — fixed). The key is resolved by hand (it has its own `clear_key`
+   control), so a present-but-whitespace-only value trimmed to `''` and the
+   resolution **kept the old secret** while the route flashed "License
+   updated." — the operator's typed value was gone with no feedback. Fix: it
+   is rejected like every other present-but-blank value.
+
+9. **The knowledge show page rendered the view count from before the
+   increment** (LOW, correctness — fixed). The row was read, the counter
+   incremented, and the page then rendered the STALE count — the first view
+   of an article read "0 views" while the row already read 1. Fix: the
+   rendered count is the post-increment one.
+
+10. **Article content was silently truncated after sanitisation** (LOW,
+    correctness — fixed). The length limits were checked against the RAW
+    body, but the STORED value is the sanitized one, and `sanitize-html`
+    expands `&` to `&amp;` — a 50 000-character body of ampersands was
+    accepted and then cut to 50 000 characters, silently discarding ~40 000
+    characters of the author's text. The cut could also land in the middle
+    of an entity, leaving a literal `&am` in the stored text. Fix: the
+    limits apply to the stored value (a value that had to be cut is
+    rejected), and the truncation never splits an entity.
+
+11. **The change list's empty state promised what the route denies** (LOW,
+    documentation precision — fixed). A staff viewer was told to "clear them
+    to see all changes", but the route scopes the list to the viewer's own
+    assignments — clearing the filters can never reveal another user's.
+
+12. **The ticket report's two cards counted two different populations**
+    (LOW, documentation precision — fixed). "Total Tickets" windows on
+    `created_at` and "Resolved" on `resolved_at`; the labels invited the
+    reading that they were two halves of one funnel, and "Total Tickets"
+    also read as every ticket in the system. Fix: the cards are now "Tickets
+    Created" and "Tickets Resolved".
+
+13. **`POST /logout` had no rate limiter** (LOW, abuse — fixed). The auth
+    router is mounted at `/`, which is not part of the app-wide write
+    backstop, and every logout writes an audit row — so a client holding one
+    valid CSRF token could grow the `audit_log` table without bound. Fix: a
+    per-account limiter (30 / 15 min).
+
+14. **Two RENDERED list columns were not searchable** (LOW, completeness —
+    fixed). An asset's `location` and a ticket's `requester_name` are
+    rendered in their own columns by the list, but the search did not cover
+    them, so a user could not find a row by a value the table showed them.
+
+15. **A non-canonical `is_featured` value silently un-featured a published
+    article** (LOW, correctness — fixed). `parseBooleanFlag` maps every
+    non-canonical string to `0`, so a value of `yes` cleared the flag while
+    the route flashed "Article updated." Fix: a present-but-uninterpretable
+    value is rejected.
+
+16. **The seeded change-log rows contradicted their own timestamps** (LOW,
+    seed data — fixed). The two completed changes kept hardcoded absolute
+    timestamps, and the `change_log` INSERT never set `created_at`/
+    `updated_at`, so both took the schema default (the seed moment): a
+    completed change claimed to have been created and updated months after
+    the change it records — the same contradiction the seeder had already
+    fixed for the seeded tickets. Fix: the completed changes are anchored to
+    the seed date like the scheduled ones, and carry explicit
+    `created_at`/`updated_at`.
+
+17. **The seeder accepted a password that violates the app's own policy**
+    (LOW, correctness — fixed). An operator-supplied `SEED_PASSWORD` was
+    hashed and stored verbatim, producing accounts that could never satisfy
+    `validatePassword()` on a later change. Fix: the seeder refuses a
+    non-compliant value with a clear message.
+
+18. **The README overstated the contract in three places** (LOW,
+    documentation — fixed). It claimed "an explicit empty string clears a
+    nullable optional field" with the licence key as the only exception (the
+    four money fields and the vendor rating actually preserve, and so do the
+    nullable enums whose stored default carries meaning); it did not say that
+    the "present" test runs against the RAW submitted value; and it named
+    "two report pages" while listing three. The README now also documents the
+    search-surface rule.
+
+Also verified this pass: the app-wide partial-update contract now holds for
+every field of every `PUT` route (field by field, against the
+transaction-consistent re-read); every write route still rejects HPP arrays
+before any value is consumed; every form field in every view is consumed by
+its route; every list cap still discloses its truncation through the exact
+one-row-beyond-the-cap probe (no `length >= cap` heuristic survives); the
+audit action/entity allowlists still cover every call site; the requester-PII
+redaction, the licence-key masking, the session timeout anchors and the
+rate-limiter inventory in the README and `.env.example` are accurate.
+
+### Fixes applied
+1. `src/utils.js` — new `resolveEnumField(raw, allowlist)` helper (the shared
+   presence classifier) and a `{ column, prefix }` descriptor form for
+   `addSearch` (the truncated-column search).
+2. `src/routes/tickets.js`, `assets.js`, `projects.js` (project + task),
+   `changes.js` (create + update), `knowledge.js` (create + update),
+   `licenses.js` (create + update) — every enum field resolves through
+   `resolveEnumField`; a present-but-blank value is rejected and a
+   present-but-empty value is rejected on the `NOT NULL` columns.
+3. `src/routes/staff.js` — the department list and the department filter are
+   restricted to privileged viewers; the staff-edit denial audits the attempt
+   that was actually made.
+4. `src/routes/auth.js` — the profile email-length check runs before the
+   format check; `POST /logout` carries a per-account rate limiter.
+5. `src/routes/licenses.js` — a whitespace-only licence key is rejected.
+6. `src/routes/knowledge.js` — the view count is rendered after the
+   increment; the article length limits apply to the sanitized value (a
+   truncated value is rejected) and the truncation never splits an entity; a
+   non-canonical `is_featured` value is rejected.
+7. `src/routes/projects.js` — the list search matches only the 120-character
+   description prefix the card renders.
+8. `src/routes/assets.js`, `tickets.js` — the search covers the rendered
+   `location` / `requester_name` columns.
+9. `src/routes/changes.js` — the list search keeps the description (the list
+   is viewer-scoped, so every row it returns is fully readable).
+10. `src/app.js` — the production secret gate rejects the `.env.example`
+    placeholders.
+11. `src/models/database.js` — indexes for the ORDER BY of the list queries
+    the app actually issues (`assets(name)`, `vendors(name)`,
+    `users(first_name)`, `tickets(updated_at)`, and a composite
+    `project_tasks(assigned_to, due_date)`), which previously forced a full
+    table scan plus a temp B-tree for the sort — on the dashboard's landing
+    query among them.
+12. `src/seed.js` — the completed change-log rows are anchored to the seed
+    date and carry explicit `created_at`/`updated_at`; an operator-supplied
+    seed password must satisfy the app's password policy; the seeded
+    knowledge article no longer claims MFA / password reuse / rotation the
+    app does not enforce, and a seeded ticket no longer names a drifting
+    absolute date.
+13. `views/pages/licenses/index.ejs`, `licenses/show.ejs`, `licenses/form.ejs`
+    — an unset licence type renders "Unspecified"; "Perpetual" is reserved
+    for a licence whose type really is perpetual; the edit form offers an
+    explicit "Unspecified" option.
+14. `views/pages/staff/index.ejs` — the department filter is rendered for
+    privileged viewers only.
+15. `views/pages/changes/index.ejs` — the empty state names the viewer's
+    scope instead of promising a filter reset cannot deliver.
+16. `views/pages/reports/tickets.ejs` — the two cards are "Tickets Created"
+    and "Tickets Resolved".
+17. `README.md` — the partial-update section documents the raw-presence rule
+    and the two empty-string exceptions; a new "Search surface" section
+    documents the search rule; the list-cap section names three report pages;
+    the env table documents the placeholder-secret rejection, the logout
+    limiter and the seed-password policy.
+
+### Regression tests added
+- `tests/code_review_376.test.js` — 48 tests, 33 of them verified to FAIL
+  against the pre-fix tree: the shared enum classifier's five states; a
+  whitespace-only (and, on the `NOT NULL` columns, an empty) ticket
+  category/priority/status, asset status, project status, task status, change
+  status and article status are rejected with nothing written, while an
+  absent status is still preserved; a whitespace-only status on create is
+  rejected; a licence with an unset type renders "Unspecified" and never
+  "Perpetual" (on the list, on the show page and in the edit form) while a
+  genuine perpetual licence still is; the projects search does not match
+  beyond the rendered prefix but still matches inside it; the staff directory
+  offers no department filter to a staff viewer and still does to a
+  privileged one; the production gate rejects the `.env.example` placeholders
+  (which are long enough to pass the length check); the staff-edit denial is
+  audited as an account modification; the profile length check precedes the
+  format check; a whitespace-only licence key is rejected and the stored key
+  survives; the article view count is rendered after the increment; a body
+  that does not fit after sanitisation is rejected and the truncation never
+  splits an entity; the change empty state, the report card labels and the
+  logout limiter are in place; an asset is findable by its location and a
+  ticket by its requester name; a non-canonical `is_featured` value is
+  rejected while the canonical ones still work; the seeded change rows are
+  coherent; the seeder refuses a non-compliant password; and the README
+  states the real contract.
+
+### Existing tests updated
+- `tests/code_review_114.test.js` — the "present-but-invalid status is
+  rejected" case now splits into an absent-status (preserved) and a
+  present-but-empty status (rejected) case, matching the corrected contract.
+- `tests/code_review_354.test.js` — the changes-route source pin now reads
+  the `resolveEnumField` resolution instead of the old `||` fallbacks.
+- `tests/code_review_166.test.js`, `tests/code_review_175.test.js` — the
+  licence-type badge pins now encode the corrected contract (an unset type
+  renders "Unspecified", not "Perpetual").
+- `tests/code_review_362.test.js` — the staff-directory mock now models the
+  departments lookup as a privileged-only query.
+- `tests/seed.test.js`, `tests/code_review_371.test.js`,
+  `tests/code_review_372.test.js`, `tests/code_review_373.test.js`,
+  `tests/code_review_375.test.js` — the seeded passwords now satisfy the
+  app's password policy (the seeder enforces it).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1603 passed / 1603 total** (98 suites, +48 from #375).
+- `npm run test:coverage` — global thresholds pass (statements 73.12%,
+  branches 71.56%, functions 82.98%, lines 73.02%).
 - `npm audit --omit=dev` — **0 vulnerabilities**.

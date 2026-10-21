@@ -103,12 +103,25 @@ router.get('/', (req, res) => {
   }
   const { page: requestedPage, limit } = paginate(req);
 
-  // Whitelist known departments from DB
+  const viewer = req.session.user;
+  const viewerPrivileged = isPrivileged(viewer);
+
+  // Whitelist known departments from DB.
+  //
+  // PII disclosure control: the directory redacts each row's department for a
+  // viewer who is neither privileged nor the row's owner (the template renders
+  // "Restricted"). Handing every viewer the full department list — and letting
+  // them filter by it — defeated that redaction: the dropdown named every
+  // department in the organisation, and `?department=X` returned the headcount
+  // of that department. Both are now restricted to privileged viewers, whose
+  // rows are not redacted in the first place.
   let departments = [];
-  try {
-    departments = _departmentsStmt.all().map(r => r.department);
-  } catch (err) {
-    logError('Staff departments query error:', err);
+  if (viewerPrivileged) {
+    try {
+      departments = _departmentsStmt.all().map(r => r.department);
+    } catch (err) {
+      logError('Staff departments query error:', err);
+    }
   }
   const qStatus = safeQueryValue(req.query.status);
   const qRole = safeQueryValue(req.query.role);
@@ -116,7 +129,7 @@ router.get('/', (req, res) => {
   const activeFilter = qStatus === 'active' ? 1 : qStatus === 'inactive' ? 0 : '';
   const filters = buildFilters({
     'u.role': { value: USER_ROLES.includes(qRole) ? qRole : '' },
-    'u.department': { value: departments.includes(qDept) ? qDept : '' },
+    'u.department': { value: viewerPrivileged && departments.includes(qDept) ? qDept : '' },
     'u.is_active': { value: activeFilter }
   }, ['u.role', 'u.department', 'u.is_active']);
 
@@ -131,8 +144,6 @@ router.get('/', (req, res) => {
   // directory actually renders for them (first_name / last_name). The
   // username column is not rendered in the directory at all, so it is
   // likewise excluded. Privileged viewers keep the full search surface.
-  const viewer = req.session.user;
-  const viewerPrivileged = isPrivileged(viewer);
   const searchColumns = viewerPrivileged
     ? ['u.first_name', 'u.last_name', 'u.email', 'u.username']
     : ['u.first_name', 'u.last_name'];
@@ -583,9 +594,23 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // not be able to escalate a staff user to manager (or another admin), which
   // would grant near-admin capabilities. Managers are limited to editing
   // staff-role users.
+  //
+  // The guard is evaluated against the EFFECTIVE role, so a partial
+  // submission that omits the role is judged by the role the account
+  // actually has. The audit entry names WHICH attempt it was: a request that
+  // carried a role is a role-assignment attempt, while a request that carried
+  // NO role at all is an attempt to modify a privileged account. Recording
+  // the latter as a privilege-escalation attempt put a fabricated escalation
+  // in the audit log for an actor who made none, and the real event was never
+  // recorded with its own message.
   if (effectiveRole !== 'staff' && req.session.user.role !== 'admin') {
-    req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${effectiveRole})`);
-    req.flash('error', 'Only administrators can assign the manager or admin role.');
+    if (roleAbsent) {
+      req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
+      req.flash('error', 'You cannot modify administrator or manager accounts.');
+    } else {
+      req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${effectiveRole})`);
+      req.flash('error', 'Only administrators can assign the manager or admin role.');
+    }
     return res.redirect('/staff');
   }
   // Prevent admin from changing their own role (would lock themselves out).

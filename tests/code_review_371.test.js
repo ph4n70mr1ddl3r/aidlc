@@ -348,7 +348,7 @@ describe('code review 371 — seed data freshness', () => {
     seedDb.pragma('foreign_keys = ON');
     seedDb.exec(readSchemaSQL());
     const { runSeed } = require('../src/seed');
-    runSeed(seedDb, 'Admin123!', 'Staff123!');
+    runSeed(seedDb, 'AdminPassword123!', 'StaffPassword123!');
   });
   afterAll(() => {
     if (seedDb) {

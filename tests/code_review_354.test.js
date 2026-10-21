@@ -288,9 +288,12 @@ describe('code review 354 — hardening plateau verification', () => {
   // ---------------------------------------------------------------------------
   it('changes create defaults absent/empty status to the first enum value', () => {
     const changesSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'changes.js'), 'utf8');
-    expect(changesSrc).toMatch(/const safeStatus = status \|\| 'scheduled';/);
-    // The update route preserves the stored value on absent/empty status.
-    expect(changesSrc).toMatch(/effectiveStatus = status \|\| existingChange\.status;/);
+    // The create route defaults an absent (or explicitly empty) status to
+    // 'scheduled'. The enum is resolved through resolveEnumField, so the
+    // default is applied when no valid value was submitted.
+    expect(changesSrc).toMatch(/const safeStatus = createStatusEnum\.state === 'valid' \? createStatusEnum\.value : 'scheduled';/);
+    // The update route preserves the stored value when the status is absent.
+    expect(changesSrc).toMatch(/effectiveStatus = statusEnum\.state === 'valid' \? statusEnum\.value : existingChange\.status;/);
   });
 
   // ---------------------------------------------------------------------------

@@ -241,6 +241,16 @@ function isValidEmail(email) {
 /**
  * Add LIKE search conditions safely.
  * Column names are validated against a safe pattern to prevent SQL injection.
+ *
+ * A column entry is either a plain column name ("t.title") or a descriptor
+ * object `{ column: 'p.description', prefix: 120 }`. The descriptor form
+ * matches only the FIRST `prefix` characters of the column — it exists for
+ * the list views that render a TRUNCATED copy of a long text column: the
+ * search surface must cover exactly what the list renders, otherwise a
+ * search for text beyond the rendered prefix confirms the existence of
+ * content the viewer is not allowed to read (the "content oracle" the
+ * app-wide search-surface rule exists to prevent).
+ *
  * @param {string[]} columns - List of column names to search (must be non-empty)
  */
 function addSearch(where, params, search, columns) {
@@ -258,11 +268,17 @@ function addSearch(where, params, search, columns) {
     return;
   }
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
-  for (const c of columns) {
-    if (!SAFE_COLUMN_RE.test(c)) {
-      throw new Error(`Invalid column name in addSearch: ${c}`);
+  const descriptors = columns.map((entry) => {
+    const descriptor = typeof entry === 'string' ? { column: entry } : entry;
+    if (!descriptor || typeof descriptor.column !== 'string' || !SAFE_COLUMN_RE.test(descriptor.column)) {
+      throw new Error(`Invalid column name in addSearch: ${descriptor && descriptor.column}`);
     }
-  }
+    if (descriptor.prefix !== undefined &&
+        (!Number.isInteger(descriptor.prefix) || descriptor.prefix <= 0)) {
+      throw new Error(`Invalid prefix in addSearch: ${descriptor.prefix}`);
+    }
+    return descriptor;
+  });
   // Cap input length so a client cannot force expensive escaping plus a
   // pathological LIKE scan by submitting a multi-megabyte ?search= value.
   const raw = trimmed.slice(0, MAX_SEARCH);
@@ -270,9 +286,14 @@ function addSearch(where, params, search, columns) {
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
-  const conditions = columns.map(c => `${quoteColumn(c)} LIKE ? ESCAPE '\\'`);
+  const conditions = descriptors.map((d) => {
+    const expression = d.prefix
+      ? `substr(${quoteColumn(d.column)}, 1, ${d.prefix})`
+      : quoteColumn(d.column);
+    return `${expression} LIKE ? ESCAPE '\\'`;
+  });
   where.push(`(${conditions.join(' OR ')})`);
-  columns.forEach(() => params.push(term));
+  descriptors.forEach(() => params.push(term));
 }
 
 /**
@@ -322,6 +343,61 @@ function isPresentInvalidId(value) {
     return !/^[1-9]\d*$/.test(value.trim());
   }
   return true;
+}
+
+/**
+ * Classify an enum field submitted to a write route.
+ *
+ * The app-wide partial-update contract distinguishes an ABSENT field (the
+ * stored value is preserved) from a PRESENT one (the stored value is
+ * replaced, or the request is rejected when the value is invalid). The
+ * presence test therefore has to run against the RAW submitted value:
+ * trim() collapses a whitespace-only submission to '', and a truthiness test
+ * on the trimmed value then treats it as ABSENT — so a present-but-blank enum
+ * was silently ignored while the route flashed "updated successfully".
+ *
+ * That contradicted two things the app already enforces everywhere else:
+ *   - the README's rule that "a field present but invalid (bad enum,
+ *     malformed date, whitespace-only text) is rejected with an error"; and
+ *   - the sibling free-text fields on the very same form, which reject a
+ *     whitespace-only value through resolveOptionalField (and staff.js's
+ *     role field, which rejects a present-but-empty value because the column
+ *     is NOT NULL).
+ *
+ * The states returned:
+ *   - 'absent'  the field was not submitted (or was null) → preserve the
+ *                stored value.
+ *   - 'empty'   the field was submitted as an empty string. For a NOT NULL
+ *                enum column this is rejected (an empty value has no valid
+ *                meaning); for a nullable enum column whose default carries
+ *                no meaning (a licence type, a vendor category) it clears
+ *                the column to NULL.
+ *   - 'blank'   the field was submitted as a whitespace-only string → always
+ *                rejected (it is neither absent nor an intentional clear).
+ *   - 'invalid' the field was submitted as a non-string or as a value that is
+ *                not a member of the allowlist → always rejected.
+ *   - 'valid'   the field carries an allowlisted value (trimmed).
+ *
+ * @param {*} rawValue - the raw req.body[field] value; may be undefined
+ *   (absent), null (absent), a string, or any other type.
+ * @param {string[]} allowed - the enum allowlist
+ * @returns {{state: 'absent'|'empty'|'blank'|'invalid'|'valid', value: string}}
+ */
+function resolveEnumField(rawValue, allowed) {
+  if (rawValue === undefined || rawValue === null) {
+    return { state: 'absent', value: '' };
+  }
+  if (typeof rawValue !== 'string') {
+    return { state: 'invalid', value: '' };
+  }
+  if (rawValue === '') {
+    return { state: 'empty', value: '' };
+  }
+  const trimmed = rawValue.trim();
+  if (trimmed === '') {
+    return { state: 'blank', value: '' };
+  }
+  return allowed.includes(trimmed) ? { state: 'valid', value: trimmed } : { state: 'invalid', value: trimmed };
 }
 
 /**
@@ -1280,6 +1356,7 @@ module.exports = {
   paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
   safeId, isPresentInvalidId, safePositiveFloat, safeInt, safePositiveInt,
   parseEnvInt,
+  resolveEnumField,
   validatePassword, isValidUsername, isValidEmail, isValidUrl,
   sanitizePhone, isValidPhone, isValidDate, isValidDateTimeLocal,
   safeDate, safeDateTimeLocal, trim, localDate, formatDate, formatDateTime,

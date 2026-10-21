@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, logError, capList } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -9,6 +9,7 @@ const {
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
   MEMBER_ROLES: VALID_MEMBER_ROLES,
   MAX_MEDIUM_STR, MAX_DESC,
+  DESC_TRUNCATION_LEN,
   TASK_LIST_CAP, MEMBER_LIST_CAP
 } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
@@ -145,7 +146,17 @@ router.get('/', (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, safeQueryValue(req.query.search), ['p.name', 'p.description']);
+  // The search surface must cover exactly what the list renders. The card
+  // shows only the FIRST DESC_TRUNCATION_LEN characters of the description
+  // (the full text lives on the ownership-gated show route), so the search
+  // matches that same prefix: searching the full column let a viewer who
+  // cannot open the project confirm the existence of text they are not
+  // allowed to read (a content oracle). The knowledge index applies the same
+  // rule by scoping the list to the viewer before the search runs.
+  addSearch(where, params, safeQueryValue(req.query.search), [
+    'p.name',
+    { column: 'p.description', prefix: DESC_TRUNCATION_LEN }
+  ]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
@@ -213,8 +224,6 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/projects/new');
   }
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const start_date = safeQueryValue(req.body.start_date);
   const end_date = safeQueryValue(req.body.end_date);
   const budget = safeQueryValue(req.body.budget);
@@ -237,6 +246,8 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     return res.redirect('/projects/new');
   }
 
+  const status = trim(safeQueryValue(req.body.status));
+  const priority = trim(safeQueryValue(req.body.priority));
   if (!status || !VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid Status');
     return res.redirect('/projects/new');
@@ -418,8 +429,6 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   const name = trim(safeQueryValue(req.body.name));
   const rawDescription = req.body.description;
   const description = trim(safeQueryValue(req.body.description));
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const start_date = safeQueryValue(req.body.start_date);
   const end_date = safeQueryValue(req.body.end_date);
   const budget = safeQueryValue(req.body.budget);
@@ -459,15 +468,19 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     }
   }
 
-  // Allow empty status to preserve the existing value inside the transaction.
-  // A present-but-invalid status is rejected; an absent field means "keep what's stored."
-  const statusProvided = !!status;
-  const priorityProvided = !!priority;
-  if (statusProvided && !VALID_STATUSES.includes(status)) {
+  // Enum resolution — the presence test runs against the RAW submitted value
+  // so a present-but-blank enum is rejected rather than being silently
+  // ignored. `status` is a NOT NULL column (an empty value has no valid
+  // meaning, the same rule the required name column follows); `priority` is
+  // nullable with a meaningful default, so an explicit empty value is treated
+  // as "not submitted" and the stored priority is preserved.
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  const priorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect(`/projects/${id}/edit`);
   }
-  if (priorityProvided && !VALID_PRIORITIES.includes(priority)) {
+  if (priorityEnum.state === 'blank' || priorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Priority');
     return res.redirect(`/projects/${id}/edit`);
   }
@@ -521,8 +534,8 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       if (!existingProject) {
         throw new Error('NOT_FOUND');
       }
-      const effectiveStatus = statusProvided ? status : existingProject.status;
-      const effectivePriority = priorityProvided ? priority : existingProject.priority;
+      const effectiveStatus = statusEnum.state === 'valid' ? statusEnum.value : existingProject.status;
+      const effectivePriority = priorityEnum.state === 'valid' ? priorityEnum.value : existingProject.priority;
       // The name follows the same absent-vs-present rule: an absent field
       // preserves the stored name (resolved from the re-read row so a
       // concurrent rename cannot be clobbered), a present field replaces it.
@@ -741,8 +754,6 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       return res.redirect(`/projects/${projectId}`);
     }
   }
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const due_date = safeQueryValue(req.body.due_date);
 
@@ -758,11 +769,16 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
-  if (status && !VALID_TASK_STATUSES.includes(status)) {
+  // Enum resolution — a present-but-blank task status/priority (a whitespace-
+  // only value) is an invalid value, not an omitted one: it used to trim to ''
+  // and silently take the create default with a success flash.
+  const createTaskStatusEnum = resolveEnumField(req.body.status, VALID_TASK_STATUSES);
+  const createTaskPriorityEnum = resolveEnumField(req.body.priority, VALID_TASK_PRIORITIES);
+  if (createTaskStatusEnum.state === 'blank' || createTaskStatusEnum.state === 'invalid') {
     req.flash('error', 'Invalid Task Status');
     return res.redirect(`/projects/${projectId}`);
   }
-  if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
+  if (createTaskPriorityEnum.state === 'blank' || createTaskPriorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Task Priority');
     return res.redirect(`/projects/${projectId}`);
   }
@@ -797,7 +813,10 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       if (due_date !== undefined && due_date !== null && due_date !== '' && safeDueDate === null) {
         throw new Error('INVALID_DUE_DATE');
       }
-      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status || 'todo', priority || 'medium', safeTaskAssignee, safeDueDate);
+      const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null,
+        createTaskStatusEnum.state === 'valid' ? createTaskStatusEnum.value : 'todo',
+        createTaskPriorityEnum.state === 'valid' ? createTaskPriorityEnum.value : 'medium',
+        safeTaskAssignee, safeDueDate);
 
       return result.lastInsertRowid;
     });
@@ -851,8 +870,6 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     return res.redirect(`/projects/${projectId}`);
   }
 
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const due_date = safeQueryValue(req.body.due_date);
 
@@ -865,11 +882,14 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     // Reject an invalid present status up front (mirrors the tickets.js
     // quick-status route) — previously it silently fell back to the stored
     // status and reported "Status unchanged", mislabeling invalid input as a
-    // valid no-op.
-    if (typeof status !== 'string' || !VALID_TASK_STATUSES.includes(status)) {
+    // valid no-op. The quick path REQUIRES a status, so a missing or blank one
+    // is rejected rather than preserved.
+    const quickStatus = trim(safeQueryValue(req.body.status));
+    if (typeof req.body.status !== 'string' || !VALID_TASK_STATUSES.includes(quickStatus)) {
       req.flash('error', 'Invalid Task Status');
       return res.redirect(`/projects/${projectId}`);
     }
+    const status = quickStatus;
     // Quick status update only — read current status and update atomically
     // inside a single transaction to avoid a TOCTOU where a concurrent change
     // between the read and the UPDATE is silently overwritten.
@@ -972,17 +992,25 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       return res.redirect(`/projects/${projectId}`);
     }
   }
-  // A present-but-invalid status is rejected; an absent/empty field means
+  // A present-but-invalid status is rejected; an absent field means
   // "keep what's stored" (resolved inside the transaction). Mirrors the
-  // project-update route's statusProvided convention and the absent-vs-empty
+  // project-update route's status resolution and the absent-vs-empty
   // handling of priority/assignee/due_date/description on this same route —
   // previously an absent status failed validation, rejecting a perfectly valid
   // partial PUT that only renamed a task.
-  if (status && !VALID_TASK_STATUSES.includes(status)) {
+  //
+  // The presence test runs against the RAW submitted value, so a
+  // present-but-blank enum is rejected rather than silently ignored.
+  // `status` is a NOT NULL column (an empty value has no valid meaning);
+  // `priority` is nullable with a meaningful default, so an explicit empty
+  // value is treated as "not submitted" and the stored priority is preserved.
+  const taskStatusEnum = resolveEnumField(req.body.status, VALID_TASK_STATUSES);
+  const taskPriorityEnum = resolveEnumField(req.body.priority, VALID_TASK_PRIORITIES);
+  if (taskStatusEnum.state === 'blank' || taskStatusEnum.state === 'invalid' || taskStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Task Status');
     return res.redirect(`/projects/${projectId}`);
   }
-  if (priority && !VALID_TASK_PRIORITIES.includes(priority)) {
+  if (taskPriorityEnum.state === 'blank' || taskPriorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Task Priority');
     return res.redirect(`/projects/${projectId}`);
   }
@@ -1043,7 +1071,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
         : safeDueDate;
       // Preserve existing priority when absent instead of silently defaulting to
       // 'medium' — partial edits must not overwrite an existing stored priority.
-      const effectivePriority = priority || existingTask.priority;
+      const effectivePriority = taskPriorityEnum.state === 'valid' ? taskPriorityEnum.value : existingTask.priority;
       // Absent-vs-empty convention for the task description: an explicit empty
       // string in the form wipes it, while an ABSENT field on a partial API
       // submission preserves the stored value. Previously a PUT that omitted
@@ -1059,7 +1087,7 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
       // above only when present) and drive the completed_at encoding from the
       // RESOLVED status so a partial edit cannot clobber the completion
       // timestamp of a stored 'done' task.
-      const effectiveStatus = status || existingTask.status;
+      const effectiveStatus = taskStatusEnum.state === 'valid' ? taskStatusEnum.value : existingTask.status;
       // The title follows the same absent-vs-present rule as every other field
       // on this route: an absent field preserves the CURRENT stored title
       // (read inside the transaction, so a concurrent rename cannot be

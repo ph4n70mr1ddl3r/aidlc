@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -124,7 +124,9 @@ router.get('/', (req, res) => {
   // content oracle — a viewer denied GET /assets/:id could confirm that a
   // serial number they guessed belonged to an inventory asset. Same defect
   // class the change-log list closed in an earlier pass.
-  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.manufacturer']);
+  // `a.location` IS searchable: the list renders it in its own column, so
+  // leaving it out made a rendered column impossible to find.
+  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.manufacturer', 'a.location']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
@@ -185,8 +187,6 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const manufacturer = trim(safeQueryValue(req.body.manufacturer));
   const model = trim(safeQueryValue(req.body.model));
   const serial_number = trim(safeQueryValue(req.body.serial_number));
-  const status = trim(safeQueryValue(req.body.status));
-  const condition_rating = trim(safeQueryValue(req.body.condition_rating));
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const purchase_price = safeQueryValue(req.body.purchase_price);
   const warranty_expiry = safeQueryValue(req.body.warranty_expiry);
@@ -241,16 +241,23 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Category');
     return res.redirect('/assets/new');
   }
-  const safeStatus = status || 'in_storage';
-  if (!VALID_STATUSES.includes(safeStatus)) {
+  // Enum resolution: a present-but-blank status (an empty string or a
+  // whitespace-only one) is an INVALID value, not an omitted one — it used to
+  // trim to '' and silently fall back to the 'in_storage' default with a
+  // success flash, so a garbage submission was accepted as a valid asset.
+  // An ABSENT status still defaults to 'in_storage'.
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/assets/new');
   }
-  if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
+  const safeStatus = statusEnum.state === 'valid' ? statusEnum.value : 'in_storage';
+  const conditionEnum = resolveEnumField(req.body.condition_rating, VALID_CONDITIONS);
+  if (conditionEnum.state === 'blank' || conditionEnum.state === 'invalid') {
     req.flash('error', 'Invalid Condition Rating');
     return res.redirect('/assets/new');
   }
-  const safeCondition = condition_rating || 'good';
+  const safeCondition = conditionEnum.state === 'valid' ? conditionEnum.value : 'good';
 
   // Validate date ordering — warranty cannot expire before purchase, otherwise
   // logically impossible records can be stored. Mirrors the end≥start / expiry≥
@@ -502,8 +509,6 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   const manufacturer = trim(safeQueryValue(req.body.manufacturer));
   const model = trim(safeQueryValue(req.body.model));
   const serial_number = trim(safeQueryValue(req.body.serial_number));
-  const status = trim(safeQueryValue(req.body.status));
-  const condition_rating = trim(safeQueryValue(req.body.condition_rating));
   const purchase_date = safeQueryValue(req.body.purchase_date);
   const purchase_price = safeQueryValue(req.body.purchase_price);
   const warranty_expiry = safeQueryValue(req.body.warranty_expiry);
@@ -585,16 +590,25 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (condition_rating && !VALID_CONDITIONS.includes(condition_rating)) {
-    req.flash('error', 'Invalid Condition Rating');
+  // Enum resolution — the presence test runs against the RAW submitted value
+  // so a present-but-blank enum is rejected instead of being silently
+  // ignored:
+  //   - 'blank'   (whitespace-only) → always rejected;
+  //   - 'invalid' (not a member)    → always rejected;
+  //   - 'empty'   (an empty string) → rejected for the NOT NULL `status`
+  //                column (an empty value has no valid meaning, the same rule
+  //                the required tag/name/category columns follow) and treated
+  //                as "not submitted" for the nullable `condition_rating`
+  //                column, whose stored rating is preserved;
+  //   - 'absent'                    → the stored value is preserved.
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
+    req.flash('error', 'Invalid Status');
     return res.redirect(`/assets/${id}/edit`);
   }
-  // A present-but-invalid status is rejected; an absent/empty field means
-  // "keep what's stored" (resolved inside the transaction). Mirrors the
-  // projects.js update convention — previously an invalid status was silently
-  // swallowed here and reported as a successful update.
-  if (status && !VALID_STATUSES.includes(status)) {
-    req.flash('error', 'Invalid Status');
+  const conditionEnum = resolveEnumField(req.body.condition_rating, VALID_CONDITIONS);
+  if (conditionEnum.state === 'blank' || conditionEnum.state === 'invalid') {
+    req.flash('error', 'Invalid Condition Rating');
     return res.redirect(`/assets/${id}/edit`);
   }
 
@@ -670,9 +684,10 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       // outer fetch, closing a TOCTOU gap where a concurrent status change
       // between the outer fetch and this UPDATE could be silently overwritten
       // when the submitted status is absent (which triggers the
-      // preserve-existing fallback). A present-but-invalid status was already
-      // rejected above, so this branch only handles absent/empty submissions.
-      const safeStatus = VALID_STATUSES.includes(status) ? status : current.status;
+      // preserve-existing fallback). A present-but-invalid or present-but-blank
+      // status was already rejected above, so this branch only handles an
+      // absent submission.
+      const safeStatus = statusEnum.state === 'valid' ? statusEnum.value : current.status;
 
       // Resolve price and dates against the freshly-read transaction-consistent
       // row to avoid a TOCTOU between the outer fetch and this UPDATE.
@@ -704,13 +719,13 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       if (resolvedPurchase && resolvedWarranty && resolvedWarranty < resolvedPurchase) {
         throw new Error('WARRANTY_BEFORE_PURCHASE');
       }
-      // Preserve the stored condition rating when the field is blank on a
+      // Preserve the stored condition rating when the field is absent on a
       // partial edit, so editing an unrelated field cannot silently reset a
-      // stored 'poor'/'fair' rating back to the 'good' default. Invalid present
-      // values were already rejected above (fail closed).
-      const resolvedCondition = (condition_rating === undefined || condition_rating === null || condition_rating === '')
-        ? current.condition_rating
-        : condition_rating;
+      // stored 'poor'/'fair' rating back to the 'good' default. Invalid and
+      // whitespace-only present values were already rejected above (fail
+      // closed); an explicit empty value is treated as "not submitted" so the
+      // stored rating survives.
+      const resolvedCondition = conditionEnum.state === 'valid' ? conditionEnum.value : current.condition_rating;
 
       // Absent-vs-empty convention for the optional text fields: an ABSENT field
       // (partial API submission) preserves the stored value, while an explicit

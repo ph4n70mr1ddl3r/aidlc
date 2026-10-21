@@ -3,6 +3,7 @@ require('dotenv').config();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { BCRYPT_SALT_ROUNDS } = require('./constants');
+const { validatePassword } = require('./utils');
 
 function _generateSeedPassword(label) {
   const pw = crypto.randomBytes(12).toString('base64') + 'Aa1!';
@@ -190,7 +191,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     const tickets = [
       { title: 'VPN connection drops intermittently', description: 'Multiple users reporting VPN disconnects during peak hours. Affects remote workers primarily.', category: 'network', priority: 'high', status: 'in_progress', requester_name: 'Lisa Park', requester_email: 'l.park@company.com', requester_department: 'Marketing', assigned_to: 3, asset_id: 6, due_date: '2026-05-25' },
       { title: 'Email not syncing on mobile device', description: 'Outlook app on iPhone not syncing emails since this morning. Tried reinstalling the app.', category: 'email', priority: 'medium', status: 'open', requester_name: 'Mark Johnson', requester_email: 'm.johnson@company.com', requester_department: 'Sales', assigned_to: 4 },
-      { title: 'New employee workstation setup', description: 'Need workstation prepared for new hire starting June 1st. Standard developer setup required.', category: 'hardware', priority: 'medium', status: 'open', requester_name: 'HR Department', requester_email: 'hr@company.com', requester_department: 'HR', assigned_to: 5 },
+      { title: 'New employee workstation setup', description: 'Need workstation prepared for a new hire starting next month. Standard developer setup required.', category: 'hardware', priority: 'medium', status: 'open', requester_name: 'HR Department', requester_email: 'hr@company.com', requester_department: 'HR', assigned_to: 5 },
       { title: 'Server room temperature alert', description: 'Temperature sensor showing 28°C in server room A. Normal is 20-22°C. HVAC may need attention.', category: 'hardware', priority: 'critical', status: 'in_progress', requester_name: 'Monitoring System', requester_email: 'alerts@company.com', requester_department: 'IT', assigned_to: 2, asset_id: 4 },
       { title: 'Access request for SharePoint site', description: 'Need access to the Marketing shared SharePoint site for the new campaign project.', category: 'access', priority: 'low', status: 'waiting', requester_name: 'David Kim', requester_email: 'd.kim@company.com', requester_department: 'Marketing', assigned_to: 4 },
       { title: 'Printer jammed on 3rd floor', description: 'HP LaserJet on 3rd floor has a paper jam. Unable to clear it following standard procedure.', category: 'hardware', priority: 'low', status: 'open', requester_name: 'Anna Smith', requester_email: 'a.smith@company.com', requester_department: 'Finance', assigned_to: 5, asset_id: 7 },
@@ -361,7 +362,7 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     const articles = [
       { title: 'How to Connect to Corporate VPN', content: '# VPN Connection Guide\n\n## Prerequisites\n- Company laptop with VPN client installed\n- Active directory credentials\n\n## Steps\n1. Open Cisco AnyConnect from Start Menu\n2. Enter server: vpn.company.com\n3. Click Connect\n4. Enter your AD username and password\n5. Enter MFA code from Authenticator app\n6. Click OK\n\n## Troubleshooting\n- If connection fails, try restarting the VPN service\n- Clear DNS cache: `ipconfig /flushdns`\n- Contact IT if issues persist', category: 'how_to', tags: 'vpn,network,remote', status: 'published', is_featured: 1, author_id: 2 },
       { title: 'Printer Setup on macOS', content: '# Setting up Network Printers on macOS\n\n1. Open System Settings → Printers & Scanners\n2. Click "+" to add printer\n3. Select "IP" tab\n4. Enter printer IP address from the printer list\n5. Select protocol: IPP\n6. Choose driver: Generic PostScript\n7. Click Add\n\nSee the printer IP list in the IT shared drive.', category: 'how_to', tags: 'printer,macos,setup', status: 'published', is_featured: 0, author_id: 5 },
-      { title: 'Password Policy Requirements', content: '# Corporate Password Policy\n\n## Requirements\n- Minimum 12 characters\n- Must include: uppercase, lowercase, number, special character\n- Cannot reuse last 10 passwords\n- Must be changed every 90 days\n\n## MFA\n- All accounts require MFA\n- Use Microsoft Authenticator app\n- Backup codes should be stored securely', category: 'policy', tags: 'security,password,policy', status: 'published', is_featured: 1, author_id: 1 },
+      { title: 'Password Policy Requirements', content: '# Corporate Password Policy\n\n## Requirements enforced by the application\n- Minimum 12 characters (and at most 72 bytes)\n- Must include: uppercase, lowercase, number, special character\n- Maximum 128 characters\n\n## Not enforced by the application\nThe following are commonly required by a corporate policy but are NOT\nimplemented by this tool — the application has no password-reuse history, no\nmandatory rotation interval, and no multi-factor authentication:\n- Cannot reuse the last 10 passwords\n- Must be changed every 90 days\n- All accounts require MFA (for example, the Microsoft Authenticator app)', category: 'policy', tags: 'security,password,policy', status: 'published', is_featured: 1, author_id: 1 },
       { title: 'Troubleshooting Network Connectivity', content: '# Network Troubleshooting SOP\n\n## Quick Checks\n1. Check cable connections\n2. Restart computer\n3. Try a different network port\n\n## Diagnostics\n```bash\nping 8.8.8.8\ntracert google.com\nipconfig /all\n```\n\n## Common Issues\n- IP conflict: Release/renew IP\n- DNS issues: Flush DNS cache\n- Proxy issues: Check proxy settings', category: 'troubleshooting', tags: 'network,troubleshooting', status: 'published', is_featured: 0, author_id: 3 },
       { title: 'New Employee IT Onboarding Checklist', content: '# IT Onboarding Checklist\n\n## Day Before\n- [ ] Create AD account\n- [ ] Create email account\n- [ ] Assign licenses (M365, etc.)\n- [ ] Prepare laptop with standard image\n- [ ] Configure VPN access\n- [ ] Add to relevant distribution lists\n\n## Day 1\n- [ ] Issue laptop and peripherals\n- [ ] Set up accounts with employee\n- [ ] Configure email on mobile\n- [ ] Brief on security policies\n- [ ] Provide IT support contact info', category: 'sop', tags: 'onboarding,hr,process', status: 'published', is_featured: 1, author_id: 2 },
       { title: 'Incident Response Procedure', content: '# Security Incident Response\n\n## Severity Levels\n- **Critical**: Active breach, data exfiltration\n- **High**: Vulnerability being exploited\n- **Medium**: Suspicious activity detected\n- **Low**: Potential risk identified\n\n## Steps\n1. Identify and contain\n2. Assess impact\n3. Notify security team lead\n4. Eradicate threat\n5. Recover systems\n6. Post-incident review', category: 'sop', tags: 'security,incident,response', status: 'draft', is_featured: 0, author_id: 1 }
@@ -382,8 +383,16 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // Scheduled changes are anchored relative to seed time (like ticket
     // timestamps above) so the Dashboard "Upcoming Changes" panel always has
     // data no matter when the seed runs — hardcoded absolute dates would drift
-    // into the past and render that panel empty. Completed/failed changes keep
-    // absolute historical timestamps (they are past by definition).
+    // into the past and render that panel empty.
+    //
+    // The COMPLETED changes are anchored the same way (a negative day offset).
+    // They used to keep hardcoded absolute timestamps, which were "past by
+    // definition" only until the clock passed them — and the change_log rows
+    // never set created_at/updated_at, so both took the schema default
+    // (datetime('now') = the seed moment). A completed change therefore
+    // claimed to have been CREATED and UPDATED months after the change it
+    // records had already finished — the same contradiction the seeder had
+    // already fixed for the seeded tickets.
     const changeAt = (daysFromNow, time) => {
       const d = new Date(now.getTime() + daysFromNow * 86400000);
       const [hours, minutes] = time.split(':');
@@ -399,22 +408,22 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       return d.toISOString().replace('T', ' ').slice(0, 16);
     };
     const changes = [
-      { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: '2026-05-20 02:00', scheduled_end: '2026-05-20 03:00', actual_start: '2026-05-20 02:00', actual_end: '2026-05-20 02:35', impact: 'No user impact expected', assigned_to: 6 },
-      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
-      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00'), scheduled_end: changeAt(12, '08:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
-      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00'), scheduled_end: changeAt(16, '22:00'), impact: 'AD replication delay possible', assigned_to: 2 },
-      { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: '2026-05-18 23:00', scheduled_end: '2026-05-19 01:00', actual_start: '2026-05-18 23:00', actual_end: '2026-05-18 23:45', impact: 'No impact - hot spare active', assigned_to: 6 }
+      { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: changeAt(-30, '02:00'), scheduled_end: changeAt(-30, '03:00'), actual_start: changeAt(-30, '02:00'), actual_end: changeAt(-30, '02:35'), created_at: changeAt(-32, '09:00'), updated_at: changeAt(-30, '02:35'), impact: 'No user impact expected', assigned_to: 6 },
+      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), created_at: changeAt(3, '08:00'), updated_at: changeAt(3, '08:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
+      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00'), scheduled_end: changeAt(12, '08:00'), created_at: changeAt(10, '08:00'), updated_at: changeAt(10, '08:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
+      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00'), scheduled_end: changeAt(16, '22:00'), created_at: changeAt(14, '08:00'), updated_at: changeAt(14, '08:00'), impact: 'AD replication delay possible', assigned_to: 2 },
+      { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: changeAt(-32, '23:00'), scheduled_end: changeAt(-31, '01:00'), actual_start: changeAt(-32, '23:00'), actual_end: changeAt(-32, '23:45'), created_at: changeAt(-34, '10:00'), updated_at: changeAt(-32, '23:45'), impact: 'No impact - hot spare active', assigned_to: 6 }
     ];
 
     const insertChange = db.prepare(`
-      INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO change_log (title, description, change_type, status, priority, scheduled_start, scheduled_end, actual_start, actual_end, impact, assigned_to, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (const c of changes) {
       insertChange.run(c.title, c.description, c.change_type, c.status, c.priority,
         c.scheduled_start, c.scheduled_end, c.actual_start || null, c.actual_end || null,
-        c.impact, c.assigned_to);
+        c.impact, c.assigned_to, c.created_at, c.updated_at);
     }
 
     // Add some ticket comments
@@ -464,6 +473,19 @@ function runSeed(db, adminPw, staffPw) {
 
   const SEED_ADMIN_PW = adminPw || (process.env.SEED_ADMIN_PASSWORD || '').trim() || _generateSeedPassword('SEED_ADMIN_PASSWORD');
   const SEED_STAFF_PW = staffPw || (process.env.SEED_PASSWORD || '').trim() || _generateSeedPassword('SEED_PASSWORD');
+  // An operator-supplied seed password is held to the SAME policy the app
+  // enforces on every other password (utils.validatePassword). A seed
+  // account created with, say, "password" would never satisfy the policy on
+  // a later change, so the account could not be rotated to a compliant
+  // password without first failing the check — and the app's own documented
+  // policy would be violated from the moment the account was created. Fail
+  // closed with a clear message instead of seeding a non-compliant account.
+  for (const [label, value] of [['SEED_ADMIN_PASSWORD', SEED_ADMIN_PW], ['SEED_PASSWORD', SEED_STAFF_PW]]) {
+    const policyError = validatePassword(value);
+    if (policyError) {
+      throw new Error(`${label} does not meet the password policy: ${policyError}`);
+    }
+  }
   _seedTransaction(db, SEED_ADMIN_PW, SEED_STAFF_PW);
   return { SEED_ADMIN_PW, SEED_STAFF_PW };
 }

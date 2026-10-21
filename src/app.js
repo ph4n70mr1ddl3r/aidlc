@@ -41,12 +41,19 @@ const { destroySessionAndRedirect } = authMiddleware;
 // ---------------------------------------------------------------------------
 // Validate critical env vars in production
 // ---------------------------------------------------------------------------
+// The placeholder values shipped in .env.example ("CHANGE_ME_...") are longer
+// than the 32-character minimum, so the length check alone ACCEPTS them: the
+// documented workflow (cp .env.example .env, then start the server) would
+// otherwise run production with the session-signing key and the CSRF key
+// published in the repository — arbitrary session cookies and a complete CSRF
+// bypass. Reject the known placeholders explicitly so the failure is loud.
+const _PLACEHOLDER_SECRET_RE = /^CHANGE_ME/;
 if (process.env.NODE_ENV === 'production') {
-  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32 || _PLACEHOLDER_SECRET_RE.test(process.env.SESSION_SECRET)) {
     console.error('ERROR: SESSION_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }
-  if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET.length < 32) {
+  if (!process.env.CSRF_SECRET || process.env.CSRF_SECRET.length < 32 || _PLACEHOLDER_SECRET_RE.test(process.env.CSRF_SECRET)) {
     console.error('ERROR: CSRF_SECRET must be set to a strong random value (>= 32 chars) in production');
     process.exit(1);
   }

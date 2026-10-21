@@ -16,10 +16,17 @@
     <option value="<%= r %>" <%= filters.role === r ? 'selected' : '' %>><%= titleCase(r) %></option>
     <% }) %>
   </select>
+  <% // The department filter is shown to privileged viewers only: the
+     // directory redacts each row's department for everyone else, so handing
+     // the dropdown to a staff member named every department in the
+     // organisation and the filter returned that department's headcount —
+     // the redaction protected nothing. %>
+  <% if (isPrivileged(user)) { %>
   <select name="department" aria-label="Filter by department">
     <option value="">All Departments</option>
     <% if (typeof departments !== 'undefined') { departments.forEach(d => { %><option value="<%= d %>" <%= filters.department === d ? 'selected' : '' %>><%= d %></option><% }); } %>
   </select>
+  <% } %>
   <select name="status" aria-label="Filter by status">
     <option value="">All Status</option>
     <option value="active" <%= filters.status === 'active' ? 'selected' : '' %>>Active</option>

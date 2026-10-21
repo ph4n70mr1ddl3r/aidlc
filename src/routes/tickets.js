@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, titleCase, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE, COMMENT_LIST_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -209,7 +209,10 @@ router.get('/', (req, res) => {
   // that a phrase occurred in a description they are not allowed to read by
   // observing which rows came back. Same defect class the change-log list
   // closed in an earlier pass.
-  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.ticket_number']);
+  // `t.requester_name` IS searchable: the list renders it in its own column
+  // (to every viewer), so leaving it out made a rendered column impossible
+  // to find.
+  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.ticket_number', 't.requester_name']);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
@@ -281,7 +284,6 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   }
   const category = trim(safeQueryValue(req.body.category));
   const priority = trim(safeQueryValue(req.body.priority));
-  const status = trim(safeQueryValue(req.body.status));
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
@@ -355,12 +357,15 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // of the allowlist — the create route previously listed 'status' in its HPP
   // and type guards but never read it, so a submitted status was silently
   // discarded and the ticket was always created 'open'. Mirrors the
-  // changes.js create route, which applies the submitted status.
-  if (status && !VALID_STATUSES.includes(status)) {
+  // changes.js create route, which applies the submitted status. A
+  // present-but-blank value (whitespace-only) is an invalid value, not an
+  // omitted one — it used to trim to '' and silently take the 'open' default.
+  const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/tickets/new');
   }
-  const safeStatus = status || 'open';
+  const safeStatus = createStatusEnum.state === 'valid' ? createStatusEnum.value : 'open';
   // A ticket created directly in a terminal state gets a resolution timestamp,
   // exactly like the update route's `resolved_at = CASE WHEN ... THEN
   // datetime('now')` — otherwise the row would claim to be resolved/closed
@@ -617,9 +622,6 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   const rawDescription = req.body.description;
   const rawResolutionNotes = req.body.resolution_notes;
   const description = trim(safeQueryValue(req.body.description));
-  const category = trim(safeQueryValue(req.body.category));
-  const priority = trim(safeQueryValue(req.body.priority));
-  const status = trim(safeQueryValue(req.body.status));
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const asset_id = safeQueryValue(req.body.asset_id);
   const due_date = safeQueryValue(req.body.due_date);
@@ -710,15 +712,27 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // ticket failed with "Invalid status/category/priority" — inconsistent with
   // every other optional field on this route (assignee, asset, due date, PII,
   // description, resolution notes), all of which preserve on absence.
-  if (category && !VALID_CATEGORIES.includes(category)) {
+  //
+  // The presence test runs against the RAW submitted value, so a
+  // present-but-blank enum is REJECTED rather than silently preserved:
+  //   - 'blank'   (whitespace-only) → always rejected;
+  //   - 'invalid' (not a member)    → always rejected;
+  //   - 'empty'   (an empty string) → rejected — all three columns are NOT
+  //     NULL, so an empty value has no valid meaning (the same rule the
+  //     required title column follows);
+  //   - 'absent'                    → the stored value is preserved.
+  const categoryEnum = resolveEnumField(req.body.category, VALID_CATEGORIES);
+  const priorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (categoryEnum.state === 'blank' || categoryEnum.state === 'invalid' || categoryEnum.state === 'empty') {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (priority && !VALID_PRIORITIES.includes(priority)) {
+  if (priorityEnum.state === 'blank' || priorityEnum.state === 'invalid' || priorityEnum.state === 'empty') {
     req.flash('error', 'Invalid Priority');
     return res.redirect(`/tickets/${id}/edit`);
   }
-  if (status && !VALID_STATUSES.includes(status)) {
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect(`/tickets/${id}/edit`);
   }
@@ -827,7 +841,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     // auditStatus captures the EFFECTIVE (resolved) status from inside the
     // transaction so the post-commit audit entry reports the persisted value
     // even when the submission omitted the field (partial update).
-    let auditStatus = status;
+    let auditStatus = statusEnum.state === 'valid' ? statusEnum.value : '';
     const updateTicket = db.transaction(() => {
       const ticket = _updateCheckStmt.get(id);
       if (!ticket) {
@@ -910,12 +924,13 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       }
       // Resolve the enum fields against the transaction-consistent row using
       // the same absent-preserves convention as the optional text fields: an
-      // ABSENT (or empty) field keeps the stored value. The edit form always
-      // submits a concrete value, and a present-but-invalid value was already
-      // rejected above, so only valid enums and "no opinion" reach here.
-      const effectiveCategory = category || ticket.category;
-      const effectivePriority = priority || ticket.priority;
-      const effectiveStatus = status || ticket.status;
+      // ABSENT field keeps the stored value. The edit form always
+      // submits a concrete value, and a present-but-invalid or
+      // present-but-blank value was already rejected above, so only valid
+      // enums and "no opinion" reach here.
+      const effectiveCategory = categoryEnum.state === 'valid' ? categoryEnum.value : ticket.category;
+      const effectivePriority = priorityEnum.state === 'valid' ? priorityEnum.value : ticket.priority;
+      const effectiveStatus = statusEnum.state === 'valid' ? statusEnum.value : ticket.status;
 
       // requester_name mirrors the absent-vs-empty rule of every sibling field:
       // an ABSENT field (partial API submission) preserves the stored value;

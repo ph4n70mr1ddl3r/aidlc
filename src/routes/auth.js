@@ -380,8 +380,24 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   return res.redirect('/dashboard');
 }));
 
+// Rate limit logouts. The auth router is mounted at '/', which is NOT part of
+// the app-wide write backstop in app.js (that list covers the ten resource
+// routers), so POST /logout had no limiter at all. Every logout writes an
+// audit row, so a client holding a single valid CSRF token could grow the
+// audit_log table without bound. Keyed per account (the same authKeyGenerator
+// convention the authenticated routes use), with the normalized-IP fallback
+// for a request that carries no session.
+const logoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  keyGenerator: authKeyGenerator,
+  message: 'Too many logout attempts. Please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Logout (POST only — GET logout is CSRF-vulnerable)
-router.post('/logout', asyncHandler(async (req, res) => {
+router.post('/logout', logoutLimiter, asyncHandler(async (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors
   // the array-rejection guards on every other write route in the app. The
   // logout handler does not read body fields today, so a polluted payload
@@ -539,6 +555,16 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     return res.redirect('/profile');
   }
 
+  // The length check runs BEFORE isValidEmail(): isValidEmail already caps the
+  // length at MAX_EMAIL, so an over-long address failed the format check and
+  // the user was told "Please enter a valid email address" — the dedicated
+  // length message below was unreachable. The staff.js sibling checks the
+  // length first, so the two routes reported the same condition differently.
+  if (resolvedEmail.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect('/profile');
+  }
+
   if (!isValidEmail(resolvedEmail)) {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect('/profile');
@@ -554,11 +580,6 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   }
   if (resolvedLastName.length > MAX_SHORT_STR) {
     req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
-    return res.redirect('/profile');
-  }
-
-  if (resolvedEmail.length > MAX_EMAIL) {
-    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
     return res.redirect('/profile');
   }
 

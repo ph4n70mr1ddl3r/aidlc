@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -154,6 +154,41 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   return parseBooleanFlag(lastValue, true);
 }
 
+// Canonical values the is_featured checkbox may carry. The edit form pairs a
+// hidden value="0" with a value="1" checkbox, so a submission arrives as
+// either '0' or ['0','1'] — the LAST element encodes the checkbox state.
+const _CANONICAL_FEATURED_VALUES = Object.freeze(new Set(['0', '1', 'false', 'true', 'off', 'on']));
+
+/**
+ * Check that a submitted is_featured value is one the app can interpret.
+ *
+ * parseBooleanFlag maps every non-canonical string to 0, so a value like
+ * "yes" silently UN-featured a published article while the route flashed
+ * "Article updated." — a present-but-invalid value was accepted and the
+ * opposite of the caller's intent was applied. The app-wide rule is that a
+ * present-but-invalid value is rejected, so the submission is validated
+ * before it reaches the resolver.
+ *
+ * An absent / empty submission is "not submitted" and stays valid (the
+ * resolver preserves the stored flag).
+ *
+ * @param {*} raw - the raw req.body.is_featured value
+ * @returns {boolean} true when the value is absent or canonical
+ */
+function isCanonicalFeaturedSubmission(raw) {
+  if (raw === undefined || raw === null || raw === '') {
+    return true;
+  }
+  const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
+  if (value === true || value === false || value === 1 || value === 0) {
+    return true;
+  }
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return _CANONICAL_FEATURED_VALUES.has(value.trim().toLowerCase());
+}
+
 // Markdown options are inlined per-call in renderMarkdown to avoid
 // mutating a shared object (even though marked does not currently
 // mutate the options argument, being defensive costs nothing).
@@ -250,6 +285,39 @@ function renderMarkdown(content) {
 }
 
 /**
+ * Truncate a sanitized string to `maxLen` characters without cutting an HTML
+ * entity in half.
+ *
+ * sanitize-html expands the source characters (&, <, >, ", ') into entities
+ * (e.g. "&" -> "&amp;"), so a plain substring() can land in the middle of an
+ * entity and leave a literal "&am" in the stored text — the entity was never
+ * completed, so it renders as text rather than as the character it stands for.
+ * When the cut point falls inside a trailing entity, the partial entity is
+ * dropped instead.
+ *
+ * @param {string} value - the already-sanitized string
+ * @param {number} maxLen - the maximum number of characters to keep
+ * @returns {string}
+ */
+function _truncateAtEntityBoundary(value, maxLen) {
+  if (typeof value !== 'string' || value.length <= maxLen) {
+    return value;
+  }
+  let cut = value.slice(0, maxLen);
+  // A trailing "&" or "&<partial-entity>" is an incomplete entity — drop it.
+  const amp = cut.lastIndexOf('&');
+  if (amp !== -1) {
+    const tail = cut.slice(amp);
+    // A complete entity ends with ';' — keep it. Anything else is a partial
+    // entity (or a bare '&') and is dropped.
+    if (!tail.endsWith(';')) {
+      cut = cut.slice(0, amp);
+    }
+  }
+  return cut;
+}
+
+/**
  * Sanitize knowledge article input by stripping HTML and truncating to max lengths.
  * Returns { safeTitle, safeContent, safeTags, error }. Title/content empty strings
  * are preserved (surfaced as errors since the fields are required); empty tags
@@ -257,12 +325,16 @@ function renderMarkdown(content) {
  * @param {string} title
  * @param {string} content
  * @param {string} tags
- * @returns {{ safeTitle: string, safeContent: string, safeTags: string|null, error: string|null }}
+ * @returns {{ safeTitle: string, safeContent: string, safeTags: string|null, error: string|null, truncated: boolean }}
+ *   `truncated` is true when the SANITIZED value had to be cut to fit its
+ *   limit — the length limits apply to the stored value, so the caller must
+ *   reject such a value rather than silently store a shortened one.
  */
 function sanitizeKnowledgeInput(title, content, tags) {
   let safeTags;
   let safeTitle;
   let safeContent;
+  let truncated = false;
   try {
     // Sanitize first, then truncate. Truncating before sanitizing would let a
     // value sitting exactly at the limit grow past it once sanitizeHtml escapes
@@ -274,16 +346,35 @@ function sanitizeKnowledgeInput(title, content, tags) {
     // whitespace characters (e.g. "   ") would otherwise survive sanitization
     // intact and pass the !safeTitle guard below, storing whitespace-only
     // titles that render as blank in templates.
-    safeTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).trim().substring(0, MAX_MEDIUM_STR);
-    safeContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).trim().substring(0, MAX_CONTENT);
+    //
+    // The truncation is applied to the SANITIZED string, and it must not cut an
+    // HTML entity in half: a raw substring() left a trailing "&am" in the
+    // stored text (the entity was never completed, so it rendered literally).
+    // _truncateAtEntityBoundary drops a trailing partial entity.
+    const cleanTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).trim();
+    const cleanContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).trim();
+    safeTitle = _truncateAtEntityBoundary(cleanTitle, MAX_MEDIUM_STR);
+    safeContent = _truncateAtEntityBoundary(cleanContent, MAX_CONTENT);
+    if (safeTitle.length < cleanTitle.length || safeContent.length < cleanContent.length) {
+      truncated = true;
+    }
     // Normalize empty tags to null (the column is nullable and a NULL is
     // cleaner than a stored '' — searches and template rendering treat them
     // identically, so this only affects what is written to the DB).
-    safeTags = safeTags ? safeTags.substring(0, MAX_LONG_STR) : null;
+    if (safeTags) {
+      const cleanTags = safeTags;
+      safeTags = cleanTags.substring(0, MAX_LONG_STR);
+      if (safeTags.length < cleanTags.length) {
+        truncated = true;
+      }
+      safeTags = safeTags || null;
+    } else {
+      safeTags = null;
+    }
   } catch (sanitizeErr) {
-    return { safeTitle: '', safeContent: '', safeTags: null, error: (sanitizeErr && sanitizeErr.message) || String(sanitizeErr) };
+    return { safeTitle: '', safeContent: '', safeTags: null, error: (sanitizeErr && sanitizeErr.message) || String(sanitizeErr), truncated: false };
   }
-  return { safeTitle, safeContent, safeTags, error: null };
+  return { safeTitle, safeContent, safeTags, error: null, truncated };
 }
 
 // List articles (paginated)
@@ -367,7 +458,6 @@ router.post('/', kbWriteLimiter, (req, res) => {
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));
   const tags = trim(safeQueryValue(req.body.tags));
-  const status = trim(safeQueryValue(req.body.status));
   const is_featured = req.body.is_featured;
 
   // Fail closed on a present-but-non-string tags/status value (e.g. a JSON
@@ -405,8 +495,18 @@ router.post('/', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  if (status && !VALID_STATUSES.includes(status)) {
+  // Enum resolution — a present-but-blank status (a whitespace-only value) is
+  // an invalid value, not an omitted one: it used to trim to '' and silently
+  // take the 'draft' default with a success flash.
+  const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
     req.flash('error', 'Invalid Status');
+    return res.redirect('/knowledge/new');
+  }
+
+  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
+  if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
+    req.flash('error', 'Invalid Featured Flag');
     return res.redirect('/knowledge/new');
   }
 
@@ -418,6 +518,16 @@ router.post('/', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
   const { safeTags, safeTitle, safeContent } = sanitized;
+  // The length limits apply to the STORED (sanitized) value. sanitize-html
+  // expands the source characters ("&" -> "&amp;"), so a body that is within
+  // the raw limit can be several times longer once sanitized — the truncation
+  // then silently discarded most of the author's text while the route flashed
+  // a success. Fail closed instead: a value that had to be cut is rejected so
+  // the author learns that their content did not fit.
+  if (sanitized.truncated) {
+    req.flash('error', `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`);
+    return res.redirect('/knowledge/new');
+  }
   if (!safeTitle) {
     req.flash('error', 'Title is required after removing invalid content');
     return res.redirect('/knowledge/new');
@@ -436,7 +546,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
     // values and the INSERT atomic; role TOCTOU is accepted because a demotion
     // takes effect on the user's next request.
     const createArticle = db.transaction(() => {
-      const txnSafeStatus = resolveSafeStatus(req.session.user, status || 'draft', null);
+      const txnSafeStatus = resolveSafeStatus(req.session.user, createStatusEnum.state === 'valid' ? createStatusEnum.value : null, null);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured);
       return _articleInsertStmt.run(safeTitle, safeContent, category, safeTags, req.session.user.id, txnSafeStatus, txnSafeFeatured);
     });
@@ -486,13 +596,22 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // Use an array (not an object) so eviction removes the oldest-viewed article —
   // Object.keys() on integer-like keys returns numeric order, which would evict
   // the lowest-ID article instead of the oldest viewed.
+  //
+  // The rendered count is the count AFTER the increment: the row was read
+  // before the UPDATE ran, so rendering `article.views` showed a number one
+  // behind the stored one (the first-ever view of an article rendered
+  // "0 views" while the row already read 1).
+  let viewCount = article.views;
   if (!req.session || !req.session[VIEWED_KEY]) {
     req.session[VIEWED_KEY] = [];
   }
   const viewed = req.session[VIEWED_KEY];
   if (!viewed.includes(id) && req.session.user && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
-      _viewCountStmt.run(id);
+      const result = _viewCountStmt.run(id);
+      if (result.changes > 0) {
+        viewCount = article.views + 1;
+      }
     } catch (err) {
       logError('View count update error:', err);
     }
@@ -508,7 +627,7 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // DB query result object is never mutated in place (a mutated row could leak
   // across requests if better-sqlite3 ever caches result objects). Mirrors the
   // safeAsset / safeTicket shallow-copy patterns used throughout the codebase.
-  const safeArticle = { ...article };
+  const safeArticle = { ...article, views: viewCount };
   safeArticle.renderedContent = renderMarkdown(article.content);
   res.render('pages/knowledge/show', { title: article.title, article: safeArticle, markedFallback });
 });
@@ -584,7 +703,6 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const content = trim(safeQueryValue(req.body.content));
   const category = trim(safeQueryValue(req.body.category));
   const tags = trim(safeQueryValue(req.body.tags));
-  const status = trim(safeQueryValue(req.body.status));
   const is_featured = req.body.is_featured;
 
   // Fail closed on a present-but-non-string tags/status value (e.g. a JSON
@@ -637,8 +755,18 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  if (status && !VALID_STATUSES.includes(status)) {
+  // Enum resolution — the presence test runs against the RAW submitted value
+  // so a present-but-blank status is rejected rather than silently ignored.
+  // `status` is a NOT NULL column (an empty value has no valid meaning).
+  const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+
+  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
+  if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
+    req.flash('error', 'Invalid Featured Flag');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
@@ -656,6 +784,13 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
   const { safeTitle, safeContent } = sanitized;
+  // The length limits apply to the STORED (sanitized) value — see the create
+  // route for the rationale. A value that had to be cut is rejected rather
+  // than silently stored shortened.
+  if (sanitized.truncated) {
+    req.flash('error', `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`);
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
   // Absent-vs-empty convention (mirrors resolveOptionalField on vendors/licenses/
   // projects/changes): an ABSENT tags field (partial API PUT omitting it) preserves
   // the stored value; an explicit empty string clears it to NULL. Previously an
@@ -707,7 +842,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       if (!txnIsOwner && !isPrivileged(req.session.user)) {
         throw new Error('ACCESS_DENIED');
       }
-      const txnSafeStatus = resolveSafeStatus(req.session.user, status || recheck.status, recheck.status);
+      // An ABSENT status preserves the stored one (the partial-update
+      // contract) — the submitted value is only forwarded when the request
+      // actually carried a valid one.
+      const txnSafeStatus = resolveSafeStatus(req.session.user, statusEnum.state === 'valid' ? statusEnum.value : recheck.status, recheck.status);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
       // Resolve the required columns from the transaction-consistent row: an
       // ABSENT field preserves the CURRENT stored value (the partial-update

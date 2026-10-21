@@ -54,7 +54,10 @@ describe('code review 175: titleCase fallback consistency in show/detail templat
       const html = render('licenses/show.ejs', locals);
       expect(html).toContain('badge-medium');
       expect(html).not.toContain('badge-null');
-      expect(html).toContain('>Perpetual<');
+      // The fallback label must NOT assert a term the record does not carry:
+      // a licence with no recorded type is not a perpetual licence.
+      expect(html).toContain('>Unspecified<');
+      expect(html).not.toContain('>Perpetual<');
     });
 
     it('renders correctly when license_type is a valid enum value', () => {

@@ -90,6 +90,12 @@ SEED_ADMIN_PASSWORD=<your-strong-admin-password>
 SEED_PASSWORD=<your-strong-staff-password>
 ```
 
+A fixed seed password must satisfy the same policy the app enforces on every
+other password (at least 12 characters, with an uppercase letter, a lowercase
+letter, a digit and a special character). The seeder refuses a non-compliant
+value instead of creating an account that could never be rotated to a
+compliant password.
+
 > ⚠️ Never reuse seed passwords in production. Reset every account's password
 > after the first login in any non-local environment.
 
@@ -164,8 +170,8 @@ Environment variables (set in `.env`):
 |---|---|---|
 | `PORT` | `3000` | HTTP port (must be `1`–`65535`; non-numeric/invalid values fall back to `3000`, and the server exits with code `1` when run as the entry point) |
 | `DB_PATH` | `./data/itmanager.db` (resolved relative to repo root) | SQLite database path (absolute paths and `:memory:` pass through; relative paths resolve against the repo root, not the process working directory — use an absolute path in production) |
-| `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev, must be >= 32 chars in production) |
-| `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev, must be >= 32 chars in production) |
+| `SESSION_SECRET` | *required* | Secret for session cookies (auto-generated in dev; in production it must be >= 32 chars and must NOT be the `CHANGE_ME_…` placeholder shipped in `.env.example` — the server refuses to start otherwise) |
+| `CSRF_SECRET` | *required* | Secret for CSRF tokens (auto-generated in dev; in production it must be >= 32 chars and must NOT be the `CHANGE_ME_…` placeholder shipped in `.env.example` — the server refuses to start otherwise) |
 | `NODE_ENV` | `development` | `development` or `production` |
 | `TRUST_PROXY` | `0` | Set to `1`/`true` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
@@ -175,8 +181,8 @@ Environment variables (set in `.env`):
 | `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; invalid values fall back to `900`; values below 60 are raised to 60 (lastAccess write-throttle floor) with a warning |
 | `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100` with a warning; invalid values fall back to `25` with a warning |
-| `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` |
-| `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` |
+| `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` (must satisfy the app's password policy — the seeder refuses a non-compliant value) |
+| `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` (must satisfy the app's password policy) |
 | `SEED_VERBOSE` | `0` | Set to `1`/`true` to print auto-generated seed passwords |
 | `SEED_DANGER` | `0` | Set to `1` to allow seeding in production (drops all data) |
 
@@ -186,7 +192,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 
 - **CSRF protection** on all state-changing requests
 - **Helmet** for security headers (CSP, X-Frame-Options, Referrer-Policy, etc.), plus an explicit `Permissions-Policy` header disabling camera/microphone/geolocation/USB/Bluetooth and other device APIs (helmet v8 dropped its own Permissions-Policy middleware) and a `Cache-Control: no-store` policy on every dynamic response (static assets are served by `express.static` with their own cache headers)
-- **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout), dashboard (10/min), health (30/min), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each), staff reactivation (10/min), staff updates (50/15 min), admin password resets (20/15 min), self-service profile updates (30/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), ticket quick-status updates (20/min), ticket satisfaction ratings (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
+- **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout), dashboard (10/min), health (30/min), logout (30/15 min per account), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each), staff reactivation (10/min), staff updates (50/15 min), admin password resets (20/15 min), self-service profile updates (30/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), ticket quick-status updates (20/min), ticket satisfaction ratings (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
@@ -208,18 +214,57 @@ submit only the fields it wants to change:
 
 **Required** columns follow the same rule: omitting a field preserves the
 stored value rather than failing the request. This holds for every required
-column in the app — a ticket's title, an asset's tag/name/category, a
-vendor's name, a licence's software name, a staff member's email/first/last
-name, a project's name, a task's title, a change's title/type, an article's
-title/content/category, and the profile route's name/email. A *present but
-empty* value is still rejected (the columns are `NOT NULL`, so an empty value
-has no valid meaning).
+column in the app — a ticket's title/category/priority/status, an asset's
+tag/name/category/status, a vendor's name, a licence's software name, a staff
+member's email/first/last name/role, a project's name/status, a task's
+title/status, a change's title/type/status, an article's title/content/
+category/status, and the profile route's name/email. A *present but empty*
+value is still rejected (the columns are `NOT NULL`, so an empty value has no
+valid meaning).
 
-An explicit empty string clears a nullable optional field. The one field where
-an empty string is not a valid value — the licence key — has its own dedicated
-`clear_key` control on the edit form (ticking it wipes the stored key; typing
-a new key and ticking it at the same time is rejected rather than silently
-discarding one of the two).
+The "present" test always runs against the **raw** submitted value, never
+against the trimmed one: a whitespace-only value is neither an absent field
+(preserve) nor an intentional empty string (clear), so it is rejected like any
+other invalid value instead of being silently ignored. This applies to enum
+fields exactly as it does to free text.
+
+An explicit empty string clears a nullable optional field, with two documented
+exceptions:
+
+- the **money fields** — an asset's purchase price, a licence's cost, a
+  project's budget and spent amount. A blank money field means "not recorded",
+  so the stored amount is preserved (a `NULL` amount is indistinguishable
+  from "free" and would mislead the reports). A vendor's rating follows the
+  same rule.
+- the **nullable enum fields whose stored default carries meaning** — an
+  asset's condition rating and the priority of a project, a task or a change.
+  A blank value means "not submitted", so the stored value is preserved. A
+  licence's type and a vendor's category have no meaningful default, so a
+  blank value clears them to `NULL`.
+
+The one field where an empty string is not a valid value — the licence key —
+has its own dedicated `clear_key` control on the edit form (ticking it wipes
+the stored key; typing a new key and ticking it at the same time is rejected
+rather than silently discarding one of the two).
+
+### Search surface
+
+A list route's search covers the columns that list renders. A column the list
+does not render is only searchable when every row the list can return is
+fully readable by the viewer:
+
+- the **asset**, **ticket** and **project** lists are portfolio-visible to
+  every authenticated user while their detail pages are assignment- or
+  ownership-gated, so their searches cover exactly the rendered columns
+  (an asset's serial number and a ticket's description are deliberately not
+  searchable). The project list renders a truncated description, so its
+  search matches the same truncated prefix.
+- the **change** and **knowledge** lists are scoped to the viewer, so a
+  non-rendered column (a change's description, an article's body) stays
+  searchable — every row in the result set is readable in full.
+- the **staff** directory redacts a row's email, phone and department for
+  viewers who may not see them, so those columns are not searchable for them
+  and the department filter is offered to privileged viewers only.
 
 ### List caps and truncation disclosure
 
@@ -228,7 +273,7 @@ a per-widget cap for the dashboard cards and the detail-page sidebars). When
 a cap actually drops rows, the list says so with an `(N+)` marker next to the
 row count. The marker is **exact**: a list that holds exactly as many rows as
 its cap is complete and is never marked. (Each capped query fetches one row
-beyond its cap as a truncation probe; the two report pages that show an
+beyond its cap as a truncation probe; the three report pages that show an
 uncapped total instead disclose it as "Showing the top N of M" — the asset
 report's warranty list, the staff report's roster and the ticket report's
 "Top Resolvers" card.)

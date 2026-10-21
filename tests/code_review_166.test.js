@@ -247,7 +247,11 @@ describe('code review 166: consistency/completeness/correctness', () => {
       expect(readSrc('views/pages/assets/index.ejs')).toContain('condition_rating || \'good\'');
       expect(readSrc('views/pages/knowledge/index.ejs')).toContain('a.category || \'other\'');
       expect(readSrc('views/pages/changes/index.ejs')).toContain('change_type || \'maintenance\'');
-      expect(readSrc('views/pages/licenses/index.ejs')).toContain('license_type || \'perpetual\'');
+      // The licence type column is nullable, but "Perpetual" is a TERM the
+      // record must actually assert — a licence with no recorded type falls
+      // back to a neutral label, not to a perpetual term.
+      expect(readSrc('views/pages/licenses/index.ejs')).toContain("'Unspecified'");
+      expect(readSrc('views/pages/licenses/index.ejs')).not.toContain("license_type || 'perpetual'");
     });
   });
 
