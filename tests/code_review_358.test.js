@@ -32,7 +32,12 @@ const { describe, it, expect, afterEach } = require('@jest/globals');
 // Stateful db mock: prepare() dispatches on SQL fragment, so each statement
 // gets its own jest.fn-backed handle.
 const state = { k: 0 };
-const mocks = {};
+const mocks = {
+  // The ticket-number counter (INSERT ... RETURNING next_seq) and the ticket
+  // INSERT itself, so the create route can run to completion.
+  ticketCounter: { get: jest.fn(() => ({ next_seq: 1 })) },
+  ticketInsert: { run: jest.fn(() => ({ changes: 1, lastInsertRowid: 7 })) }
+};
 
 jest.mock('../src/models/database', () => {
   const mkStmt = (key) => ({
@@ -62,6 +67,12 @@ jest.mock('../src/models/database', () => {
       }
       if (sql.includes('INSERT INTO ticket_comments')) {
         return mkStmt('commentInsert');
+      }
+      if (sql.includes('INSERT INTO ticket_counter')) {
+        return mkStmt('ticketCounter');
+      }
+      if (sql.includes('INSERT INTO tickets')) {
+        return mkStmt('ticketInsert');
       }
       if (sql.includes('UPDATE tickets SET updated_at')) {
         return mkStmt('commentTouch');
@@ -427,10 +438,18 @@ describe('code review 358 — comment audit distinguishes internal notes', () =>
   });
 });
 
-describe('code review 358 — absent priority says "Priority is required"', () => {
+describe('code review 358 — absent priority takes the documented default', () => {
   const ticketsRouter = require('../src/routes/tickets');
 
-  it('create with a missing priority reports the required-field wording', () => {
+  it('create with a missing priority applies the schema default instead of refusing', () => {
+    // Pass 358 first made the wording "Priority is required" (the field was
+    // still REQUIRED). Pass 379 then applied the app-wide create-route
+    // contract the README documents — "an absent field still takes the
+    // documented default" — so the ticket route now resolves the priority
+    // through the same resolveEnumField() helper as its sibling `status` and
+    // as every other entity's create route. `tickets.priority` is NOT NULL
+    // DEFAULT 'medium', so an absent priority takes 'medium' and a
+    // present-but-invalid one is still rejected.
     const handler = lastHandlerFor(ticketsRouter, 'post', '/');
     const req = {
       params: {},
@@ -446,9 +465,37 @@ describe('code review 358 — absent priority says "Priority is required"', () =
     };
     const res = { redirect: jest.fn() };
 
+    mocks.ticketInsert.run.mockClear();
+
     handler(req, res);
 
-    expect(req.flash).toHaveBeenCalledWith('error', 'Priority is required');
+    expect(req.flash).not.toHaveBeenCalledWith('error', expect.anything());
+    expect(mocks.ticketInsert.run).toHaveBeenCalled();
+    // The stored priority is the documented default.
+    const insertArgs = mocks.ticketInsert.run.mock.calls[mocks.ticketInsert.run.mock.calls.length - 1];
+    expect(insertArgs[4]).toBe('medium');
+  });
+
+  it('a present-but-empty priority is still rejected', () => {
+    const handler = lastHandlerFor(ticketsRouter, 'post', '/');
+    const req = {
+      params: {},
+      body: {
+        title: 'Printer on fire',
+        category: 'hardware',
+        requester_name: 'Ada Lovelace',
+        requester_email: 'ada@company.com',
+        priority: ''
+      },
+      flash: jest.fn(),
+      audit: jest.fn(),
+      session: { user: { id: 1, role: 'staff' } }
+    };
+    const res = { redirect: jest.fn() };
+
+    handler(req, res);
+
+    expect(req.flash).toHaveBeenCalledWith('error', 'Invalid Priority');
     expect(res.redirect).toHaveBeenCalledWith('/tickets/new');
   });
 

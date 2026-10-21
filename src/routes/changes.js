@@ -151,11 +151,19 @@ router.get('/', (req, res) => {
   // project lists, which are portfolio-visible to every authenticated user
   // while their detail pages are assignment/ownership-gated: there the search
   // covers exactly what the list renders.
-  addSearch(where, params, safeQueryValue(req.query.search), ['c.title', 'c.description']);
+  //
+  // The list ALSO renders the assignee's name in its own column ("Assigned
+  // To"), and that column was not searchable at all — a rendered value the
+  // user could see was unfindable. It is matched as the CONCATENATION the
+  // column displays ("<first> <last>") for the same reason the project,
+  // knowledge and staff lists match their name cells that way.
+  addSearch(where, params, safeQueryValue(req.query.search), ['c.title', 'c.description', { concat: ['u.first_name', 'u.last_name'] }]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = countQuery(db, 'change_log', 'c', whereClause, params);
+  // The count query needs the same JOIN as the list query: the search now
+  // covers the assignee's name, which lives in the joined users table.
+  const total = countQuery(db, 'change_log', 'c', whereClause, params, 'LEFT JOIN users u ON c.assigned_to = u.id');
   const totalPages = Math.ceil(total / limit) || 1;
   // Clamp the requested page to the actual page count so a page beyond the
   // last one (e.g. ?page=999) renders the final page instead of an empty list
@@ -481,19 +489,6 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   if (priorityEnum.state === 'blank' || priorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Priority');
     return res.redirect(`/changes/${id}/edit`);
-  }
-  // Fail closed on a present-but-non-string priority/status (e.g. a JSON number):
-  // trim() coerces it to '', which would skip the enum check above and leave
-  // safePriority/safeStatus silently preserving the stored value with a success
-  // flash — inconsistent with title/change_type (rejected) and the resolveOptionalField
-  // text fields on this route (sentinel-rejected). Absent/empty is allowed
-  // (falls back to the stored value / create default).
-  for (const field of ['priority', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', field === 'priority' ? 'Invalid Priority' : 'Invalid Status');
-      return res.redirect(`/changes/${id}/edit`);
-    }
   }
 
   // Validate assignee is an active user

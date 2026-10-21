@@ -460,7 +460,14 @@ router.get('/', kbReadLimiter, (req, res) => {
   // the list offers no author filter). The body is searchable too — the
   // list is scoped to the viewer, so every row it can return is readable in
   // full (the same rule the change list applies).
-  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags', 'u.first_name', 'u.last_name']);
+  //
+  // The author column renders the author's name as ONE string ("<first>
+  // <last>"), so the search matches that CONCATENATION rather than the two
+  // halves separately — otherwise the name the user could read was
+  // unfindable ("John Smith" matched nothing while "John" and "Smith" each
+  // did). Both halves were already searchable, so the concatenation exposes
+  // nothing the viewer cannot already read.
+  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags', { concat: ['u.first_name', 'u.last_name'] }]);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -736,7 +743,20 @@ router.get('/:id/edit', kbReadLimiter, (req, res) => {
     return res.redirect('/knowledge');
   }
 
-  res.render('pages/knowledge/form', { title: 'Edit Article', article, isEdit: true });
+  // The body is stored ENTITY-ESCAPED (it is rendered as HTML on the show
+  // page), while the edit form renders it in a plain <textarea> with EJS's
+  // escaping <%= %>. Feeding the escaped stored value straight into the form
+  // escaped it a SECOND time, so the author saw the literal text "a &amp; b"
+  // where they had typed "a & b" — and re-saving it stored the doubly
+  // escaped form. Decode the entities for the FORM ONLY: the textarea then
+  // shows the author's own text, and re-submitting it re-sanitizes to exactly
+  // the same stored value (the round trip is stable). The stored row is not
+  // modified — the copy is handed to the template.
+  const formArticle = {
+    ...article,
+    content: decodeHtmlEntities(article.content || '')
+  };
+  res.render('pages/knowledge/form', { title: 'Edit Article', article: formArticle, isEdit: true });
 });
 
 // Update article (author or admin/manager only)

@@ -165,11 +165,18 @@ router.get('/', (req, res) => {
   // reach every edit form) and for nobody else: a manager who could search
   // it could confirm the existence of a privileged account's LOGIN NAME
   // without being able to read it anywhere in the app.
+  //
+  // The Name column renders the two name columns as ONE string ("<first>
+  // <last>"), so the search matches that CONCATENATION rather than the halves
+  // separately — otherwise the name the user could read was unfindable
+  // ("John Smith" matched nothing while "John" and "Smith" each did). Both
+  // halves were already searchable for every viewer tier, so the
+  // concatenation exposes nothing the viewer cannot already read.
   const searchColumns = req.session.user.role === 'admin'
-    ? ['u.first_name', 'u.last_name', 'u.email', 'u.username']
+    ? [{ concat: ['u.first_name', 'u.last_name'] }, 'u.email', 'u.username']
     : (viewerPrivileged
-      ? ['u.first_name', 'u.last_name', 'u.email']
-      : ['u.first_name', 'u.last_name']);
+      ? [{ concat: ['u.first_name', 'u.last_name'] }, 'u.email']
+      : [{ concat: ['u.first_name', 'u.last_name'] }]);
   addSearch(where, params, safeQueryValue(req.query.search), searchColumns);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
@@ -282,6 +289,18 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // fail-closed convention applied to phone below.
   if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
     req.flash('error', 'Invalid Department');
+    return res.redirect('/staff/new');
+  }
+  // Fail closed on a present-but-blank department (whitespace only). A
+  // whitespace-only value is neither an ABSENT field ("no department") nor
+  // an intentional empty string, so it is an invalid value — the app-wide
+  // rule the matching UPDATE route already enforces ("Please enter a valid
+  // department") and the sibling phone field in this same handler enforces
+  // on BOTH verbs. The create route used to trim it to '' and store NULL
+  // with a success flash, so the identical submission was accepted on create
+  // and refused on update.
+  if (typeof req.body.department === 'string' && req.body.department !== '' && req.body.department.trim() === '') {
+    req.flash('error', 'Please enter a valid department');
     return res.redirect('/staff/new');
   }
   // The REQUIRED columns are guarded too: without it a JSON number in
@@ -944,7 +963,21 @@ router.put('/:id/reset-password', requireAdmin, resetLimiter, asyncHandler(async
 
   const new_password = safeQueryValue(req.body.new_password);
   const current_password = safeQueryValue(req.body.current_password);
-  if (!new_password || typeof new_password !== 'string') {
+  // Fail closed on a present-but-non-string password (e.g. a JSON number):
+  // it is a type error, not a missing field, so it is reported with the
+  // app-wide "Invalid request parameters" instead of the "Password is
+  // required" wording that a genuinely absent field gets. Every other
+  // required-text write route in the app already reports a wrong-typed value
+  // this way.
+  if (req.body.new_password !== undefined && req.body.new_password !== null && req.body.new_password !== '' && typeof req.body.new_password !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/staff/${id}`);
+  }
+  if (req.body.current_password !== undefined && req.body.current_password !== null && req.body.current_password !== '' && typeof req.body.current_password !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/staff/${id}`);
+  }
+  if (!new_password) {
     req.flash('error', 'Password is required');
     return res.redirect(`/staff/${id}`);
   }

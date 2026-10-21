@@ -407,11 +407,20 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
       // sides removes the ambiguity entirely.
       return d.toISOString().replace('T', ' ').slice(0, 16);
     };
+    // The SCHEDULED changes are anchored the same way, and their
+    // created_at/updated_at are anchored in the PAST too: a change that is
+    // scheduled five days out cannot have been CREATED three days out. The
+    // seeder used a positive day offset for those two columns, so a fresh
+    // seed produced three rows that claimed to have been created and updated
+    // days AFTER the seed ran — the same contradiction the completed rows
+    // had (a record created after the event it records), just on the other
+    // side of the clock. Every seeded row now satisfies
+    // created_at <= updated_at <= scheduled_start.
     const changes = [
       { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: changeAt(-30, '02:00'), scheduled_end: changeAt(-30, '03:00'), actual_start: changeAt(-30, '02:00'), actual_end: changeAt(-30, '02:35'), created_at: changeAt(-32, '09:00'), updated_at: changeAt(-30, '02:35'), impact: 'No user impact expected', assigned_to: 6 },
-      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), created_at: changeAt(3, '08:00'), updated_at: changeAt(3, '08:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
-      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00'), scheduled_end: changeAt(12, '08:00'), created_at: changeAt(10, '08:00'), updated_at: changeAt(10, '08:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
-      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00'), scheduled_end: changeAt(16, '22:00'), created_at: changeAt(14, '08:00'), updated_at: changeAt(14, '08:00'), impact: 'AD replication delay possible', assigned_to: 2 },
+      { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), created_at: changeAt(-1, '08:00'), updated_at: changeAt(-1, '08:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },
+      { title: 'Network Switch Firmware Upgrade', description: 'Upgrade firmware on core switches to fix VLAN routing issues.', change_type: 'upgrade', status: 'scheduled', priority: 'high', scheduled_start: changeAt(12, '06:00'), scheduled_end: changeAt(12, '08:00'), created_at: changeAt(-2, '08:00'), updated_at: changeAt(-2, '08:00'), impact: 'Brief network interruptions possible during failover', assigned_to: 3 },
+      { title: 'Active Directory Schema Update', description: 'Apply schema extension for new MFA attributes.', change_type: 'configuration', status: 'scheduled', priority: 'medium', scheduled_start: changeAt(16, '21:00'), scheduled_end: changeAt(16, '22:00'), created_at: changeAt(-3, '08:00'), updated_at: changeAt(-3, '08:00'), impact: 'AD replication delay possible', assigned_to: 2 },
       { title: 'Storage Array Maintenance', description: 'Replace failed drive in SAN array Bay 7.', change_type: 'maintenance', status: 'completed', priority: 'medium', scheduled_start: changeAt(-32, '23:00'), scheduled_end: changeAt(-31, '01:00'), actual_start: changeAt(-32, '23:00'), actual_end: changeAt(-32, '23:45'), created_at: changeAt(-34, '10:00'), updated_at: changeAt(-32, '23:45'), impact: 'No impact - hot spare active', assigned_to: 6 }
     ];
 

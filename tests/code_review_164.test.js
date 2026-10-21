@@ -167,13 +167,19 @@ describe('code review 164: consistency/completeness/correctness', () => {
       // invariant this test pins is unchanged).
       expect(src).toContain('resolveEnumField(req.body.status, VALID_TASK_STATUSES)');
       expect(src).toContain('resolveEnumField(req.body.priority, VALID_TASK_PRIORITIES)');
-      expect(src).toContain('const role = trim(safeQueryValue(req.body.role));');
+      // Pass 379 moved the MEMBER role onto the same shared resolver. The
+      // hand-rolled trim() + includes() pair it replaced trimmed the raw
+      // value too, so the trimming invariant this test pins is unchanged —
+      // but the resolver additionally applies the app-wide absent/blank/empty
+      // contract and the schema's documented 'member' default.
+      expect(src).toContain('resolveEnumField(req.body.role, VALID_MEMBER_ROLES)');
       // The shared resolver trims before validating: a padded value is
       // accepted and resolved to its trimmed form.
       const { resolveEnumField } = require('../src/utils');
-      const { TASK_STATUSES, TASK_PRIORITIES } = require('../src/constants');
+      const { TASK_STATUSES, TASK_PRIORITIES, MEMBER_ROLES } = require('../src/constants');
       expect(resolveEnumField('  in_progress  ', TASK_STATUSES)).toEqual({ state: 'valid', value: 'in_progress' });
       expect(resolveEnumField('  high  ', TASK_PRIORITIES)).toEqual({ state: 'valid', value: 'high' });
+      expect(resolveEnumField('  lead  ', MEMBER_ROLES)).toEqual({ state: 'valid', value: 'lead' });
     });
   });
 

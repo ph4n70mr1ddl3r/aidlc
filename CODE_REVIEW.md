@@ -14843,3 +14843,253 @@ carries no contradictory dates.
 - `npm run test:coverage` — global thresholds pass (statements 75.16%,
   branches 74.45%, functions 86.93%, lines 75.17%).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-21 (379th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+ten defect classes. Every one of them is a contract mismatch between two
+parts of the app — the create route and its matching update route, the list
+route and the template it renders, the route and the README, or the seeder
+and the schema. None of them wrote corrupt data, but each one either
+misreported a submission, refused a submission the app's own contract says
+must be accepted, hid a value the user could see, or disclosed less than the
+app claims to disclose.
+
+1. **The ticket CREATE route REFUSED an absent `priority` while the sibling
+   `status` in the very same route took its documented default** (MEDIUM,
+   consistency — fixed). `POST /tickets` with no `priority` flashed
+   "Priority is required" and wrote nothing, even though:
+
+   - `tickets.priority` is `TEXT NOT NULL DEFAULT 'medium'`
+     (`src/models/database.js:176`);
+   - the `status` enum resolved thirty lines below the failed check already
+     applies its default for an absent field (`resolveEnumField()` →
+     `'open'`);
+   - the route's own required-field check never listed the priority — the
+     message reads *"Title, category, requester name, and requester email are
+     required"* — so the field was never actually required, only
+     accidentally so; and
+   - the README's create-route paragraph states the rule the code did not
+     implement: *"An absent field still takes the documented default."*
+
+   The 378th pass closed exactly this gap on the project route (an absent
+   `status` → `planning`, an absent `priority` → `medium`) and left the
+   ticket route — the app's second-most-used create form — untouched. The
+   browser never hit the gap (the form pre-selects a priority), but an API
+   client that submitted only the required fields was refused on tickets and
+   accepted on every other entity. Fix: the create route resolves the
+   priority through the shared `resolveEnumField()` helper, exactly like its
+   sibling `status` — an absent priority takes `medium`, a present-but-blank
+   /empty/unknown one is rejected with nothing written.
+
+2. **A present-but-non-string comment was reported as a MISSING field**
+   (MEDIUM, correctness — fixed). `POST /tickets/:id/comments` read the
+   comment through `trim()`, which coerces any non-string to `''`, so a JSON
+   number in `comment` reached the empty-value check and was reported as
+   *"Comment cannot be empty."* — a type error reported as an absent field,
+   while every other required-text write route in the app (including the
+   ticket create route's own `title`) reports the identical submission as
+   the app-wide fail-closed *"Invalid request parameters"*. An API client
+   could not tell "you left the field out" from "the field has the wrong
+   type". Fix: the comment route joins the app-wide type guard — a
+   present-but-non-string comment is rejected with "Invalid request
+   parameters", and an absent comment still reports "Comment cannot be
+   empty."
+
+3. **Four list routes searched the two HALVES of a name cell the list
+   renders as ONE string, so the name a user could read was unfindable**
+   (MEDIUM, completeness — fixed). The README documents the rule the asset
+   list already implements:
+
+   > *"A cell that renders two columns together is searched as the
+   > concatenation it displays: the asset list shows '<manufacturer> <name>'
+   > in one cell, so the search matches 'Dell OptiPlex 7090' and not 'Dell'
+   > or 'OptiPlex' alone."*
+
+   Four lists render a name the same way and did not follow the rule:
+
+   | List | Cell rendered | Searched as |
+   |---|---|---|
+   | projects | the owner's name (owner) | the two columns separately |
+   | knowledge | the author's name (author) | the two columns separately |
+   | staff | the staff member's name | the two columns separately |
+   | changes | the assignee's name ("Assigned To") | **not searchable at all** |
+
+   A user who read "John Smith" off a card and typed it into the search box
+   got nothing back, while "John" and "Smith" each matched — the exact
+   defect the asset list was closed for. The change list was worse: its
+   "Assigned To" column was not searchable in any form. Fix: all four now
+   use the `concat` descriptor `addSearch()` already supports (the same
+   mechanism the asset list uses), so the search matches the string the cell
+   displays. Both halves were already searchable in every case, so the
+   concatenation exposes nothing the viewer cannot already read; the change
+   list's count query gained the same `LEFT JOIN users` the listing already
+   had so the count and the list stay in sync.
+
+4. **`POST /projects/:id/members` refused an absent `role` instead of
+   applying the schema's documented default — and its stated rationale was
+   inverted** (MEDIUM, correctness — fixed). The route rejected any
+   submission without a role ("Invalid Role"), with this comment:
+
+   > *"silent fallback to 'member' would let a client omit the role field and
+   > get a privileged membership without explicit intent"*
+
+   `project_members.role` is `TEXT DEFAULT 'member'` and `member` is the
+   **least** privileged of the three roles (`lead` / `member` /
+   `stakeholder`) — the fallback cannot escalate anything, so the comment
+   described a risk that does not exist. Every sibling create route applies
+   its documented default for an absent enum (assets → `in_storage`,
+   tickets → `open`, tasks → `todo`, changes → `scheduled`, articles →
+   `draft`, projects → `planning`/`medium`). Fix: the route resolves the
+   role through `resolveEnumField()` — an absent (or explicitly empty) role
+   takes `member`, a present-but-blank or unknown role is still rejected.
+
+5. **`POST /staff` accepted a whitespace-only `department` that
+   `PUT /staff/:id` rejected** (LOW, consistency — fixed). The create route
+   trimmed `department` to `''` and stored `NULL` with a success flash; the
+   update route rejected the identical value with "Please enter a valid
+   department" (the `resolveOptionalField` blank-value rule). The sibling
+   `phone` field in the same handler already rejects a present-but-blank
+   value on **both** verbs, so the module contradicted itself twice over. A
+   whitespace-only value is neither an absent field ("no department") nor an
+   intentional empty string — it is an invalid value. Fix: the create route
+   rejects it with the update route's wording.
+
+6. **`PUT /staff/:id/reset-password` reported a present-but-non-string
+   password as a MISSING field** (LOW, correctness — fixed). A JSON number
+   in `new_password` was truthy and non-string, so the route flashed
+   *"Password is required"* — a type error reported as an absent field,
+   while every other required-text write route reports the app-wide "Invalid
+   request parameters". Fix: the route joins the app-wide type guard for
+   both the new and the current password; an absent password still reports
+   "Password is required".
+
+7. **The knowledge EDIT FORM double-escaped the article body** (LOW,
+   correctness — fixed). The body is stored entity-escaped (it is rendered
+   as HTML on the show page), and the edit form renders it into a plain
+   `<textarea>` with EJS's escaping `<%= %>` — so the escaping was applied
+   twice and the author saw the literal text `a &amp; b` where they had
+   typed `a & b`. (The title and tags are plain text and were unaffected —
+   they are decoded at store time.) The round trip was stable, so no data
+   was corrupted, but the author edited an escaped copy of their own text.
+   Fix: the edit route decodes the entities for the FORM ONLY — the stored
+   row is untouched, the textarea shows the author's own text, and
+   re-submitting it re-sanitizes to exactly the same stored value.
+
+8. **The seeder gave the SCHEDULED change-log rows a `created_at` /
+   `updated_at` in the FUTURE** (LOW, correctness — fixed). The three
+   scheduled changes were stamped `changeAt(3, '08:00')`,
+   `changeAt(10, '08:00')` and `changeAt(14, '08:00')` — three, ten and
+   fourteen days AFTER the seed ran. A change scheduled five days out
+   cannot have been created three days out. This is the same contradiction
+   the seeder's own comment says it fixed for the completed rows ("a
+   completed change therefore claimed to have been CREATED and UPDATED
+   months after the change it records had already finished") — the fix had
+   simply relocated the contradiction to the other side of the clock. Fix:
+   every scheduled row is now anchored in the past, so all five seeded rows
+   satisfy `created_at <= updated_at <= scheduled_start` (and
+   `updated_at <= actual_end` for the completed ones).
+
+9. **The ticket form's Related-Asset dropdown was capped at 1000 rows with
+   NO truncation disclosure** (LOW, completeness — fixed). Every capped
+   list in the app discloses its cap — the dashboard's six cards and the
+   detail-page sidebars with an exact `(N+)` marker, the three report pages
+   with "Showing the top N of M" — but the dropdown was the only one that
+   truncated SILENTLY: on an inventory larger than the cap the form simply
+   omitted every asset that sorted past it, with nothing on the page saying
+   the list was incomplete. Fix: the dropdown query now fetches one row
+   beyond the cap (the truncation probe the rest of the app uses), the
+   route reports the exact `truncated` flag plus the total asset count, and
+   the form renders "Showing N of M assets" — a dropdown holding exactly
+   the cap's worth of assets is complete and is never marked.
+
+10. **`src/routes/changes.js` carried an UNREACHABLE type-guard loop whose
+    comment described a mechanism the route does not use** (LOW,
+    completeness — fixed). The update route ran a second, hand-rolled
+    non-string check for `priority` and `status` *after* the
+    `resolveEnumField()` checks, on the stated grounds that
+
+    > *"trim() coerces them to '', which would skip the enum check above and
+    > leave safePriority/safeStatus silently preserving the stored value"*
+
+    but the enum check above never used `trim()` — `resolveEnumField()`
+    classifies a non-string as `invalid`, so the loop could never fire. The
+    behaviour it intended (a present-but-non-string enum is rejected) was
+    already guaranteed; the code was dead and its comment was false. Fix:
+    the loop is removed and the guarantee is pinned where it now lives — the
+    shared resolver.
+
+Also verified this pass: every create route still rejects a present-but-empty
+value for its `NOT NULL` enum columns and still defaults an absent one; every
+update route still resolves its fields against the transaction-consistent
+re-read row; the `changes === 0` no-op guards are still uniform across every
+update and delete route; every write route still carries its `rejectHppArrays`
+guard; the search surface of every list still matches the columns that list
+renders (or is viewer-scoped) — the staff directory's redacted email is still
+unsearchable for an unprivileged viewer, and the change/knowledge lists are
+still viewer-scoped; every capped list still discloses its truncation exactly;
+the licence key is still never rendered server-side; the `.env.example` still
+matches every env read in `src/`; the README's rate limiter list still covers
+all 26 limiters; the seeded portfolio still carries no contradictory dates;
+every `CONSTANTS.*` key a template references still exists in the hoisted
+`TEMPLATE_CONSTANTS`; every helper a template calls is still exposed in
+`res.locals`; and every page still renders (all 17 routes exercised against
+a live seeded server).
+
+### Fixes applied
+1. `src/routes/tickets.js` — the create route resolves `priority` through
+   `resolveEnumField()` (absent → the documented `medium` default, invalid →
+   rejected); the comment route joins the app-wide non-string type guard; the
+   Related-Asset dropdown fetches a truncation probe and the form discloses
+   "Showing N of M assets".
+2. `src/routes/projects.js`, `src/routes/knowledge.js`, `src/routes/staff.js`,
+   `src/routes/changes.js` — the list searches match the concatenated name
+   cell each list renders; the change list's count query gained the matching
+   `LEFT JOIN`; the project member route takes the schema's `member` default
+   for an absent role.
+3. `src/routes/staff.js` — the create route rejects a whitespace-only
+   `department`; the reset-password route reports a present-but-non-string
+   password as "Invalid request parameters".
+4. `src/routes/knowledge.js` — the edit route decodes the stored body for the
+   form's textarea only.
+5. `src/routes/changes.js` — the unreachable non-string guard loop is removed.
+6. `src/seed.js` — the scheduled change-log rows are anchored in the past.
+7. `views/pages/tickets/form.ejs` — the Related-Asset dropdown discloses its
+   truncation.
+
+### Regression tests added
+- `tests/code_review_379.test.js` — 34 tests driving the REAL route handlers
+  and the REAL schema against an in-memory SQLite database: the ticket create
+  route applies the documented `medium` default and still rejects an
+  empty/blank/unknown priority; the comment route reports a non-string
+  comment as a type error; the projects, knowledge, staff and change lists
+  all find a row by the concatenated name the cell renders (and the change
+  list's count and listing agree); the project member route applies the
+  `member` default and still rejects a blank/unknown role; the staff create
+  route rejects a whitespace-only department and still accepts an absent or a
+  real one; the reset-password route reports a non-string password as a type
+  error; the knowledge edit form shows the author's text (and leaves the
+  stored row untouched); the ticket form's asset dropdown marks itself
+  truncated exactly at the cap and renders the disclosure; the change update
+  route still rejects a non-string status and priority; and the seeder never
+  writes a change-log row stamped in the future.
+
+### Existing tests updated
+- `tests/code_review_358.test.js` — the "absent priority" pin now asserts the
+  documented default instead of the old required-field wording; the file's
+  database mock gained the ticket counter and ticket INSERT handles so the
+  create route can be driven to completion.
+- `tests/code_review_163.test.js` — the changes.js status-guard pin now
+  asserts the shared `resolveEnumField()` resolver (which is what actually
+  rejects a non-string enum) instead of the removed dead loop.
+- `tests/code_review_164.test.js` — the member-role trim pin now asserts the
+  shared resolver the member route uses; the trimming invariant is unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1704 passed / 1704 total** (101 suites, +35 from #378).
+- `npm run test:coverage` — global thresholds pass (statements 75.80%,
+  branches 75.10%, functions 87.57%, lines 75.81%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

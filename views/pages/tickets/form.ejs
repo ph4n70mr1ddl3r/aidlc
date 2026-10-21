@@ -65,6 +65,16 @@
               <option value="<%= a.id %>" <%= Number(ticket.asset_id) === Number(a.id) ? 'selected' : '' %>><%= a.asset_tag %> - <%= a.name %></option>
             <% }); } %>
           </select>
+          <% // The dropdown is capped, and the cap is disclosed EXACTLY: the
+             // route fetches one row beyond the cap as a truncation probe, so
+             // assetsTruncated is true only when rows were really dropped (a
+             // dropdown holding exactly the cap's worth of assets is complete
+             // and is never marked). Without this note the form silently
+             // omitted every asset that sorted past the cap — the only capped
+             // list in the app that truncated without saying so. %>
+          <% if (typeof assetsTruncated !== 'undefined' && assetsTruncated) { %>
+            <p class="text-muted text-sm" style="margin-top:4px;">Showing <%= (typeof assets !== 'undefined' ? assets.length : 0) %> of <%= assetsTotal %> assets (listed by name). Link the asset from its own record if it is not listed here.</p>
+          <% } %>
         </div>
         <div class="form-group">
           <label for="due_date">Due Date</label>

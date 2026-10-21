@@ -155,12 +155,16 @@ router.get('/', (req, res) => {
   // rule by scoping the list to the viewer before the search runs.
   //
   // The card also renders the OWNER's name, and the list offers no owner
-  // filter, so the owner's first and last name are searchable too — a
-  // rendered value the user could see must be usable to find the row.
+  // filter, so the owner's name is searchable too — a rendered value the user
+  // could see must be usable to find the row. The card renders it as ONE
+  // string ("<first> <last>"), so the search matches that CONCATENATION: the
+  // two halves were searched separately, which left the text the user could
+  // actually read unfindable ("John Smith" matched nothing while "John" and
+  // "Smith" each did) — the same defect the asset list's manufacturer+name
+  // cell was closed for.
   addSearch(where, params, safeQueryValue(req.query.search), [
     'p.name',
-    'u.first_name',
-    'u.last_name',
+    { concat: ['u.first_name', 'u.last_name'] },
     { column: 'p.description', prefix: DESC_TRUNCATION_LEN }
   ]);
 
@@ -1264,7 +1268,6 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
   }
 
   const user_id = safeQueryValue(req.body.user_id);
-  const role = trim(safeQueryValue(req.body.role));
   // Fail closed on a present-but-malformed user id ("5abc", "10.0", a JSON
   // float) — safeId's parseInt coercion would silently target a DIFFERENT
   // valid user. Mirrors the owner/assignee guards everywhere else in the
@@ -1279,14 +1282,22 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
       req.flash('error', 'Invalid User');
       return res.redirect(`/projects/${id}`);
     }
-    // Fail closed on absent or invalid role — silent fallback to 'member' would
-    // let a client omit the role field and get a privileged membership without
-    // explicit intent. Consistent with the fail-closed enum pattern used everywhere
-    // else in the route (e.g. task priority, ticket status, staff role).
-    if (!role || !VALID_MEMBER_ROLES.includes(role)) {
+    // The role is a nullable column with the schema default 'member', so an
+    // ABSENT field takes that default — exactly like every sibling create
+    // route (a task's status, a change's status, an article's status, a
+    // project's status/priority). The route used to REQUIRE the role, and
+    // its stated rationale was inverted: it claimed a silent fallback to
+    // 'member' "would let a client omit the role field and get a privileged
+    // membership", but 'member' is the LEAST privileged of the three roles
+    // (lead / member / stakeholder) — the fallback cannot escalate
+    // anything. A present-but-blank or unknown role is still rejected: it is
+    // neither an absent field nor an allowlisted value.
+    const roleEnum = resolveEnumField(req.body.role, VALID_MEMBER_ROLES);
+    if (roleEnum.state === 'blank' || roleEnum.state === 'invalid') {
       req.flash('error', 'Invalid Role');
       return res.redirect(`/projects/${id}`);
     }
+    const role = roleEnum.state === 'valid' ? roleEnum.value : 'member';
 
     // Verify project still exists, validate user is active, and add member in a
     // single transaction to avoid TOCTOU races: the project could be deleted or

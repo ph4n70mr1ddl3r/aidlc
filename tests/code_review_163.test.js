@@ -45,7 +45,19 @@ describe('code review 163: consistency/completeness/correctness', () => {
   describe('changes.js update fail-closed status guard', () => {
     it('rejects present non-string status as well as priority', () => {
       const src = readSrc('routes/changes.js');
-      expect(src).toContain("for (const field of ['priority', 'status'])");
+      // Both enums are resolved through the shared resolveEnumField helper,
+      // which classifies a non-string value as 'invalid' — so a present
+      // non-string status/priority is rejected instead of being silently
+      // preserved. Pass 379 removed the hand-rolled type-guard loop that
+      // used to sit after the enum checks: it was UNREACHABLE (the resolver
+      // had already rejected the same values) and its comment claimed the
+      // resolver used trim(), which it never did.
+      expect(src).toContain('resolveEnumField(req.body.status, VALID_STATUSES)');
+      expect(src).toContain('resolveEnumField(req.body.priority, VALID_PRIORITIES)');
+      const { resolveEnumField } = require('../src/utils');
+      const { CHANGE_STATUSES, CHANGE_PRIORITIES } = require('../src/constants');
+      expect(resolveEnumField(42, CHANGE_STATUSES).state).toBe('invalid');
+      expect(resolveEnumField(42, CHANGE_PRIORITIES).state).toBe('invalid');
     });
   });
 

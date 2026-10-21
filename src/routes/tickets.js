@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE, COMMENT_LIST_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -49,7 +49,31 @@ const _ASSET_DROPDOWN_LIMIT = 1000;
 // dropdown could differ between two page loads and an option the user had
 // seen could vanish on refresh. Mirrors the tiebreaker convention every
 // other capped/ordered query in the app follows.
-const _assetListStmt = db.prepare(`SELECT id, asset_tag, name FROM assets ORDER BY name ASC, id ASC LIMIT ${_ASSET_DROPDOWN_LIMIT}`);
+//
+// The query fetches ONE ROW BEYOND the cap (the "+ 1" below): the extra row
+// is the truncation probe, so the form can disclose the cap EXACTLY (a
+// dropdown holding exactly the cap's worth of assets is complete and is
+// never marked). Without it this was the only capped list in the app that
+// truncated SILENTLY — on an inventory larger than the cap the form simply
+// omitted every asset that sorted past it, with nothing on the page saying
+// the list was incomplete.
+const _assetListStmt = db.prepare(`SELECT id, asset_tag, name FROM assets ORDER BY name ASC, id ASC LIMIT ${_ASSET_DROPDOWN_LIMIT + 1}`);
+// The total asset count, so the truncated dropdown can say "Showing N of M"
+// instead of an unbounded claim (the same disclosure the report pages give
+// for their capped lists).
+const _assetCountStmt = db.prepare('SELECT COUNT(*) as c FROM assets');
+
+/**
+ * Total number of assets, for the dropdown's truncation disclosure.
+ * Falls back to the number of rows actually rendered when the count query
+ * yields no row, so a null result can never crash the form.
+ * @param {number} fallback
+ * @returns {number}
+ */
+function _totalAssetCount(fallback) {
+  const row = _assetCountStmt.get();
+  return (row && Number.isFinite(row.c)) ? row.c : fallback;
+}
 // Fetch a single asset's dropdown columns — used by the edit route to guarantee
 // the linked asset appears in the <select> even past the LIMIT above.
 const _assetByIdStmt = db.prepare('SELECT id, asset_tag, name FROM assets WHERE id = ?');
@@ -264,7 +288,7 @@ router.get('/', (req, res) => {
 // New ticket form
 router.get('/new', (req, res) => {
   const staff = getActiveStaff(db);
-  const assets = _assetListStmt.all();
+  const assetOptions = capList(_assetListStmt.all(), _ASSET_DROPDOWN_LIMIT);
   // Pre-fill requester info from logged-in user — guard against a session
   // missing a user object (defensive: requireAuth middleware guarantees it
   // in normal operation, but unit tests and edge cases may bypass that path).
@@ -274,7 +298,13 @@ router.get('/new', (req, res) => {
     requester_email: prefillUser.email || '',
     requester_department: prefillUser.department || ''
   };
-  res.render('pages/tickets/form', { title: 'New Ticket', ticket: prefill, staff, assets, isEdit: false });
+  res.render('pages/tickets/form', {
+    title: 'New Ticket', ticket: prefill, staff,
+    assets: assetOptions.rows,
+    assetsTruncated: assetOptions.truncated,
+    assetsTotal: _totalAssetCount(assetOptions.rows.length),
+    isEdit: false
+  });
 });
 
 // Create ticket
@@ -305,7 +335,6 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     }
   }
   const category = trim(safeQueryValue(req.body.category));
-  const priority = trim(safeQueryValue(req.body.priority));
   const requester_name = trim(safeQueryValue(req.body.requester_name));
   const requester_email = trim(safeQueryValue(req.body.requester_email)).toLowerCase();
   const requester_department = trim(safeQueryValue(req.body.requester_department));
@@ -368,12 +397,28 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     req.flash('error', 'Invalid Category');
     return res.redirect('/tickets/new');
   }
-  if (!priority || !VALID_PRIORITIES.includes(priority)) {
-    // Match the required-fields wording of the sibling checks: an absent
-    // priority is a required-field miss, not a bad enum value.
-    req.flash('error', priority ? 'Invalid Priority' : 'Priority is required');
+  // The priority is a NOT NULL column with the schema default 'medium', and
+  // the SIBLING `status` in this very route already resolves its enum through
+  // resolveEnumField() — an absent field takes the documented default, a
+  // present-but-invalid one is rejected. The route used to REQUIRE the
+  // priority instead, so an API client that submitted only the required
+  // fields was refused with "Priority is required" while every other entity
+  // (projects, tasks, changes, articles, assets) accepted the same omission
+  // and applied its documented default. The route's own required-field check
+  // above ("Title, category, requester name, and requester email are
+  // required") never listed the priority, so the field was never actually
+  // required — only accidentally so.
+  //
+  // The presence test runs against the RAW submitted value, so a
+  // present-but-blank/empty/unknown priority is rejected rather than silently
+  // defaulting — exactly like the sibling `status` below and the project
+  // create route (the enum whose default the README documents).
+  const createPriorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  if (createPriorityEnum.state === 'blank' || createPriorityEnum.state === 'invalid' || createPriorityEnum.state === 'empty') {
+    req.flash('error', 'Invalid Priority');
     return res.redirect('/tickets/new');
   }
+  const safePriority = createPriorityEnum.state === 'valid' ? createPriorityEnum.value : 'medium';
   // The status is optional on create and defaults to 'open' (the new-ticket
   // form does not offer a status control). A present value must be a member
   // of the allowlist — the create route previously listed 'status' in its HPP
@@ -455,7 +500,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       const seq = row.next_seq;
       const ticket_number = `TK-${todayStr}-${String(seq).padStart(3, '0')}`;
       try {
-        const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, priority, safeStatus,
+        const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, safePriority, safeStatus,
           requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
           safeAssignee, safeAssetId, safeDueDate, isTerminalStatus);
         return { ticket_number, id: result.lastInsertRowid };
@@ -610,7 +655,8 @@ router.get('/:id/edit', (req, res) => {
   }
 
   const staff = getActiveStaff(db);
-  let assets = _assetListStmt.all();
+  const assetOptions = capList(_assetListStmt.all(), _ASSET_DROPDOWN_LIMIT);
+  let assets = assetOptions.rows;
   // Ensure the currently-linked asset appears in the dropdown even when it
   // falls outside the _ASSET_DROPDOWN_LIMIT cap (large inventory). Without
   // this, a linked asset beyond the cap would not render as "selected", and
@@ -625,7 +671,12 @@ router.get('/:id/edit', (req, res) => {
   // assignee when the submitted value is unchanged, so the dropdown value is
   // saveable.
   const assigneeOptions = ensureAssigneeInList(staff, ticket.assigned_to, db);
-  res.render('pages/tickets/form', { title: 'Edit Ticket', ticket: safeTicket, staff: assigneeOptions, assets, isEdit: true });
+  res.render('pages/tickets/form', {
+    title: 'Edit Ticket', ticket: safeTicket, staff: assigneeOptions, assets,
+    assetsTruncated: assetOptions.truncated,
+    assetsTotal: _totalAssetCount(assetOptions.rows.length),
+    isEdit: true
+  });
 });
 
 // Update ticket
@@ -1055,6 +1106,18 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
 
   const comment = safeQueryValue(req.body.comment);
   const is_internal = safeQueryValue(req.body.is_internal);
+
+  // Fail closed on a present-but-non-string comment (e.g. a JSON number or
+  // object): trim() coerces it to '', so the type error was reported as a
+  // MISSING field ("Comment cannot be empty.") — the same defect the ticket
+  // create route's required-field guard already fixed for `title`. Every
+  // other required-text write route in the app reports a wrong-typed value as
+  // the app-wide "Invalid request parameters", so an API client can tell
+  // "you left the field out" from "the field has the wrong type".
+  if (req.body.comment !== undefined && req.body.comment !== null && req.body.comment !== '' && typeof req.body.comment !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}`);
+  }
 
   const trimmedComment = trim(comment) || '';
   if (!trimmedComment) {

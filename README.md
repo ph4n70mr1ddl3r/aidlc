@@ -198,10 +198,12 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 - **Input validation**: Whitelisted filter values, parameterized queries
 - **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
 - **License-key disclosure**: the plaintext key is never rendered into a page. The show/edit views receive only a `has_license_key` flag and a `****` mask; the full key is reachable exclusively through the audited, rate-limited `POST /licenses/:id/key` endpoint
-- **HTML sanitization** on user-generated markdown content. An article's body is
-  rendered as HTML and therefore stored entity-escaped; its **title and tags
+- **HTML sanitization** on user-generated markdown content. An article's body
+  is rendered as HTML and therefore stored entity-escaped; its **title and tags
   are plain text** and are stored unescaped, so they display exactly as they
-  were typed and are findable by the search box.
+  were typed and are findable by the search box. The edit form decodes the
+  stored body for the textarea only, so the author edits the text they typed
+  rather than its escaped form.
 - **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
 
 ### Partial-update (PUT) convention
@@ -236,9 +238,11 @@ present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
 an article's, a change's or a project's status, a task's status) is rejected,
 exactly as the matching `PUT` rejects it. An absent field still takes the
 documented default — a project created without a `status` is `planning` and
-without a `priority` is `medium`, like every other entity's default. A value
-of the wrong **type** (a JSON number in a name field, say) is an invalid
-value, not a missing one, and is reported as such.
+without a `priority` is `medium`, like every other entity's default (a
+ticket created without a `priority` is `medium`, without a `status` is
+`open`; a project member added without a `role` is `member`). A value of the
+wrong **type** (a JSON number in a name field, say) is an invalid value, not
+a missing one, and is reported as such.
 
 An explicit empty string clears a nullable optional field, with two documented
 exceptions:
@@ -273,7 +277,12 @@ fully readable by the viewer:
   search matches the same truncated prefix. A cell that renders two columns
   together is searched as the concatenation it displays: the asset list
   shows "<manufacturer> <name>" in one cell, so the search matches
-  "Dell OptiPlex 7090" and not "Dell" or "OptiPlex" alone.
+  "Dell OptiPlex 7090" and not "Dell" or "OptiPlex" alone. The same rule
+  applies to every name cell the app renders as one string — the project
+  card's owner, the knowledge list's author, the staff directory's name
+  column and the change list's "Assigned To" column are all searched as
+  "<first> <last>", so the name a user reads off the page can be typed back
+  in to find the row.
 - the **change** and **knowledge** lists are scoped to the viewer, so a
   non-rendered column (a change's description, an article's body) stays
   searchable — every row in the result set is readable in full.
@@ -296,7 +305,8 @@ its cap is complete and is never marked. (Each capped query fetches one row
 beyond its cap as a truncation probe; the three report pages that show an
 uncapped total instead disclose it as "Showing the top N of M" — the asset
 report's warranty list, the staff report's roster and the ticket report's
-"Top Resolvers" card.)
+"Top Resolvers" card. The ticket form's Related-Asset dropdown is capped at
+1000 assets and discloses it the same way — "Showing N of M assets".)
 
 A cap counts the rows the **viewer may see**: the ticket page's comment list
 applies the access predicate in SQL, so a non-privileged viewer's 500-row
