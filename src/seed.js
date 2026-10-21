@@ -97,19 +97,38 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // ========================
     // ASSETS
     // ========================
+    // Asset purchase dates and warranty expiries are anchored to the seed date
+    // for the same reason as the license terms, the vendor contract windows and
+    // the project windows below: a hardcoded absolute date drifts into the
+    // past, and every seeded warranty had ALREADY expired — the dashboard's
+    // "Warranty Ending or Expired" alert (a 30-day window) therefore only ever
+    // reported long-expired records, and the "expiring soon" case it names was
+    // never represented. The seeded portfolio now exercises all three states:
+    // live warranties, one expiring inside the 30-day alert window, and a few
+    // genuinely expired ones.
+    //
+    // `assetTerm(daysAgoPurchased, daysUntilWarrantyEnd)` returns a purchase
+    // date in the past and a warranty expiry relative to the seed date. The
+    // warranty always ends at or after the purchase — the same ordering the
+    // asset routes enforce ("Warranty expiry must be on or after purchase
+    // date").
+    const assetTerm = (daysAgoPurchased, daysUntilWarrantyEnd) => ({
+      purchase_date: isoDateDaysFromNow(-daysAgoPurchased),
+      warranty_expiry: isoDateDaysFromNow(daysUntilWarrantyEnd)
+    });
     const assets = [
-      { asset_tag: 'AST-001', name: 'MacBook Pro 16"', category: 'laptop', manufacturer: 'Apple', model: 'M3 Max', serial_number: 'SN-APL-001', status: 'in_use', condition_rating: 'new', purchase_date: '2025-01-15', purchase_price: 3499, warranty_expiry: '2028-01-15', assigned_to: 1, location: 'HQ Office' },
-      { asset_tag: 'AST-002', name: 'Dell OptiPlex 7090', category: 'desktop', manufacturer: 'Dell', model: '7090 SFF', serial_number: 'SN-DEL-002', status: 'in_use', condition_rating: 'good', purchase_date: '2023-06-20', purchase_price: 1299, warranty_expiry: '2026-06-20', assigned_to: 2, location: 'HQ Office' },
-      { asset_tag: 'AST-003', name: 'ThinkPad X1 Carbon', category: 'laptop', manufacturer: 'Lenovo', model: 'Gen 11', serial_number: 'SN-LEN-003', status: 'in_use', condition_rating: 'good', purchase_date: '2023-09-10', purchase_price: 1899, warranty_expiry: '2026-09-10', assigned_to: 3, location: 'Remote' },
-      { asset_tag: 'AST-004', name: 'HP ProLiant DL380', category: 'server', manufacturer: 'HP', model: 'DL380 Gen10', serial_number: 'SN-HP-004', status: 'in_use', condition_rating: 'good', purchase_date: '2022-03-15', purchase_price: 8999, warranty_expiry: '2025-03-15', assigned_to: null, location: 'Data Center A' },
-      { asset_tag: 'AST-005', name: 'Dell PowerEdge R740', category: 'server', manufacturer: 'Dell', model: 'R740', serial_number: 'SN-DEL-005', status: 'in_use', condition_rating: 'good', purchase_date: '2022-08-22', purchase_price: 12500, warranty_expiry: '2025-08-22', assigned_to: null, location: 'Data Center A' },
-      { asset_tag: 'AST-006', name: 'Cisco Catalyst 9300', category: 'network', manufacturer: 'Cisco', model: 'C9300-48T', serial_number: 'SN-CSC-006', status: 'in_use', condition_rating: 'good', purchase_date: '2023-01-10', purchase_price: 6500, warranty_expiry: '2026-01-10', assigned_to: null, location: 'Server Room' },
-      { asset_tag: 'AST-007', name: 'HP LaserJet Pro', category: 'printer', manufacturer: 'HP', model: 'M404dn', serial_number: 'SN-HP-007', status: 'in_storage', condition_rating: 'fair', purchase_date: '2020-11-05', purchase_price: 399, warranty_expiry: '2023-11-05', assigned_to: null, location: 'Storage Room B' },
-      { asset_tag: 'AST-008', name: 'Dell UltraSharp 27"', category: 'monitor', manufacturer: 'Dell', model: 'U2723QE', serial_number: 'SN-DEL-008', status: 'in_use', condition_rating: 'new', purchase_date: '2024-02-14', purchase_price: 619, warranty_expiry: '2027-02-14', assigned_to: 4, location: 'HQ Office' },
-      { asset_tag: 'AST-009', name: 'iPhone 15 Pro', category: 'phone', manufacturer: 'Apple', model: 'A2848', serial_number: 'SN-APL-009', status: 'in_use', condition_rating: 'good', purchase_date: '2024-09-22', purchase_price: 1199, warranty_expiry: '2026-09-22', assigned_to: 1, location: 'HQ Office' },
-      { asset_tag: 'AST-010', name: 'Surface Pro 9', category: 'tablet', manufacturer: 'Microsoft', model: 'QEZ-00001', serial_number: 'SN-MSF-010', status: 'in_repair', condition_rating: 'fair', purchase_date: '2023-04-18', purchase_price: 1599, warranty_expiry: '2025-04-18', assigned_to: 5, location: 'Repair Shop' },
-      { asset_tag: 'AST-011', name: 'MacBook Air M2', category: 'laptop', manufacturer: 'Apple', model: 'MLY33LL/A', serial_number: 'SN-APL-011', status: 'in_use', condition_rating: 'good', purchase_date: '2024-01-08', purchase_price: 1299, warranty_expiry: '2027-01-08', assigned_to: 5, location: 'HQ Office' },
-      { asset_tag: 'AST-012', name: 'Logitech MX Keys', category: 'peripheral', manufacturer: 'Logitech', model: 'MX Keys Advanced', serial_number: 'SN-LOG-012', status: 'in_storage', condition_rating: 'new', purchase_date: '2025-02-01', purchase_price: 119, warranty_expiry: '2027-02-01', assigned_to: null, location: 'Storage Room A' }
+      { asset_tag: 'AST-001', name: 'MacBook Pro 16"', category: 'laptop', manufacturer: 'Apple', model: 'M3 Max', serial_number: 'SN-APL-001', status: 'in_use', condition_rating: 'new', ...assetTerm(400, 700), purchase_price: 3499, assigned_to: 1, location: 'HQ Office' },
+      { asset_tag: 'AST-002', name: 'Dell OptiPlex 7090', category: 'desktop', manufacturer: 'Dell', model: '7090 SFF', serial_number: 'SN-DEL-002', status: 'in_use', condition_rating: 'good', ...assetTerm(300, 20), purchase_price: 1299, assigned_to: 2, location: 'HQ Office' },
+      { asset_tag: 'AST-003', name: 'ThinkPad X1 Carbon', category: 'laptop', manufacturer: 'Lenovo', model: 'Gen 11', serial_number: 'SN-LEN-003', status: 'in_use', condition_rating: 'good', ...assetTerm(280, -10), purchase_price: 1899, assigned_to: 3, location: 'Remote' },
+      { asset_tag: 'AST-004', name: 'HP ProLiant DL380', category: 'server', manufacturer: 'HP', model: 'DL380 Gen10', serial_number: 'SN-HP-004', status: 'in_use', condition_rating: 'good', ...assetTerm(700, -300), purchase_price: 8999, assigned_to: null, location: 'Data Center A' },
+      { asset_tag: 'AST-005', name: 'Dell PowerEdge R740', category: 'server', manufacturer: 'Dell', model: 'R740', serial_number: 'SN-DEL-005', status: 'in_use', condition_rating: 'good', ...assetTerm(620, -400), purchase_price: 12500, assigned_to: null, location: 'Data Center A' },
+      { asset_tag: 'AST-006', name: 'Cisco Catalyst 9300', category: 'network', manufacturer: 'Cisco', model: 'C9300-48T', serial_number: 'SN-CSC-006', status: 'in_use', condition_rating: 'good', ...assetTerm(500, 75), purchase_price: 6500, assigned_to: null, location: 'Server Room' },
+      { asset_tag: 'AST-007', name: 'HP LaserJet Pro', category: 'printer', manufacturer: 'HP', model: 'M404dn', serial_number: 'SN-HP-007', status: 'in_storage', condition_rating: 'fair', ...assetTerm(900, -600), purchase_price: 399, assigned_to: null, location: 'Storage Room B' },
+      { asset_tag: 'AST-008', name: 'Dell UltraSharp 27"', category: 'monitor', manufacturer: 'Dell', model: 'U2723QE', serial_number: 'SN-DEL-008', status: 'in_use', condition_rating: 'new', ...assetTerm(450, 650), purchase_price: 619, assigned_to: 4, location: 'HQ Office' },
+      { asset_tag: 'AST-009', name: 'iPhone 15 Pro', category: 'phone', manufacturer: 'Apple', model: 'A2848', serial_number: 'SN-APL-009', status: 'in_use', condition_rating: 'good', ...assetTerm(200, 400), purchase_price: 1199, assigned_to: 1, location: 'HQ Office' },
+      { asset_tag: 'AST-010', name: 'Surface Pro 9', category: 'tablet', manufacturer: 'Microsoft', model: 'QEZ-00001', serial_number: 'SN-MSF-010', status: 'in_repair', condition_rating: 'fair', ...assetTerm(600, -500), purchase_price: 1599, assigned_to: 5, location: 'Repair Shop' },
+      { asset_tag: 'AST-011', name: 'MacBook Air M2', category: 'laptop', manufacturer: 'Apple', model: 'MLY33LL/A', serial_number: 'SN-APL-011', status: 'in_use', condition_rating: 'good', ...assetTerm(420, 670), purchase_price: 1299, assigned_to: 5, location: 'HQ Office' },
+      { asset_tag: 'AST-012', name: 'Logitech MX Keys', category: 'peripheral', manufacturer: 'Logitech', model: 'MX Keys Advanced', serial_number: 'SN-LOG-012', status: 'in_storage', condition_rating: 'new', ...assetTerm(380, 340), purchase_price: 119, assigned_to: null, location: 'Storage Room A' }
     ];
 
     const insertAsset = db.prepare(`

@@ -153,7 +153,12 @@ describe('dashboard alert counts are uncapped while lists stay capped (regressio
     }
     const list = dashboard.__stmts.expiringWarranties.all();
     const count = dashboard.__stmts.expiringWarrantiesCount.get().c;
-    expect(list.length).toBe(20); // list stays capped to bound the cached payload
+    // The list stays capped to bound the cached payload — plus ONE row beyond
+    // the cap, the truncation probe the "(N+)" marker is derived from (pass
+    // 375). The route slices it back to the cap and reports the exact
+    // `truncated` flag from the probe, so the marker never depends on the
+    // separately-cached count.
+    expect(list.length).toBe(21);
     expect(count).toBe(25); // count is the true, uncapped total
   });
 
@@ -164,7 +169,10 @@ describe('dashboard alert counts are uncapped while lists stay capped (regressio
     }
     const list = dashboard.__stmts.licenseAlerts.all();
     const count = dashboard.__stmts.licenseAlertsCount.get().c;
-    expect(list.length).toBe(20);
+    // cap + 1 (the truncation probe) — the licence list is fetched per
+    // request while its count comes from the shared TTL cache, so the marker
+    // must not be derived from the count (pass 375).
+    expect(list.length).toBe(21);
     expect(count).toBe(22);
   });
 });

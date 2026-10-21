@@ -215,9 +215,11 @@ title/content/category, and the profile route's name/email. A *present but
 empty* value is still rejected (the columns are `NOT NULL`, so an empty value
 has no valid meaning).
 
-An explicit empty string clears a nullable optional field, and the dedicated
-`clear_key` / `clear` controls clear the fields where an empty string is not
-a valid value.
+An explicit empty string clears a nullable optional field. The one field where
+an empty string is not a valid value — the licence key — has its own dedicated
+`clear_key` control on the edit form (ticking it wipes the stored key; typing
+a new key and ticking it at the same time is rejected rather than silently
+discarding one of the two).
 
 ### List caps and truncation disclosure
 
@@ -227,7 +229,9 @@ a cap actually drops rows, the list says so with an `(N+)` marker next to the
 row count. The marker is **exact**: a list that holds exactly as many rows as
 its cap is complete and is never marked. (Each capped query fetches one row
 beyond its cap as a truncation probe; the two report pages that show an
-uncapped total instead disclose it as "Showing the top N of M".)
+uncapped total instead disclose it as "Showing the top N of M" — the asset
+report's warranty list, the staff report's roster and the ticket report's
+"Top Resolvers" card.)
 
 ## Scripts
 

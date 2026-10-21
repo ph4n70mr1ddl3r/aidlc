@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (373rd pass)
+**Date:** 2026-10-21 (375th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (372 consecutive hardening reviews) was
+`npm audit`. Prior review history (374 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -14019,4 +14019,142 @@ does not carry.
 - `npm test` — **1542 passed / 1542 total** (96 suites, +34 from #373).
 - `npm run test:coverage` — global thresholds pass (statements 72.72%,
   branches 71.50%, functions 84.06%, lines 72.72%).
+- `npm audit --omit=dev` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-21 (375th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+four defect classes. The most consequential was the **last silent truncation
+in the app**: the ticket report's "Top Resolvers" card is capped at ten rows
+and said nothing about it, so a period with fourteen resolvers rendered ten
+names under a heading that implied completeness — while every other capped
+list in the app discloses its cap.
+
+1. **The ticket report's "Top Resolvers" card truncated silently** (LOW,
+   display/consistency — fixed). `reports.js` caps the card's list at
+   `LIMIT 10`, but the page rendered no disclosure at all: no `(N+)` marker
+   and no "of M" total. The other two report pages already disclose their
+   caps — the asset report's warranty list ("Showing the soonest N of M
+   assets.") and the staff report's roster ("Showing the top N of M active
+   staff."), the latter added by pass 373 — and the dashboard discloses every
+   capped card with an exact `(N+)` marker (pass 374). The resolver card was
+   the only bounded list in the app that looked complete when it was not.
+   Fix: the route now also computes the uncapped number of distinct
+   resolvers for the period and the page discloses the slice
+   ("Showing the top 10 of 12 resolvers."), exactly like its two sibling
+   report pages. The list itself is unchanged.
+
+2. **The dashboard's alert-list "(N+)" markers depended on a second,
+   differently-cached query** (LOW, correctness — fixed). The warranty and
+   licence alert lists derived their marker by comparing the rendered length
+   against the *uncapped count* — a second query. For the warranty list the
+   two always came from the same place (both live in the shared 30-second
+   TTL cache), so the comparison was exact. For the licence list they did
+   not: the list is deliberately fetched PER REQUEST (the licenses module is
+   admin/manager-only, so the software names must not enter the shared
+   payload) while `licenseAlertsCount` comes from that shared cache. The
+   marker could therefore be wrong in BOTH directions — it claimed a
+   truncation that did not exist when a licence was deleted or renewed
+   inside the cache window, and it HID a real truncation when a licence was
+   created inside it (the capped length equalled the stale count, so
+   `length < count` was false). Fix: both alert lists now fetch one row
+   beyond their cap — the truncation probe the other four dashboard lists
+   already use — and the route turns that probe into the exact
+   `expiringWarrantiesTruncated` / `licenseAlertsTruncated` flags the
+   template renders. The uncapped counts are unchanged and still feed the
+   alert CARDS, which report a number rather than a list.
+
+3. **Every seeded asset warranty had already expired, and none exercised
+   the "expiring soon" path** (LOW, seed data — fixed). The dashboard's
+   "Warranty Ending or Expired" alert (a 30-day window) and the asset
+   report's 90-day warranty list are the app's two warranty-expiry
+   surfaces, and the seeded asset purchase/warranty dates were hardcoded
+   absolutes: eight of the twelve seeded warranties had already expired and
+   NONE expired inside the 30-day window, so the "expiring soon" case the
+   alert names was never represented. This is the same defect pass 372
+   closed for the seeded licence terms ("every seeded license that carried
+   an expiry date had already expired … the 'expiring soon' case it names
+   was never represented"). Fix: the seeded asset purchase dates and
+   warranty expiries are now anchored to the seed date through a new
+   `assetTerm(daysAgoPurchased, daysUntilWarrantyEnd)` helper — the same
+   convention the licence terms, the vendor contract windows, the project
+   windows and the ticket due date already use. The seeded fleet now carries
+   live warranties, one warranty expiring inside the 30-day alert window,
+   one inside the 90-day report window, and a few genuinely expired ones,
+   with the warranty always at or after the purchase (the ordering the
+   asset routes enforce).
+
+4. **The README advertised a `clear` control that does not exist** (LOW,
+   documentation — fixed). The partial-update section said "the dedicated
+   `clear_key` / `clear` controls clear the fields where an empty string is
+   not a valid value". There is no `clear` control anywhere in the app: the
+   magic `_CLEAR_` sentinel it referred to was replaced by the licence
+   form's `clear_key` checkbox in an earlier pass, and the only
+   clear-style control in the whole template tree is that checkbox. The
+   README now documents the control that actually exists (and what it does
+   when combined with a typed key).
+
+Also verified this pass: the app-wide partial-update contract now holds for
+EVERY field of EVERY `PUT` route, including every required column (the
+374th pass's fix re-checked field by field against the transaction-consistent
+re-read); every write route still rejects HPP arrays before any value is
+consumed, and every body field a route reads is covered by its route's HPP
+allowlist; every form field in every view is consumed by its route, and the
+`actual_start` / `actual_end` inputs are correctly edit-only (the change-log
+create route does not accept them); the search surface of every list route
+still matches the columns that list renders (no content oracle); the
+audit action/entity allowlists still cover every call site; the requester-PII
+redaction, the licence-key masking, the session timeout anchors, the
+rate-limiter inventory in the README and `.env.example` are all unchanged and
+still accurate.
+
+### Fixes applied
+1. `src/routes/reports.js` — new `topResolversCount` statement (the uncapped
+   number of distinct resolvers for the period); the ticket report route
+   computes it and passes `resolverCount` to the template.
+2. `views/pages/reports/tickets.ejs` — the "Top Resolvers" card discloses the
+   truncation ("Showing the top N of M resolvers.").
+3. `src/routes/dashboard.js` — the warranty and licence alert-list queries
+   fetch one row beyond their cap (the truncation probe); the route derives
+   the exact `expiringWarrantiesTruncated` / `licenseAlertsTruncated` flags
+   from that probe (`capList`) and passes them to the template.
+4. `views/pages/dashboard.ejs` — both alert-list "(N+)" markers are driven by
+   the exact flags instead of a comparison against the separately-cached
+   count.
+5. `src/seed.js` — new `assetTerm()` helper; every seeded asset's purchase
+   date and warranty expiry is anchored to the seed date.
+6. `README.md` — the partial-update section documents the `clear_key` control
+   that exists (and the conflict it rejects) instead of the phantom `clear`
+   control; the list-cap section names the three report-page disclosures.
+7. `CODE_REVIEW.md` — the header block still advertised "373rd pass / 372
+   consecutive hardening reviews" (the 374th pass appended its cycle but did
+   not refresh the header); it now names the current pass.
+
+### Regression tests added
+- `tests/code_review_375.test.js` — 12 tests, 6 of them verified to FAIL
+  against the pre-fix tree: the resolver card discloses its truncation when
+  12 resolvers exceed the 10-row list and stays silent when the list is
+  complete; the uncapped resolver count is exposed by the route; the licence
+  alert list drops its "(+)" marker when the list becomes complete inside
+  the cache window (the stale-count case) and gains it when a licence
+  appears inside that window (the hidden-truncation case); both alert
+  markers are pinned to the exact truncation flags; the seeded fleet never
+  expires a warranty before its purchase date, always carries one warranty
+  inside the 30-day alert window, and always keeps at least one live
+  warranty; the app's only clear control is `clear_key`, and the README
+  documents that control and no phantom one.
+
+### Existing tests updated
+- `tests/reports.test.js` — the two "alert counts are uncapped while lists
+  stay capped" cases now expect `cap + 1` rows: the alert lists fetch one
+  row beyond the cap (the truncation probe), so the list is bounded at 21
+  rows instead of 20. The counts are unchanged (the true, uncapped totals).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1554 passed / 1554 total** (97 suites, +12 from #374).
+- `npm run test:coverage` — global thresholds pass (statements 72.75%,
+  branches 71.50%, functions 84.11%, lines 72.74%).
 - `npm audit --omit=dev` — **0 vulnerabilities**.

@@ -6,7 +6,8 @@
    // the cap as a probe, so a list holding exactly as many rows as the cap is
    // complete and is NOT marked). The old `length >= cap` heuristic claimed a
    // truncation that did not exist. The warranty/license alert lists further
-   // down use the equivalent uncapped count already in the render context. %>
+   // down use the same probe; their uncapped counts feed the alert CARDS
+   // (which report a number), not the list markers. %>
 
 <!-- Stats Cards -->
 <div class="stats-grid">
@@ -210,15 +211,14 @@
      list could ever show. Rendering the lists makes both caps live and tells
      the reader WHICH assets/licenses need attention. The "(N+)" marker
      discloses the truncation exactly like every other capped list in the app.
-     For these two lists the EXACT total is already in the render context
-     (expiringWarrantiesCount / licenseAlertsCount), so the marker compares
-     the rendered length against the count: a list that happens to hold
-     exactly as many rows as the cap is complete, and the old ">=" heuristic
-     would have claimed a truncation that does not exist. -->
+     Both alert lists fetch ONE ROW BEYOND their cap (the truncation probe),
+     so the marker is exact and self-contained: it does NOT depend on the
+     uncapped count, which is a separate query (and, for the licence list, a
+     separately cached one) that feeds the ALERT CARD only. -->
 <% if (Array.isArray(expiringWarranties) && expiringWarranties.length > 0) { %>
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-shield-alt" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Warranty Ending or Expired (<%= expiringWarranties.length %><%= expiringWarranties.length < expiringWarrantiesCount ? '+' : '' %>)</h3>
+    <h3><i class="fas fa-shield-alt" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Warranty Ending or Expired (<%= expiringWarranties.length %><%= (typeof expiringWarrantiesTruncated !== 'undefined' && expiringWarrantiesTruncated) ? '+' : '' %>)</h3>
   </div>
   <div class="card-body" style="padding:0;">
     <div class="table-responsive">
@@ -252,7 +252,7 @@
 <% if (isPrivileged(user) && Array.isArray(licenseAlerts) && licenseAlerts.length > 0) { %>
 <div class="card mt-3">
   <div class="card-header">
-    <h3><i class="fas fa-key" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Licenses Ending or Expired (<%= licenseAlerts.length %><%= licenseAlerts.length < licenseAlertsCount ? '+' : '' %>)</h3>
+    <h3><i class="fas fa-key" aria-hidden="true" style="margin-right:8px;color:var(--warning)"></i>Licenses Ending or Expired (<%= licenseAlerts.length %><%= (typeof licenseAlertsTruncated !== 'undefined' && licenseAlertsTruncated) ? '+' : '' %>)</h3>
   </div>
   <div class="card-body" style="padding:0;">
     <div class="table-responsive">

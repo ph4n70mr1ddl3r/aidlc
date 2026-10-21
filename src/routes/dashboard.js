@@ -89,6 +89,7 @@ const EMPTY_DEFAULTS = {
   recentTicketsTruncated: false,
   expiringWarranties: [],
   expiringWarrantiesCount: 0,
+  expiringWarrantiesTruncated: false,
   upcomingChanges: [],
   upcomingChangesTruncated: false,
   ticketsByCategory: [],
@@ -97,7 +98,8 @@ const EMPTY_DEFAULTS = {
   myTickets: [],
   myTicketsTruncated: false,
   licenseAlerts: [],
-  licenseAlertsCount: 0
+  licenseAlertsCount: 0,
+  licenseAlertsTruncated: false
 };
 
 // ---------------------------------------------------------------------------
@@ -156,17 +158,29 @@ const stmts = {
   // and expired-inclusive semantics as the reports warrantyExpiring query, but a
   // 30-day glance horizon (vs the report's 90 days) and a tighter list cap —
   // do NOT treat the two queries as interchangeable when changing either.
+  //
+  // The query fetches ONE ROW BEYOND the cap (the "+ 1" below): the extra row
+  // is the truncation probe, so the "(N+)" marker the list card renders is
+  // exact and self-contained. The marker used to be derived from a SECOND
+  // query (the uncapped count below) — but the list and the count were not
+  // always read from the same place: this list lives in the shared TTL cache
+  // while the licence list (below) is fetched per request, so the two could
+  // disagree and the marker could claim a truncation that did not exist (or
+  // hide one that did). The probe removes the cross-query dependency
+  // entirely; the uncapped count is now used ONLY by the alert card.
   expiringWarranties: db.prepare(`
     SELECT id, name, asset_tag, warranty_expiry FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
       AND status != 'disposed'
     ORDER BY warranty_expiry ASC, id ASC
-    LIMIT ${_DASH_WARRANTY_LIMIT}
+    LIMIT ${_DASH_WARRANTY_LIMIT + 1}
   `),
   // Uncapped COUNT for the alert card number. The list query above is capped
-  // (LIMIT) to bound the cached payload, so expiringWarranties.length would
-  // undercount when more than the cap qualify — the exact bug class reports.js
-  // fixed by splitting warrantyExpiringCount from warrantyExpiring.
+  // (LIMIT cap + 1) to bound the cached payload, so expiringWarranties.length
+  // would undercount when more than the cap qualify — the exact bug class
+  // reports.js fixed by splitting warrantyExpiringCount from warrantyExpiring.
+  // The count is NOT used to derive the list's truncation marker (the probe
+  // above does that) — it is the number the alert card reports.
   expiringWarrantiesCount: db.prepare(`
     SELECT COUNT(*) as c FROM assets
     WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
@@ -218,14 +232,23 @@ const stmts = {
   // payload below — the same pattern the Upcoming Changes widget uses. Only
   // the COUNT (no names) stays in the shared cache, because the alert card
   // reports a number to every viewer.
+  //
+  // Like the warranty list above, the query fetches ONE ROW BEYOND the cap
+  // (the truncation probe) so the list card's "(N+)" marker is exact and does
+  // not depend on the separately-cached count — the licence list is read per
+  // request while licenseAlertsCount comes from the shared cache, so deriving
+  // the marker from the count could claim a truncation that did not exist (or
+  // hide one that did).
   licenseAlerts: db.prepare(`
     SELECT id, software_name, vendor, expiry_date FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
     ORDER BY expiry_date ASC, id ASC
-    LIMIT ${_DASH_LICENSE_ALERTS_LIMIT}
+    LIMIT ${_DASH_LICENSE_ALERTS_LIMIT + 1}
   `),
   // Uncapped COUNT for the alert card number — licenseAlerts.length would
   // undercount past the list cap, exactly like expiringWarranties above.
+  // It is NOT used to derive the list's truncation marker (the probe above
+  // does that) — it is the number the alert card reports.
   licenseAlertsCount: db.prepare(`
     SELECT COUNT(*) as c FROM licenses
     WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
@@ -321,12 +344,17 @@ function getDashboardData(user) {
   // queries fetch (see capList). The template's "(N+)" marker therefore
   // appears only when rows were really dropped — a list that happens to hold
   // exactly as many rows as the cap is complete and is not marked. (The
-  // warranty/license alert lists below use the equivalent uncapped count
-  // instead, which is already in the render context.)
+  // warranty/license alert lists below use the same probe: their uncapped
+  // counts feed the ALERT CARDS, which report a number, and are deliberately
+  // not used to derive the list markers — the licence list is read per
+  // request while its count comes from the shared cache, so a count-derived
+  // marker could disagree with the list it describes.)
   const recentTicketsCap = capList(shared.recentTickets || [], DASHBOARD_LIMITS.recentTickets);
   const staffWorkloadCap = capList(shared.staffWorkload || [], DASHBOARD_LIMITS.staffWorkload);
   const myTicketsCap = capList(myTickets, DASHBOARD_LIMITS.myTickets);
   const upcomingChangesCap = capList(upcomingChanges, DASHBOARD_LIMITS.upcomingChanges);
+  const expiringWarrantiesCap = capList(shared.expiringWarranties || [], DASHBOARD_LIMITS.warrantyAlerts);
+  const licenseAlertsCap = capList(licenseAlerts, DASHBOARD_LIMITS.licenseAlerts);
   const result = {
     ticketStats: { ...EMPTY_DEFAULTS.ticketStats, ...(shared.ticketStats || {}) },
     assetStats: { ...EMPTY_DEFAULTS.assetStats, ...(shared.assetStats || {}) },
@@ -334,15 +362,17 @@ function getDashboardData(user) {
     staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
     recentTickets: recentTicketsCap.rows.map(r => ({ ...r })),
     recentTicketsTruncated: recentTicketsCap.truncated,
-    expiringWarranties: (shared.expiringWarranties || EMPTY_DEFAULTS.expiringWarranties).map(r => ({ ...r })),
+    expiringWarranties: expiringWarrantiesCap.rows.map(r => ({ ...r })),
     expiringWarrantiesCount: shared.expiringWarrantiesCount ?? EMPTY_DEFAULTS.expiringWarrantiesCount,
+    expiringWarrantiesTruncated: expiringWarrantiesCap.truncated,
     upcomingChanges: upcomingChangesCap.rows.map(r => ({ ...r })),
     upcomingChangesTruncated: upcomingChangesCap.truncated,
     ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
     staffWorkload: staffWorkloadCap.rows.map(r => ({ ...r })),
     staffWorkloadTruncated: staffWorkloadCap.truncated,
-    licenseAlerts: licenseAlerts.map(r => ({ ...r })),
+    licenseAlerts: licenseAlertsCap.rows.map(r => ({ ...r })),
     licenseAlertsCount: shared.licenseAlertsCount ?? EMPTY_DEFAULTS.licenseAlertsCount,
+    licenseAlertsTruncated: licenseAlertsCap.truncated,
     myTickets: myTicketsCap.rows.map(r => ({ ...r })),
     myTicketsTruncated: myTicketsCap.truncated
   };

@@ -64,6 +64,14 @@
 <div class="card mt-3">
   <div class="card-header"><h3>Top Resolvers</h3></div>
   <div class="card-body" style="padding:0;">
+    <% // The list is capped at 10 resolvers, so disclose the truncation: the
+       // resolver count is what the card is a sample of. Same disclosure the
+       // asset report gives ("Showing the soonest N of M assets") and the staff
+       // report gives ("Showing the top N of M active staff"). Without it this
+       // was the only capped list in the app that truncated silently — a
+       // period with 14 resolvers rendered 10 names under a heading that
+       // implied completeness. %>
+    <% if (typeof resolverCount !== 'undefined' && resolverCount > topResolvers.length) { %><p class="text-muted text-sm" style="padding:12px;">Showing the top <%= topResolvers.length %> of <%= resolverCount %> resolvers.</p><% } %>
     <div class="table-responsive"><table>
       <thead><tr><th>Staff Member</th><th>Tickets Resolved</th><th>Performance</th></tr></thead>
       <tbody><% const maxResolved = topResolvers.length > 0 ? Math.max(...topResolvers.map(x => x.resolved || 0)) : 1; topResolvers.forEach(r => { %><tr>

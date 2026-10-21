@@ -109,6 +109,22 @@ const stmts = {
     GROUP BY t.assigned_to
     ORDER BY resolved DESC, t.assigned_to ASC LIMIT 10
   `),
+  // Uncapped count of DISTINCT resolvers for the period — the list above is
+  // capped at 10, so without this the reader cannot tell that the card shows
+  // a slice of a larger set (the same disclosure the asset report gives for
+  // its warranty list and the staff report gives for its roster). Without it
+  // this was the ONLY capped list in the app that truncated silently: a
+  // period with 14 resolvers rendered 10 names under a heading that implied
+  // completeness. Mirrors the warrantyExpiringCount / activeStaffCount split.
+  topResolversCount: db.prepare(`
+    SELECT COUNT(*) as c FROM (
+      SELECT t.assigned_to
+      FROM tickets t
+      JOIN users u ON t.assigned_to = u.id
+      WHERE t.resolved_at IS NOT NULL AND t.resolved_at >= date('now', '-' || ? || ' days')
+      GROUP BY t.assigned_to
+    )
+  `),
   // Asset Report. The VALUE-oriented queries (assetsByCategory,
   // assetsTotalValue, and the warranty queries below) exclude disposed assets
   // — a disposed asset's value/warranty no longer represents active inventory.
@@ -241,12 +257,16 @@ router.get('/tickets', reportLimiter, (req, res) => {
     const avgResolution = stmts.avgResolution.get(period);
     const slaStats = stmts.slaStats.get(period);
     const topResolvers = stmts.topResolvers.all(period);
+    // The list is capped at 10, so disclose the truncation: the resolver
+    // count is what the card is a sample of. Without this the card read as
+    // the complete set of resolvers for the period.
+    const resolverCount = stmts.topResolversCount.get(period).c;
 
     req.audit('read', 'ticket', null, `Viewed ticket analytics report (period: ${period} days)`);
 
     res.render('pages/reports/tickets', {
       title: 'Ticket Analytics', ticketsByDay, byCategory, byPriority,
-      avgResolution, slaStats, topResolvers, period
+      avgResolution, slaStats, topResolvers, resolverCount, period
     });
   } catch (err) {
     logError('Ticket report error:', err);
