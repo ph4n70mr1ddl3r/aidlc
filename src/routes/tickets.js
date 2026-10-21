@@ -76,6 +76,23 @@ const _showCommentsStmt = db.prepare(`
     ORDER BY tc.created_at DESC, tc.id DESC
     LIMIT ${COMMENT_LIST_CAP + 1}
   `);
+// Non-privileged variant: the access predicate is applied IN SQL so the LIMIT
+// caps the rows the viewer may actually see. Applying the cap first and
+// filtering afterwards (the previous shape) let internal notes — which a
+// non-privileged viewer may not even read — consume the viewer's entire
+// 500-row budget: a ticket with 505 internal notes and 5 public comments
+// rendered "Comments (0+)" for the assigned staff member, and the 5 public
+// comments were unreachable for everybody. Mirrors the related-ticket
+// queries in assets.js, which were fixed for the same reason.
+const _showCommentsPublicStmt = db.prepare(`
+    SELECT tc.id, tc.ticket_id, tc.user_id, tc.comment, tc.is_internal, tc.created_at,
+      u.first_name || ' ' || u.last_name as author_name, u.role as author_role
+    FROM ticket_comments tc
+    LEFT JOIN users u ON tc.user_id = u.id
+    WHERE tc.ticket_id = ? AND tc.is_internal = 0
+    ORDER BY tc.created_at DESC, tc.id DESC
+    LIMIT ${COMMENT_LIST_CAP + 1}
+  `);
 const _editTicketStmt = db.prepare('SELECT id, ticket_number, title, description, category, priority, status, requester_name, requester_email, requester_department, requester_phone, assigned_to, asset_id, due_date, resolved_at, resolution_notes, satisfaction_rating, created_at, updated_at FROM tickets WHERE id = ?');
 // Also selects `status` so the quick-status route's no-op guard
 // (`ticket.status === status`) works — with only `assigned_to` selected the
@@ -275,7 +292,12 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  for (const field of ['description', 'requester_department', 'status', 'priority']) {
+  // The required columns are included too: without a guard a JSON number in
+  // `title` reached the "Title, category, requester name, and requester
+  // email are required" check — a type error reported as a missing field,
+  // while the update route reports the same submission as "Invalid request
+  // parameters".
+  for (const field of ['title', 'category', 'requester_name', 'requester_email', 'description', 'requester_department', 'status', 'priority']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -360,8 +382,12 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // changes.js create route, which applies the submitted status. A
   // present-but-blank value (whitespace-only) is an invalid value, not an
   // omitted one — it used to trim to '' and silently take the 'open' default.
+  // The `status` column is NOT NULL, so an EMPTY value has no valid meaning
+  // either: the update route rejects it, and the create route used to accept
+  // it and silently default, so the same submission was reported differently
+  // depending on the verb.
   const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
-  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid' || createStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/tickets/new');
   }
@@ -501,23 +527,27 @@ router.get('/:id', (req, res) => {
   // The comment query fetches ONE ROW BEYOND the cap: the extra row is the
   // truncation probe, so the "N+" marker is exact — a ticket with exactly
   // COMMENT_LIST_CAP comments is complete and is not marked as truncated.
-  // The internal-comment filter runs AFTER the cap, so the truncation flag is
-  // computed from the PRE-FILTER row count (the visible count alone cannot
-  // express it for a non-privileged viewer: the displayed count is smaller
-  // than the number of rows the query returned, so the template's marker
-  // would under-report — or hide — the truncation).
-  const rawComments = _showCommentsStmt.all(id);
+  //
+  // The access predicate is applied IN SQL (a non-privileged viewer selects
+  // only the public comments), so the cap counts the rows the viewer may
+  // actually see. Filtering AFTER the cap (the previous shape) let internal
+  // notes — which that viewer may not even read — consume the whole budget:
+  // a ticket with 505 internal notes and 5 public comments rendered
+  // "Comments (0+)" for the assigned staff member and the public comments
+  // were unreachable for everybody. The truncation flag is therefore exact
+  // for the list the viewer is shown: it is true iff MORE visible comments
+  // exist than the cap renders.
+  const privileged = isPrivileged(req.session.user);
+  const rawComments = privileged ? _showCommentsStmt.all(id) : _showCommentsPublicStmt.all(id);
   const commentsTruncated = rawComments.length > COMMENT_LIST_CAP;
   const cappedComments = commentsTruncated ? rawComments.slice(0, COMMENT_LIST_CAP) : rawComments;
-  // Filter internal comments server-side — non-privileged users must not
-  // receive internal comments even if the template rendering fails.
-  // Always create a new array before reversing to avoid mutating the DB
-  // query result in place (a mutated row could leak PII across requests if
+  // The internal-comment filter is already applied in SQL for a
+  // non-privileged viewer; the privileged viewer sees every comment. Always
+  // create a new array before reversing to avoid mutating the DB query
+  // result in place (a mutated row could leak PII across requests if
   // better-sqlite3 ever caches result objects). Mirrors the shallow-copy
-  // pattern used for safeTicket above.
-  const comments = isPrivileged(req.session.user)
-    ? [...cappedComments].reverse()
-    : cappedComments.filter(c => !c.is_internal).reverse();
+  // pattern used for safeTicket below.
+  const comments = [...cappedComments].reverse();
 
   // Redact end-user (requester) PII for non-privileged viewers. Requester
   // email/phone/department belong to non-staff end users and must not be

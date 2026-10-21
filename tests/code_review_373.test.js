@@ -373,17 +373,33 @@ describe('code review 373 — profile update semantics', () => {
     expect(session.lastAccess).toBe(2000);
   });
 
-  it('rejects a polluted (array-valued) body field on logout', async () => {
+  it('logs the user out even when the request body carries a polluted (array-valued) field', async () => {
     // The guard used to pass an empty field list, so it could never fire.
+    //
+    // It was then widened to every body key — and REJECTED the request
+    // before the session was destroyed, so a JSON client whose payload
+    // happened to contain an array got a redirect to /login and a session
+    // that was still alive: the user believed they had logged out and had
+    // not. The logout handler reads no body field, so a polluted payload has
+    // nothing to pollute; the logout now proceeds and the anomaly is only
+    // reported.
     const { lastHandlerFor } = require('./helpers');
     const authRoutes = require('../src/routes/auth');
     const handler = lastHandlerFor(authRoutes, 'post', '/logout');
 
     const flashCalls = [];
+    let destroyed = false;
     const res = { redirect: jest.fn(), status: jest.fn().mockReturnThis(), json: jest.fn(), render: jest.fn() };
     const req = {
       method: 'POST',
-      session: { user: { id: STAFF.id }, regenerate: (cb) => cb(), destroy: (cb) => cb() },
+      session: {
+        user: { id: STAFF.id },
+        regenerate: (cb) => cb(),
+        destroy: (cb) => {
+          destroyed = true;
+          cb();
+        }
+      },
       body: { _csrf: ['a', 'b'] },
       query: {},
       params: {},
@@ -394,8 +410,9 @@ describe('code review 373 — profile update semantics', () => {
 
     await handler(req, res, () => {});
 
-    expect(flashCalls).toContainEqual(['error', 'Invalid request parameters']);
+    expect(destroyed).toBe(true);
     expect(res.redirect).toHaveBeenCalledWith('/login');
+    expect(flashCalls).not.toContainEqual(['error', 'Invalid request parameters']);
   });
 });
 

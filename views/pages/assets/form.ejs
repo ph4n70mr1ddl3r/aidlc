@@ -25,6 +25,11 @@
         <div class="form-group">
           <label for="category">Category *</label>
           <select name="category" id="category" class="form-control" required>
+            <% /* Placeholder option: without it the browser selects (and silently
+                 submits) the FIRST option, so an asset created without noticing
+                 the dropdown was stored as a "laptop". The ticket form uses the
+                 same pattern. */ %>
+            <option value="">Select category</option>
             <% CONSTANTS.ASSET_CATEGORIES.forEach(c => { %>
               <option value="<%= c %>" <%= asset.category === c ? 'selected' : '' %>><%= titleCase(c) %></option>
             <% }) %>

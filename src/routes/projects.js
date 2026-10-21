@@ -153,15 +153,23 @@ router.get('/', (req, res) => {
   // cannot open the project confirm the existence of text they are not
   // allowed to read (a content oracle). The knowledge index applies the same
   // rule by scoping the list to the viewer before the search runs.
+  //
+  // The card also renders the OWNER's name, and the list offers no owner
+  // filter, so the owner's first and last name are searchable too — a
+  // rendered value the user could see must be usable to find the row.
   addSearch(where, params, safeQueryValue(req.query.search), [
     'p.name',
+    'u.first_name',
+    'u.last_name',
     { column: 'p.description', prefix: DESC_TRUNCATION_LEN }
   ]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
-  const total = countQuery(db, 'projects', 'p', whereClause, params);
+  // The count query needs the same JOIN as the list query: the search now
+  // covers the owner's name, which lives in the joined users table.
+  const total = countQuery(db, 'projects', 'p', whereClause, params, 'LEFT JOIN users u ON p.owner_id = u.id');
   const totalPages = Math.ceil(total / limit) || 1;
   // Clamp the requested page to the actual page count so a page beyond the
   // last one (e.g. ?page=999) renders the final page instead of an empty list
@@ -771,10 +779,14 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   }
   // Enum resolution — a present-but-blank task status/priority (a whitespace-
   // only value) is an invalid value, not an omitted one: it used to trim to ''
-  // and silently take the create default with a success flash.
+  // and silently take the create default with a success flash. The task
+  // `status` column is NOT NULL, so an EMPTY value has no valid meaning
+  // either — the task update route rejects it, and the create route used to
+  // accept it and silently default. `priority` is nullable with a meaningful
+  // default, so an explicit empty value is still treated as "not submitted".
   const createTaskStatusEnum = resolveEnumField(req.body.status, VALID_TASK_STATUSES);
   const createTaskPriorityEnum = resolveEnumField(req.body.priority, VALID_TASK_PRIORITIES);
-  if (createTaskStatusEnum.state === 'blank' || createTaskStatusEnum.state === 'invalid') {
+  if (createTaskStatusEnum.state === 'blank' || createTaskStatusEnum.state === 'invalid' || createTaskStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Task Status');
     return res.redirect(`/projects/${projectId}`);
   }

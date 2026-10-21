@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (376th pass)
+**Date:** 2026-10-21 (377th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (375 consecutive hardening reviews) was
+`npm audit`. Prior review history (376 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -14432,4 +14432,271 @@ rate-limiter inventory in the README and `.env.example` are accurate.
 - `npm test` — **1603 passed / 1603 total** (98 suites, +48 from #375).
 - `npm run test:coverage` — global thresholds pass (statements 73.12%,
   branches 71.56%, functions 82.98%, lines 73.02%).
+- `npm audit --omit=dev` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-21 (377th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+seventeen defect classes. The most consequential was a **rendering and
+navigation bug that made every paginated list in the app unusable past its
+first page**: the pagination base URL was built from `req.path`, and Express
+rewrites `req.url` to the mount-relative remainder inside a mounted router —
+so inside `app.use('/audit', auditRoutes)` `req.path` is `"/"` and every
+"page 2" link in the app pointed at `/?page=2`, i.e. the dashboard.
+
+1. **Every list page's pagination links pointed at the application root**
+   (HIGH, correctness — fixed). `utils.paginationBaseUrl()` returned
+   `req.path + query`, but Express rewrites `req.url` to the mount-relative
+   remainder when a router is mounted with `app.use('/audit', auditRoutes)`:
+   inside that router `req.path` is `"/"` and `req.baseUrl` is `"/audit"`.
+   The rendered links on all nine paginated list routes (tickets, assets,
+   projects, staff, vendors, licences, knowledge, changes, audit) were
+   therefore `/?page=2` — a privileged reviewer on `/audit` who clicked "2"
+   was silently bounced to the dashboard, and the entries past the first 25
+   were unreachable through the UI. The route handlers were correct (typing
+   `/audit?page=2` worked), so the defect was invisible to every test that
+   exercised the handler rather than the rendered link. Fix: a new
+   `utils.requestPath()` resolves the full path from `req.originalUrl`'s
+   pathname (falling back to `req.baseUrl + req.path`), and
+   `paginationBaseUrl()` uses it.
+
+2. **The ticket page's comment cap was applied before the internal-comment
+   filter** (MEDIUM, correctness — fixed). The comment query fetches
+   `COMMENT_LIST_CAP + 1` rows and the non-privileged filter ran AFTER the
+   slice, so internal notes — which that viewer may not even read — consumed
+   the viewer's entire 500-row budget: a ticket with 505 internal notes and 5
+   public comments rendered "Comments (0+)" for the assigned staff member and
+   the 5 public comments were unreachable for everybody. The sibling
+   related-ticket query in `assets.js` had been fixed for exactly this reason
+   in pass 368; the comment query had not. Fix: the access predicate is now
+   applied IN SQL (`AND tc.is_internal = 0`) for a non-privileged viewer, so
+   the cap counts the rows the viewer may see and the `(N+)` marker describes
+   the list on screen.
+
+3. **The create routes accepted a present-but-empty enum on the `NOT NULL`
+   columns** (MEDIUM, consistency — fixed). `POST /assets` with `status=''`
+   created the asset with the `in_storage` default and flashed "Asset
+   created", and `POST /tickets` with `status=''` created an `open` ticket —
+   while the matching `PUT` rejected the very same submission with "Invalid
+   Status", and the app-wide contract the README documents says a present but
+   invalid value is rejected with nothing written. The same gap was on
+   `POST /knowledge`, `POST /changes` and `POST /projects/:id/tasks`. The
+   assets route's own comment even claimed the empty string was invalid while
+   the code accepted it. Fix: the `empty` state is rejected on the `NOT NULL`
+   enum columns on the create routes too; an absent value still takes the
+   documented default.
+
+4. **Article titles and tags were stored HTML-escaped but rendered escaped
+   again** (MEDIUM, correctness — fixed). The sanitizer expands `&` to
+   `&amp;`, and the title and the tags are plain text rendered with EJS's
+   escaping `<%= %>` — so the browser displayed `R&amp;D` where the author
+   had written `R&D`, and a search for the title the user could see matched
+   nothing (the stored value held the literal text `&amp;`). The length
+   limits were measured on the entity-expanded text as well, so a title
+   within the form's `maxlength` was rejected with a message about the
+   body's 50 000-character limit. Fix: the title and the tags are decoded
+   back to plain text after sanitization (a new
+   `utils.decodeHtmlEntities()` decodes in a single pass, so an author who
+   typed the literal text `&amp;` keeps it), the body keeps its escaped
+   form because it is rendered as HTML, and the truncation message now names
+   the field and the limit that actually apply to it.
+
+5. **The dashboard's "Upcoming Changes" compared a local wall-clock
+   timestamp against SQLite's UTC clock** (MEDIUM, correctness — fixed).
+   `scheduled_start` is written from a `datetime-local` input, so it holds a
+   LOCAL timestamp, and `formatDateTime()` renders it back as local time —
+   but the query compared it with SQLite's `strftime(..., 'now')`, which is
+   UTC. In a UTC+8 deployment every change scheduled within the next eight
+   hours was silently dropped from the widget, and a change that had already
+   started was still listed as upcoming. Fix: the comparison uses
+   `strftime('%Y-%m-%d %H:%M', 'now', 'localtime')`.
+
+6. **Deactivating a staff member left their project membership in place**
+   (MEDIUM, correctness — fixed). The deactivate transaction released the
+   user's open tickets, non-done tasks, live changes and the ownership of
+   active projects — but not their `project_members` row, which nothing else
+   in the app ever released. A departed employee therefore stayed on the
+   project Team roster, and — when they were the project's only lead — the
+   "cannot remove the last lead" guard refused to clean the project up, so
+   the fix was to promote somebody else first. The member-add route already
+   refuses to add an INACTIVE user, so keeping the row was inconsistent in
+   both directions. Fix: the membership is released for LIVE projects (a
+   finished project keeps its historical team, matching the ownership
+   unassign).
+
+7. **The assets list rendered the manufacturer and the name in one cell but
+   searched the two columns separately** (MEDIUM, completeness — fixed). The
+   cell reads "Dell OptiPlex 7090", so a user who copied the visible text
+   found nothing: "Dell OptiPlex" matched no row while "Dell" and "OptiPlex"
+   each did. Fix: `addSearch()` gained a `{ concat: [...] }` descriptor and
+   the assets list searches the concatenation it displays.
+
+8. **The new-asset form silently defaulted the Category to "Laptop"**
+   (LOW, correctness — fixed). The category `<select>` had no placeholder
+   option and no default, so the browser selected (and submitted) the first
+   option: an admin creating a printer stored `category='laptop'` unless
+   they noticed. The ticket form uses a "Select category" placeholder. Fix:
+   the assets form has the same placeholder, and the create route rejects
+   an empty category.
+
+9. **The staff CREATE route's email-length message was unreachable** (LOW,
+   correctness — fixed). `isValidEmail()` already caps the length at
+   `MAX_EMAIL`, so an over-long address failed the format check and the user
+   was told "Please enter a valid email address" — the dedicated length
+   message could never fire. The staff UPDATE route in the same module
+   already checks the length first (and the profile route was fixed in pass
+   376), so the same condition was reported three different ways. Fix: the
+   length check runs first.
+
+10. **The staff directory exposed the username to a manager who cannot read
+    it anywhere** (LOW, information disclosure — fixed). The username is
+    rendered by neither the directory nor the profile page — only the staff
+    edit form shows it, and a manager cannot open the edit form of a manager
+    or admin account — yet the privileged branch of the search covered
+    `u.username`, so a manager could confirm the existence of a privileged
+    account's LOGIN NAME without being able to read it. Fix: the username is
+    searchable for an admin only.
+
+11. **The 413 and CSRF responses shipped without the documented no-store
+    policy** (LOW, correctness — fixed). The body parsers and the CSRF
+    middleware run before the global no-store middleware, and the error
+    handler never applied the policy itself, so a payload-too-large page and
+    a rejected CSRF token were the only responses in the app that a browser
+    or an intermediary was free to cache — contradicting the README's "a
+    `Cache-Control: no-store` policy on every dynamic response". Fix: the
+    error handler applies the shared no-store helper.
+
+12. **The create routes' type guards omitted the required columns** (LOW,
+    correctness — fixed). A JSON number in an asset's `name` or a ticket's
+    `title` reached the "required" check and was reported as a MISSING
+    field, while the matching update route reported the same submission as
+    "Invalid request parameters". Fix: the required columns are guarded on
+    the create routes too.
+
+13. **An over-long asset tag was reported as a format error** (LOW,
+    correctness — fixed). A 51-character `AST-…` tag matches the `AST-XXX`
+    format but exceeds `MAX_ASSET_TAG`, and the combined check told the user
+    it "must match format AST-XXX" — misdescribing the problem and leaving
+    the user re-formatting a tag that was already well-formed. Fix: the two
+    failures are reported separately.
+
+14. **Three rendered columns were not searchable** (LOW, completeness —
+    fixed). The assets list renders a Condition badge with no condition
+    filter, the projects card renders the owner's name with no owner filter,
+    and the knowledge row renders the author's name with no author filter —
+    in each case a value the user could see that could not be used to find
+    the row. Fix: the three columns join their lists' search surfaces (the
+    projects and knowledge counts gained the matching `LEFT JOIN`).
+
+15. **app.js carried a comment about a constant that no longer exists**
+    (LOW, documentation — fixed). The comment claimed that `constants.js`
+    "evaluates `SESSION_COOKIE_OPTIONS.secure` at require time"; the
+    constant deliberately does NOT carry the flag (it is injected per call
+    site), and `constants.js` says so — including a note that a stale copy
+    of the app.js comment was supposed to be removed. Fix: the comment now
+    describes the three call sites that really inject the flag.
+
+16. **The logout HPP guard silently cancelled the logout** (LOW, correctness
+    — fixed). The guard rejected the request before the session was
+    destroyed, so a JSON client whose payload happened to contain an array
+    got a redirect to `/login` and a session that was still ALIVE: the user
+    believed they had logged out and had not. The route's own comment
+    claimed a polluted payload "cannot currently affect behavior", which was
+    false. Fix: the logout handler reads no body field, so the anomaly is
+    recorded in the audit trail and the session is still destroyed (a flash
+    could not have reported it — the session destroy takes the flash with
+    it).
+
+Also verified this pass: the app-wide partial-update contract now holds for
+every field of every `PUT` route (field by field, against the
+transaction-consistent re-read) and for the `NOT NULL` enums on the create
+routes; every write route still rejects HPP arrays before any value is
+consumed; every form field in every view is consumed by its route; every
+list cap still discloses its truncation through the exact one-row-beyond-the-
+cap probe; the audit action/entity allowlists still cover every call site;
+the requester-PII redaction, the licence-key masking, the session timeout
+anchors and the rate-limiter inventory in the README and `.env.example` are
+accurate.
+
+One bounded consequence is worth recording: an article created **before** this
+pass keeps the entity-escaped form in its stored title and tags until it is
+next edited (re-saving decodes it, because the edit form submits the stored
+text back and the route decodes it again). The seeded articles contain no
+ampersands in their titles or tags, so a fresh seed is unaffected, and the
+app has no migration mechanism by design (the schema is
+`CREATE TABLE IF NOT EXISTS` and the seeder regenerates every row) — adding
+one for a cosmetic legacy-data artifact would be disproportionate. A legacy
+row keeps displaying the text it has always displayed, and remains findable
+by that same text.
+
+### Fixes applied
+1. `src/utils.js` — a new `requestPath()` helper (and `paginationBaseUrl()`
+   built on it); a new `decodeHtmlEntities()` helper; an `addSearch()`
+   `{ concat: [...] }` descriptor; an optional validated JOIN clause on
+   `countQuery()`.
+2. `src/routes/tickets.js` — the non-privileged comment query applies the
+   access predicate in SQL; the create route rejects a present-but-empty
+   status; the create route's type guard covers the required columns.
+3. `src/routes/assets.js` — the create route rejects a present-but-empty
+   status and guards the required columns; the asset-tag length and format
+   failures are reported separately; the list search covers the rendered
+   manufacturer+name concatenation and the condition.
+4. `src/routes/knowledge.js` — the title and the tags are stored as plain
+   text; the truncation message names the field and its limit; the create
+   route rejects a present-but-empty status; the list search covers the
+   author.
+5. `src/routes/changes.js`, `src/routes/projects.js` — the create routes
+   reject a present-but-empty status; the projects list search covers the
+   owner (with the matching count join).
+6. `src/routes/dashboard.js` — "Upcoming Changes" compares against the local
+   wall clock.
+7. `src/routes/staff.js` — the deactivate transaction releases the user's
+   project memberships on live projects; the create route reports the email
+   length; the directory's username search is admin-only.
+8. `src/routes/auth.js` — the logout HPP guard no longer cancels the
+   logout; the anomaly is recorded in the logout audit entry.
+9. `src/app.js` — the error handler applies the no-store policy; the stale
+   `NODE_ENV` comment is corrected.
+10. `views/pages/assets/form.ejs` — a "Select category" placeholder option.
+11. `views/pages/tickets/show.ejs` — the comment marker comment describes
+    the viewer's own list.
+
+### Regression tests added
+- `tests/code_review_377.test.js` — 43 tests, 33 of them verified to FAIL
+  against the pre-fix tree: the pagination base URL resolves the full path
+  for a mounted router and the rendered links on all nine list routes stay
+  on the list; the comment cap counts the visible comments (a non-privileged
+  viewer sees the 5 public comments of a ticket that also carries 505
+  internal notes, with an exact "Comments (5)" marker, while a privileged
+  viewer still sees the internal notes and the "(500+)" marker); the create
+  routes reject a present-but-empty status and still default an absent one;
+  the article title and the tags are stored and rendered unescaped while the
+  body keeps its escaped form, the article is found by the title the user
+  can see, and a title within the form's limit that contains an ampersand
+  is accepted; the truncation message names the field and its limit; the
+  dashboard lists a change scheduled two hours from now and omits one that
+  already started; the deactivation releases the membership on a live
+  project and keeps it on a finished one; the assets list is findable by
+  "Dell OptiPlex", by either half and by its condition; the new-asset form
+  renders the category placeholder and the create route rejects an empty
+  category; the staff create route reports the email length; the username is
+  searchable for an admin and not for a manager; the 413 and the CSRF
+  responses carry the no-store policy; a JSON number in a required field is
+  reported as an invalid parameter; an over-long asset tag is reported as a
+  length; the project and the article are findable by their owner and author;
+  and a polluted logout body still closes the session.
+
+### Existing tests updated
+- `tests/code_review_368.test.js` — the deactivation flash now names the
+  project memberships the deactivate transaction also releases.
+- `tests/code_review_373.test.js` — the polluted-logout case now asserts
+  that the session IS destroyed (the guard no longer cancels the logout).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1646 passed / 1646 total** (99 suites, +43 from #376).
+- `npm run test:coverage` — global thresholds pass (statements 74.61%,
+  branches 73.36%, functions 86.62%, lines 74.61%).
 - `npm audit --omit=dev` — **0 vulnerabilities**.

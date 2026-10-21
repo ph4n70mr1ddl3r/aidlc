@@ -125,8 +125,21 @@ router.get('/', (req, res) => {
   // serial number they guessed belonged to an inventory asset. Same defect
   // class the change-log list closed in an earlier pass.
   // `a.location` IS searchable: the list renders it in its own column, so
-  // leaving it out made a rendered column impossible to find.
-  addSearch(where, params, safeQueryValue(req.query.search), ['a.name', 'a.asset_tag', 'a.manufacturer', 'a.location']);
+  // leaving it out made a rendered column impossible to find. The same
+  // applies to `a.condition_rating` — the list renders a Condition badge and
+  // offers no condition filter, so before this the column could not be used
+  // to find a row at all.
+  //
+  // The Name cell renders the manufacturer and the name TOGETHER ("Dell
+  // OptiPlex 7090"), so the search matches their CONCATENATION: searching
+  // the two columns separately left the text the user could see unfindable
+  // ("Dell OptiPlex" matched nothing, while "Dell" and "OptiPlex" each did).
+  addSearch(where, params, safeQueryValue(req.query.search), [
+    'a.asset_tag',
+    'a.location',
+    'a.condition_rating',
+    { concat: ['a.manufacturer', 'a.name'] }
+  ]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
@@ -200,7 +213,11 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // status/condition_rating are included: without a guard a non-string collapses
   // to '' and silently falls back to the 'in_storage'/'good' defaults with a
   // success flash (the update route already guards both).
-  for (const field of ['manufacturer', 'model', 'serial_number', 'location', 'notes', 'status', 'condition_rating']) {
+  // `name` and `category` are included too: they are the required columns,
+  // and without a guard a JSON number reached the "Name and category are
+  // required" check — a type error reported as a missing field, while the
+  // update route reports the same submission as "Invalid request parameters".
+  for (const field of ['name', 'category', 'manufacturer', 'model', 'serial_number', 'location', 'notes', 'status', 'condition_rating']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -246,8 +263,12 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // trim to '' and silently fall back to the 'in_storage' default with a
   // success flash, so a garbage submission was accepted as a valid asset.
   // An ABSENT status still defaults to 'in_storage'.
+  // The `status` column is NOT NULL, so an empty value has no valid meaning —
+  // the same rule the update route applies to the same field. The create
+  // route used to accept it and silently defaulted, so create and update
+  // reported the same condition differently.
   const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
-  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid') {
+  if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/assets/new');
   }
@@ -544,7 +565,15 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
   }
-  if (!assetTagAbsent && (!isValidAssetTag(asset_tag) || asset_tag.length > MAX_ASSET_TAG)) {
+  // The two failures are reported separately: an over-long tag ("AST-" plus
+  // 47 digits) DOES match the AST-XXX format, so telling the user it "must
+  // match format AST-XXX" misdescribed the actual problem and left the user
+  // re-formatting a tag that was already well-formed.
+  if (!assetTagAbsent && asset_tag.length > MAX_ASSET_TAG) {
+    req.flash('error', `Asset tag must be at most ${MAX_ASSET_TAG} characters`);
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (!assetTagAbsent && !isValidAssetTag(asset_tag)) {
     req.flash('error', 'Asset tag must match format AST-XXX (e.g. AST-001)');
     return res.redirect(`/assets/${id}/edit`);
   }

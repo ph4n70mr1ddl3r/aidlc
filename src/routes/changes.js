@@ -244,9 +244,13 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // Enum resolution — a present-but-blank status/priority (a whitespace-only
   // value) is an invalid value, not an omitted one: it used to trim to '' and
   // silently take the create default with a success flash.
+  // The `status` column is NOT NULL, so an EMPTY value has no valid meaning
+  // either — the update route rejects it, and the create route used to accept
+  // it and silently default. `priority` is nullable with a meaningful default,
+  // so an explicit empty value is still treated as "not submitted" here.
   const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
   const createPriorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
-  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid' || createStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/changes/new');
   }

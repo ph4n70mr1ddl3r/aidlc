@@ -309,9 +309,12 @@ describe('staff deactivation flash names every unassigned record type (pass 368)
 
     const { flashCalls } = runHandler(h, { method: 'DELETE', params: { id: '7' }, sessionUser: ADMIN });
 
+    // The memberships released by the deactivate transaction (pass 377) are
+    // named too — the flash must describe every record the deactivation
+    // actually released.
     expect(flashCalls).toContainEqual([
       'success',
-      'Staff member deactivated and open tickets/tasks/changes/projects unassigned.'
+      'Staff member deactivated and open tickets/tasks/changes/projects and project memberships unassigned.'
     ]);
   });
 });

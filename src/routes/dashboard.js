@@ -193,14 +193,24 @@ const stmts = {
   // records the viewer is refused (the same content-oracle class the change
   // list was closed for). Both variants are queried per request, exactly like
   // myTickets below.
+  // The comparison is against the LOCAL wall clock, not SQLite's UTC one.
+  // `scheduled_start` is written from a datetime-local input, so it holds a
+  // LOCAL timestamp ("2026-10-21 22:00" means 10pm where the user is), and
+  // formatDateTime() renders it back as local time. SQLite's 'now' is UTC, so
+  // the two were different clocks: in a UTC+8 deployment every change
+  // scheduled within the next 8 hours was silently dropped from "Upcoming
+  // Changes", and a change that had already started was still listed as
+  // upcoming. The 'localtime' modifier converts the current instant into the
+  // same wall clock the stored value uses, so the widget and the change-log
+  // page agree.
   upcomingChangesAll: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
-    WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
+    WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now', 'localtime')
     ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT + 1}
   `),
   upcomingChangesOwned: db.prepare(`
     SELECT id, title, scheduled_start FROM change_log
-    WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now')
+    WHERE status = 'scheduled' AND scheduled_start >= strftime('%Y-%m-%d %H:%M', 'now', 'localtime')
       AND assigned_to = ?
     ORDER BY scheduled_start ASC, id ASC LIMIT ${_DASH_UPCOMING_CHANGES_LIMIT + 1}
   `),

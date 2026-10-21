@@ -12,10 +12,16 @@ const { doubleCsrf } = require('csrf-csrf');
 const http = require('http');
 const crypto = require('crypto');
 // ---------------------------------------------------------------------------
-// Normalize NODE_ENV early so every module (including constants.js which
-// evaluates SESSION_COOKIE_OPTIONS.secure at require time) sees a consistent
-// value. Default to 'development' when unset. dotenv runs first above and may
+// Normalize NODE_ENV early so every module sees a consistent value.
+// Default to 'development' when unset. dotenv runs first above and may
 // have loaded a value from .env; this trims/lowercases whatever is present.
+//
+// The `secure` flag of the session cookie is NOT baked into a constant: it is
+// injected per call site from `process.env.NODE_ENV === 'production'` (the
+// session config below, middleware/auth.js's clearCookie and routes/auth.js's
+// logout clearCookie), so the Clear-Cookie header always matches the flags
+// the original cookie was set with. Normalizing NODE_ENV early therefore
+// matters for those three call sites, not for a require-time constant.
 // ---------------------------------------------------------------------------
 process.env.NODE_ENV = (!process.env.NODE_ENV ? 'development' : process.env.NODE_ENV.trim().toLowerCase());
 
@@ -774,6 +780,16 @@ app.use((err, req, res, _next) => {
   } else {
     console.error('Unhandled error:', (err && err.message) || String(err));
   }
+
+  // Apply the baseline no-store policy HERE as well. The global no-store
+  // middleware below runs after the body parsers and the CSRF middleware, so
+  // an error raised by one of those (a 413 payload-too-large, a 400 malformed
+  // JSON body, a rejected CSRF token) reached this handler WITHOUT the
+  // policy — the only responses in the app that shipped cacheable, even
+  // though the policy is documented as applying to every dynamic response.
+  // The headers are set before the response is written, so they are present
+  // on every error path regardless of which middleware failed.
+  _applyNoStoreHeaders(res);
 
   // Handle JSON requests (e.g. AJAX endpoints) gracefully.
   // prefersJson() uses content negotiation so AJAX callers (Accept: */* or

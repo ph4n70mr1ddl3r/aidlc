@@ -399,10 +399,7 @@ const logoutLimiter = rateLimit({
 // Logout (POST only — GET logout is CSRF-vulnerable)
 router.post('/logout', logoutLimiter, asyncHandler(async (req, res) => {
   // Fail closed on HTTP parameter pollution: reject array payloads. Mirrors
-  // the array-rejection guards on every other write route in the app. The
-  // logout handler does not read body fields today, so a polluted payload
-  // cannot currently affect behavior — the guard is a regression-proofing
-  // measure in case body-field processing is added in the future.
+  // the array-rejection guards on every other write route in the app.
   //
   // The check is over EVERY body key, not a fixed field list: the previous
   // call passed an empty list, and rejectHppArrays() iterates that list, so
@@ -410,19 +407,41 @@ router.post('/logout', logoutLimiter, asyncHandler(async (req, res) => {
   // check. Rejecting any array-valued body key actually implements the
   // stated intent, and a polluted `_csrf` is rejected by the CSRF middleware
   // anyway.
+  //
+  // The rejection MUST NOT cancel the logout. The handler reads NO body
+  // field, so a polluted payload cannot affect what the route does — but the
+  // guard used to return BEFORE the session was destroyed, so a JSON client
+  // whose payload happened to contain an array got a "Invalid request
+  // parameters" flash, a redirect to /login and a session that was STILL
+  // ALIVE: the user believed they had logged out and had not. (A flash could
+  // not have reported the anomaly either — the session is destroyed below,
+  // which takes the flash with it.) The anomaly is recorded in the audit
+  // trail instead, and the logout proceeds: a polluted payload has no field
+  // to pollute.
   const hppErrors = rejectHppArrays(req, Object.keys(req.body || {}));
-  if (hppErrors.length > 0) {
-    req.flash('error', 'Invalid request parameters');
-    return res.redirect('/login');
-  }
+  const polluted = hppErrors.length > 0;
   if (req.session.user) {
-    audit({ req, action: 'logout', entity: 'user', entityId: req.session.user.id });
+    audit({
+      req,
+      action: 'logout',
+      entity: 'user',
+      entityId: req.session.user.id,
+      details: polluted ? 'Logged out (request body carried an array-valued field)' : undefined
+    });
   } else {
     // Audit logout attempts with a missing session user — this can happen when
     // a session cookie persists after the session store entry is deleted
     // (e.g. manual store cleanup). The audit trail should still record the
     // attempt even though we cannot attribute it to a specific user ID.
-    audit({ req, action: 'logout', entity: 'user', entityId: null, details: 'Logout with no active session' });
+    audit({
+      req,
+      action: 'logout',
+      entity: 'user',
+      entityId: null,
+      details: polluted
+        ? 'Logout with no active session (request body carried an array-valued field)'
+        : 'Logout with no active session'
+    });
   }
   // Regenerate before destroy so the session id is rotated even in the
   // destroy-then-redirect path. destroy() alone leaves the pre-logout id

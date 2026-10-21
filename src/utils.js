@@ -108,6 +108,45 @@ function paginate(req) {
 }
 
 /**
+ * Resolve the FULL request path (no query string) for a pagination base URL.
+ *
+ * Express rewrites `req.url` to the mount-RELATIVE remainder when a router is
+ * mounted with `app.use('/audit', auditRoutes)`, so inside that router
+ * `req.path` is "/" and `req.baseUrl` is "/audit". Using `req.path` alone
+ * therefore produced "/" as the base of EVERY pagination link in the app:
+ * the "2" button on /tickets, /assets, /audit, /staff … all pointed at
+ * "/?page=2", so clicking it bounced the user to the dashboard instead of the
+ * second page — the list's own page 2+ was unreachable through the UI.
+ *
+ * `req.originalUrl` holds the path exactly as the client requested it (with
+ * the mount prefix intact), so its pathname is the authoritative full path.
+ * The `req.baseUrl + req.path` pair is the fallback for a synthetic request
+ * object (unit tests) that carries neither.
+ *
+ * @param {Object} req - Express request (or a test double)
+ * @returns {string} The full path, e.g. "/audit" or "/tickets"
+ */
+function requestPath(req) {
+  const original = (req && typeof req.originalUrl === 'string') ? req.originalUrl : '';
+  const qIdx = original.indexOf('?');
+  if (qIdx !== -1) {
+    const pathname = original.slice(0, qIdx);
+    if (pathname) {
+      return pathname;
+    }
+  }
+  const base = (req && typeof req.baseUrl === 'string') ? req.baseUrl : '';
+  const p = (req && typeof req.path === 'string') ? req.path : '';
+  const joined = base + p;
+  if (!joined) {
+    return '/';
+  }
+  // Normalise the mount-relative join: "/audit" + "/" is "/audit/" — the list
+  // routes are mounted without a trailing slash, so drop it.
+  return joined.length > 1 ? joined.replace(/\/+$/, '') : joined;
+}
+
+/**
  * Build a base URL for pagination links (strips `page` param from query).
  * Uses an explicit allowlist of known query parameters to prevent prototype
  * pollution from spreading user-controlled params into the URL.
@@ -117,8 +156,9 @@ function paginate(req) {
 function paginationBaseUrl(req) {
   const known = ['search', 'sort', 'status', 'category', 'priority', 'assigned_to', 'department', 'role', 'license_type', 'change_type', 'is_active', 'period', 'action', 'entity_type', 'limit'];
   const q = {};
+  const query = (req && typeof req.query === 'object' && req.query) ? req.query : {};
   for (const key of known) {
-    const v = req.query[key];
+    const v = query[key];
     if (v !== undefined) {
       // Guards against HPP arrays (e.g. ?sort[]=a&sort[]=b) the same way the
       // list routes sanitize every other query parameter. Arrays must be
@@ -127,7 +167,7 @@ function paginationBaseUrl(req) {
     }
   }
   const qs = new URLSearchParams(q).toString();
-  return req.path + (qs ? '?' + qs : '');
+  return requestPath(req) + (qs ? '?' + qs : '');
 }
 
 /**
@@ -251,6 +291,17 @@ function isValidEmail(email) {
  * content the viewer is not allowed to read (the "content oracle" the
  * app-wide search-surface rule exists to prevent).
  *
+ * A column entry is one of:
+ *   - a plain column name ("t.title"),
+ *   - a descriptor object `{ column: 'p.description', prefix: 120 }` — matches
+ *     only the FIRST `prefix` characters of the column, or
+ *   - a descriptor object `{ concat: ['a.manufacturer', 'a.name'] }` — matches
+ *     the CONCATENATION of the listed columns, joined by a single space. The
+ *     assets list renders the manufacturer and the name in ONE cell ("Dell
+ *     OptiPlex 7090"), so searching the two columns separately left the text
+ *     the user could see unfindable: a search for "Dell OptiPlex" matched
+ *     nothing while "Dell" and "OptiPlex" each did.
+ *
  * @param {string[]} columns - List of column names to search (must be non-empty)
  */
 function addSearch(where, params, search, columns) {
@@ -270,7 +321,24 @@ function addSearch(where, params, search, columns) {
   // Validate column names — only allow identifiers with letters, digits, underscores, and dots (for table aliases).
   const descriptors = columns.map((entry) => {
     const descriptor = typeof entry === 'string' ? { column: entry } : entry;
-    if (!descriptor || typeof descriptor.column !== 'string' || !SAFE_COLUMN_RE.test(descriptor.column)) {
+    if (!descriptor || typeof descriptor !== 'object') {
+      throw new Error(`Invalid column name in addSearch: ${descriptor && descriptor.column}`);
+    }
+    // The concatenation form: every listed column is validated with the same
+    // identifier rule, and the join separator is a fixed literal — no part of
+    // the expression is derived from user input.
+    if (descriptor.concat !== undefined) {
+      if (!Array.isArray(descriptor.concat) || descriptor.concat.length === 0) {
+        throw new Error('Invalid concat list in addSearch');
+      }
+      for (const col of descriptor.concat) {
+        if (typeof col !== 'string' || !SAFE_COLUMN_RE.test(col)) {
+          throw new Error(`Invalid column name in addSearch: ${col}`);
+        }
+      }
+      return { concat: descriptor.concat };
+    }
+    if (typeof descriptor.column !== 'string' || !SAFE_COLUMN_RE.test(descriptor.column)) {
       throw new Error(`Invalid column name in addSearch: ${descriptor && descriptor.column}`);
     }
     if (descriptor.prefix !== undefined &&
@@ -287,9 +355,18 @@ function addSearch(where, params, search, columns) {
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
   const conditions = descriptors.map((d) => {
-    const expression = d.prefix
-      ? `substr(${quoteColumn(d.column)}, 1, ${d.prefix})`
-      : quoteColumn(d.column);
+    let expression;
+    if (d.concat) {
+      // COALESCE each column to '' so a NULL does not poison the whole
+      // concatenation (SQLite's || operator yields NULL if any operand is
+      // NULL), then join the columns with a single space — the same shape the
+      // template renders ("<manufacturer> <name>").
+      expression = d.concat.map((col) => `COALESCE(${quoteColumn(col)}, '')`).join(" || ' ' || ");
+    } else {
+      expression = d.prefix
+        ? `substr(${quoteColumn(d.column)}, 1, ${d.prefix})`
+        : quoteColumn(d.column);
+    }
     return `${expression} LIKE ? ESCAPE '\\'`;
   });
   where.push(`(${conditions.join(' OR ')})`);
@@ -527,6 +604,62 @@ function escapeHtml(value) {
     return '';
   }
   return value.replace(/[&<>"']/g, c => _ESCAPE_MAP[c]);
+}
+
+// The HTML entities a sanitizer can emit. Only the five that matter for the
+// text fields are decoded; anything else is left verbatim (an unknown entity
+// is not something the app produces, and silently dropping it would lose
+// author text).
+const _NAMED_ENTITIES = Object.freeze({
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0'
+});
+const _ENTITY_RE = /&(#[xX][0-9a-fA-F]+|#\d+|[a-zA-Z][a-zA-Z0-9]*);/g;
+
+/**
+ * Decode HTML entities in a string — the inverse of escapeHtml, in ONE pass.
+ *
+ * Used for the knowledge article title and tags, which are PLAIN TEXT: they
+ * are rendered with EJS's escaping `<%= %>` in every template, so storing them
+ * in entity-escaped form escaped them a second time at render time and the
+ * browser displayed "R&amp;D" where the author had written "R&D". The search
+ * was affected too — the stored value contained the literal text "&amp;",
+ * so a search for the title the user could see matched nothing.
+ *
+ * The single pass matters: decoding "&amp;amp;" yields "&amp;" (the literal
+ * text the author typed), never "&" — a re-scan of the replaced text would
+ * decode the author's own "&amp;" a second time and silently alter it.
+ *
+ * Numeric entities are decoded to their code point; an out-of-range or
+ * malformed code point is left verbatim rather than dropped.
+ *
+ * @param {*} value
+ * @returns {string}
+ */
+function decodeHtmlEntities(value) {
+  if (typeof value !== 'string' || value.indexOf('&') === -1) {
+    return typeof value === 'string' ? value : '';
+  }
+  return value.replace(_ENTITY_RE, (match, name) => {
+    if (name.charAt(0) === '#') {
+      const isHex = name.charAt(1) === 'x' || name.charAt(1) === 'X';
+      const code = isHex ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
+      if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) {
+        return match;
+      }
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return match;
+      }
+    }
+    const key = name.toLowerCase();
+    return Object.hasOwn(_NAMED_ENTITIES, key) ? _NAMED_ENTITIES[key] : match;
+  });
 }
 
 /**
@@ -1152,14 +1285,41 @@ function _touchCache(cache, key, maxSize, prepareFn) {
 const _countQueryCache = new Map();
 const _COUNT_CACHE_MAX = 500;
 const _SAFE_TABLE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-function countQuery(db, baseTable, alias, whereClause, params) {
+// A developer-supplied JOIN clause for countQuery. It is NOT user input — it
+// is a literal written in the route module — but it is still validated
+// against a conservative allowlist so a future edit cannot smuggle a
+// sub-select or a comment into the cached statement. Only the shape
+// "LEFT JOIN <table> <alias> ON <alias>.<column> = <alias>.<column>" is
+// accepted, with identifiers matching the safe-identifier rule.
+const _SAFE_JOIN_RE = /^(LEFT JOIN [a-zA-Z_][a-zA-Z0-9_]* [a-zA-Z_][a-zA-Z0-9_]* ON [a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]* = [a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*)$/;
+
+/**
+ * Count the rows a list query would return.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} baseTable - the table to count (identifier-validated)
+ * @param {string} [alias] - the table alias used in the WHERE clause
+ * @param {string} whereClause - the (already-built) WHERE clause
+ * @param {Array} params - the bound parameters
+ * @param {string} [joinClause] - an optional JOIN clause, required when the
+ *   WHERE clause references a joined table's columns. It must match the
+ *   conservative allowlist above.
+ * @returns {number}
+ */
+function countQuery(db, baseTable, alias, whereClause, params, joinClause) {
   if (!_SAFE_TABLE_RE.test(baseTable)) {
     throw new Error(`Invalid table name: ${baseTable}`);
   }
+  if (joinClause !== undefined && joinClause !== null && joinClause !== '' && !_SAFE_JOIN_RE.test(joinClause)) {
+    throw new Error(`Invalid join clause: ${joinClause}`);
+  }
   const safeAlias = alias ? ` ${quoteColumn(alias)}` : '';
-  const key = `${baseTable}|${alias}|${whereClause}`;
+  const safeJoin = joinClause ? ` ${joinClause}` : '';
+  // The join clause is part of the cache key: two callers with the same WHERE
+  // clause but different joins must not share a prepared statement.
+  const key = `${baseTable}|${alias}|${whereClause}|${safeJoin}`;
   const stmt = _touchCache(_countQueryCache, key, _COUNT_CACHE_MAX, () => {
-    return db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias} WHERE ${whereClause}`);
+    return db.prepare(`SELECT COUNT(*) as c FROM ${baseTable}${safeAlias}${safeJoin} WHERE ${whereClause}`);
   });
   try {
     const result = stmt.get(...params);
@@ -1353,7 +1513,7 @@ function rejectHppArrays(req, fields) {
 }
 
 module.exports = {
-  paginate, paginationBaseUrl, safeSort, buildFilters, addSearch,
+  paginate, paginationBaseUrl, requestPath, safeSort, buildFilters, addSearch,
   safeId, isPresentInvalidId, safePositiveFloat, safeInt, safePositiveInt,
   parseEnvInt,
   resolveEnumField,
@@ -1367,7 +1527,7 @@ module.exports = {
   asyncHandler, countQuery, selectQuery,
   capList,
   isPrivileged, badgeClass, quoteColumn, safeQueryValue, safeFilters,
-  isValidAssetTag, escapeHtml, prefersJson, parseBooleanFlag,
+  isValidAssetTag, escapeHtml, decodeHtmlEntities, prefersJson, parseBooleanFlag,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
   KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
   TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE,

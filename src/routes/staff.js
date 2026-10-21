@@ -77,6 +77,21 @@ const _unassignChangesStmt = db.prepare('UPDATE change_log SET assigned_to = NUL
 // they can be reassigned; completed/cancelled projects keep their owner for
 // history (the deactivated user row persists, so owner_name still resolves).
 const _unassignProjectOwnerStmt = db.prepare('UPDATE projects SET owner_id = NULL, updated_at = datetime(\'now\') WHERE owner_id = ? AND status NOT IN (\'completed\', \'cancelled\')');
+// Release the deactivated user's PROJECT MEMBERSHIPS on LIVE projects. A
+// membership is the one live assignment the deactivate transaction used to
+// leave behind: the deactivated employee kept appearing in the project Team
+// roster, and — when they were the project's only lead — the "cannot remove
+// the last lead" guard then refused to remove them, so the project could not
+// be cleaned up without first promoting somebody else. The member-add route
+// already refuses to add an INACTIVE user, so keeping the row was
+// inconsistent in both directions.
+//
+// Only LIVE projects are affected: like the ownership unassign above, a
+// finished project keeps its historical team (the deactivated user row
+// persists, so the name still resolves).
+const _releaseProjectMembersStmt = db.prepare(
+  "DELETE FROM project_members WHERE user_id = ? AND project_id IN (SELECT id FROM projects WHERE status NOT IN ('completed', 'cancelled'))"
+);
 
 // Cached prepared statements for staff create/update routes
 const _staffInsertStmt = db.prepare(`
@@ -141,12 +156,20 @@ router.get('/', (req, res) => {
   // email-existence oracle — a staff member could probe whether a given
   // address belongs to an account without ever seeing the address. Restrict
   // the searchable columns for non-privileged viewers to the ones the
-  // directory actually renders for them (first_name / last_name). The
-  // username column is not rendered in the directory at all, so it is
-  // likewise excluded. Privileged viewers keep the full search surface.
-  const searchColumns = viewerPrivileged
+  // directory actually renders for them (first_name / last_name).
+  //
+  // The USERNAME is rendered by neither the directory nor the profile page —
+  // only the staff EDIT form shows it, and a manager cannot open the edit
+  // form of a manager or admin account (the route refuses it as a privilege
+  // boundary crossing). So the username is searchable for an ADMIN (who can
+  // reach every edit form) and for nobody else: a manager who could search
+  // it could confirm the existence of a privileged account's LOGIN NAME
+  // without being able to read it anywhere in the app.
+  const searchColumns = req.session.user.role === 'admin'
     ? ['u.first_name', 'u.last_name', 'u.email', 'u.username']
-    : ['u.first_name', 'u.last_name'];
+    : (viewerPrivileged
+      ? ['u.first_name', 'u.last_name', 'u.email']
+      : ['u.first_name', 'u.last_name']);
   addSearch(where, params, safeQueryValue(req.query.search), searchColumns);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
@@ -291,6 +314,16 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.flash('error', 'Username must be 2-50 characters and contain only letters, numbers, dots, dashes, and underscores');
     return res.redirect('/staff/new');
   }
+  // The length check runs BEFORE isValidEmail(): isValidEmail already caps the
+  // length at MAX_EMAIL, so an over-long address failed the format check and
+  // the user was told "Please enter a valid email address" — a message the
+  // dedicated length check below could never produce, so it was dead code.
+  // The UPDATE route in this module already checks the length first; the
+  // CREATE route now reports the same condition the same way.
+  if (email.length > MAX_EMAIL) {
+    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
+    return res.redirect('/staff/new');
+  }
   if (!isValidEmail(email)) {
     req.flash('error', 'Please enter a valid email address');
     return res.redirect('/staff/new');
@@ -305,10 +338,6 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   }
   if (last_name.length > MAX_SHORT_STR) {
     req.flash('error', `Last name must be at most ${MAX_SHORT_STR} characters`);
-    return res.redirect('/staff/new');
-  }
-  if (email.length > MAX_EMAIL) {
-    req.flash('error', `Email must be at most ${MAX_EMAIL} characters`);
     return res.redirect('/staff/new');
   }
   if (department && department.length > MAX_SHORT_STR) {
@@ -1047,6 +1076,12 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // Unassign projects owned by this user so they don't orphan
       _unassignProjectOwnerStmt.run(id);
 
+      // Release the user's project memberships for the same reason every
+      // other live assignment above is released: a deactivated employee must
+      // not keep a seat on a project team (and must not hold the "last lead"
+      // slot that blocks the project's cleanup).
+      _releaseProjectMembersStmt.run(id);
+
       return { ok: true, username: target.username, affectedProjects };
     });
     const result = deactivate();
@@ -1078,11 +1113,12 @@ router.delete('/:id', requireAdmin, deactivateLimiter, (req, res) => {
       // IP lockout is tracked by attacker IP, not user IP, so no IP-level
       // lockout to clear here.
 
-      req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects`);
+      req.audit('deactivate', 'user', id, `Deactivated user "${result.username}" and unassigned open tickets/tasks/changes/projects and project memberships`);
       // The audit trail already names projects; the user-facing flash must
       // match the actual effect — deactivating a user also clears the
-      // ownership of in-progress projects (the unassign statement above).
-      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes/projects unassigned.');
+      // ownership of in-progress projects (the unassign statement above) and
+      // releases their project memberships.
+      req.flash('success', 'Staff member deactivated and open tickets/tasks/changes/projects and project memberships unassigned.');
       invalidateActiveStaffCache();
       invalidateDashboardCache();
     }

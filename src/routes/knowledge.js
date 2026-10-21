@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, decodeHtmlEntities, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -322,24 +322,47 @@ function _truncateAtEntityBoundary(value, maxLen) {
  * Returns { safeTitle, safeContent, safeTags, error }. Title/content empty strings
  * are preserved (surfaced as errors since the fields are required); empty tags
  * (optional) are normalized to null.
+ *
+ * The three fields are stored in TWO different representations, and the
+ * difference matters:
+ *
+ *   - The CONTENT is rendered as HTML (marked -> sanitize-html -> `<%- %>`),
+ *     so its stored form MUST stay entity-escaped: the entities are what make
+ *     the rendered HTML display the author's characters.
+ *   - The TITLE and the TAGS are PLAIN TEXT — every template renders them
+ *     with EJS's escaping `<%= %>`. Storing them entity-escaped escaped them
+ *     a SECOND time at render time, so the browser displayed "R&amp;D" where
+ *     the author had written "R&D", and a search for the title the user could
+ *     see matched nothing (the stored value held the literal text "&amp;").
+ *     They are therefore decoded back to plain text after sanitization, which
+ *     also makes their length limits exact: the stored length is the typed
+ *     length, so the form's maxlength and the server-side limit agree.
+ *
  * @param {string} title
  * @param {string} content
  * @param {string} tags
- * @returns {{ safeTitle: string, safeContent: string, safeTags: string|null, error: string|null, truncated: boolean }}
+ * @returns {{ safeTitle: string, safeContent: string, safeTags: string|null, error: string|null, truncated: boolean, truncatedField: string|null }}
  *   `truncated` is true when the SANITIZED value had to be cut to fit its
  *   limit — the length limits apply to the stored value, so the caller must
  *   reject such a value rather than silently store a shortened one.
+ *   `truncatedField` names the field that was cut ('title' | 'content' |
+ *   'tags') so the caller can report the limit that actually applies to it.
  */
 function sanitizeKnowledgeInput(title, content, tags) {
   let safeTags;
   let safeTitle;
   let safeContent;
   let truncated = false;
+  let truncatedField = null;
   try {
     // Sanitize first, then truncate. Truncating before sanitizing would let a
     // value sitting exactly at the limit grow past it once sanitizeHtml escapes
     // characters (e.g. "&" -> "&amp;"), producing over-length stored data.
-    safeTags = sanitizeHtml(tags || '', STRIP_HTML_OPTIONS);
+    //
+    // The tags are plain text (rendered escaped), so the entities the
+    // sanitizer introduced are decoded again — otherwise the stored value
+    // would carry the literal text "&amp;" and the list would show it.
+    safeTags = decodeHtmlEntities(sanitizeHtml(tags || '', STRIP_HTML_OPTIONS));
     // Trim whitespace from title and content AFTER sanitization (not before)
     // so that a title consisting solely of HTML tags (e.g. "<b></b>") is first
     // stripped to "" by sanitize-html, then safely trimmed. A title of only
@@ -351,12 +374,26 @@ function sanitizeKnowledgeInput(title, content, tags) {
     // HTML entity in half: a raw substring() left a trailing "&am" in the
     // stored text (the entity was never completed, so it rendered literally).
     // _truncateAtEntityBoundary drops a trailing partial entity.
-    const cleanTitle = sanitizeHtml(title, STRIP_HTML_OPTIONS).trim();
+    //
+    // The title is plain text like the tags, so it is decoded after
+    // sanitization: the stored title is then exactly the title the author
+    // typed, which is what the list, the show page and the search all render.
+    const cleanTitle = decodeHtmlEntities(sanitizeHtml(title, STRIP_HTML_OPTIONS)).trim();
+    // The content is rendered as HTML, so it KEEPS the entity-escaped form.
     const cleanContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).trim();
     safeTitle = _truncateAtEntityBoundary(cleanTitle, MAX_MEDIUM_STR);
     safeContent = _truncateAtEntityBoundary(cleanContent, MAX_CONTENT);
-    if (safeTitle.length < cleanTitle.length || safeContent.length < cleanContent.length) {
+    if (safeTitle.length < cleanTitle.length) {
       truncated = true;
+      truncatedField = 'title';
+    }
+    if (safeContent.length < cleanContent.length) {
+      truncated = true;
+      // The content is the field that can actually overflow: it is stored
+      // entity-escaped, so a body of ampersands grows several-fold. It is
+      // reported ahead of the other fields because it is the only one whose
+      // stored form differs in length from what the author typed.
+      truncatedField = truncatedField || 'content';
     }
     // Normalize empty tags to null (the column is nullable and a NULL is
     // cleaner than a stored '' — searches and template rendering treat them
@@ -366,15 +403,34 @@ function sanitizeKnowledgeInput(title, content, tags) {
       safeTags = cleanTags.substring(0, MAX_LONG_STR);
       if (safeTags.length < cleanTags.length) {
         truncated = true;
+        truncatedField = truncatedField || 'tags';
       }
       safeTags = safeTags || null;
     } else {
       safeTags = null;
     }
   } catch (sanitizeErr) {
-    return { safeTitle: '', safeContent: '', safeTags: null, error: (sanitizeErr && sanitizeErr.message) || String(sanitizeErr), truncated: false };
+    return { safeTitle: '', safeContent: '', safeTags: null, error: (sanitizeErr && sanitizeErr.message) || String(sanitizeErr), truncated: false, truncatedField: null };
   }
-  return { safeTitle, safeContent, safeTags, error: null, truncated };
+  return { safeTitle, safeContent, safeTags, error: null, truncated, truncatedField };
+}
+
+/**
+ * Build the flash message for a value that did not fit its limit after
+ * sanitization. The message names the field that overflowed and the limit
+ * that applies to THAT field, so the author is told what to shorten.
+ *
+ * @param {string|null} field - 'title' | 'content' | 'tags' | null
+ * @returns {string}
+ */
+function _truncationMessage(field) {
+  if (field === 'title') {
+    return `Title is too long after removing invalid markup (limit ${MAX_MEDIUM_STR} characters)`;
+  }
+  if (field === 'tags') {
+    return `Tags are too long after removing invalid markup (limit ${MAX_LONG_STR} characters)`;
+  }
+  return `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`;
 }
 
 // List articles (paginated)
@@ -399,7 +455,12 @@ router.get('/', kbReadLimiter, (req, res) => {
 
   const where = [...filters.where];
   const params = [...filters.params];
-  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags']);
+  // The search surface must cover exactly what the list renders: the title,
+  // the tags and the AUTHOR's name (the row renders an author column, and
+  // the list offers no author filter). The body is searchable too — the
+  // list is scoped to the viewer, so every row it can return is readable in
+  // full (the same rule the change list applies).
+  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags', 'u.first_name', 'u.last_name']);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -411,7 +472,9 @@ router.get('/', kbReadLimiter, (req, res) => {
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
 
-  const total = countQuery(db, 'knowledge_articles', 'k', whereClause, params);
+  // The count query needs the same JOIN as the list query: the search now
+  // covers the author's name, which lives in the joined users table.
+  const total = countQuery(db, 'knowledge_articles', 'k', whereClause, params, 'LEFT JOIN users u ON k.author_id = u.id');
   const totalPages = Math.ceil(total / limit) || 1;
   // Clamp the requested page to the actual page count so a page beyond the
   // last one (e.g. ?page=999) renders the final page instead of an empty list
@@ -497,9 +560,11 @@ router.post('/', kbWriteLimiter, (req, res) => {
 
   // Enum resolution — a present-but-blank status (a whitespace-only value) is
   // an invalid value, not an omitted one: it used to trim to '' and silently
-  // take the 'draft' default with a success flash.
+  // take the 'draft' default with a success flash. The `status` column is NOT
+  // NULL, so an EMPTY value has no valid meaning either — the update route
+  // rejects it, and the create route used to accept it and silently default.
   const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
-  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid') {
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid' || createStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/knowledge/new');
   }
@@ -524,8 +589,13 @@ router.post('/', kbWriteLimiter, (req, res) => {
   // then silently discarded most of the author's text while the route flashed
   // a success. Fail closed instead: a value that had to be cut is rejected so
   // the author learns that their content did not fit.
+  //
+  // The message names the field that actually overflowed and ITS limit. It
+  // used to always say "Content … (limit 50000 characters)", so a title that
+  // did not fit was reported against the body limit — a limit the author
+  // could not act on (their body was nine characters long).
   if (sanitized.truncated) {
-    req.flash('error', `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`);
+    req.flash('error', _truncationMessage(sanitized.truncatedField));
     return res.redirect('/knowledge/new');
   }
   if (!safeTitle) {
@@ -786,9 +856,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const { safeTitle, safeContent } = sanitized;
   // The length limits apply to the STORED (sanitized) value — see the create
   // route for the rationale. A value that had to be cut is rejected rather
-  // than silently stored shortened.
+  // than silently stored shortened, and the message names the field and the
+  // limit that actually apply to it.
   if (sanitized.truncated) {
-    req.flash('error', `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`);
+    req.flash('error', _truncationMessage(sanitized.truncatedField));
     return res.redirect(`/knowledge/${id}/edit`);
   }
   // Absent-vs-empty convention (mirrors resolveOptionalField on vendors/licenses/
@@ -974,4 +1045,5 @@ module.exports.resolveSafeFeatured = resolveSafeFeatured;
 module.exports.resolveSafeStatus = resolveSafeStatus;
 module.exports.markedFallback = markedFallback;
 module.exports.sanitizeKnowledgeInput = sanitizeKnowledgeInput;
+module.exports._truncationMessage = _truncationMessage;
 module.exports.resetCachedStatements = () => {};
