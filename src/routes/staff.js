@@ -284,6 +284,20 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.flash('error', 'Invalid Department');
     return res.redirect('/staff/new');
   }
+  // The REQUIRED columns are guarded too: without it a JSON number in
+  // `username`, `email`, `first_name` or `last_name` collapsed to '' and was
+  // reported as a MISSING field ("All required fields must be filled in"),
+  // while the matching update route reported the identical submission as
+  // "Invalid request parameters" — a type error masquerading as an absent
+  // one. (The role is an enum: a non-string value is reported as "Invalid
+  // Role" by the USER_ROLES check below, exactly as on the update route.)
+  for (const field of ['username', 'email', 'first_name', 'last_name']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/staff/new');
+    }
+  }
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {

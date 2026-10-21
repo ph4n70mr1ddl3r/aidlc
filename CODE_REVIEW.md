@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (377th pass)
+**Date:** 2026-10-21 (378th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (376 consecutive hardening reviews) was
+`npm audit`. Prior review history (377 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -14700,3 +14700,146 @@ by that same text.
 - `npm run test:coverage` — global thresholds pass (statements 74.61%,
   branches 73.36%, functions 86.62%, lines 74.61%).
 - `npm audit --omit=dev` — **0 vulnerabilities**.
+
+---
+
+## Review cycle 2026-10-21 (378th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+three defect classes. All three are consistency defects in the
+create/update contract the README documents as app-wide; none of them wrote
+corrupt data, but each one silently ignored or misreported a submission the
+app's own contract says must be rejected.
+
+1. **The project CREATE route required its `status` and `priority` enums
+   instead of applying the documented defaults** (MEDIUM, consistency —
+   fixed). `POST /projects` rejected any submission that did not carry both
+   values ("Invalid Status" / "Invalid Priority"), even though:
+
+   - the `status` column is `NOT NULL DEFAULT 'planning'` and `priority` is
+     nullable with `DEFAULT 'medium'`;
+   - every sibling create route applies its documented default for an absent
+     field — assets → `in_storage`, tickets → `open`, tasks → `todo`,
+     changes → `scheduled`, articles → `draft`;
+   - the project's own UPDATE route treats both fields as absent-preserving
+     (an absent `status` keeps the stored value, an absent `priority` keeps
+     the stored value); and
+   - the README's create-route paragraph states the rule the code did not
+     implement: *"An absent field still takes the documented default."*
+
+   The form pre-selects both values, so the browser never hit the gap — but
+   an API client that submitted only a project name was refused, while every
+   other entity accepted the same omission. The 377th pass closed the
+   present-but-empty half of this gap for the assets, tickets, articles,
+   changes and task routes and left the project route's *absent* half
+   untouched. Fix: the create route resolves both enums through the shared
+   `resolveEnumField()` helper, exactly like the sibling create routes — an
+   absent `status` takes `planning`, an absent or blank `priority` takes
+   `medium` (a nullable enum whose stored default carries meaning, so a blank
+   value means "not submitted", the rule the task and change create routes
+   already apply), and a present-but-blank/empty/unknown value is still
+   rejected with nothing written.
+
+2. **The vendor CREATE route accepted a whitespace-only `category` that the
+   matching UPDATE route rejected** (MEDIUM, consistency — fixed).
+   `POST /vendors` with `category="   "` stored `NULL` and flashed "Vendor
+   created", while `PUT /vendors/:id` with the identical value was rejected
+   with "Invalid Category" (the `resolveOptionalField` blank-value rule). A
+   whitespace-only value is neither an absent field ("not submitted") nor an
+   intentional empty string ("clear the column") — it is an invalid value,
+   and the app-wide contract says an invalid value is rejected. The two
+   routes disagreed about the same column, so the same submission was
+   accepted or refused depending on the verb. Fix: the create route resolves
+   the category through the shared `resolveEnumField()` helper — a
+   whitespace-only or unknown value is rejected, an explicit empty string
+   still clears the nullable column to `NULL`, and an absent field still
+   means "no category" (mirrors the licence-type handling in `licenses.js`).
+
+3. **A present-but-non-string REQUIRED column was reported as a MISSING
+   field on ten routes** (LOW, correctness — fixed). `trim()` coerces a
+   non-string to `''`, so a JSON number in a required column reached the
+   "required" check and was reported as an absent field:
+
+   | Route | Reported as |
+   |---|---|
+   | `POST /projects` | "Project name is required" |
+   | `PUT  /projects/:id` | "Project name is required" |
+   | `POST /vendors` | "Vendor name is required" |
+   | `POST /licenses` | "Software name is required" |
+   | `POST /staff` | "All required fields must be filled in" |
+   | `POST /knowledge` | "Title, content, and category are required" |
+   | `PUT  /knowledge/:id` | "Title, content, and category are required" |
+   | `POST /changes` | "Title and change type are required" |
+   | `PUT  /changes/:id` | "Title and change type are required" |
+   | `POST /projects/:id/tasks` | "Task title is required" |
+
+   The 377th pass added this guard to the assets and tickets create routes
+   ("Invalid request parameters" — a type error is not a missing field) and
+   the remaining routes were left reporting a type error as an absent one.
+   Nothing was ever written in either case, so the defect was the message,
+   not the data — but an API client could not tell "you left the field out"
+   from "the field has the wrong type", and the same submission was reported
+   three different ways across the app. Fix: the required columns join the
+   routes' existing non-string type guards, which already report the
+   app-wide fail-closed "Invalid request parameters". On the two routes where
+   the guard had to move to be reached at all (the projects and changes
+   UPDATE routes), it now runs *before* the required-field check — otherwise
+   the "required" message still won the race. The staff create route keeps
+   its dedicated "Invalid Department" message for the department (the sibling
+   UPDATE route reports the same value the same way), and the changes UPDATE
+   route keeps "Invalid Priority" / "Invalid Status" for its enums (pinned
+   by `tests/code_review_141.test.js`).
+
+Also verified this pass: every create route still rejects a present-but-empty
+value for its `NOT NULL` enum columns and still defaults an absent one; every
+update route still resolves its fields against the transaction-consistent
+re-read row; the `changes === 0` no-op guards are still uniform across every
+update and delete route; every write route still carries its `rejectHppArrays`
+guard; the search surface of every list still matches the columns that list
+renders (or is viewer-scoped); every capped list still discloses its
+truncation exactly; the licence key is still never rendered server-side; the
+`.env.example` still matches every env read in `src/`; the README's rate
+limiter list still covers all 26 limiters; and the seeded portfolio still
+carries no contradictory dates.
+
+### Fixes applied
+1. `src/routes/projects.js` — the create route resolves `status`/`priority`
+   through `resolveEnumField()` (absent → the documented default, invalid →
+   rejected); the required `name` column joins the create and update
+   routes' non-string type guards.
+2. `src/routes/vendors.js` — the create route resolves `category` through
+   `resolveEnumField()` (whitespace-only/unknown → rejected, empty → `NULL`);
+   the required `name` column joins the create route's type guard.
+3. `src/routes/licenses.js`, `src/routes/staff.js`, `src/routes/knowledge.js`,
+   `src/routes/changes.js` — the required columns join the create routes'
+   non-string type guards, and the projects/knowledge/changes UPDATE routes
+   guard their required columns before the required-field check.
+
+### Regression tests added
+- `tests/code_review_378.test.js` — 20 tests: the project create route
+  applies the documented `planning`/`medium` defaults for an absent field
+  and still rejects a present-but-empty/blank/unknown one; the vendor create
+  route rejects a whitespace-only category and still clears an explicit
+  empty one; and a present-but-non-string required column is reported as
+  "Invalid request parameters" (with nothing written) on all ten routes.
+- `tests/projects.test.js` — 3 tests driving the real create handler against
+  the real in-memory database: the stored row carries the documented
+  defaults, and a present-but-empty/blank enum writes nothing.
+
+### Existing tests updated
+- `tests/code_review_164.test.js` — the "trims task status/priority and
+  member role before validation" pin now asserts the shared
+  `resolveEnumField()` resolver (which trims before the allowlist check)
+  plus a behavioural check that the resolver trims, instead of the
+  hand-rolled `trim()` + `includes()` pair the project create route used.
+- `tests/code_review_165.test.js` — the add-task non-string guard now also
+  covers the task's required `title` column.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1669 passed / 1669 total** (100 suites, +23 from #377).
+- `npm run test:coverage` — global thresholds pass (statements 75.16%,
+  branches 74.45%, functions 86.93%, lines 75.17%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

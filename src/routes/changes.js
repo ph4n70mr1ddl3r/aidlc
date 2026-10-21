@@ -212,7 +212,12 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
   // priority is included because the enum check below is validate-when-present:
   // a non-string collapses to '' and would silently fall back to the default.
-  for (const field of ['description', 'impact', 'priority', 'status']) {
+  // The REQUIRED columns are guarded too: without it a JSON number in `title`
+  // or `change_type` collapsed to '' and was reported as a MISSING field
+  // ("Title and change type are required"), while the matching update route
+  // reported the identical submission as "Invalid request parameters" — a
+  // type error masquerading as an absent one.
+  for (const field of ['title', 'change_type', 'description', 'impact', 'priority', 'status']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -422,6 +427,20 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   const titleAbsent = req.body.title === undefined || req.body.title === null;
   const changeTypeAbsent = req.body.change_type === undefined || req.body.change_type === null;
 
+  // Fail closed on a present-but-non-string REQUIRED column (e.g. a JSON
+  // number): trim() coerces it to '', so the check below reported the
+  // submission as a MISSING field ("Title and change type are required") — a
+  // type error masquerading as an absent one. The sibling required columns on
+  // the assets/tickets update routes report the identical submission as
+  // "Invalid request parameters", so the guard has to run BEFORE the
+  // required-field check to be reached at all.
+  for (const field of ['title', 'change_type']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/changes/${id}/edit`);
+    }
+  }
   if ((!titleAbsent && !title) || (!changeTypeAbsent && !change_type)) {
     req.flash('error', 'Title and change type are required');
     return res.redirect(`/changes/${id}/edit`);

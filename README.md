@@ -233,9 +233,12 @@ fields exactly as it does to free text.
 
 The same rule governs the **create** routes: a `POST` that submits a
 present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
-an article's or a change's status, a task's status) is rejected, exactly as
-the matching `PUT` rejects it. An absent field still takes the documented
-default.
+an article's, a change's or a project's status, a task's status) is rejected,
+exactly as the matching `PUT` rejects it. An absent field still takes the
+documented default — a project created without a `status` is `planning` and
+without a `priority` is `medium`, like every other entity's default. A value
+of the wrong **type** (a JSON number in a name field, say) is an invalid
+value, not a missing one, and is reported as such.
 
 An explicit empty string clears a nullable optional field, with two documented
 exceptions:

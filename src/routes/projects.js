@@ -224,13 +224,24 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
 
   const name = trim(safeQueryValue(req.body.name));
   const description = trim(safeQueryValue(req.body.description));
-  // Fail closed on present-but-non-string optional text fields (e.g. JSON
+  // Fail closed on present-but-non-string body fields (e.g. JSON
   // numbers/objects): trim() coerces them to '', which would silently store
-  // NULL — the same fail-closed convention the update route enforces via
-  // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  if (req.body.description !== undefined && req.body.description !== null && req.body.description !== '' && typeof req.body.description !== 'string') {
-    req.flash('error', 'Invalid request parameters');
-    return res.redirect('/projects/new');
+  // NULL for an optional text field — the same fail-closed convention the
+  // update route enforces via resolveOptionalField's error sentinel. Mirrors
+  // the vendors.js create guard.
+  // The REQUIRED column is guarded too: without it a JSON number in `name`
+  // collapsed to '' and was reported as a MISSING field ("Project name is
+  // required"), while the matching update route reported the identical
+  // submission as "Invalid request parameters" — a type error masquerading
+  // as an absent one. The enum fields are guarded for the same reason
+  // (a non-string status/priority used to be reported as an invalid enum
+  // value rather than as an invalid request).
+  for (const field of ['name', 'description', 'status', 'priority']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/projects/new');
+    }
   }
   const start_date = safeQueryValue(req.body.start_date);
   const end_date = safeQueryValue(req.body.end_date);
@@ -254,16 +265,35 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     return res.redirect('/projects/new');
   }
 
-  const status = trim(safeQueryValue(req.body.status));
-  const priority = trim(safeQueryValue(req.body.priority));
-  if (!status || !VALID_STATUSES.includes(status)) {
+  // Enum resolution — the presence test runs against the RAW submitted value,
+  // exactly like every sibling create route (assets, tickets, tasks, changes
+  // and articles), so the documented defaults apply to an absent field and a
+  // present-but-invalid field is rejected:
+  //   - `status` is a NOT NULL column with the schema default 'planning' (and
+  //     the form pre-selects it), so an ABSENT value takes that default while
+  //     a present-but-blank/empty/unknown value is rejected. The route used to
+  //     REQUIRE the field, so a client that submitted only a name was refused
+  //     with "Invalid Status" — while the project's own UPDATE route preserves
+  //     the stored status on absence and every sibling create route applies
+  //     its documented default. The README's create-route paragraph states the
+  //     rule the code did not implement: "An absent field still takes the
+  //     documented default."
+  //   - `priority` is a nullable column whose stored default ('medium')
+  //     carries meaning, so a blank value means "not submitted" and the
+  //     default applies (the task and change create routes already behave
+  //     this way); a whitespace-only or unknown value is still rejected.
+  const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
+  if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid' || createStatusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
     return res.redirect('/projects/new');
   }
-  if (!priority || !VALID_PRIORITIES.includes(priority)) {
+  const safeStatus = createStatusEnum.state === 'valid' ? createStatusEnum.value : 'planning';
+  const createPriorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
+  if (createPriorityEnum.state === 'blank' || createPriorityEnum.state === 'invalid') {
     req.flash('error', 'Invalid Priority');
     return res.redirect('/projects/new');
   }
+  const safePriority = createPriorityEnum.state === 'valid' ? createPriorityEnum.value : 'medium';
 
   const sStart = safeDate(start_date);
   const sEnd = safeDate(end_date);
@@ -338,7 +368,7 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       if (safeOwnerId && !isActiveUser(db, safeOwnerId)) {
         throw new Error('OWNER_NOT_AVAILABLE');
       }
-      return _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, status, priority,
+      return _projectInsertStmt.run(name.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, safeStatus, safePriority,
         sStart, sEnd, safeBudget, safeSpent, safeOwnerId);
     });
     const result = createProject();
@@ -454,6 +484,17 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // has no valid meaning.
   const nameAbsent = req.body.name === undefined || req.body.name === null;
 
+  // Fail closed on a present-but-non-string REQUIRED column (e.g. a JSON
+  // number): trim() coerces it to '', so the check below reported the
+  // submission as a MISSING field ("Project name is required") — a type
+  // error masquerading as an absent one. The sibling required columns on the
+  // assets/tickets update routes report the identical submission as "Invalid
+  // request parameters", so the guard has to run BEFORE the required-field
+  // check to be reached at all.
+  if (req.body.name !== undefined && req.body.name !== null && req.body.name !== '' && typeof req.body.name !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/projects/${id}/edit`);
+  }
   if (!nameAbsent && !name) {
     req.flash('error', 'Project name is required');
     return res.redirect(`/projects/${id}/edit`);
@@ -464,9 +505,9 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   }
   // Fail closed on a present-but-non-string enum value (e.g. a JSON number):
   // trim() coerces it to '', which would skip the enum checks below and leave
-  // the field silently preserved with a success flash — inconsistent with the
-  // fail-closed convention applied to every other present-but-invalid field on
-  // this route. Absent/empty submissions are allowed (preserve stored value).
+  // the field silently preserved with a success flash — inconsistent with
+  // the fail-closed convention applied to every other present-but-invalid field
+  // on this route. Absent/empty submissions are allowed (preserve stored value).
   // Mirrors the changes.js update guard.
   for (const field of ['status', 'priority']) {
     const v = req.body[field];
@@ -755,7 +796,12 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   // validate-when-present: a non-string collapses to '' and would silently fall
   // back to the 'todo'/'medium' defaults with a success flash (the full-update
   // route already guards both).
-  for (const field of ['description', 'status', 'priority']) {
+  // The REQUIRED title is guarded too: without it a JSON number in `title`
+  // collapsed to '' and was reported as a MISSING field ("Task title is
+  // required"), while the matching update route reported the identical
+  // submission as "Invalid Task Title" — a type error masquerading as an
+  // absent one.
+  for (const field of ['title', 'description', 'status', 'priority']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');

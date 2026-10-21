@@ -160,9 +160,20 @@ describe('code review 164: consistency/completeness/correctness', () => {
   describe('projects.js trim consistency on task/member enums', () => {
     it('trims task status/priority and member role before validation', () => {
       const src = readSrc('src/routes/projects.js');
-      expect(src).toContain('const status = trim(safeQueryValue(req.body.status));');
-      expect(src).toContain('const priority = trim(safeQueryValue(req.body.priority));');
+      // The task enum fields are resolved through resolveEnumField, which
+      // trims the raw submitted value before the allowlist check (pass 378
+      // replaced the project route's hand-rolled trim+includes checks with the
+      // shared resolver every other create route uses — the trimming
+      // invariant this test pins is unchanged).
+      expect(src).toContain('resolveEnumField(req.body.status, VALID_TASK_STATUSES)');
+      expect(src).toContain('resolveEnumField(req.body.priority, VALID_TASK_PRIORITIES)');
       expect(src).toContain('const role = trim(safeQueryValue(req.body.role));');
+      // The shared resolver trims before validating: a padded value is
+      // accepted and resolved to its trimmed form.
+      const { resolveEnumField } = require('../src/utils');
+      const { TASK_STATUSES, TASK_PRIORITIES } = require('../src/constants');
+      expect(resolveEnumField('  in_progress  ', TASK_STATUSES)).toEqual({ state: 'valid', value: 'in_progress' });
+      expect(resolveEnumField('  high  ', TASK_PRIORITIES)).toEqual({ state: 'valid', value: 'high' });
     });
   });
 

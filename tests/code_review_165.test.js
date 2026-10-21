@@ -25,7 +25,10 @@ describe('code review 165: consistency/completeness/correctness', () => {
   describe('projects.js add-task fail-closed non-string guard', () => {
     it('guards status and priority alongside description', () => {
       const src = readSrc('src/routes/projects.js');
-      expect(src).toContain("for (const field of ['description', 'status', 'priority'])");
+      // Pass 378 extended the guard to the task's REQUIRED `title` column as
+      // well (a JSON number in the title used to be reported as a MISSING
+      // field) — status and priority are still guarded alongside description.
+      expect(src).toContain("for (const field of ['title', 'description', 'status', 'priority'])");
     });
   });
 

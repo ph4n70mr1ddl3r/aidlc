@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, authKeyGenerator, titleCase, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, titleCase, logError } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -233,7 +233,6 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
   const address = trim(safeQueryValue(req.body.address));
   const website = trim(safeQueryValue(req.body.website));
-  const category = trim(safeQueryValue(req.body.category));
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(safeQueryValue(req.body.notes));
@@ -241,7 +240,12 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel.
-  for (const field of ['contact_person', 'email', 'address', 'website', 'category', 'notes']) {
+  // The REQUIRED `name` column is guarded too: without it a JSON number in
+  // `name` collapsed to '' and was reported as a MISSING field ("Vendor name
+  // is required"), while the matching update route reported the identical
+  // submission as "Invalid Vendor Name" — a type error masquerading as an
+  // absent one.
+  for (const field of ['name', 'contact_person', 'email', 'address', 'website', 'category', 'notes']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -289,11 +293,24 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
-  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
+  // Enum resolution — the presence test runs against the RAW submitted value,
+  // so a whitespace-only category is REJECTED instead of being silently
+  // stored as NULL. The matching UPDATE route already applies that rule
+  // (resolveOptionalField's blank-value guard), so the create route accepted
+  // a value its sibling rejected: a category of "   " was stored as NULL with
+  // a success flash, while the identical value on the edit form reported
+  // "Invalid Category". A whitespace-only value is neither an absent field
+  // ("not submitted") nor an intentional empty string ("clear the column").
+  // An explicit empty string still clears the column — the category is a
+  // nullable enum whose stored default carries no meaning — and an absent
+  // field simply means "no category". Mirrors the licence-type handling in
+  // licenses.js.
+  const createCategoryEnum = resolveEnumField(req.body.category, VALID_CATEGORIES_VENDOR);
+  if (createCategoryEnum.state === 'blank' || createCategoryEnum.state === 'invalid') {
     req.flash('error', 'Invalid Category');
     return res.redirect('/vendors/new');
   }
-  const safeCategory = VALID_CATEGORIES_VENDOR.includes(category) ? category : null;
+  const safeCategory = createCategoryEnum.state === 'valid' ? createCategoryEnum.value : null;
 
   const sContractStart = safeDate(contract_start);
   const sContractEnd = safeDate(contract_end);

@@ -193,7 +193,12 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // present (the enum check below rejects only a present NON-EMPTY value), and
   // a non-string collapses to '' and would otherwise be stored as NULL with no
   // feedback instead of being rejected.
-  for (const field of ['vendor', 'license_key', 'license_type', 'notes']) {
+  // The REQUIRED software_name is guarded too: without it a JSON number in
+  // `software_name` collapsed to '' and was reported as a MISSING field
+  // ("Software name is required"), while the matching update route reported
+  // the identical submission as "Invalid Software Name" — a type error
+  // masquerading as an absent one.
+  for (const field of ['software_name', 'vendor', 'license_key', 'license_type', 'notes']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');

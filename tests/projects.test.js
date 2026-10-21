@@ -176,6 +176,66 @@ describe('project member management', () => {
   });
 });
 
+describe('project create route — the documented enum defaults', () => {
+  let db;
+  beforeEach(() => {
+    db = getDb();
+    seedProjectData(db);
+    const utils = require('../src/utils');
+    utils.resetCachedStatements();
+  });
+
+  // Drive the real create handler against the real (in-memory) database. The
+  // route module caches its prepared statements, so it is re-required here to
+  // bind them to the current in-memory instance.
+  function createProject(body) {
+    delete require.cache[require.resolve('../src/routes/projects')];
+    const router = require('../src/routes/projects');
+    const layer = router.stack.find((l) => l.route && l.route.methods.post && l.route.path === '/');
+    const handler = layer.route.stack[layer.route.stack.length - 1].handle;
+    const redirectCalls = [];
+    const flashCalls = [];
+    const req = {
+      body,
+      params: {},
+      method: 'POST',
+      session: { user: { id: 1, role: 'admin' } },
+      flash: (type, msg) => flashCalls.push([type, msg]),
+      audit: jest.fn()
+    };
+    const res = {
+      redirect: (to) => redirectCalls.push(to),
+      render: jest.fn(),
+      status: () => res,
+      json: () => {},
+      end: () => {}
+    };
+    handler(req, res, () => {});
+    return { redirectCalls, flashCalls };
+  }
+
+  it('creates the project with the documented defaults when status/priority are absent', () => {
+    const { redirectCalls, flashCalls } = createProject({ name: 'CR378 defaulted project' });
+    expect(flashCalls.filter(([t]) => t === 'error')).toHaveLength(0);
+    expect(redirectCalls[0]).toMatch(/^\/projects\/\d+$/);
+    const row = db.prepare('SELECT status, priority FROM projects WHERE name = ?').get('CR378 defaulted project');
+    expect(row.status).toBe('planning');
+    expect(row.priority).toBe('medium');
+  });
+
+  it('rejects a present-but-empty status and writes nothing', () => {
+    const { flashCalls } = createProject({ name: 'CR378 empty status project', status: '' });
+    expect(flashCalls.find(([t]) => t === 'error')[1]).toBe('Invalid Status');
+    expect(db.prepare('SELECT COUNT(*) AS c FROM projects WHERE name = ?').get('CR378 empty status project').c).toBe(0);
+  });
+
+  it('rejects a present-but-whitespace-only priority and writes nothing', () => {
+    const { flashCalls } = createProject({ name: 'CR378 blank priority project', priority: '   ' });
+    expect(flashCalls.find(([t]) => t === 'error')[1]).toBe('Invalid Priority');
+    expect(db.prepare('SELECT COUNT(*) AS c FROM projects WHERE name = ?').get('CR378 blank priority project').c).toBe(0);
+  });
+});
+
 describe('budget/spent preservation on partial update', () => {
   let db;
   beforeEach(() => {

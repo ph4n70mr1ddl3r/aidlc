@@ -528,7 +528,12 @@ router.post('/', kbWriteLimiter, (req, res) => {
   // default the stored value — for tags that means NULLing the stored tags on
   // update, for status it means silently falling back to the default. Absent/
   // empty submissions are allowed and preserve the stored value.
-  for (const field of ['tags', 'status']) {
+  // The REQUIRED columns are guarded too: without it a JSON number in
+  // `title`, `content` or `category` collapsed to '' and was reported as a
+  // MISSING field ("Title, content, and category are required"), while the
+  // matching update route reported the identical submission as "Invalid
+  // request parameters" — a type error masquerading as an absent one.
+  for (const field of ['title', 'content', 'category', 'tags', 'status']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -778,10 +783,16 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // Fail closed on a present-but-non-string tags/status value (e.g. a JSON
   // number or object): trim() coerces it to '', which would silently wipe the
   // stored tags or preserve status with no feedback — inconsistent with the
-  // fail-closed convention applied to every other present-but-invalid field on
-  // this route. Absent/empty submissions are allowed (tags clears / status
+  // fail-closed convention applied to every other present-but-invalid field
+  // on this route. Absent/empty submissions are allowed (tags clears / status
   // falls back to the stored value).
-  for (const field of ['tags', 'status']) {
+  // The REQUIRED columns are guarded too: without it a JSON number in
+  // `title`, `content` or `category` collapsed to '' and was reported as a
+  // MISSING field ("Title, content, and category are required"), while the
+  // sibling required columns on the assets/tickets update routes report the
+  // identical submission as "Invalid request parameters" — a type error
+  // masquerading as an absent one.
+  for (const field of ['title', 'content', 'category', 'tags', 'status']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
