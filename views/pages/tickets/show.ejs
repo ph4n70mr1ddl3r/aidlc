@@ -125,7 +125,7 @@
           <div class="flex items-center gap-2">
             <% if (isPrivileged(user)) { %>
             <label for="is_internal" style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" name="is_internal" id="is_internal" value="1"> Internal note (visible to IT staff only)
+              <input type="checkbox" name="is_internal" id="is_internal" value="1"> Internal note (visible to admins and managers only)
             </label>
             <% } %>
             <button type="submit" class="btn btn-primary" style="margin-left:auto;"><i class="fas fa-paper-plane" aria-hidden="true"></i> Add Comment</button>

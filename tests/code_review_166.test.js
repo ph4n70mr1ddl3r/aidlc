@@ -162,10 +162,16 @@ describe('code review 166: consistency/completeness/correctness', () => {
   });
 
   describe('staff show fetch-first', () => {
-    it('fetches before the privilege check and says "this staff member"', () => {
+    it('fetches before the privilege check and uses the non-enumerating wording', () => {
       const src = readSrc('src/routes/staff.js');
-      expect(src).toContain('You do not have permission to view this staff member.');
-      expect(src.indexOf('_showStaffStmt.get(id)')).toBeLessThan(src.indexOf('view this staff member'));
+      // The show route answers a missing record and a denied record with the
+      // SAME message, so the response cannot be used to confirm that an id
+      // exists (the app-wide convention the changes/knowledge show routes
+      // already follow). The fetch still happens first, so the audit trail
+      // records the record that was actually looked up.
+      expect(src).toContain("req.flash('error', 'Staff member not found');");
+      expect(src).not.toContain('You do not have permission to view this staff member.');
+      expect(src.indexOf('_showStaffStmt.get(id)')).toBeLessThan(src.indexOf('Staff member not found'));
     });
   });
 

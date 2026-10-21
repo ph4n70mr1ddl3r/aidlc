@@ -192,11 +192,15 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 
 - **CSRF protection** on all state-changing requests
 - **Helmet** for security headers (CSP, X-Frame-Options, Referrer-Policy, etc.), plus an explicit `Permissions-Policy` header disabling camera/microphone/geolocation/USB/Bluetooth and other device APIs (helmet v8 dropped its own Permissions-Policy middleware) and a `Cache-Control: no-store` policy on every dynamic response (static assets are served by `express.static` with their own cache headers)
-- **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout), dashboard (10/min), health (30/min), logout (30/15 min per account), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each), staff reactivation (10/min), staff updates (50/15 min), admin password resets (20/15 min), self-service profile updates (30/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), ticket quick-status updates (20/min), ticket satisfaction ratings (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
+- **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout — a successful login clears only the failures recorded for the account that logged in, so one valid account cannot reset the shared per-source brake; the per-source key groups IPv6 clients by /56, exactly as the rate limiter does), dashboard (10/min), health (30/min), logout (30/15 min per account), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each), staff reactivation (10/min), staff updates (50/15 min), admin password resets (20/15 min), self-service profile updates (30/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), ticket quick-status updates (20/min), ticket satisfaction ratings (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
 - **Input validation**: Whitelisted filter values, parameterized queries
+- **Date handling**: the date-only columns (an asset's warranty, a licence's expiry, a project's start/end date) hold the **local** calendar day the user typed, and every horizon computed from them is measured against the local calendar too — the dashboard's 30-day warranty/licence alerts, the asset report's 90-day warranty list and the asset age buckets. An asset therefore never falls outside a window the app itself says it is inside.
+- **Financial data**: a project's budget and spent amount are withheld from viewers who are not admins/managers — the values are removed from the render context, not merely hidden by the template.
+- **Non-enumerating errors**: a record the viewer may not open is reported exactly like a record that does not exist, so a response cannot be used to confirm that an id exists.
 - **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
+- **405 responses** carry a per-resource `Allow` header (the methods the addressed resource actually serves) together with the full security-header and `no-store` set
 - **License-key disclosure**: the plaintext key is never rendered into a page. The show/edit views receive only a `has_license_key` flag and a `****` mask; the full key is reachable exclusively through the audited, rate-limited `POST /licenses/:id/key` endpoint
 - **HTML sanitization** on user-generated markdown content. An article's body
   is rendered as HTML and therefore stored entity-escaped; its **title and tags
@@ -240,6 +244,16 @@ their optional text fields, so the same column never gets two verdicts — a
 manufacturer of `"   "`, a licence note of `"   "` or a vendor contact of
 `"   "` is refused with the same message on create and on update, and
 nothing is written.
+
+A **wrong-typed** value is rejected the same way on both verbs too, and with
+the same message. A JSON number in a name field is a TYPE error — not an
+absent field and not an invalid value — and every route answers it with the
+app-wide `"Invalid request parameters"`. The field-specific wording
+(`"Invalid Manufacturer"`, `"Invalid Description"`, `"Invalid Role"`, …)
+therefore describes what it says: an invalid **value** (a string outside the
+allowlist) or a whitespace-only one. This holds for the enums as well: a
+non-string `role` is a type error, while `"role": "owner"` is an invalid
+value and is reported as `"Invalid Role"`.
 
 The same rule governs the **create** routes: a `POST` that submits a
 present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
@@ -319,10 +333,12 @@ a cap actually drops rows, the list says so with an `(N+)` marker next to the
 row count. The marker is **exact**: a list that holds exactly as many rows as
 its cap is complete and is never marked. (Each capped query fetches one row
 beyond its cap as a truncation probe; the three report pages that show an
-uncapped total instead disclose it as "Showing the top N of M" — the asset
-report's warranty list, the staff report's roster and the ticket report's
-"Top Resolvers" card. The ticket form's Related-Asset dropdown is capped at
-1000 assets and discloses it the same way — "Showing N of M assets".)
+uncapped total instead disclose it with that total — the asset report's
+warranty list ("Showing N of M assets, earliest warranty end date first"),
+the staff report's roster ("Showing the top N of M active staff") and the
+ticket report's "Top Resolvers" card ("Showing the top N of M resolvers").
+The ticket form's Related-Asset dropdown is capped at 1000 assets and
+discloses it the same way — "Showing N of M assets".)
 
 A cap counts the rows the **viewer may see**: the ticket page's comment list
 applies the access predicate in SQL, so a non-privileged viewer's 500-row

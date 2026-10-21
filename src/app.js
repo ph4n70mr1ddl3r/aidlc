@@ -147,7 +147,17 @@ const _DISALLOWED_METHODS = new Set(['TRACE', 'TRACK']);
 // skips OPTIONS), so omitting it made the 405 Allow header inaccurate — the
 // set must list every method the target resource supports (RFC 9110 §10.2.1).
 // The write/route surface is unchanged; only the advertised metadata was wrong.
+//
+// This list is the FALLBACK for a path that matches no registered route (the
+// resource does not exist, so there is nothing more specific to say). For a
+// path that DOES match a route, the header is computed per resource — see
+// _allowedMethodsFor() below — because a global list advertised PUT and DELETE
+// on resources that have neither (e.g. /login advertised a DELETE).
 const _ALLOWED_METHODS = 'GET, HEAD, POST, PUT, DELETE, OPTIONS';
+// The canonical order of the Allow header. HEAD is advertised wherever GET is
+// (Express serves HEAD from the GET route) and OPTIONS wherever the resource
+// has a route at all (Express's automatic OPTIONS handler answers it).
+const _METHOD_ORDER = ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
 const _WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE']);
 // Methods a POST may be overridden to via `_method`. Restricted to the write
 // verbs the app actually uses (PUT/DELETE). An allowlist — rather than passing
@@ -243,6 +253,126 @@ app.use((req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
+// Per-resource Allow header (RFC 9110 §15.5.6)
+// ---------------------------------------------------------------------------
+// A 405 response must list the TARGET RESOURCE's currently supported methods.
+// The table below is derived from the routers' OWN route registrations, so it
+// cannot drift from the routes: every mounted router is scanned for its route
+// layers, and each resulting path pattern is matched against the request path
+// segment by segment (a ':param' segment matches any single segment).
+//
+// The table is built lazily (on the first rejected request) because the
+// routers are mounted after this module's middleware is registered.
+const _mountedRouters = [];
+
+/**
+ * Mount a router and remember its mount prefix, so the Allow header can be
+ * computed per resource later on.
+ * @param {string} prefix - the mount path (e.g. '/tickets')
+ * @param {Function} router - the Express router
+ */
+function mountRouter(prefix, router) {
+  app.use(prefix, router);
+  _mountedRouters.push({ prefix, router });
+}
+
+/**
+ * Match a route pattern against the request path's segments.
+ * @param {string} pattern - e.g. '/tickets/:id/edit'
+ * @param {string[]} segments - the request path's non-empty segments
+ * @returns {boolean}
+ */
+function _routePatternMatches(pattern, segments) {
+  const parts = pattern.split('/').filter(s => s.length > 0);
+  if (parts.length !== segments.length) {
+    return false;
+  }
+  for (let i = 0; i < parts.length; i++) {
+    // A ':param' segment matches any single segment; every other segment must
+    // match literally.
+    if (parts[i].charAt(0) === ':') {
+      continue;
+    }
+    if (parts[i] !== segments[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+let _allowTable = null;
+
+/**
+ * Build the (path pattern → methods) table from the registered routes.
+ * @returns {Array<{pattern: string, methods: string[]}>}
+ */
+function _buildAllowTable() {
+  const table = [];
+  const add = (pattern, methods) => {
+    const list = (methods || []).filter(m => m !== '_all').map(m => m.toUpperCase());
+    if (list.length > 0) {
+      table.push({ pattern, methods: list });
+    }
+  };
+  for (const { prefix, router } of _mountedRouters) {
+    const stack = (router && router.stack) || [];
+    for (const layer of stack) {
+      if (!layer.route || typeof layer.route.path !== 'string') {
+        continue;
+      }
+      const full = (prefix === '/' ? '' : prefix) + layer.route.path;
+      add(full === '' ? '/' : full, Object.keys(layer.route.methods || {}));
+    }
+  }
+  // The routes registered directly on the app (the home redirect, /health,
+  // /favicon.ico and the test-only smoke endpoints).
+  const appStack = (app._router && app._router.stack) || [];
+  for (const layer of appStack) {
+    if (!layer.route || typeof layer.route.path !== 'string') {
+      continue;
+    }
+    add(layer.route.path, Object.keys(layer.route.methods || {}));
+  }
+  return table;
+}
+
+/**
+ * Compute the Allow header value for a request path.
+ *
+ * @param {string} pathname - the request path (no query string)
+ * @returns {string} the comma-separated method list
+ */
+function _allowedMethodsFor(pathname) {
+  if (!_allowTable) {
+    _allowTable = _buildAllowTable();
+  }
+  const segments = String(pathname || '/').split('/').filter(s => s.length > 0);
+  // The union of every route whose pattern matches the path. A resource is
+  // served by several routes that share a pattern — '/tickets/:id' is a GET, a
+  // PUT and a DELETE route — so the methods are collected across all of them.
+  // (Express dispatches each METHOD to the first route that matches it, so
+  // the union is exactly the set of methods the path answers to.)
+  const supported = new Set();
+  for (const entry of _allowTable) {
+    if (_routePatternMatches(entry.pattern, segments)) {
+      for (const m of entry.methods) {
+        supported.add(m);
+      }
+    }
+  }
+  if (supported.size === 0) {
+    // No registered route matches this path — the resource does not exist, so
+    // there is nothing more specific to advertise than the app-wide surface.
+    return _ALLOWED_METHODS;
+  }
+  if (supported.has('GET')) {
+    supported.add('HEAD');
+  }
+  supported.add('OPTIONS');
+  return _METHOD_ORDER.filter(m => supported.has(m)).join(', ');
+}
+
+// ---------------------------------------------------------------------------
 // View engine
 // ---------------------------------------------------------------------------
 app.set('view engine', 'ejs');
@@ -269,7 +399,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use((req, res, next) => {
   if (_DISALLOWED_METHODS.has(req.method)) {
     _applyNoStoreHeaders(res);
-    return res.status(405).set('Allow', _ALLOWED_METHODS).end();
+    return res.status(405).set('Allow', _allowedMethodsFor(req.path)).end();
   }
   next();
 });
@@ -622,6 +752,28 @@ const TEMPLATE_CONSTANTS = Object.freeze({
 
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
+  // The flash is read on EVERY request, which means connect-flash's read path
+  // (`this.session.flash = this.session.flash || {}`) assigns to the session
+  // even when there is nothing to read — so express-session writes the session
+  // and sets the session cookie on every request, including anonymous 404s and
+  // /health. `saveUninitialized: false` therefore has no practical effect.
+  //
+  // That is deliberate, not an oversight: the CSRF token is SESSION-BOUND.
+  // csrf-csrf's HMAC message embeds `getSessionIdentifier(req)`, which this app
+  // sets to `req.sessionID`, and every rendered page embeds the token in a
+  // <meta> tag (views/partials/header.ejs). A client can therefore only
+  // validate a token it fetched earlier if the session id survives between the
+  // two requests — which requires the session to be persisted and its cookie
+  // returned. Materialising the session on every request is what makes that
+  // work for a client that has no session yet.
+  //
+  // Removing the flash read would stop the session from being written, and the
+  // session id would then be regenerated per request — every write would fail
+  // the CSRF check with a 403 (verified). The alternative (issuing CSRF tokens
+  // that are not bound to a session) would weaken the CSRF design, so the
+  // session store's growth is bounded operationally instead: the README
+  // already requires an external SESSION_STORE in production, because the
+  // default MemoryStore never reclaims the entries this behaviour creates.
   res.locals.flash = {
     success: req.flash('success'),
     error: req.flash('error'),
@@ -686,18 +838,18 @@ app.use((req, res, next) => {
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
-app.use('/', authRoutes);
-app.use('/dashboard', dashboardRoutes);
-app.use('/assets', assetsRoutes);
-app.use('/tickets', ticketsRoutes);
-app.use('/projects', projectsRoutes);
-app.use('/staff', staffRoutes);
-app.use('/vendors', vendorsRoutes);
-app.use('/knowledge', knowledgeRoutes);
-app.use('/changes', changesRoutes);
-app.use('/licenses', licensesRoutes);
-app.use('/reports', reportsRoutes);
-app.use('/audit', auditRoutes);
+mountRouter('/', authRoutes);
+mountRouter('/dashboard', dashboardRoutes);
+mountRouter('/assets', assetsRoutes);
+mountRouter('/tickets', ticketsRoutes);
+mountRouter('/projects', projectsRoutes);
+mountRouter('/staff', staffRoutes);
+mountRouter('/vendors', vendorsRoutes);
+mountRouter('/knowledge', knowledgeRoutes);
+mountRouter('/changes', changesRoutes);
+mountRouter('/licenses', licensesRoutes);
+mountRouter('/reports', reportsRoutes);
+mountRouter('/audit', auditRoutes);
 
 // Return 204 No Content for /favicon.ico so the legacy browser fallback
 // request (which some browsers make before honoring the /favicon.svg link)

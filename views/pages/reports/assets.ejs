@@ -56,7 +56,13 @@
 
 <% if (warrantyExpiring.length > 0) { %>
 <div class="card mt-3"><div class="card-header"><h3>Warranty Ending or Expired (90 days)</h3></div><div class="card-body" style="padding:0;">
-  <% if (warrantyCount > warrantyExpiring.length) { %><p class="text-muted text-sm" style="padding:12px;">Showing the soonest <%= warrantyExpiring.length %> of <%= warrantyCount %> assets.</p><% } %>
+  <% // The list is ordered by warranty expiry date ASCENDING, so the rows that
+     // come first are the ones whose warranty ended EARLIEST (already-expired
+     // warranties included — the dashboard makes the same point with its
+     // "expired warranties are more urgent" ordering). The old copy said
+     // "the soonest N of M assets", which described the opposite of the order
+     // the query returns. %>
+  <% if (warrantyCount > warrantyExpiring.length) { %><p class="text-muted text-sm" style="padding:12px;">Showing <%= warrantyExpiring.length %> of <%= warrantyCount %> assets, earliest warranty end date first.</p><% } %>
   <div class="table-responsive"><table>
     <thead><tr><th>Asset</th><th>Name</th><th>Warranty Expiry</th><th>Days Left</th></tr></thead>
     <tbody>    <% warrantyExpiring.forEach(a => { 

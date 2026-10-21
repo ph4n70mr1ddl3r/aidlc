@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, authKeyGenerator, logError } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -401,6 +401,21 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
     return res.redirect(`/licenses/${id}/edit`);
   }
 
+  // Fail closed on a present-but-wrong-typed body field (e.g. a JSON number in
+  // a name field, or a numeric licence key): a wrong TYPE is neither an absent
+  // field nor an invalid VALUE, and the app-wide wording for it is "Invalid
+  // request parameters" — the same sentence the CREATE route reports for the
+  // identical submission. The field-specific wording ("Invalid License Key",
+  // "Invalid Vendor", …) is reserved for the case it describes: a
+  // whitespace-only VALUE.
+  const wrongTypeField = findNonStringField(req.body, [
+    'software_name', 'vendor', 'license_key', 'license_type', 'notes'
+  ]);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+
   const software_name = trim(safeQueryValue(req.body.software_name));
   // Raw body value (NOT trimmed) so an ABSENT software name can be told apart
   // from an explicit empty one — the same raw-vs-processed convention the
@@ -416,21 +431,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   const rawNotes = req.body.notes;
   const vendor = trim(safeQueryValue(req.body.vendor));
   const license_key = trim(safeQueryValue(req.body.license_key));
-  // Fail closed on a present-but-non-string license key (e.g. a numeric JSON
-  // key, which is realistic): trim() coerces it to '', which the resolution
-  // below treats as "blank → preserve existing", so the submitted key would be
-  // silently discarded with a success flash — while the create route rejects
-  // the identical payload. Absent/empty is allowed (preserve / clear via the
-  // explicit clear_key checkbox).
-  if (req.body.license_key !== undefined && req.body.license_key !== null && req.body.license_key !== '' && typeof req.body.license_key !== 'string') {
-    req.flash('error', 'Invalid License Key');
-    return res.redirect(`/licenses/${id}/edit`);
-  }
   // A present-but-whitespace-only key is neither an absent field (preserve) nor
   // an explicit clear (the clear_key checkbox) — it trims to an empty string,
   // so the resolution below silently KEPT THE OLD SECRET while the route
   // flashed "License updated." and the operator's typed value was discarded
   // without any feedback. Reject it like every other present-but-blank value.
+  // A present-but-wrong-typed key is rejected by the findNonStringField guard
+  // above (the app-wide type-error wording) — a numeric licence key is a
+  // realistic submission and used to be silently discarded with a success
+  // flash, because trim() coerced it to '' and the resolution below treats an
+  // empty string as "blank → preserve existing".
   if (typeof req.body.license_key === 'string' && req.body.license_key !== '' && req.body.license_key.trim() === '') {
     req.flash('error', 'Invalid License Key');
     return res.redirect(`/licenses/${id}/edit`);
@@ -452,10 +462,6 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // is required" even though the stored name was perfectly valid. A PRESENT
   // but empty name is still rejected — the column is NOT NULL.
   const softwareNameAbsent = rawSoftwareName === undefined || rawSoftwareName === null;
-  if (rawSoftwareName !== undefined && rawSoftwareName !== null && rawSoftwareName !== '' && typeof rawSoftwareName !== 'string') {
-    req.flash('error', 'Invalid Software Name');
-    return res.redirect(`/licenses/${id}/edit`);
-  }
   if (!softwareNameAbsent && !software_name) {
     req.flash('error', 'Software name is required');
     return res.redirect(`/licenses/${id}/edit`);

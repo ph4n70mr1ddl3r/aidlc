@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, authKeyGenerator, titleCase, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, authKeyGenerator, titleCase, logError } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -451,6 +451,20 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // Fail closed on HTTP parameter pollution arrays for all body fields.
   const hppErrors = rejectHppArrays(req, ['name', 'contact_person', 'email', 'phone', 'address', 'website', 'category', 'notes', 'contract_start', 'contract_end', 'rating']);
   if (hppErrors.length > 0) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/vendors/${id}/edit`);
+  }
+
+  // Fail closed on a present-but-wrong-typed body field (e.g. a JSON number in
+  // a name field): a wrong TYPE is neither an absent field nor an invalid
+  // VALUE, and the app-wide wording for it is "Invalid request parameters" —
+  // the same sentence the CREATE route reports for the identical submission.
+  // The field-specific wording ("Invalid Contact Person", "Invalid Address",
+  // …) is reserved for the case it describes: a whitespace-only VALUE.
+  const wrongTypeField = findNonStringField(req.body, [
+    'name', 'contact_person', 'email', 'address', 'website', 'category', 'notes'
+  ]);
+  if (wrongTypeField) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/vendors/${id}/edit`);
   }

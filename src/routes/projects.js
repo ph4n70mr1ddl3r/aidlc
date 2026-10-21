@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList, isPrivileged } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -210,8 +210,21 @@ router.get('/', (req, res) => {
     LIMIT ? OFFSET ?
   `, [...params, limit, offset]);
 
+  // Money redaction for viewers who may not see it. The templates gate the
+  // budget/spent columns behind isPrivileged(user) — the same
+  // business-sensitivity policy licenses.js applies to cost/seats — but the
+  // values were still handed to the template in the render context, so any
+  // future template change (or a debug dump of the context) would disclose
+  // them. Zeroing them here keeps the render context as strict as the markup,
+  // exactly like the staff directory's email/phone/department redaction and
+  // the username redaction applied to EVERY row.
+  const viewerPrivileged = isPrivileged(req.session.user);
+  const renderedProjects = viewerPrivileged
+    ? projects
+    : projects.map(p => ({ ...p, budget: null, spent: null }));
+
   res.render('pages/projects/index', {
-    title: 'Projects', projects,
+    title: 'Projects', projects: renderedProjects,
     filters: safeFilters(req.query, ['search', 'status', 'priority', 'sort']),
     page, limit, totalPages, total,
     baseUrl: paginationBaseUrl(req)
@@ -444,8 +457,18 @@ router.get('/:id', (req, res) => {
 
   const staff = getActiveStaff(db);
 
+  // Money redaction for viewers who may not see it — the same policy the
+  // projects list applies. The show template gates the budget/spent line
+  // behind isPrivileged(user), but the values were still handed to the
+  // template in the render context; a project OWNER who is not privileged
+  // reached this route, so the amounts were one template change away from
+  // being disclosed to them.
+  const renderedProject = isPrivileged(req.session.user)
+    ? project
+    : { ...project, budget: null, spent: null };
+
   res.render('pages/projects/show', {
-    title: project.name, project, tasks, members, staff,
+    title: project.name, project: renderedProject, tasks, members, staff,
     // Exact truncation flags for the two capped lists (computed from the
     // one-row-beyond-the-cap probe the queries fetch).
     tasksTruncated: tasksCap.truncated,
@@ -534,12 +557,17 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // the fail-closed convention applied to every other present-but-invalid field
   // on this route. Absent/empty submissions are allowed (preserve stored value).
   // Mirrors the changes.js update guard.
-  for (const field of ['status', 'priority']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/projects/${id}/edit`);
-    }
+  //
+  // `description` is guarded here as well: the CREATE route rejects a
+  // wrong-typed description with the app-wide "Invalid request parameters",
+  // while the update route used to answer "Invalid Description" for the
+  // identical submission — the same column, two messages, depending on the
+  // verb. The field-specific wording is now reserved for a whitespace-only
+  // VALUE.
+  const wrongTypeField = findNonStringField(req.body, ['status', 'priority', 'description']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/projects/${id}/edit`);
   }
 
   // Enum resolution — the presence test runs against the RAW submitted value
@@ -848,6 +876,17 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
     req.flash('error', `Description must be at most ${MAX_DESC} characters`);
     return res.redirect(`/projects/${projectId}`);
   }
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching task UPDATE route rejects the identical
+  // value through resolveOptionalField's blank-value guard ("Invalid
+  // Description"), so the create route must not accept it, store NULL and
+  // flash success: the same column, two verdicts.
+  const blankTaskDescription = findBlankTextField(req.body, ['description']);
+  if (blankTaskDescription) {
+    req.flash('error', `Invalid ${titleCase(blankTaskDescription)}`);
+    return res.redirect(`/projects/${projectId}`);
+  }
   // Enum resolution — a present-but-blank task status/priority (a whitespace-
   // only value) is an invalid value, not an omitted one: it used to trim to ''
   // and silently take the create default with a success flash. The task
@@ -1073,16 +1112,21 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // Fail closed on a present-but-non-string enum value (e.g. a JSON number):
   // trim() coerces it to '', which would skip the enum checks below and leave
   // the field silently preserved with a success flash — inconsistent with the
-  // fail-closed convention applied to every other present-but-invalid field on
-  // this route. Absent/empty submissions are allowed (preserve stored value).
+  // fail-closed convention applied to every other present-but-invalid field
+  // on this route. Absent/empty submissions are allowed (preserve stored value).
   // (The quick-status path above already rejects non-string status via a
   // dedicated typeof guard.)
-  for (const field of ['status', 'priority']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/projects/${projectId}`);
-    }
+  //
+  // `description` is guarded here too: the task CREATE route rejects a
+  // wrong-typed description with the app-wide "Invalid request parameters",
+  // while the update route used to answer "Invalid Description" for the
+  // identical submission — the same column, two messages, depending on the
+  // verb. The field-specific wording is now reserved for a whitespace-only
+  // VALUE.
+  const wrongTypeField = findNonStringField(req.body, ['status', 'priority', 'description']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/projects/${projectId}`);
   }
   // A present-but-invalid status is rejected; an absent field means
   // "keep what's stored" (resolved inside the transaction). Mirrors the

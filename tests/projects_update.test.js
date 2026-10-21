@@ -376,7 +376,7 @@ describe('Projects task full-update — rejects non-string description (regressi
     expect(redirectCalls).toEqual(['/projects/1']);
     const errorFlash = flashCalls.find(([t]) => t === 'error');
     expect(errorFlash).toBeDefined();
-    expect(errorFlash[1]).toBe('Invalid Description');
+    expect(errorFlash[1]).toBe('Invalid request parameters');
     expect(stmt.run).not.toHaveBeenCalled();
   });
 });

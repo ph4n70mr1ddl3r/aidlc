@@ -154,23 +154,38 @@ const stmts = {
   // to bound rendering cost on large inventories, so warrantyExpiring.length
   // would undercount. The dashboard uses the same count/list split for its
   // 30-day alert card.
+  //
+  // The horizon is measured against the LOCAL calendar date, not SQLite's UTC
+  // one: `warranty_expiry` is written from an <input type="date">, so it holds
+  // the calendar day the user typed, and daysUntil() renders it against the
+  // local calendar too. `date('now')` is the UTC date, so in a UTC+8
+  // deployment it was yesterday for eight hours of every day — an asset whose
+  // warranty ended on the 90-day horizon (by the app's own arithmetic) fell
+  // outside the query and was missing from both the count and the list.
   warrantyExpiringCount: db.prepare(`
-    SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
+    SELECT COUNT(*) as c FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', 'localtime', '+90 days') AND status != 'disposed'
   `),
   warrantyExpiring: db.prepare(`
-    SELECT name, asset_tag, warranty_expiry FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+90 days') AND status != 'disposed'
+    SELECT name, asset_tag, warranty_expiry FROM assets WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', 'localtime', '+90 days') AND status != 'disposed'
     ORDER BY warranty_expiry ASC, id ASC LIMIT 500
   `),
   // ORDER BY age_group sorts the buckets LEXICOGRAPHICALLY, which puts '< 1 year'
   // LAST (because '<' is ASCII 60, after the digits '1'..'4'). Use an explicit
   // CASE mapping so the buckets appear in natural age order (newest first).
+  //
+  // The age is measured against the LOCAL calendar date, like every other
+  // date-only column in the app: `purchase_date` is written from an <input
+  // type="date">, so it holds the calendar day the user typed. `julianday('now')`
+  // is the current UTC instant, so in a UTC+8 deployment the difference was up
+  // to a day off — an asset bought exactly 365 days ago fell into the '< 1
+  // year' bucket instead of '1-2 years'.
   ageDistribution: db.prepare(`
-    SELECT 
-      CASE 
-        WHEN julianday('now') - julianday(purchase_date) < 365 THEN '< 1 year'
-        WHEN julianday('now') - julianday(purchase_date) < 730 THEN '1-2 years'
-        WHEN julianday('now') - julianday(purchase_date) < 1095 THEN '2-3 years'
-        WHEN julianday('now') - julianday(purchase_date) < 1460 THEN '3-4 years'
+    SELECT
+      CASE
+        WHEN julianday('now', 'localtime') - julianday(purchase_date) < 365 THEN '< 1 year'
+        WHEN julianday('now', 'localtime') - julianday(purchase_date) < 730 THEN '1-2 years'
+        WHEN julianday('now', 'localtime') - julianday(purchase_date) < 1095 THEN '2-3 years'
+        WHEN julianday('now', 'localtime') - julianday(purchase_date) < 1460 THEN '3-4 years'
         ELSE '4+ years'
       END as age_group,
       COUNT(*) as count

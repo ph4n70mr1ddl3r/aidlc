@@ -716,7 +716,7 @@ describe('code review 379 — changes update still rejects a non-string enum', (
 
     updateHandler()(req, res);
 
-    expect(errorFlash(req)).toBe('Invalid Status');
+    expect(errorFlash(req)).toBe('Invalid request parameters');
     expect(db.prepare('SELECT status FROM change_log WHERE id = ?').get(id).status).toBe('scheduled');
   });
 
@@ -727,7 +727,7 @@ describe('code review 379 — changes update still rejects a non-string enum', (
 
     updateHandler()(req, res);
 
-    expect(errorFlash(req)).toBe('Invalid Priority');
+    expect(errorFlash(req)).toBe('Invalid request parameters');
     expect(db.prepare('SELECT priority FROM change_log WHERE id = ?').get(id).priority).toBe('high');
   });
 });

@@ -187,7 +187,7 @@ describe('tickets update — enum fields preserve on absence (regression)', () =
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid Requester Department');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });
@@ -291,7 +291,7 @@ describe('changes update — non-string priority is rejected (regression)', () =
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid Priority');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });
@@ -309,7 +309,7 @@ describe('licenses update — non-string license_key is rejected (regression)', 
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid License Key');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(db.prepare().run).not.toHaveBeenCalled();
     });
   });

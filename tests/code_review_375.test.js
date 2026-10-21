@@ -12,7 +12,7 @@ const { describe, it, expect, beforeAll, afterAll, beforeEach } = require('@jest
 //     app that truncated silently: a period with 14 resolvers rendered 10
 //     names under a heading that implied completeness, while every sibling
 //     capped list says so (the dashboard's exact "(N+)" markers, the asset
-//     report's "Showing the soonest N of M assets.", the staff report's
+//     report's "Showing N of M assets, earliest warranty end date first.", the staff report's
 //     "Showing the top N of M active staff."). The route now also computes
 //     the uncapped resolver count and the page discloses the slice.
 //

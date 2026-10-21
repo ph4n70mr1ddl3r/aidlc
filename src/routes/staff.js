@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, resolveEnumField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS, ASSIGNED_ITEMS_CAP, MEMBER_LIST_CAP } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -320,7 +320,16 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // field while a truthy one (12345) was reported as "Invalid Password" —
   // the same type error, two verdicts, and neither matched the app-wide
   // wording the reset-password route in this very module already uses.
-  for (const field of ['username', 'password', 'email', 'first_name', 'last_name']) {
+  //
+  // `role` is guarded as well: it is an enum, and a non-string role used to
+  // be reported as an invalid VALUE ("Invalid Role") because
+  // resolveEnumField() classifies a non-string as 'invalid'. Every other enum
+  // in the app answers a wrong-typed submission with the app-wide type-error
+  // wording (the project member's role, a change's status/priority, a ticket's
+  // category/priority/status, an article's status), so staff.js was the lone
+  // module where a wrong-typed enum was indistinguishable from an unknown
+  // value. "Invalid Role" now means what it says: an unknown role VALUE.
+  for (const field of ['username', 'password', 'email', 'first_name', 'last_name', 'role']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -484,7 +493,11 @@ router.get('/:id', (req, res) => {
     // attempt against staff PII is exactly the probing the audit log exists
     // to surface (mirrors tickets/assets/projects/changes/knowledge).
     req.audit('access_denied', 'user', id, 'Unauthorized staff profile view attempt');
-    req.flash('error', 'You do not have permission to view this staff member.');
+    // Use the same non-enumerating wording as the 'not found' branch above: a
+    // distinct "you do not have permission" message reveals that the account
+    // ID exists even though the viewer was refused the profile. Mirrors the
+    // changes/knowledge show routes, which answer both branches identically.
+    req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
 
@@ -616,12 +629,19 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // Fail closed on present-but-non-string values (e.g. a JSON number): trim()
   // coerces them to '', which would turn a valid partial update into a
   // spurious "required" error.
-  for (const field of ['email', 'first_name', 'last_name']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/staff/${id}/edit`);
-    }
+  //
+  // `role` is guarded as well: it is an enum, and a non-string role used to
+  // be reported as an invalid VALUE ("Invalid Role") because
+  // resolveEnumField() classifies a non-string as 'invalid'. Every other enum
+  // in the app answers a wrong-typed submission with the app-wide type-error
+  // wording (the project member's role, a change's status/priority, a ticket's
+  // category/priority/status, an article's status), so staff.js was the lone
+  // module where a wrong-typed enum was indistinguishable from an unknown
+  // value. "Invalid Role" now means what it says: an unknown role VALUE.
+  const wrongTypeField = findNonStringField(req.body, ['email', 'first_name', 'last_name', 'role']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/staff/${id}/edit`);
   }
   if ((!emailAbsent && !email) || (!firstNameAbsent && !first_name) || (!lastNameAbsent && !last_name)) {
     req.flash('error', 'Email, first name, and last name are required');

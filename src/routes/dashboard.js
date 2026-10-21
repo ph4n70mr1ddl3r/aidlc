@@ -159,6 +159,16 @@ const stmts = {
   // 30-day glance horizon (vs the report's 90 days) and a tighter list cap —
   // do NOT treat the two queries as interchangeable when changing either.
   //
+  // The horizon is measured against the LOCAL calendar date, not SQLite's UTC
+  // one: `warranty_expiry` is written from an <input type="date">, so it holds
+  // the calendar day the user typed, and daysUntil() renders it against the
+  // local calendar too. `date('now')` is the UTC date, so in a UTC+8 deployment
+  // it was yesterday for eight hours of every day — and the asset whose
+  // warranty expired "in 30 days" (the app's own arithmetic) fell outside the
+  // 30-day horizon, so the alert card undercounted the very assets it was
+  // meant to flag. Mirrors the local-clock comparison the Upcoming Changes
+  // widget already uses (see the comment above upcomingChangesAll).
+  //
   // The query fetches ONE ROW BEYOND the cap (the "+ 1" below): the extra row
   // is the truncation probe, so the "(N+)" marker the list card renders is
   // exact and self-contained. The marker used to be derived from a SECOND
@@ -170,7 +180,7 @@ const stmts = {
   // entirely; the uncapped count is now used ONLY by the alert card.
   expiringWarranties: db.prepare(`
     SELECT id, name, asset_tag, warranty_expiry FROM assets
-    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
+    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', 'localtime', '+30 days')
       AND status != 'disposed'
     ORDER BY warranty_expiry ASC, id ASC
     LIMIT ${_DASH_WARRANTY_LIMIT + 1}
@@ -180,10 +190,11 @@ const stmts = {
   // would undercount when more than the cap qualify — the exact bug class
   // reports.js fixed by splitting warrantyExpiringCount from warrantyExpiring.
   // The count is NOT used to derive the list's truncation marker (the probe
-  // above does that) — it is the number the alert card reports.
+  // above does that) — it is the number the alert card reports. Same local
+  // calendar horizon as the list above — the two must agree exactly.
   expiringWarrantiesCount: db.prepare(`
     SELECT COUNT(*) as c FROM assets
-    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', '+30 days')
+    WHERE warranty_expiry IS NOT NULL AND warranty_expiry <= date('now', 'localtime', '+30 days')
       AND status != 'disposed'
   `),
   // Upcoming changes are VIEWER-SCOPED, so this query is deliberately NOT part
@@ -251,17 +262,18 @@ const stmts = {
   // hide one that did).
   licenseAlerts: db.prepare(`
     SELECT id, software_name, vendor, expiry_date FROM licenses
-    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
+    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', 'localtime', '+30 days')
     ORDER BY expiry_date ASC, id ASC
     LIMIT ${_DASH_LICENSE_ALERTS_LIMIT + 1}
   `),
   // Uncapped COUNT for the alert card number — licenseAlerts.length would
   // undercount past the list cap, exactly like expiringWarranties above.
   // It is NOT used to derive the list's truncation marker (the probe above
-  // does that) — it is the number the alert card reports.
+  // does that) — it is the number the alert card reports. Same local calendar
+  // horizon as the list above — the two must agree exactly.
   licenseAlertsCount: db.prepare(`
     SELECT COUNT(*) as c FROM licenses
-    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', '+30 days')
+    WHERE expiry_date IS NOT NULL AND expiry_date <= date('now', 'localtime', '+30 days')
   `),
   // Only select the columns the dashboard template renders (mirrors recentTickets).
   // Avoid SELECT * so sensitive columns like requester_email/requester_phone are

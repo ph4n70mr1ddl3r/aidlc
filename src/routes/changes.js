@@ -459,7 +459,17 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // the assets/tickets update routes report the identical submission as
   // "Invalid request parameters", so the guard has to run BEFORE the
   // required-field check to be reached at all.
-  for (const field of ['title', 'change_type']) {
+  //
+  // The OPTIONAL columns and the enums are guarded here too, so the update
+  // route reports the identical wrong-typed submission the CREATE route
+  // reports: the create route's guard covers title, change_type, description,
+  // impact, priority and status and answers "Invalid request parameters" for
+  // every one of them, while the update route used to answer "Invalid
+  // Description"/"Invalid Impact"/"Invalid Status"/"Invalid Priority" — the
+  // same column, two messages, depending on the verb. The field-specific
+  // wording is now reserved for the case it describes: an invalid VALUE (a
+  // string outside the allowlist) or a whitespace-only VALUE.
+  for (const field of ['title', 'change_type', 'description', 'impact', 'priority', 'status']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');

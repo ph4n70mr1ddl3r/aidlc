@@ -164,7 +164,10 @@ describe('code review 370 — auth router audit wiring + 405 header parity', () 
     it('answers 405 with the Allow header and the full helmet + no-store header set', async () => {
       const res = await request('TRACE', '/health');
       expect(res.status).toBe(405);
-      expect(res.headers.allow).toBe('GET, HEAD, POST, PUT, DELETE, OPTIONS');
+      // Per-resource Allow header (RFC 9110 §15.5.6): /health serves GET
+      // (and therefore HEAD) plus OPTIONS — the app-wide list used to
+      // advertise POST/PUT/DELETE on a read-only endpoint.
+      expect(res.headers.allow).toBe('GET, HEAD, OPTIONS');
       // helmet() headers — the 405 used to be the only response without them.
       expect(res.headers['content-security-policy']).toBeTruthy();
       expect(res.headers['x-frame-options']).toBeTruthy();
@@ -190,7 +193,7 @@ describe('code review 370 — auth router audit wiring + 405 header parity', () 
       // produce a server error.
       expect(res.status).toBeLessThan(500);
       if (res.status === 405) {
-        expect(res.headers.allow).toBe('GET, HEAD, POST, PUT, DELETE, OPTIONS');
+        expect(res.headers.allow).toBe('GET, HEAD, OPTIONS');
         expect(res.headers['content-security-policy']).toBeTruthy();
         expect(res.headers['cache-control']).toBe('no-store, must-revalidate, private');
       }
@@ -205,6 +208,29 @@ describe('code review 370 — auth router audit wiring + 405 header parity', () 
       const after = db.prepare('SELECT COUNT(*) AS c FROM audit_log').get().c;
       expect(after).toBe(before);
       expect(res.headers['set-cookie']).toBeUndefined();
+    });
+
+    it('advertises the methods of the addressed RESOURCE, not one global list', async () => {
+      // RFC 9110 §15.5.6: a 405 response must list the target resource's
+      // currently supported methods. The header used to be one global list,
+      // which advertised PUT and DELETE on resources that have neither.
+      const cases = [
+        // request path               expected Allow header
+        ['/', 'GET, HEAD, OPTIONS'],
+        ['/login', 'GET, HEAD, POST, OPTIONS'],
+        ['/profile', 'GET, HEAD, PUT, OPTIONS'],
+        ['/dashboard', 'GET, HEAD, OPTIONS'],
+        ['/tickets', 'GET, HEAD, POST, OPTIONS'],
+        ['/tickets/1', 'GET, HEAD, PUT, DELETE, OPTIONS'],
+        ['/tickets/1/edit', 'GET, HEAD, OPTIONS'],
+        ['/tickets/1/comments', 'POST, OPTIONS'],
+        ['/audit', 'GET, HEAD, OPTIONS']
+      ];
+      for (const [urlPath, expected] of cases) {
+        const res = await request('TRACE', urlPath);
+        expect(res.status).toBe(405);
+        expect(res.headers.allow).toBe(expected);
+      }
     });
 
     it('sends the Permissions-Policy header on ordinary responses too', async () => {

@@ -314,6 +314,46 @@ function findBlankTextField(source, fields) {
 }
 
 /**
+ * Find the first field whose submitted value is PRESENT BUT NOT A STRING.
+ *
+ * A wrong-typed body field is a TYPE error, not an absent one and not an
+ * invalid VALUE: the field was submitted, but it is not text. The app-wide
+ * wording for a type error is "Invalid request parameters" — the same
+ * sentence every create route has always used for it.
+ *
+ * The UPDATE routes used to report a wrong-typed optional text field with
+ * the FIELD-SPECIFIC wording their blank-value twin uses ("Invalid
+ * Manufacturer", "Invalid Description", …), so the same column produced two
+ * different messages depending on the verb — the create route said
+ * "Invalid request parameters" for the identical submission and the update
+ * route said "Invalid Manufacturer". Every such route now runs this guard
+ * BEFORE it resolves the field, so the type error is reported app-wide and
+ * the field-specific wording is reserved for the case it describes: a
+ * whitespace-only VALUE.
+ *
+ * The test runs against the RAW submitted value, never the trimmed one:
+ * an empty string is a legitimate "not submitted" on a form (an empty input
+ * posts ''), and a non-string value is caught here rather than by the
+ * field's own validator.
+ *
+ * @param {Object} source - the raw req.body object
+ * @param {string[]} fields - the field names to test, in reporting order
+ * @returns {string|null} the offending field name, or null when none is wrong-typed
+ */
+function findNonStringField(source, fields) {
+  if (!source || typeof source !== 'object' || !Array.isArray(fields)) {
+    return null;
+  }
+  for (const field of fields) {
+    const v = source[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      return field;
+    }
+  }
+  return null;
+}
+
+/**
  * Add LIKE search conditions safely.
  * Column names are validated against a safe pattern to prevent SQL injection.
  *
@@ -1604,6 +1644,11 @@ module.exports = {
   // of resolveOptionalField's blank-value guard and therefore accepted a
   // value their sibling UPDATE route rejects.
   findBlankTextField,
+  // Detect a present-but-wrong-typed submission (a TYPE error, reported
+  // app-wide as "Invalid request parameters"). Used by the UPDATE routes so
+  // a wrong-typed body field produces the same message its sibling CREATE
+  // route produces for the identical submission.
+  findNonStringField,
   // Shared per-account rate-limit key (user id, normalized-IP fallback). Used by
   // every authenticated-route limiter so one NAT'd office IP cannot exhaust a
   // shared budget; authenticate-then-limit paths continue to be IP-keyed.

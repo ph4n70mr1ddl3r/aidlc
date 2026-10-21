@@ -448,9 +448,18 @@ router.get('/', kbReadLimiter, (req, res) => {
 
   const qCategory = safeQueryValue(req.query.category);
   const qStatus = safeQueryValue(req.query.status);
+  // The status filter must apply exactly the statuses the CONTROL offers for
+  // this viewer. The knowledge index's status dropdown offers 'published' only
+  // to a non-privileged viewer (a draft or archived article is readable only
+  // by its author and by admins/managers), so accepting 'draft'/'archived'
+  // here applied a filter the control could not represent: the dropdown
+  // displayed "All Status" while the list was filtered — a filter the viewer
+  // could neither see nor clear. Mirrors the changes index, which hides the
+  // assignee control it cannot offer to a scoped viewer.
+  const statusFilter = isPrivileged(req.session.user) ? VALID_STATUSES : ['published'];
   const filters = buildFilters({
     'k.category': { value: VALID_CATEGORIES.includes(qCategory) ? qCategory : '' },
-    'k.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' }
+    'k.status': { value: statusFilter.includes(qStatus) ? qStatus : '' }
   }, ['k.category', 'k.status']);
 
   const where = [...filters.where];
@@ -711,10 +720,15 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // behind the stored one (the first-ever view of an article rendered
   // "0 views" while the row already read 1).
   let viewCount = article.views;
-  if (!req.session || !req.session[VIEWED_KEY]) {
+  // The per-session "already viewed" set. The guard must cover the WRITE as
+  // well as the read: the previous `if (!req.session || !req.session[VIEWED_KEY])
+  // { req.session[VIEWED_KEY] = []; }` anticipated a missing session but then
+  // assigned a property on it, which throws a TypeError and turns a show
+  // request into a 500. The set is simply skipped when there is no session.
+  const viewed = (req.session && req.session[VIEWED_KEY]) || [];
+  if (req.session && !req.session[VIEWED_KEY]) {
     req.session[VIEWED_KEY] = [];
   }
-  const viewed = req.session[VIEWED_KEY];
   if (!viewed.includes(id) && req.session.user && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       const result = _viewCountStmt.run(id);

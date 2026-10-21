@@ -80,7 +80,7 @@ describe('tickets update — requester_email absent-preserve (pass 364)', () => 
       requester_email: 42
     });
     expect(redirectCalls).toHaveLength(1);
-    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid Requester Email')).toBe(true);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid request parameters')).toBe(true);
   });
 
   it('still rejects an explicit empty requester_email (required field)', () => {

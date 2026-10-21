@@ -201,22 +201,22 @@ describe('changes update — JSON non-string description is rejected instead of 
     });
   });
 
-  it('rejects {"description": 123} with "Invalid Description" and no UPDATE', () => {
+  it('rejects {"description": 123} with the app-wide type error and no UPDATE', () => {
     const h = lastHandlerFor(changesRouter, 'put', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, {
       title: 'Title', change_type: 'maintenance', status: 'scheduled', description: 123
     }, { id: '1' });
     expect(redirectCalls).toEqual(['/changes/1/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid Description');
+    expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 
-  it('rejects {"impact": {}} with "Invalid Impact" and no UPDATE', () => {
+  it('rejects {"impact": {}} with the app-wide type error and no UPDATE', () => {
     const h = lastHandlerFor(changesRouter, 'put', '/:id');
     const { flashCalls } = runHandler(h, {
       title: 'Title', change_type: 'maintenance', status: 'scheduled', impact: { a: 1 }
     }, { id: '1' });
-    expect(errorFlash(flashCalls)).toBe('Invalid Impact');
+    expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 });
@@ -239,7 +239,7 @@ describe('vendors — JSON non-string optional fields fail closed', () => {
     const h = lastHandlerFor(vendorsRouter, 'put', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, { name: 'Acme', email: 123 }, { id: '1' });
     expect(redirectCalls).toEqual(['/vendors/1/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid Email');
+    expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 

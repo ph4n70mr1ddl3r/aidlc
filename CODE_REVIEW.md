@@ -15389,3 +15389,226 @@ fixes verified end-to-end against that live server).
 - `npm run test:coverage` — global thresholds pass (statements 76.13%,
   branches 75.62%, functions 87.53%, lines 76.14%).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-22 (381st pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+nine defect classes. Six of them are the SAME COLUMN, THE SAME VALUE, TWO
+VERDICTS contract mismatch the previous passes have been closing for 381
+cycles — this time the *message* half of it, not the accept/reject half —
+and the rest are a clock, a disclosure boundary and a copy/header accuracy
+problem.
+
+1. **`POST /projects/:id/tasks` accepted a whitespace-only description the
+   task UPDATE route rejects** (MEDIUM, consistency — fixed). Pass 380
+   closed the "present-but-whitespace-only optional text value" class on
+   every CREATE route, but the task-create *sub-route* was missed: it trims
+   the description to `''`, stores `NULL` and flashes "Task added.", while
+   `PUT /projects/:projectId/tasks/:taskId` rejects the identical value
+   through `resolveOptionalField`'s blank-value guard with "Invalid
+   Description". The same column, two verdicts, on the same form. Fix: the
+   task create route now applies the shared `findBlankTextField()` test to
+   its one optional text field and reports the same message its update
+   route uses.
+
+2. **A wrong-TYPED body field answered with a FIELD-SPECIFIC message on the
+   UPDATE routes and with the app-wide one on the matching CREATE routes**
+   (MEDIUM, consistency — fixed). `PUT /changes/:id` answered "Invalid
+   Status"/"Invalid Priority"/"Invalid Description"/"Invalid Impact" for a
+   JSON number, while `POST /changes` answered "Invalid request parameters"
+   for the identical submission — and the create route's own comment
+   demanded exactly the opposite (*"priority and status are included so
+   BOTH verbs of this route report the identical submission the same way"*).
+   The same split existed on the ticket route ("Invalid Title", "Invalid
+   Requester Name", "Invalid Requester Email"), the asset route ("Invalid
+   Manufacturer", "Invalid Notes", …), the licence route ("Invalid Vendor",
+   "Invalid License Key", …), the vendor route ("Invalid Email", …), the
+   knowledge route ("Invalid Tags") and the project/task routes ("Invalid
+   Description"). A wrong TYPE is not an invalid VALUE and not an absent
+   field; the app-wide wording for it is "Invalid request parameters",
+   which every CREATE route already used. Fix: a new shared
+   `findNonStringField()` helper (the counterpart of `findBlankTextField()`)
+   runs on every UPDATE route before the fields are resolved, so a
+   wrong-typed submission is reported app-wide on both verbs. The
+   field-specific wording is now reserved for the case it describes — an
+   invalid VALUE (a string outside the allowlist) or a whitespace-only one.
+
+3. **`staff.js` was the only module whose enum was outside the wrong-type
+   guard** (LOW-MEDIUM, consistency — fixed). A non-string `role` was
+   reported as "Invalid Role", so a wrong TYPE was indistinguishable from
+   an unknown VALUE. Every other enum in the app (the project member's
+   role, a change's status/priority, a ticket's category/priority/status,
+   an article's status) answers a wrong-typed submission with the app-wide
+   type-error wording. Fix: `role` joins the type guard on both verbs, so
+   "Invalid Role" now means what it says.
+
+4. **The date-only horizons were measured against SQLite's UTC clock while
+   the columns hold the LOCAL calendar day** (MEDIUM, correctness —
+   fixed). `assets.warranty_expiry` and `licenses.expiry_date` are written
+   from an `<input type="date">`, and the app renders them with
+   `daysUntil()`, which is explicitly local — but the dashboard's 30-day
+   warranty/licence horizons, the asset report's 90-day warranty horizon
+   and its age buckets all compared them with `date('now')` (UTC). In a
+   UTC+8 deployment `date('now')` is *yesterday* for eight hours of every
+   day, so the asset whose warranty ends "in 30 days" by the app's own
+   arithmetic fell outside the 30-day horizon and the alert card
+   undercounted the very assets it exists to flag. Pass 377 fixed exactly
+   this for the change-log widget (`strftime(..., 'now', 'localtime')`); the
+   date-only columns were missed. Fix: the five predicates now use
+   `date('now', 'localtime', …)` / `julianday('now', 'localtime')`, and the
+   list and count queries share the identical horizon.
+
+5. **The projects list and show routes handed the budget/spent columns to
+   EVERY viewer** (MEDIUM-LOW, disclosure hygiene — fixed). The templates
+   gate the money behind `isPrivileged(user)`, but the values were still in
+   the render context — and a project *owner* who is not privileged reaches
+   the show route, so the amounts were one template change away from being
+   disclosed to them. The staff directory already takes the stricter
+   approach (the email/phone/department redaction zeroes the columns in the
+   render context, not just in the markup). Fix: the list and the show
+   route now null the two money columns for an unprivileged viewer.
+
+6. **The knowledge list applied a status filter its control could not
+   represent** (LOW-MEDIUM, UI/state — fixed). The status dropdown offers
+   only 'published' to an unprivileged viewer (a draft/archived article is
+   readable by its author and by admins/managers), yet the route accepted
+   any valid status — so `?status=draft` filtered the list while the
+   dropdown displayed "All Status": a filter the viewer could neither see
+   nor clear. Fix: the route applies exactly the statuses the control
+   offers for that viewer, mirroring the changes index (which hides the
+   assignee control it cannot offer to a scoped viewer).
+
+7. **The assets and staff show routes turned a refusal into an existence
+   oracle** (LOW-MEDIUM, consistency — fixed). A denied view answered "You
+   do not have permission to view this …" while a missing record answered
+   "… not found", so the pair revealed that the id exists. The changes and
+   knowledge show routes already answer both branches identically (the
+   route's own comment says why). Fix: the assets and staff show routes now
+   use the same non-enumerating wording.
+
+8. **The per-IP login lockout was keyed by the RAW address and cleared by
+   ANY successful login from it** (LOW-MEDIUM, security — fixed). The
+   login *rate limiter* groups IPv6 clients by /56
+   (`ipKeyGenerator(normalizeIp(req.ip))`), but the *lockout* map was keyed
+   by the raw normalized address, so an IPv6 host with a /64 could rotate
+   addresses to reset the brake while the limiter still counted it as one
+   client. And the shared per-IP counter was wiped wholesale by any
+   successful login from that address, so one valid account (or the
+   attacker's own account) could reset the brake and keep guessing other
+   accounts five at a time. Fix: the lockout map is keyed with the same
+   IPv6-aware source key, and the per-IP entry now tracks a per-account
+   tally, so a successful login clears only the failures recorded for the
+   account that logged in.
+
+9. **The 405 response advertised one global method list** (LOW, RFC
+   correctness — fixed). RFC 9110 §15.5.6 requires a 405 to list the
+   TARGET RESOURCE's supported methods; the app answered every rejected
+   request with "GET, HEAD, POST, PUT, DELETE, OPTIONS", advertising a
+   PUT and a DELETE on `/login` and a POST/PUT/DELETE on `/dashboard` — and
+   contradicting the code's own comment (*"the set must list every method
+   the target resource supports"*). Fix: the header is computed per
+   resource from the routers' own route registrations (a lazily built
+   path-pattern → methods table), so it cannot drift from the routes:
+   `/login` → "GET, HEAD, POST, OPTIONS", `/tickets/1` → "GET, HEAD, PUT,
+   DELETE, OPTIONS", `/tickets/1/comments` → "POST, OPTIONS".
+
+### Considered and rejected
+- **"Stop materialising a session on every request."** connect-flash's read
+  path assigns to the session even when there is nothing to read, so the
+  session is written (and the cookie set) on every request — which makes
+  `saveUninitialized: false` a no-op and grows the default MemoryStore
+  without bound. Removing the flash read was implemented and measured, and
+  it breaks every write: the CSRF token is SESSION-BOUND (csrf-csrf's HMAC
+  message embeds `getSessionIdentifier(req)`, which this app sets to
+  `req.sessionID`), and every rendered page embeds the token in a `<meta>`
+  tag, so the session id must survive between the request that issues the
+  token and the request that validates it. Without a persisted session the
+  id is regenerated per request and every write fails the CSRF check with a
+  403. The behaviour is therefore deliberate and is now documented at the
+  flash read; the session store's growth is bounded operationally instead
+  (the README already requires an external `SESSION_STORE` in production,
+  because the default MemoryStore never reclaims the entries).
+
+### Fixes applied
+1. `src/routes/projects.js` — the task create route rejects a
+   present-but-whitespace-only description with the same message its update
+   route uses; the project list and the project show route withhold the
+   budget/spent columns from an unprivileged viewer; the project and task
+   update routes report a wrong-typed body field with the app-wide wording.
+2. `src/routes/tickets.js`, `changes.js`, `assets.js`, `licenses.js`,
+   `vendors.js`, `staff.js` — every UPDATE route now runs the shared
+   `findNonStringField()` guard, so a wrong-typed submission answers
+   "Invalid request parameters" on both verbs; the staff route's `role`
+   joins the type guard; the assets and staff show routes use the
+   non-enumerating wording.
+3. `src/routes/dashboard.js`, `reports.js` — the warranty/licence horizons
+   and the age buckets are measured against the local calendar.
+4. `src/routes/knowledge.js` — the status filter applies only the statuses
+   the control offers for the viewer; the per-session "already viewed" set
+   no longer dereferences a missing session.
+5. `src/routes/auth.js` — the per-IP lockout is keyed with the IPv6-aware
+   source key and a successful login clears only its own account's
+   failures.
+6. `src/app.js` — the 405 `Allow` header is computed per resource from the
+   registered routes; the session-materialisation behaviour is documented.
+7. `src/utils.js` — new `findNonStringField()` helper.
+8. `views/pages/reports/assets.ejs` — the truncation disclosure no longer
+   claims the list is ordered "soonest" when the query orders the earliest
+   warranty end date first (the sibling report pages' comments and the
+   README were updated to match).
+9. `views/pages/tickets/show.ejs` — the internal-note checkbox says what
+   the route enforces ("visible to admins and managers only"); the label
+   promised visibility to "IT staff", who can never read an internal note.
+10. `README.md` — the partial-update section documents the wrong-type
+    contract, the Security section documents the local-calendar horizons,
+    the money redaction, the non-enumerating errors and the per-resource
+    `Allow` header, and the list-cap section quotes the asset report's
+    actual disclosure wording.
+
+### Regression tests added
+- `tests/code_review_381.test.js` — 32 tests driving the REAL route handlers
+  and the REAL schema against an in-memory SQLite database: the task create
+  route refuses a whitespace-only description (and the task update route
+  refuses the identical value with the same message); a wrong-typed field
+  answers "Invalid request parameters" on both verbs of the changes,
+  tickets, assets, licences, vendors, projects and task routes, while an
+  unknown enum VALUE keeps its field-specific message; the staff route
+  reports a wrong-typed role as a type error and an unknown role as
+  "Invalid Role"; the dashboard's and the report's date horizons are
+  measured locally and an asset on the local 30-day boundary is inside the
+  dashboard's window; the projects list and show route withhold the money
+  columns from an unprivileged viewer and still deliver them to a
+  privileged one; the knowledge list ignores a status its control does not
+  offer for an unprivileged viewer and applies it for a privileged one; the
+  assets and staff show routes answer a denial exactly like a missing
+  record; and a successful login does not clear another account's failures
+  at the same source, while the per-source key groups IPv6 clients by their
+  /56 prefix.
+- `tests/code_review_370.test.js` — the 405 now advertises the methods of
+  the addressed RESOURCE (nine paths pinned), not one global list.
+
+### Existing tests updated
+- `tests/code_review_114.test.js`, `code_review_140.test.js`,
+  `code_review_141.test.js`, `code_review_362.test.js`,
+  `code_review_364.test.js`, `code_review_379.test.js`,
+  `projects_update.test.js` — the pins that asserted a field-specific
+  message for a wrong-TYPED submission now assert the app-wide
+  "Invalid request parameters" (the values they submit are unchanged, so
+  the fail-closed behaviour is still pinned — only the wording moved).
+- `tests/code_review_166.test.js` — the staff show route's "fetch-first"
+  pin now asserts the non-enumerating wording (the same message for a
+  missing record and a denied one) instead of the permission-specific
+  sentence.
+- `tests/code_review_361.test.js` — the 405 `Allow` pin expects the
+  per-resource list.
+- `tests/code_review_375.test.js` — the asset report's disclosure wording
+  in the comment block follows the template.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1773 passed / 1773 total** (103 suites, +33 from #380).
+- `npm run test:coverage` — global thresholds pass (statements 76.43%,
+  branches 75.34%, functions 88.26%, lines 76.42%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

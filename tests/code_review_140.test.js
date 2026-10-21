@@ -115,7 +115,7 @@ describe('assets update preserves absent optional text fields (regression)', () 
     });
   });
 
-  it('a present non-string notes value is rejected as Invalid Notes, not a server error', () => {
+  it('a present non-string notes value is rejected as a type error, not a server error', () => {
     db.prepare().get.mockReturnValue({ ...CURRENT_ASSET });
     jest.isolateModules(() => {
       const router = require('../src/routes/assets');
@@ -124,7 +124,7 @@ describe('assets update preserves absent optional text fields (regression)', () 
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid Notes');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(redirectCalls).toEqual(['/assets/1/edit']);
     });
   });
@@ -200,7 +200,7 @@ describe('tickets update preserves absent description/resolution_notes (regressi
     });
   });
 
-  it('a present non-string description is rejected as Invalid Description', () => {
+  it('a present non-string description is rejected as a type error', () => {
     jest.isolateModules(() => {
       const router = require('../src/routes/tickets');
       const { req, res, flashCalls, redirectCalls } = buildReqRes(
@@ -208,7 +208,7 @@ describe('tickets update preserves absent description/resolution_notes (regressi
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid Description');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(redirectCalls).toEqual(['/tickets/1/edit']);
     });
   });
@@ -229,7 +229,7 @@ describe('licenses update maps INVALID_ sentinels to validation flashes (regress
     db.transaction.mockImplementation((fn) => fn);
   });
 
-  it('a non-string vendor value flashes "Invalid Vendor", not the generic server error', () => {
+  it('a non-string vendor value flashes the app-wide type error, not the generic server error', () => {
     // Regression: the update transaction threw INVALID_VENDOR /
     // INVALID_LICENSE_TYPE / INVALID_NOTES but the catch block never handled
     // them, surfacing a client validation error as "Error updating license.
@@ -241,7 +241,7 @@ describe('licenses update maps INVALID_ sentinels to validation flashes (regress
         { id: '1' }
       );
       lastHandlerFor(router, 'put', '/:id')(req, res, () => {});
-      expect(errorFlash(flashCalls)).toBe('Invalid Vendor');
+      expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
       expect(redirectCalls).toEqual(['/licenses/1/edit']);
     });
   });

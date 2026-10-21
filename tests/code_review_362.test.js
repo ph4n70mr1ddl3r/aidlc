@@ -83,7 +83,7 @@ describe('tickets update — requester_name absent-preserve + non-string guard (
       requester_email: 'bob@x.com', requester_name: 42
     });
     expect(redirectCalls).toHaveLength(1);
-    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid Requester Name')).toBe(true);
+    expect(flashCalls.some(([t, m]) => t === 'error' && m === 'Invalid request parameters')).toBe(true);
   });
 
   it('still rejects an explicit empty requester_name (required field)', () => {

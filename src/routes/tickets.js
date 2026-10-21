@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE, COMMENT_LIST_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -720,6 +720,24 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
+  // Fail closed on a present-but-wrong-typed body field (e.g. a JSON number
+  // in a name field): a wrong TYPE is neither an absent field nor an invalid
+  // VALUE, and the app-wide wording for it is "Invalid request parameters" —
+  // the same sentence the CREATE route reports for the identical submission.
+  // The field-specific wording ("Invalid Title", "Invalid Description", …) is
+  // reserved for the case it describes: a whitespace-only VALUE. Without this
+  // guard the same column produced two different messages depending on the
+  // verb (the create route said "Invalid request parameters", the update route
+  // said "Invalid Title").
+  const wrongTypeField = findNonStringField(req.body, [
+    'title', 'category', 'priority', 'status', 'description', 'resolution_notes',
+    'requester_name', 'requester_email', 'requester_department'
+  ]);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}/edit`);
+  }
+
   const title = trim(safeQueryValue(req.body.title));
   // Raw body values (NOT trimmed) are needed to distinguish an ABSENT optional
   // text field (partial submission — preserve stored value) from an explicit
@@ -776,13 +794,6 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // empty title is still rejected — the column is NOT NULL and an empty title
   // has no valid meaning.
   const titleAbsent = rawTitle === undefined || rawTitle === null;
-  // Fail closed on a present-but-non-string title (e.g. a JSON number):
-  // trim() coerces it to '', which would turn it into either a spurious
-  // "required" error or a silent wipe. Mirrors the requester_name guard.
-  if (rawTitle !== undefined && rawTitle !== null && rawTitle !== '' && typeof rawTitle !== 'string') {
-    req.flash('error', 'Invalid Title');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
   if (!titleAbsent && !title) {
     req.flash('error', 'Title is required');
     return res.redirect(`/tickets/${id}/edit`);
@@ -796,22 +807,7 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}/edit`);
   }
 
-  // Fail closed on a present-but-non-string enum value (e.g. a JSON number or
-  // object): trim() coerces it to '', which would skip the enum checks below
-  // and leave the field silently preserved with a success flash — inconsistent
-  // with the fail-closed convention applied to every other present-but-invalid
-  // field on this route. Absent/empty submissions are allowed (preserve stored
-  // value), so this only rejects a value that is neither an intended enum
-  // member nor "no opinion". Mirrors the changes.js update guard.
-  for (const field of ['category', 'priority', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
-  }
-
-  // Validate enum fields — validate-when-present, the convention used by the
+  // Enum fields are validated when present — the convention used by the
   // assets/projects/task update routes: a present value must be a member of
   // the allowlist; an ABSENT field (partial API submission) preserves the
   // stored value, resolved inside the transaction below. Previously all three
@@ -828,6 +824,10 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   //     NULL, so an empty value has no valid meaning (the same rule the
   //     required title column follows);
   //   - 'absent'                    → the stored value is preserved.
+  //
+  // A wrong-TYPED value (a JSON number) is rejected by the findNonStringField
+  // guard above, so the checks below only ever see a string: a value outside
+  // the allowlist is an invalid VALUE and keeps its field-specific message.
   const categoryEnum = resolveEnumField(req.body.category, VALID_CATEGORIES);
   const priorityEnum = resolveEnumField(req.body.priority, VALID_PRIORITIES);
   const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
@@ -867,14 +867,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
   // requester_name preserves the stored value instead of wiping it to '', and
   // an explicit empty string is rejected as a required-field miss (the create
   // route and the edit form both require a non-empty name, so an empty value
-  // has no valid meaning). Fail closed on a present-but-non-string value
-  // (JSON number/object): trim() would coerce it to '' and the wipe/require
-  // checks would misfire — the same fail-closed guard the enum fields above
-  // apply.
-  if (rawRequesterName !== undefined && rawRequesterName !== null && rawRequesterName !== '' && typeof rawRequesterName !== 'string') {
-    req.flash('error', 'Invalid Requester Name');
-    return res.redirect(`/tickets/${id}/edit`);
-  }
+  // has no valid meaning). A present-but-non-string value (JSON number/object)
+  // is rejected by the findNonStringField guard above.
   const requesterNameAbsent = rawRequesterName === undefined || rawRequesterName === null;
   if (!requester_name) {
     // Absent on a partial submission preserves the stored value (resolved
@@ -892,13 +886,8 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
     // Same absent-vs-empty rule as requester_name and every sibling optional
     // field: an ABSENT email on a partial API PUT preserves the stored value,
     // while a present empty string is rejected because the email is required
-    // (the create route and edit form both require it). Fail closed on a
-    // present-but-non-string value so trim() cannot coerce it to '' and turn
-    // it into either a spurious "required" error or a silent wipe.
-    if (rawRequesterEmail !== undefined && rawRequesterEmail !== null && rawRequesterEmail !== '' && typeof rawRequesterEmail !== 'string') {
-      req.flash('error', 'Invalid Requester Email');
-      return res.redirect(`/tickets/${id}/edit`);
-    }
+    // (the create route and edit form both require it). A present-but-non-
+    // string value is rejected by the findNonStringField guard above.
     const requesterEmailAbsent = rawRequesterEmail === undefined || rawRequesterEmail === null;
     if (!requester_email) {
       if (!requesterEmailAbsent) {

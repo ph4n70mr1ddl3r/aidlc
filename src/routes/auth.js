@@ -208,15 +208,21 @@ function recordLoginFailure(username, ip) {
   }
   loginFailures.set(safe, entry);
 
-  // Record per-IP failure
+  // Record per-IP failure. The entry also tracks WHICH accounts failed from
+  // this source (a per-account tally), so a successful login can clear only
+  // its OWN failures — see clearIpLoginFailure.
   if (ip) {
     purgeStaleEntries(ipLoginFailures);
 
     let ipEntry = ipLoginFailures.get(ip);
     if (!ipEntry) {
-      ipEntry = { count: 0, lockedUntil: null, lastAttempt: null };
+      ipEntry = { count: 0, lockedUntil: null, lastAttempt: null, accounts: new Map() };
+    }
+    if (!ipEntry.accounts) {
+      ipEntry.accounts = new Map();
     }
     ipEntry.count++;
+    ipEntry.accounts.set(safe, (ipEntry.accounts.get(safe) || 0) + 1);
     ipEntry.lastAttempt = Date.now();
     if (ipEntry.count >= MAX_LOGIN_FAILURES) {
       ipEntry.lockedUntil = Date.now() + LOGIN_LOCKOUT_MINUTES * 60 * 1000;
@@ -233,11 +239,44 @@ function clearLoginFailure(username) {
   loginFailures.delete(username.toLowerCase());
 }
 
-function clearIpLoginFailure(ip) {
+/**
+ * Clear the per-IP login-failure record.
+ *
+ * With a `username`, only THAT account's failures are cleared: the IP counter
+ * is shared by every account behind the address, and clearing it wholesale on
+ * any successful login let an attacker reset the IP-level brake at will (log
+ * in with one valid account, then keep guessing other accounts five at a
+ * time). Only the failures the account itself recorded are removed.
+ *
+ * Without a `username` the whole IP record is dropped (used to reset state).
+ *
+ * @param {string} ip - the lockout map key (the IPv6-aware source key)
+ * @param {string} [username] - the account whose failures should be cleared
+ */
+function clearIpLoginFailure(ip, username) {
   if (!ip || typeof ip !== 'string') {
     return;
   }
-  ipLoginFailures.delete(ip);
+  const entry = ipLoginFailures.get(ip);
+  if (!entry) {
+    return;
+  }
+  if (!username || typeof username !== 'string') {
+    ipLoginFailures.delete(ip);
+    return;
+  }
+  const safe = username.toLowerCase();
+  const failures = entry.accounts && entry.accounts.get(safe);
+  if (!failures) {
+    // This account has no recorded failures at this source — leave the other
+    // accounts' failures (and any active lockout) untouched.
+    return;
+  }
+  entry.accounts.delete(safe);
+  entry.count = Math.max(0, entry.count - failures);
+  if (entry.count < MAX_LOGIN_FAILURES) {
+    entry.lockedUntil = null;
+  }
 }
 
 function _purgeStaleEntriesFromMap(map, now, staleThreshold) {
@@ -326,10 +365,14 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const passwordForCompare = typeof password === 'string' ? password : '';
 
   const safeUsername = usernameForCompare.toLowerCase();
-  // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
+  // The lockout map is keyed by the SAME IPv6-aware source key the login rate
+  // limiter uses (ipKeyGenerator over the normalized address), so the two
+  // mechanisms agree on what "one client" means. Keyed by the raw address
+  // before, an IPv6 host with a /64 could rotate through 2^8 addresses and
+  // reset the per-IP brake while the limiter still counted it as one client.
   // Guard against req.ip being an array (e.g. from HPP on X-Forwarded-For)
   // — falling through to a non-string key would serialize oddly in the lockout map.
-  const clientIp = normalizeIp(req.ip);
+  const clientIp = ipKeyGenerator(normalizeIp(req.ip));
   const user = _getLoginStmt().get(safeUsername);
 
   // Always perform a bcrypt comparison to prevent username enumeration via timing
@@ -385,9 +428,11 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // Update last login
   _getUpdateLastLoginStmt().run(user.id);
 
-  // Clear any login failure tracking for this account and IP
+  // Clear the login-failure tracking for this account, and for this account's
+  // failures at this source. The IP-level record for OTHER accounts behind the
+  // same address is deliberately left alone (see clearIpLoginFailure).
   clearLoginFailure(safeUsername);
-  clearIpLoginFailure(clientIp);
+  clearIpLoginFailure(clientIp, safeUsername);
 
   // Store user in session (without password) — regenerate session to prevent fixation
   // password intentionally excluded from session via destructuring

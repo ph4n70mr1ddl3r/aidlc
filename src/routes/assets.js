@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -448,7 +448,11 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, asset)) {
     req.audit('access_denied', 'asset', id, `Unauthorized view attempt on asset ${asset.asset_tag}`);
-    req.flash('error', 'You do not have permission to view this asset.');
+    // Use the same non-enumerating wording as the 'not found' branch above: a
+    // distinct "you do not have permission" message reveals that the asset ID
+    // exists even though the viewer was refused the record. Mirrors the
+    // changes/knowledge show routes, which answer both branches identically.
+    req.flash('error', 'Asset not found');
     return res.redirect('/assets');
   }
 
@@ -532,6 +536,24 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     return res.redirect(`/assets/${id}/edit`);
   }
 
+  // Fail closed on a present-but-wrong-typed body field (e.g. a JSON number in
+  // a name field): a wrong TYPE is neither an absent field nor an invalid
+  // VALUE, and the app-wide wording for it is "Invalid request parameters" —
+  // the same sentence the CREATE route reports for the identical submission.
+  // The field-specific wording ("Invalid Manufacturer", "Invalid Notes", …) is
+  // reserved for the case it describes: a whitespace-only VALUE. Without this
+  // guard the same column produced two different messages depending on the
+  // verb (the create route said "Invalid request parameters", the update route
+  // said "Invalid Manufacturer").
+  const wrongTypeField = findNonStringField(req.body, [
+    'asset_tag', 'name', 'category', 'manufacturer', 'model', 'serial_number',
+    'status', 'condition_rating', 'location', 'notes'
+  ]);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+
   const asset_tag = trim(safeQueryValue(req.body.asset_tag));
   const name = trim(safeQueryValue(req.body.name));
   const category = trim(safeQueryValue(req.body.category));
@@ -575,14 +597,8 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // Fail closed on present-but-non-string values (e.g. a JSON number): trim()
   // coerces them to '', which would silently become a "required" error rather
   // than the specific invalid-value error the sibling guards report. Absent and
-  // empty submissions are allowed (absent ⇒ preserve).
-  for (const field of ['asset_tag', 'name', 'category']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/assets/${id}/edit`);
-    }
-  }
+  // empty submissions are allowed (absent ⇒ preserve). A wrong-typed value is
+  // rejected by the findNonStringField guard above.
   if ((!assetTagAbsent && !asset_tag) || (!nameAbsent && !name) || (!categoryAbsent && !category)) {
     req.flash('error', 'Asset tag, name, and category are required');
     return res.redirect(`/assets/${id}/edit`);
@@ -623,20 +639,11 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
     req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect(`/assets/${id}/edit`);
   }
-  // Fail closed on a present-but-non-string condition/status value (e.g. a JSON
-  // number or object): trim() coerces it to '', which would skip the enum
-  // checks below and silently preserve the stored value with a success flash —
-  // inconsistent with the fail-closed convention applied to every other
-  // present-but-invalid field on this route. Absent/empty submissions are
-  // allowed (preserve stored value). (category is required-and-validated below,
-  // so a non-string already fails as 'Invalid category'.)
-  for (const field of ['condition_rating', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/assets/${id}/edit`);
-    }
-  }
+  // A present-but-non-string condition/status value is rejected by the
+  // findNonStringField guard above (the app-wide type-error wording), so the
+  // enum checks below only ever see a string: a value outside the allowlist
+  // is an invalid VALUE and keeps its field-specific message. Absent/empty
+  // submissions are allowed (preserve stored value).
   if (!categoryAbsent && !VALID_CATEGORIES.includes(category)) {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/assets/${id}/edit`);

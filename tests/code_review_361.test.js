@@ -211,6 +211,9 @@ describe('code review 361: oversized body renders the styled error page', () => 
       sock.on('error', reject);
     });
     expect(raw).toMatch(/^HTTP\/1\.1 405/);
-    expect(raw).toContain('Allow: GET, HEAD, POST, PUT, DELETE, OPTIONS');
+    // The Allow header lists the TARGET RESOURCE's methods (RFC 9110
+    // §15.5.6), so the home redirect advertises only what it serves:
+    // GET (and therefore HEAD) plus OPTIONS — not a global POST/PUT/DELETE.
+    expect(raw).toContain('Allow: GET, HEAD, OPTIONS');
   });
 });
