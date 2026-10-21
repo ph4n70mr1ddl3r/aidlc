@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -78,9 +78,16 @@ const _projectUpdateStmt = db.prepare(`
   `);
 
 // Cached prepared statements for task routes
+// The INSERT derives `completed_at` from the RESOLVED status: a task created
+// directly in the 'done' state must carry a completion timestamp, exactly
+// like the UPDATE routes' `completed_at = CASE WHEN ? THEN COALESCE(...)
+// ELSE NULL END` and the ticket create route's `resolved_at`. Without it the
+// create path was the only producer of a row that claimed to be done with
+// no completion time — a state the UPDATE route considered impossible (a
+// later PUT backfilled the column, so the same task could hold both).
 const _taskInsertStmt = db.prepare(`
-    INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN datetime('now') ELSE NULL END)
   `);
 const _taskExistsStmt = db.prepare('SELECT id, project_id, title, description, status, priority, assigned_to, due_date, completed_at, created_at, updated_at FROM project_tasks WHERE id = ? AND project_id = ?');
 const _taskQuickStatusStmt = db.prepare(`
@@ -260,6 +267,20 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
     req.flash('error', 'Project name is required');
     return res.redirect('/projects/new');
   }
+
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Description"),
+  // so the create route must not accept it, store NULL and flash success:
+  // the same column, two verdicts.
+  const blankField = findBlankTextField(req.body, ['description']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/projects/new');
+  }
+
   if (name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Project name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/projects/new');
@@ -878,7 +899,11 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
       const result = _taskInsertStmt.run(projectId, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null,
         createTaskStatusEnum.state === 'valid' ? createTaskStatusEnum.value : 'todo',
         createTaskPriorityEnum.state === 'valid' ? createTaskPriorityEnum.value : 'medium',
-        safeTaskAssignee, safeDueDate);
+        safeTaskAssignee, safeDueDate,
+        // The completion timestamp is derived from the resolved status, so a
+        // task created as 'done' carries one (the column is derived, never
+        // taken from the request).
+        createTaskStatusEnum.state === 'valid' ? createTaskStatusEnum.value : 'todo');
 
       return result.lastInsertRowid;
     });
@@ -1025,7 +1050,12 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
   // rejected — the column is NOT NULL.
   const titleAbsent = rawTitle === undefined || rawTitle === null;
   if (rawTitle !== undefined && rawTitle !== null && rawTitle !== '' && typeof rawTitle !== 'string') {
-    req.flash('error', 'Invalid Task Title');
+    // The app-wide wording for a wrong-typed value. The task CREATE route in
+    // this very module already reports the identical submission as "Invalid
+    // request parameters", and the enum fields on this route do too — the
+    // bespoke "Invalid Task Title" wording made the same type error read
+    // differently depending on the verb.
+    req.flash('error', 'Invalid request parameters');
     return res.redirect(`/projects/${projectId}`);
   }
   if (!titleAbsent && !title) {
@@ -1292,6 +1322,14 @@ router.post('/:id/members', requireAdminOrManager, projectWriteLimiter, (req, re
     // (lead / member / stakeholder) — the fallback cannot escalate
     // anything. A present-but-blank or unknown role is still rejected: it is
     // neither an absent field nor an allowlisted value.
+    // A present-but-non-string role is a TYPE error: it is reported with the
+    // app-wide "Invalid request parameters" wording every other create route
+    // uses for a wrong-typed body field, not with the enum-specific wording a
+    // wrong VALUE gets.
+    if (req.body.role !== undefined && req.body.role !== null && req.body.role !== '' && typeof req.body.role !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${id}`);
+    }
     const roleEnum = resolveEnumField(req.body.role, VALID_MEMBER_ROLES);
     if (roleEnum.state === 'blank' || roleEnum.state === 'invalid') {
       req.flash('error', 'Invalid Role');

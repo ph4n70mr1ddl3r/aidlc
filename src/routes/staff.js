@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, resolveEnumField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS, ASSIGNED_ITEMS_CAP, MEMBER_LIST_CAP } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -222,17 +222,24 @@ router.get('/', (req, res) => {
   // else gets them zeroed out before rendering. last_login and avatar are
   // zeroed too — the email/phone/department redaction only controls what the
   // index template renders today, so any future template change reviving a
-  // column would leak the data. The username is zeroed for the same reason:
-  // it is the login identifier (half of the credential pair) and the
+  // column would leak the data. Use a shallow copy per row to avoid mutating
+  // the DB query result objects in-place — a mutated row object could leak
+  // through a cache or middleware.
+  //
+  // The username is zeroed for EVERY row, including the privileged viewer's
+  // own: it is the login identifier (half of the credential pair) and the
   // directory does not render it at all, so keeping it in the render context
-  // only risks a future template change disclosing it. Use a shallow copy per
-  // row to avoid mutating the DB query result objects in-place — a mutated
-  // row object could leak through a cache or middleware.
+  // only risks a future template change disclosing it. The README documents
+  // that a manager cannot open the edit form of a manager or admin account —
+  // so a manager's directory render context must not carry the login
+  // identifier of an account the manager cannot read anywhere else. The
+  // privileged branch used to keep it, which contradicted the comment it
+  // sat under.
   const renderedStaff = staff.map(s => {
-    if (viewerPrivileged || Number(s.id) === Number(viewer.id)) {
-      return { ...s };
-    }
-    return { ...s, email: null, phone: null, department: null, last_login: null, avatar: null, username: null };
+    const base = (viewerPrivileged || Number(s.id) === Number(viewer.id))
+      ? { ...s }
+      : { ...s, email: null, phone: null, department: null, last_login: null, avatar: null };
+    return { ...base, username: null };
   });
 
   res.render('pages/staff/index', {
@@ -282,7 +289,6 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
-  const role = trim(safeQueryValue(req.body.role));
   const department = trim(safeQueryValue(req.body.department));
   // Fail closed on a present-but-non-string department (e.g. a JSON number):
   // trim() coerces it to '', which would silently store NULL — the same
@@ -308,9 +314,13 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // reported as a MISSING field ("All required fields must be filled in"),
   // while the matching update route reported the identical submission as
   // "Invalid request parameters" — a type error masquerading as an absent
-  // one. (The role is an enum: a non-string value is reported as "Invalid
-  // Role" by the USER_ROLES check below, exactly as on the update route.)
-  for (const field of ['username', 'email', 'first_name', 'last_name']) {
+  // one. The password is guarded for the same reason: the truthiness test
+  // below ("All required fields must be filled in") ran BEFORE the type test,
+  // so a FALSY non-string password (0, false) was reported as a missing
+  // field while a truthy one (12345) was reported as "Invalid Password" —
+  // the same type error, two verdicts, and neither matched the app-wide
+  // wording the reset-password route in this very module already uses.
+  for (const field of ['username', 'password', 'email', 'first_name', 'last_name']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -382,11 +392,27 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     req.flash('error', pwError);
     return res.redirect('/staff/new');
   }
-  if (!USER_ROLES.includes(role)) {
+  // Enum resolution — the role column is `NOT NULL DEFAULT 'staff'`, so an
+  // ABSENT role takes the schema's documented default (exactly like every
+  // other entity's create route: a project without a status is 'planning',
+  // a ticket without a priority is 'medium', a project member without a role
+  // is 'member'). The route used to REQUIRE the role instead, so an API
+  // client that submitted only the required fields was refused with "Invalid
+  // Role" while every sibling entity accepted the same omission. The route's
+  // own required-field check never listed the role — it reads "All required
+  // fields must be filled in" for username/password/email/first/last name —
+  // so the field was never actually required, only accidentally so.
+  //
+  // The presence test runs against the RAW submitted value, so a
+  // present-but-blank/empty/unknown role is rejected rather than silently
+  // defaulting. The column is NOT NULL, so an empty value has no valid
+  // meaning either.
+  const createRoleEnum = resolveEnumField(req.body.role, USER_ROLES);
+  if (createRoleEnum.state === 'blank' || createRoleEnum.state === 'invalid' || createRoleEnum.state === 'empty') {
     req.flash('error', 'Invalid Role');
     return res.redirect('/staff/new');
   }
-
+  const role = createRoleEnum.state === 'valid' ? createRoleEnum.value : 'staff';
   // Only admins can create privileged accounts (manager/admin). Managers must
   // not be able to escalate privileges by creating new manager accounts.
   if (role !== 'staff' && req.session.user.role !== 'admin') {
@@ -404,7 +430,14 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
       first_name.substring(0, MAX_SHORT_STR),
       last_name.substring(0, MAX_SHORT_STR),
       role,
-      (department || '').substring(0, MAX_SHORT_STR) || null,
+      // The `department` column carries the schema default 'IT'. The insert
+      // statement always writes the column explicitly, so the default could
+      // never fire: a staff member created without a department landed in
+      // NULL, rendered as "-" in the directory and matched by NO department
+      // filter (the filter query excludes NULL departments). An absent
+      // (or empty) department now takes the documented default, exactly like
+      // every other entity's absent create field.
+      (department || 'IT').substring(0, MAX_SHORT_STR),
       phone ? phone.substring(0, MAX_PHONE) : null
     );
 

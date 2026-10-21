@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, isPrivileged, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, isPrivileged, logError } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -218,8 +218,12 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // numbers/objects): trim() coerces them to '', which would silently store
   // NULL — the same fail-closed convention the update route enforces via
   // resolveOptionalField's error sentinel. Mirrors the vendors.js create guard.
-  // priority is included because the enum check below is validate-when-present:
-  // a non-string collapses to '' and would silently fall back to the default.
+  // priority and status are included so BOTH verbs of this route report the
+  // identical submission the same way ("Invalid request parameters"): the
+  // enum check below classifies a non-string as 'invalid' (it never collapses
+  // to ''), so without this guard the create route said "Invalid request
+  // parameters" while the update route said "Invalid Status"/"Invalid
+  // Priority" for the same payload.
   // The REQUIRED columns are guarded too: without it a JSON number in `title`
   // or `change_type` collapsed to '' and was reported as a MISSING field
   // ("Title and change type are required"), while the matching update route
@@ -232,11 +236,24 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
       return res.redirect('/changes/new');
     }
   }
-
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
     return res.redirect('/changes/new');
   }
+
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Description",
+  // "Invalid Impact"), so the create route must not accept it, store NULL and
+  // flash success: the same column, two verdicts.
+  const blankField = findBlankTextField(req.body, ['description', 'impact']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/changes/new');
+  }
+
   if (title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/changes/new');

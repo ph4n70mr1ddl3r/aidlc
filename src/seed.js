@@ -414,8 +414,16 @@ function _seedTransaction(db, seedAdminPw, seedStaffPw) {
     // seed produced three rows that claimed to have been created and updated
     // days AFTER the seed ran — the same contradiction the completed rows
     // had (a record created after the event it records), just on the other
-    // side of the clock. Every seeded row now satisfies
-    // created_at <= updated_at <= scheduled_start.
+    // side of the clock.
+    //
+    // The invariant every seeded row satisfies is created_at <= updated_at.
+    // The SCHEDULED rows additionally satisfy updated_at <= scheduled_start
+    // (the record was last touched before the window it describes opened);
+    // the COMPLETED rows satisfy updated_at == actual_end instead, because a
+    // completed change was last touched when it finished — which is by
+    // definition at or after its scheduled start, so the two orderings are
+    // mutually exclusive and the earlier wording of this comment (a single
+    // invariant covering both) was wrong for the completed rows.
     const changes = [
       { title: 'Firewall Rule Update - Block New Threat IPs', description: 'Update firewall rules to block newly identified threat actor IP ranges.', change_type: 'security', status: 'completed', priority: 'critical', scheduled_start: changeAt(-30, '02:00'), scheduled_end: changeAt(-30, '03:00'), actual_start: changeAt(-30, '02:00'), actual_end: changeAt(-30, '02:35'), created_at: changeAt(-32, '09:00'), updated_at: changeAt(-30, '02:35'), impact: 'No user impact expected', assigned_to: 6 },
       { title: 'Exchange Server Patching', description: 'Install latest security patches for on-prem Exchange servers.', change_type: 'maintenance', status: 'scheduled', priority: 'high', scheduled_start: changeAt(5, '22:00'), scheduled_end: changeAt(6, '02:00'), created_at: changeAt(-1, '08:00'), updated_at: changeAt(-1, '08:00'), impact: 'Email may be unavailable for up to 30 minutes during failover', assigned_to: 6 },

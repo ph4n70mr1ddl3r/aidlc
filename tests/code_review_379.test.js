@@ -378,7 +378,12 @@ describe('code review 379 — a name cell rendered as one string is searchable a
     const res = makeRes();
     lastHandlerFor(staffRouter, 'get', '/')(req, res);
 
-    expect(res.rendered.locals.staff.map(s => s.username)).toEqual(['ada']);
+    // The row is identified by the name the directory renders. The username
+    // itself is redacted from the render context for EVERY row (the directory
+    // renders it for nobody) — pass 380 widened pass 373's redaction from
+    // "other users" to "everybody", so the row is asserted by name.
+    expect(res.rendered.locals.staff.map(s => `${s.first_name} ${s.last_name}`)).toEqual(['Ada Lovelace']);
+    expect(res.rendered.locals.staff.map(s => s.username)).toEqual([null]);
   });
 
   it('finds a change by the assignee name the row renders', () => {
@@ -517,7 +522,7 @@ describe('code review 379 — POST /staff department validation', () => {
     expect(db.prepare('SELECT COUNT(*) as c FROM users').get().c).toBe(0);
   });
 
-  it('still accepts an absent department (stored as NULL)', async () => {
+  it('still accepts an absent department (stored as the schema default)', async () => {
     const req = writeReq(baseBody());
     const res = makeRes();
 
@@ -525,7 +530,12 @@ describe('code review 379 — POST /staff department validation', () => {
 
     expect(errorFlash(req)).toBeNull();
     const row = db.prepare("SELECT department FROM users WHERE username = 'newuser'").get();
-    expect(row.department).toBeNull();
+    // `users.department` is `TEXT DEFAULT 'IT'`. The create route writes the
+    // column explicitly, so the schema default could never fire and an
+    // absent department landed in NULL — rendered as "-" in the directory
+    // and matched by NO department filter. Pass 380 applies the documented
+    // default instead, like every other entity's absent create field.
+    expect(row.department).toBe('IT');
   });
 
   it('still accepts a real department', async () => {

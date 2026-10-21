@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, authKeyGenerator, logError } = require('../utils');
 const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -205,11 +205,26 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       return res.redirect('/licenses/new');
     }
   }
-
   if (!software_name) {
     req.flash('error', 'Software name is required');
     return res.redirect('/licenses/new');
   }
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Vendor",
+  // "Invalid License Key", "Invalid Notes"), so the create route must not
+  // accept it and store NULL with a success flash. For the licence key that
+  // was the worst case: the operator was told the licence (and its key) was
+  // created while the secret was silently dropped, and the reveal control
+  // never appeared because `has_license_key` stayed false.
+  const blankField = findBlankTextField(req.body, ['vendor', 'license_key', 'notes']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/licenses/new');
+  }
+
   if (software_name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Software name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/licenses/new');

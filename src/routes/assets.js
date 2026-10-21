@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
@@ -134,17 +134,25 @@ router.get('/', (req, res) => {
   // OptiPlex 7090"), so the search matches their CONCATENATION: searching
   // the two columns separately left the text the user could see unfindable
   // ("Dell OptiPlex" matched nothing, while "Dell" and "OptiPlex" each did).
+  //
+  // The "Assigned To" cell renders the assignee's name as ONE string
+  // ("<first> <last>"), so it is matched the same way — the name the user
+  // reads off the page can be typed back in to find the row. The same rule
+  // the project/knowledge/change lists already follow for their name cells.
   addSearch(where, params, safeQueryValue(req.query.search), [
     'a.asset_tag',
     'a.location',
     'a.condition_rating',
-    { concat: ['a.manufacturer', 'a.name'] }
+    { concat: ['a.manufacturer', 'a.name'] },
+    { concat: ['u.first_name', 'u.last_name'] }
   ]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
-  const total = countQuery(db, 'assets', 'a', whereClause, params);
+  // The count query needs the same JOIN as the list query: the search now
+  // covers the assignee's name, which lives in the joined users table.
+  const total = countQuery(db, 'assets', 'a', whereClause, params, 'LEFT JOIN users u ON a.assigned_to = u.id');
   const totalPages = Math.ceil(total / limit) || 1;
   // Clamp the requested page to the actual page count so a page beyond the
   // last one (e.g. ?page=999) renders the final page instead of an empty list
@@ -224,11 +232,25 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       return res.redirect('/assets/new');
     }
   }
-
   if (!name || !category) {
     req.flash('error', 'Name and category are required');
     return res.redirect('/assets/new');
   }
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Manufacturer"),
+  // so the create route must not accept it, store NULL and flash success:
+  // the same column, two verdicts. The app-wide rule the README documents
+  // ("a whitespace-only value ... is rejected like any other invalid value")
+  // applies to the create verb exactly as it does to the update verb.
+  const blankField = findBlankTextField(req.body, ['manufacturer', 'model', 'serial_number', 'location', 'notes']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/assets/new');
+  }
+
   if (name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Asset name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/assets/new');

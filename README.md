@@ -233,6 +233,14 @@ against the trimmed one: a whitespace-only value is neither an absent field
 other invalid value instead of being silently ignored. This applies to enum
 fields exactly as it does to free text.
 
+A present-but-whitespace-only **free-text** value is rejected the same way on
+both verbs. The `PUT` routes enforce it through the shared
+`resolveOptionalField()` helper; the `POST` routes apply the same test to
+their optional text fields, so the same column never gets two verdicts — a
+manufacturer of `"   "`, a licence note of `"   "` or a vendor contact of
+`"   "` is refused with the same message on create and on update, and
+nothing is written.
+
 The same rule governs the **create** routes: a `POST` that submits a
 present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
 an article's, a change's or a project's status, a task's status) is rejected,
@@ -240,9 +248,10 @@ exactly as the matching `PUT` rejects it. An absent field still takes the
 documented default — a project created without a `status` is `planning` and
 without a `priority` is `medium`, like every other entity's default (a
 ticket created without a `priority` is `medium`, without a `status` is
-`open`; a project member added without a `role` is `member`). A value of the
-wrong **type** (a JSON number in a name field, say) is an invalid value, not
-a missing one, and is reported as such.
+`open`; a project member added without a `role` is `member`; a staff member
+created without a `role` is `staff` and without a `department` is `IT`). A
+value of the wrong **type** (a JSON number in a name field, say) is an
+invalid value, not a missing one, and is reported as such.
 
 An explicit empty string clears a nullable optional field, with two documented
 exceptions:
@@ -277,15 +286,22 @@ fully readable by the viewer:
   search matches the same truncated prefix. A cell that renders two columns
   together is searched as the concatenation it displays: the asset list
   shows "<manufacturer> <name>" in one cell, so the search matches
-  "Dell OptiPlex 7090" and not "Dell" or "OptiPlex" alone. The same rule
-  applies to every name cell the app renders as one string — the project
-  card's owner, the knowledge list's author, the staff directory's name
-  column and the change list's "Assigned To" column are all searched as
+  "Dell OptiPlex 7090". (Every search in the app is a substring match, so
+  "Dell" and "OptiPlex" still match that cell as well — the concatenation
+  exists so the text the user can read is *findable*, not so the halves stop
+  matching.) The same rule applies to every name cell the app renders as one
+  string — the project card's owner, the knowledge list's author, the staff
+  directory's name column, the asset and ticket lists' "Assigned To" columns
+  and the change list's "Assigned To" column are all searched as
   "<first> <last>", so the name a user reads off the page can be typed back
   in to find the row.
 - the **change** and **knowledge** lists are scoped to the viewer, so a
   non-rendered column (a change's description, an article's body) stays
-  searchable — every row in the result set is readable in full.
+  searchable — every row in the result set is readable in full. An article's
+  body is the one column the app stores **entity-escaped** (it is rendered
+  as HTML), so its search matches the text the reader actually sees
+  ("R&D budget") as well as the escaped form it is stored in
+  ("R&amp;D budget").
 - the **staff** directory redacts a row's email, phone and department for
   viewers who may not see them, so those columns are not searchable for them
   and the department filter is offered to privileged viewers only. The

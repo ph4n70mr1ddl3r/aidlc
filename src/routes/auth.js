@@ -301,12 +301,31 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const username = safeQueryValue(req.body.username);
   const password = safeQueryValue(req.body.password);
 
-  if (!username || typeof username !== 'string' || !password) {
+  // A MISSING credential is reported as such. The absence test is an
+  // explicit comparison, not a truthiness test: a present-but-falsy
+  // non-string credential (0, false) is a TYPE error, not an absent one, and
+  // must not be reported as a missing field.
+  const usernameMissing = username === undefined || username === null || username === '';
+  const passwordMissing = password === undefined || password === null || password === '';
+  if (usernameMissing || passwordMissing) {
     req.flash('error', 'Please enter username and password.');
     return res.redirect('/login');
   }
+  // A present-but-non-string credential is a type error: it is rejected with
+  // the route's own "Invalid Login Credentials" wording — the same verdict a
+  // wrong password gets — instead of being reported as a missing field or
+  // reaching bcrypt.compare (which THROWS "Illegal arguments" on a non-string
+  // and turned a client error into "An error occurred during login" plus a
+  // server-side log entry).
+  //
+  // The comparison still runs, against the empty string, so the constant-time
+  // username-enumeration defence below is unchanged: the early return is a
+  // TYPE test, not a length test, and it reveals nothing about the account.
+  const credentialTypesValid = typeof username === 'string' && typeof password === 'string';
+  const usernameForCompare = typeof username === 'string' ? username : '';
+  const passwordForCompare = typeof password === 'string' ? password : '';
 
-  const safeUsername = username.toLowerCase();
+  const safeUsername = usernameForCompare.toLowerCase();
   // Normalize IP: strip IPv6-mapped prefix for consistent lockout tracking.
   // Guard against req.ip being an array (e.g. from HPP on X-Forwarded-For)
   // — falling through to a non-string key would serialize oddly in the lockout map.
@@ -323,7 +342,7 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   const hashToCompare = (user && user.password) ? user.password : DUMMY_HASH;
   let passwordMatch;
   try {
-    passwordMatch = await bcrypt.compare(password, hashToCompare);
+    passwordMatch = await bcrypt.compare(passwordForCompare, hashToCompare);
   } catch (err) {
     // bcrypt.compare can throw on unexpected input (e.g. malformed hash, OOM).
     logError('bcrypt.compare error during login:', err);
@@ -335,6 +354,13 @@ router.post('/login', loginRateLimiter, asyncHandler(async (req, res) => {
   // compare to avoid reintroducing a timing oracle. An oversized username or
   // password cannot match, so rejecting here is fail-closed.
   if (typeof password !== 'string' || Buffer.byteLength(password, 'utf8') > MAX_PASSWORD_BYTES || safeUsername.length > MAX_USERNAME) {
+    req.flash('error', 'Invalid Login Credentials');
+    return res.redirect('/login');
+  }
+
+  // The wrong-TYPE verdict, reached only after the constant-time comparison
+  // above (so it leaks nothing about the account).
+  if (!credentialTypesValid) {
     req.flash('error', 'Invalid Login Credentials');
     return res.redirect('/login');
   }
@@ -535,6 +561,21 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   const last_name = trim(safeQueryValue(req.body.last_name));
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
   const rawPhone = safeQueryValue(req.body.phone);
+  // Fail closed on a present-but-non-string REQUIRED column (e.g. a JSON
+  // number in `first_name`): trim() coerces it to '', so the required-field
+  // check below reported the type error as a MISSING field ("First name, last
+  // name, and email are required"), while the sibling staff route reported
+  // the identical submission as "Invalid request parameters" — a type error
+  // masquerading as an absent one. The app-wide rule the README documents
+  // ("A value of the wrong type ... is an invalid value, not a missing one,
+  // and is reported as such") applies here too.
+  for (const field of ['first_name', 'last_name', 'email']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/profile');
+    }
+  }
   // Absent-vs-present markers for the required profile fields. An ABSENT
   // field in a partial API submission preserves the stored value; a PRESENT
   // field must carry a valid value. The phone field on this route already
@@ -678,6 +719,10 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       req.flash('error', 'An account with this email address already exists');
     } else {
+      // Every other catch block in the app logs the underlying error (the
+      // shared logError helper). This one swallowed it, so a genuine DB
+      // failure was indistinguishable from a routine rejection in the logs.
+      logError('Profile update error:', err);
       req.flash('error', 'Error updating profile. Please try again.');
     }
   }
@@ -696,6 +741,19 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   const current_password = safeQueryValue(req.body.current_password);
   const new_password = safeQueryValue(req.body.new_password);
   const confirm_password = safeQueryValue(req.body.confirm_password);
+
+  // Fail closed on a present-but-non-string password (e.g. a JSON number):
+  // it is a type error, not a missing field, so it is reported with the
+  // app-wide "Invalid request parameters" instead of the "… is required"
+  // wording a genuinely absent field gets. The sibling reset-password route
+  // in staff.js already reports the identical submission this way.
+  for (const field of ['current_password', 'new_password', 'confirm_password']) {
+    const v = req.body[field];
+    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect('/profile');
+    }
+  }
 
   if (!current_password) {
     req.flash('error', 'Current password is required.');

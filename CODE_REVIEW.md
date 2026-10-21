@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-21 (378th pass)
+**Date:** 2026-10-22 (380th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (377 consecutive hardening reviews) was
+`npm audit`. Prior review history (379 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -15092,4 +15092,300 @@ a live seeded server).
 - `npm test` — **1704 passed / 1704 total** (101 suites, +35 from #378).
 - `npm run test:coverage` — global thresholds pass (statements 75.80%,
   branches 75.10%, functions 87.57%, lines 75.81%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-22 (380th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+ten defect classes. Nine of them are the same contract mismatch the previous
+passes have been closing for 380 cycles — the SAME COLUMN, THE SAME VALUE,
+TWO VERDICTS — and the tenth is a search surface that did not cover the text
+the reader can actually see.
+
+1. **`POST /staff` REFUSED an absent `role` while every sibling entity took
+   its documented default** (MEDIUM, consistency — fixed). The route read
+   the role through `trim()` and tested `USER_ROLES.includes(role)`, so an
+   absent role collapsed to `''` and the request was rejected with "Invalid
+   Role". But:
+
+   - `users.role` is `TEXT NOT NULL DEFAULT 'staff'`
+     (`src/models/database.js:106`) — the column *has* a documented default;
+   - the route's own required-field check never listed the role (it reads
+     "All required fields must be filled in" for username/password/email/
+     first/last name), so the field was never actually required, only
+     accidentally so; and
+   - the README's create-route paragraph states the rule the code did not
+     implement: *"An absent field still takes the documented default."*
+
+   The 379th pass closed exactly this gap on the ticket route (an absent
+   `priority` → `medium`) and the 378th on the project route; the staff
+   route — the one entity whose create form also carries a `role` selector —
+   was left behind. An API client that submitted only the required fields
+   was refused on staff and accepted on every other entity. Fix: the route
+   resolves the role through the shared `resolveEnumField()` helper, exactly
+   like its sibling `status` fields — an absent role takes `staff`, a
+   present-but-blank/empty/unknown one is rejected with nothing written.
+
+2. **EVERY create route accepted a present-but-whitespace-only optional text
+   value that its matching update route rejects** (MEDIUM, consistency —
+   fixed, app-wide). This was the widest contract gap found in the whole
+   review history: the same column, the same value, two verdicts, in seven
+   modules.
+
+   | Create route | Field(s) | Create verdict | The matching `PUT` verdict |
+   |---|---|---|---|
+   | `POST /assets` | manufacturer, model, serial_number, location, notes | accepted → stored `NULL` + success flash | "Invalid Manufacturer" |
+   | `POST /licenses` | vendor, **license_key**, notes | accepted → stored `NULL` + success flash | "Invalid License Key" |
+   | `POST /tickets` | description, requester_department | accepted → stored `NULL` + success flash | "Invalid Description" |
+   | `POST /projects` | description | accepted → stored `NULL` + success flash | "Invalid Description" |
+   | `POST /vendors` | contact_person, email, address, website, notes | accepted → stored `NULL` + success flash | "Invalid Contact Person" |
+   | `POST /knowledge` | tags | accepted → stored `'   '` + success flash | "Invalid Tags" |
+   | `POST /changes` | description, impact | accepted → stored `NULL` + success flash | "Invalid Impact" |
+
+   The cause is the same everywhere: `trim()` collapses the submission to
+   `''`, the `|| null` in the INSERT turns that into `NULL`, and the route
+   flashes SUCCESS — so a value the user typed was silently discarded with
+   no feedback. The README is unambiguous:
+
+   > *"field present but invalid (bad enum, malformed date, **whitespace-only
+   > text**) | the request is **rejected** with an error — nothing is
+   > written"*
+   > *"a whitespace-only value is neither an absent field (preserve) nor an
+   > intentional empty string (clear), so it is **rejected like any other
+   > invalid value** instead of being silently ignored."*
+
+   The update routes enforce this through `resolveOptionalField()`'s
+   blank-value guard; the create routes had no equivalent. The licence key
+   was the worst case: the operator was told "License for X created." while
+   the secret was silently dropped, and the reveal control never appeared
+   because `has_license_key` stayed false. Fix: a shared
+   `findBlankTextField()` helper in `src/utils.js` now applies the same raw
+   test to the create routes' optional text fields, and each route reports
+   the SAME message its update route uses (`Invalid ${titleCase(field)}`),
+   so a column has exactly one verdict per verb.
+
+3. **The knowledge LIST searched the article body in its entity-escaped
+   stored form, so the text the reader sees could not be typed back in**
+   (MEDIUM, completeness — fixed). The article body is the one column the
+   app stores **entity-escaped** (it is rendered as HTML), so the body
+   "R&D budget" is stored as "R&amp;D budget". The list matched the raw
+   column against the submitted term:
+
+   ```
+   GET /knowledge?search=R&D budget      -> 0 rows
+   GET /knowledge?search=R&amp;D budget  -> 1 row
+   ```
+
+   The search matched a string no reader can ever see, and not the string
+   every reader *can* see — the exact defect pass 377 closed for the
+   article's title and tags (which are stored as plain text and are
+   therefore searchable). The README promises the opposite:
+
+   > *"an article's body) stays searchable — every row in the result set is
+   > readable in full."*
+
+   Fix: `addSearch()` gained an `escapeTerm` descriptor
+   (`{ column: 'k.content', escapeTerm: true }`) that matches the column
+   against BOTH the submitted term and its entity-escaped twin, so the text
+   on the page is findable. The change is safe in the "no new oracle"
+   direction: the body column is only reachable by a viewer who may read
+   the row in full.
+
+4. **The asset list and the ticket list render the assignee's name but did
+   not search it** (MEDIUM, completeness — fixed). The asset list renders
+   "Assigned To" (`views/pages/assets/index.ejs:71`) and the ticket list
+   renders it too (`views/pages/tickets/index.ejs:74`), both as the single
+   string "<first> <last>". Neither list included that column in its
+   search, so a user who read "Sarah Chen" off the page and typed it into
+   the search box got nothing back:
+
+   ```
+   GET /assets?search=Sarah%20Chen -> total 0
+   GET /tickets?search=Maya%20Patel -> total 0
+   ```
+
+   The README states the rule every other list already follows:
+
+   > *"The same rule applies to **every name cell the app renders as one
+   > string** — the project card's owner, the knowledge list's author, the
+   > staff directory's name column and the change list's 'Assigned To'
+   > column are all searched as '<first> <last>', so the name a user reads
+   > off the page can be typed back in to find the row."*
+
+   Passes 377 and 379 closed the same gap for the project, knowledge, staff
+   and change lists; the asset and ticket lists were left out. Fix: both
+   lists now match the cell as the concatenation it displays, and both
+   count queries gained the matching `LEFT JOIN users` so the count and the
+   listing stay in sync (the tickets count query had no join at all).
+
+5. **`POST /projects/:id/tasks` could store a task as `done` with a NULL
+   `completed_at`** (MEDIUM, correctness — fixed). The create statement
+   omitted the column entirely:
+
+   ```sql
+   INSERT INTO project_tasks (project_id, title, description, status, priority, assigned_to, due_date)
+   ```
+
+   while the module's own update and quick-status statements both derive
+   it (`completed_at = CASE WHEN ? THEN COALESCE(completed_at,
+   datetime('now')) ELSE NULL END`). A task created directly in the `done`
+   state therefore claimed to be complete with no completion time — a state
+   the UPDATE routes considered impossible (a later PUT backfilled the
+   column, so the same task could hold both). The ticket create route has
+   drawn the same lesson for `resolved_at` ("otherwise the row would claim
+   to be resolved/closed with no resolution time, which the SLA and
+   resolution-time reports read"). Fix: the INSERT derives `completed_at`
+   from the RESOLVED status, exactly like the sibling statement.
+
+6. **`PUT /profile` reported a present-but-non-string required column as a
+   MISSING field** (MEDIUM, correctness — fixed). `trim()` coerced a JSON
+   number to `''`, so the required-field check produced "First name, last
+   name, and email are required" — a type error masquerading as an absent
+   one, while the sibling staff route reported the identical submission as
+   "Invalid request parameters". The 378th pass fixed this class on ten
+   routes and missed this one. Fix: the route now joins the app-wide
+   fail-closed type guard before the required-field check.
+
+7. **`PUT /profile/password` reported a present-but-non-string password as
+   a MISSING field** (MEDIUM, correctness — fixed). `new_password: 42`
+   produced "New password is required." — the type error reported as an
+   absent field — while the sibling reset-password route (fixed in the
+   379th pass) reports the identical submission as "Invalid request
+   parameters". Fix: the route joins the app-wide type guard for all three
+   password fields; an absent password still reports "… is required".
+
+8. **`POST /login` reported a present-but-non-string password as a SERVER
+   error** (LOW, correctness — fixed). `bcrypt.compare` throws
+   `Illegal arguments: number, string` on a non-string, so the request
+   reached the catch block and was reported as "An error occurred during
+   login. Please try again." plus a server-side log entry — a client error
+   dressed as a server fault. A FALSY non-string (`0`, `false`) was worse:
+   the truthiness test reported it as a missing credential. Fix: the
+   absence test is now an explicit comparison, the comparison runs against
+   the empty string (so the constant-time username-enumeration defence is
+   unchanged), and the wrong-TYPE verdict is "Invalid Login Credentials" —
+   the same wording a wrong password gets.
+
+9. **Two routes reported a wrong-typed body field with bespoke wording**
+   (LOW, consistency — fixed). `PUT /projects/:projectId/tasks/:taskId`
+   answered "Invalid Task Title" for a non-string title and
+   `POST /projects/:id/members` answered "Invalid Role" for a non-string
+   role, while the task CREATE route in the same module and the enum fields
+   on the same task route already use the app-wide "Invalid request
+   parameters" — so one request could produce two different messages for
+   the same class of error. Fix: both join the app-wide wording; a wrong
+   VALUE still gets its field-specific message.
+
+10. **Two documentation defects — a false invariant and a false
+    characterisation** (LOW, completeness — fixed). The seeder's own
+    comment claimed every seeded change-log row satisfies
+    `created_at <= updated_at <= scheduled_start`, which is false for the
+    two COMPLETED rows (a completed change was last touched when it
+    finished, which is by definition at or after its scheduled start — the
+    two orderings are mutually exclusive). The README's search-surface
+    section claimed the asset list's concatenated name cell "matches
+    'Dell OptiPlex 7090' **and not 'Dell' or 'OptiPlex' alone**", which is
+    false: every search in the app is a substring match, so both still
+    match. Fix: the seeder's comment states the invariant that actually
+    holds (and the README says the concatenation exists so the text the
+    user can read is *findable*, not so the halves stop matching).
+
+Also verified this pass: every create route still rejects a present-but-empty
+value for its `NOT NULL` enum columns and still defaults an absent one; every
+update route still resolves its fields against the transaction-consistent
+re-read row; the `changes === 0` no-op guards are still uniform across every
+update and delete route; every write route still carries its `rejectHppArrays`
+guard; the search surface of every list still matches the columns that list
+renders (or is viewer-scoped) — the staff directory's redacted email is still
+unsearchable for an unprivileged viewer, and the change/knowledge lists are
+still viewer-scoped; every capped list still discloses its truncation exactly;
+the licence key is still never rendered server-side; the `.env.example` still
+matches every env read in `src/`; the README's rate limiter list still covers
+all 26 limiters; the seeded portfolio still carries no contradictory dates;
+every `CONSTANTS.*` key a template references still exists in the hoisted
+`TEMPLATE_CONSTANTS`; every helper a template calls is still exposed in
+`res.locals`; and every page still renders (all 12 list/dashboard/report
+routes exercised against a live seeded server, plus the three search-surface
+fixes verified end-to-end against that live server).
+
+### Fixes applied
+1. `src/routes/staff.js` — the create route resolves the role through
+   `resolveEnumField()` (absent → the schema's `staff` default, invalid →
+   rejected); the required-column type guard now covers `password` too, so a
+   falsy non-string password is reported as a type error rather than a
+   missing field; the directory's render context zeroes the username for
+   EVERY row (it renders it for nobody, and a manager cannot read another
+   manager's login name anywhere else in the app); an absent department now
+   takes the schema's documented `IT` default instead of storing `NULL`
+   (which matched no department filter at all).
+2. `src/utils.js` — new `findBlankTextField()` helper (the create routes'
+   counterpart of `resolveOptionalField()`'s blank-value guard); `addSearch()`
+   gained the `escapeTerm` descriptor form.
+3. `src/routes/assets.js`, `licenses.js`, `tickets.js`, `projects.js`,
+   `vendors.js`, `knowledge.js`, `changes.js` — the create routes reject a
+   present-but-whitespace-only optional text value with the same message
+   their matching update route uses.
+4. `src/routes/assets.js`, `tickets.js` — the lists search the "Assigned To"
+   name cell as the concatenation it displays, and both count queries carry
+   the matching `LEFT JOIN users`.
+5. `src/routes/knowledge.js` — the list matches the article body against
+   both the submitted term and its entity-escaped twin.
+6. `src/routes/projects.js` — the task INSERT derives `completed_at` from the
+   resolved status; the task-update and member-create routes use the app-wide
+   type-error wording.
+7. `src/routes/auth.js` — the profile and password routes join the app-wide
+   type guard; the login route rejects a non-string credential as invalid
+   credentials instead of a server error; the profile update's catch block
+   logs the underlying error (it was the only catch block in `src/` that
+   swallowed one).
+8. `src/routes/vendors.js` — the update route resolves its `category` enum
+   through `resolveEnumField()` like its own create route, instead of
+   testing the TRIMMED value for truthiness (which silently skipped the
+   check for a whitespace-only submission).
+9. `src/routes/changes.js` — the create route's type-guard comment no longer
+   claims the enum resolver uses `trim()` (it never did — the same false
+   rationale pass 379 deleted from this file's update route).
+10. `src/seed.js`, `README.md` — the seeder's change-log invariant and the
+    README's search-surface wording now describe what the code actually does;
+    the README documents the create routes' whitespace-only rejection, the
+    staff role/department defaults, the two new searchable "Assigned To"
+    cells and the knowledge body's entity-escaped search.
+
+### Regression tests added
+- `tests/code_review_380.test.js` — 36 tests driving the REAL route handlers
+  and the REAL schema against an in-memory SQLite database: the staff create
+  route applies the documented `staff` default and still rejects an
+  empty/blank/unknown role (and reports a falsy non-string password as a
+  type error); every create route rejects a whitespace-only optional text
+  value with the same message its update route uses, and the matching update
+  route still rejects the identical value; the knowledge list finds an
+  article by the DECODED body text the reader sees; the asset and ticket
+  lists find a row by the assignee name the cell renders (and their counts
+  agree with their listings); a task created as `done` carries a completion
+  timestamp while every other state does not; the profile and password
+  routes report a non-string value as a type error and still report an
+  absent one as a missing field; the login route reports a non-string (and
+  a falsy non-string) credential as invalid credentials, not a server error;
+  the project task/member routes use the app-wide type-error wording; the
+  staff directory zeroes the username for every row while still delivering
+  the other columns to a privileged viewer; and an absent department takes
+  the schema's `IT` default.
+
+### Existing tests updated
+- `tests/code_review_379.test.js` — the staff-directory pin now asserts the
+  found row by its rendered name (and that the username is redacted for every
+  row) instead of by the username; the "absent department" pin now asserts
+  the schema's `IT` default instead of `NULL`.
+- `tests/code_review_373.test.js` — the directory PII pin now asserts the
+  username is redacted for the viewer's OWN row as well (the redaction was
+  widened from "other users" to "everybody"; the directory renders the
+  username for nobody).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1740 passed / 1740 total** (102 suites, +36 from #379).
+- `npm run test:coverage` — global thresholds pass (statements 76.13%,
+  branches 75.62%, functions 87.53%, lines 76.14%).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, safeSort, addSearch, buildFilters, safeId, isPresentInvalidId, safeDate, safeInt, isValidEmail, trim, sanitizePhone, isValidPhone, getActiveStaff, isActiveUser, isPrivileged, parseBooleanFlag, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
 const { TICKET_CATEGORIES: VALID_CATEGORIES, TICKET_PRIORITIES: VALID_PRIORITIES, TICKET_STATUSES: VALID_STATUSES, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_DESC, MAX_EMAIL, MAX_PHONE, COMMENT_LIST_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -253,12 +253,25 @@ router.get('/', (req, res) => {
   // `t.requester_name` IS searchable: the list renders it in its own column
   // (to every viewer), so leaving it out made a rendered column impossible
   // to find.
-  addSearch(where, params, safeQueryValue(req.query.search), ['t.title', 't.ticket_number', 't.requester_name']);
+  //
+  // The "Assigned To" cell renders the assignee's name as ONE string
+  // ("<first> <last>"), so it is matched as that CONCATENATION — the name the
+  // user reads off the page can be typed back in to find the row. Mirrors the
+  // asset list's "Assigned To" cell and the project/knowledge/change lists'
+  // name cells.
+  addSearch(where, params, safeQueryValue(req.query.search), [
+    't.title',
+    't.ticket_number',
+    't.requester_name',
+    { concat: ['u.first_name', 'u.last_name'] }
+  ]);
 
   const whereClause = where.length ? where.join(' AND ') : '1=1';
   const orderBy = safeSort(safeQueryValue(req.query.sort), SORT_MAP, 'default');
 
-  const total = countQuery(db, 'tickets', 't', whereClause, params);
+  // The count query needs the same JOIN as the list query: the search now
+  // covers the assignee's name, which lives in the joined users table.
+  const total = countQuery(db, 'tickets', 't', whereClause, params, 'LEFT JOIN users u ON t.assigned_to = u.id');
   const totalPages = Math.ceil(total / limit) || 1;
   // Clamp the requested page to the actual page count so a page beyond the
   // last one (e.g. ?page=999) renders the final page instead of an empty list
@@ -361,6 +374,19 @@ router.post('/', ticketWriteLimiter, (req, res) => {
     req.flash('error', 'Title, category, requester name, and requester email are required');
     return res.redirect('/tickets/new');
   }
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Description",
+  // "Invalid Requester Department"), so the create route must not accept it,
+  // store NULL and flash success: the same column, two verdicts.
+  const blankField = findBlankTextField(req.body, ['description', 'requester_department']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/tickets/new');
+  }
+
   if (title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/tickets/new');

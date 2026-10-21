@@ -279,6 +279,41 @@ function isValidEmail(email) {
 }
 
 /**
+ * Find the first field whose submitted value is PRESENT BUT WHITESPACE-ONLY.
+ *
+ * A whitespace-only submission is neither an ABSENT field ("not submitted")
+ * nor an intentional empty string ("clear the column") — it is an INVALID
+ * value. The app-wide partial-update contract requires such a value to be
+ * rejected with nothing written, and every UPDATE route enforces that
+ * through resolveOptionalField's blank-value guard. The CREATE routes had
+ * no equivalent guard: trim() collapsed the value to '', the column was
+ * stored as NULL, and the route flashed SUCCESS — so the identical
+ * submission was accepted on create and refused on update (the "one column,
+ * two verdicts" defect class).
+ *
+ * The test runs against the RAW submitted value, never the trimmed one, and
+ * only for strings: a non-string value is caught by the routes' own
+ * non-string type guard, and an empty string is a legitimate "not submitted"
+ * on a create form (an empty input posts '').
+ *
+ * @param {Object} source - the raw req.body / req.query object
+ * @param {string[]} fields - the field names to test, in reporting order
+ * @returns {string|null} the offending field name, or null when none is blank
+ */
+function findBlankTextField(source, fields) {
+  if (!source || typeof source !== 'object' || !Array.isArray(fields)) {
+    return null;
+  }
+  for (const field of fields) {
+    const v = source[field];
+    if (typeof v === 'string' && v !== '' && v.trim() === '') {
+      return field;
+    }
+  }
+  return null;
+}
+
+/**
  * Add LIKE search conditions safely.
  * Column names are validated against a safe pattern to prevent SQL injection.
  *
@@ -294,13 +329,20 @@ function isValidEmail(email) {
  * A column entry is one of:
  *   - a plain column name ("t.title"),
  *   - a descriptor object `{ column: 'p.description', prefix: 120 }` — matches
- *     only the FIRST `prefix` characters of the column, or
+ *     only the FIRST `prefix` characters of the column,
  *   - a descriptor object `{ concat: ['a.manufacturer', 'a.name'] }` — matches
  *     the CONCATENATION of the listed columns, joined by a single space. The
  *     assets list renders the manufacturer and the name in ONE cell ("Dell
  *     OptiPlex 7090"), so searching the two columns separately left the text
  *     the user could see unfindable: a search for "Dell OptiPlex" matched
- *     nothing while "Dell" and "OptiPlex" each did.
+ *     nothing while "Dell" and "OptiPlex" each did, or
+ *   - a descriptor object `{ column: 'k.content', escapeTerm: true }` — matches
+ *     the column against BOTH the submitted term and its HTML-entity-escaped
+ *     form. It exists for the knowledge article body, the one column the app
+ *     stores ENTITY-ESCAPED (it is rendered as HTML) while the reader sees
+ *     the DECODED text: the body "R&D budget" is stored as "R&amp;D budget",
+ *     so a search for the text on the page matched nothing while a search
+ *     for the entity form (which the reader can never see) did.
  *
  * @param {string[]} columns - List of column names to search (must be non-empty)
  */
@@ -345,6 +387,9 @@ function addSearch(where, params, search, columns) {
         (!Number.isInteger(descriptor.prefix) || descriptor.prefix <= 0)) {
       throw new Error(`Invalid prefix in addSearch: ${descriptor.prefix}`);
     }
+    if (descriptor.escapeTerm !== undefined && typeof descriptor.escapeTerm !== 'boolean') {
+      throw new Error(`Invalid escapeTerm in addSearch: ${descriptor.escapeTerm}`);
+    }
     return descriptor;
   });
   // Cap input length so a client cannot force expensive escaping plus a
@@ -354,7 +399,17 @@ function addSearch(where, params, search, columns) {
   // interfering with the ESCAPE clause
   const escaped = raw.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   const term = `%${escaped}%`;
-  const conditions = descriptors.map((d) => {
+  // The entity-escaped twin of the term, used by the `escapeTerm` descriptor:
+  // the search term the reader typed ("R&D budget") matches the DECODED text
+  // they can see, while the column stores the ENTITY-ESCAPED form
+  // ("R&amp;D budget"). Both are matched, so the text on the page is
+  // findable. The LIKE escaping is applied first — escapeHtml does not touch
+  // the backslash/percent/underscore escapes, so the two forms stay
+  // consistent.
+  const escapedTerm = `%${escapeHtml(escaped)}%`;
+  const conditions = [];
+  const conditionParams = [];
+  for (const d of descriptors) {
     let expression;
     if (d.concat) {
       // COALESCE each column to '' so a NULL does not poison the whole
@@ -367,10 +422,16 @@ function addSearch(where, params, search, columns) {
         ? `substr(${quoteColumn(d.column)}, 1, ${d.prefix})`
         : quoteColumn(d.column);
     }
-    return `${expression} LIKE ? ESCAPE '\\'`;
-  });
+    if (d.escapeTerm) {
+      conditions.push(`(${expression} LIKE ? ESCAPE '\\' OR ${expression} LIKE ? ESCAPE '\\')`);
+      conditionParams.push(term, escapedTerm);
+    } else {
+      conditions.push(`${expression} LIKE ? ESCAPE '\\'`);
+      conditionParams.push(term);
+    }
+  }
   where.push(`(${conditions.join(' OR ')})`);
-  descriptors.forEach(() => params.push(term));
+  params.push(...conditionParams);
 }
 
 /**
@@ -1538,6 +1599,11 @@ module.exports = {
   VENDOR_CATEGORY_BADGE,
   resetCachedStatements, resetPageSize,
   rejectHppArrays, normalizeIp,
+  // Detect a present-but-whitespace-only submission (an invalid value on
+  // every write route). Used by the CREATE routes, which had no equivalent
+  // of resolveOptionalField's blank-value guard and therefore accepted a
+  // value their sibling UPDATE route rejects.
+  findBlankTextField,
   // Shared per-account rate-limit key (user id, normalized-IP fallback). Used by
   // every authenticated-route limiter so one NAT'd office IP cannot exhaust a
   // shared budget; authenticate-then-limit paths continue to be IP-keyed.

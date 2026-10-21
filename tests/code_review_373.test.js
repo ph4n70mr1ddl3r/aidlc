@@ -566,7 +566,13 @@ describe('code review 373 — staff role and directory PII', () => {
     // The username is the login identifier and the directory does not render
     // it — it must not be in the render context for other users either.
     expect(other.username).toBeNull();
-    expect(self.username).toBe(STAFF.username);
+    // Pass 380 widened the redaction to EVERY row: the directory renders the
+    // username for nobody (only the staff edit form and the profile page
+    // show it, and both read their own row), and the README documents that a
+    // manager cannot open the edit form of a manager or admin account — so a
+    // manager's directory render context must not carry the login identifier
+    // of an account the manager cannot read anywhere else.
+    expect(self.username).toBeNull();
   });
 });
 

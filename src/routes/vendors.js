@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, authKeyGenerator, titleCase, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, authKeyGenerator, titleCase, logError } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -252,11 +252,24 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       return res.redirect('/vendors/new');
     }
   }
-
   if (!name) {
     req.flash('error', 'Vendor name is required');
     return res.redirect('/vendors/new');
   }
+
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Contact
+  // Person", "Invalid Email", ...), so the create route must not accept it,
+  // store NULL and flash success: the same column, two verdicts.
+  const blankField = findBlankTextField(req.body, ['contact_person', 'email', 'address', 'website', 'notes']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/vendors/new');
+  }
+
   if (name.length > MAX_MEDIUM_STR) {
     req.flash('error', `Vendor name must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/vendors/new');
@@ -467,7 +480,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   }
   const address = trim(safeQueryValue(req.body.address));
   const website = trim(safeQueryValue(req.body.website));
-  const category = trim(safeQueryValue(req.body.category));
+  const rawCategory = req.body.category;
   const contract_start = safeQueryValue(req.body.contract_start);
   const contract_end = safeQueryValue(req.body.contract_end);
   const notes = trim(safeQueryValue(req.body.notes));
@@ -522,7 +535,14 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid phone number');
     return res.redirect(`/vendors/${id}/edit`);
   }
-  if (category && !VALID_CATEGORIES_VENDOR.includes(category)) {
+  // Enum resolution through the shared resolver, exactly as the CREATE route
+  // in this module already does: the presence test runs against the RAW
+  // submitted value, so a present-but-blank category is rejected (it is
+  // neither an absent field nor an intentional clear) and an unknown one is
+  // rejected. The route used to test the TRIMMED value for truthiness, which
+  // silently skipped the check for a whitespace-only submission.
+  const categoryEnum = resolveEnumField(rawCategory, VALID_CATEGORIES_VENDOR);
+  if (categoryEnum.state === 'blank' || categoryEnum.state === 'invalid') {
     req.flash('error', 'Invalid Category');
     return res.redirect(`/vendors/${id}/edit`);
   }
@@ -600,8 +620,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       if (safeWebsite && safeWebsite.error) {
         throw new Error('INVALID_WEBSITE');
       }
-      const rawCat = req.body.category;
-      const safeCategory = resolveOptionalField(rawCat, category || null, null, existing.category);
+      // The category is a nullable enum whose stored default carries no
+      // meaning: an explicit empty string clears it to NULL, an absent field
+      // preserves it, and a valid value replaces it.
+      const safeCategory = resolveOptionalField(rawCategory, categoryEnum.state === 'valid' ? categoryEnum.value : null, null, existing.category);
       if (safeCategory && safeCategory.error) {
         throw new Error('INVALID_CATEGORY');
       }

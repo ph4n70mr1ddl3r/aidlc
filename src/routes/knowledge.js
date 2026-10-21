@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, decodeHtmlEntities, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, decodeHtmlEntities, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -467,7 +467,20 @@ router.get('/', kbReadLimiter, (req, res) => {
   // unfindable ("John Smith" matched nothing while "John" and "Smith" each
   // did). Both halves were already searchable, so the concatenation exposes
   // nothing the viewer cannot already read.
-  addSearch(where, params, safeQueryValue(req.query.search), ['k.title', 'k.content', 'k.tags', { concat: ['u.first_name', 'u.last_name'] }]);
+  //
+  // The BODY is the one column the app stores ENTITY-ESCAPED (it is rendered
+  // as HTML), while the reader sees the DECODED text: the body "R&D budget"
+  // is stored as "R&amp;D budget". Matching the raw column against the
+  // submitted term therefore left the text on the page unfindable — a search
+  // for "R&D budget" matched nothing while a search for the entity form
+  // (which no reader can ever see) did. The `escapeTerm` descriptor matches
+  // BOTH the submitted term and its entity-escaped twin.
+  addSearch(where, params, safeQueryValue(req.query.search), [
+    'k.title',
+    'k.tags',
+    { column: 'k.content', escapeTerm: true },
+    { concat: ['u.first_name', 'u.last_name'] }
+  ]);
 
   // Visibility: non-privileged users can only see published articles and their own drafts/archived.
   // The show page already restricts access, but the index was leaking draft metadata
@@ -552,6 +565,20 @@ router.post('/', kbWriteLimiter, (req, res) => {
     req.flash('error', 'Title, content, and category are required');
     return res.redirect('/knowledge/new');
   }
+
+
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The matching UPDATE route rejects the identical value
+  // through resolveOptionalField's blank-value guard ("Invalid Tags"), so
+  // the create route must not accept it, store a whitespace-only tag string
+  // and flash success: the same column, two verdicts.
+  const blankField = findBlankTextField(req.body, ['tags']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/knowledge/new');
+  }
+
   if (title.length > MAX_MEDIUM_STR) {
     req.flash('error', `Title must be at most ${MAX_MEDIUM_STR} characters`);
     return res.redirect('/knowledge/new');
