@@ -2,7 +2,7 @@ const db = require('../models/database');
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { audit, auditMiddleware } = require('../middleware/audit');
-const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, resolveOptionalField, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, logError } = require('../utils');
+const { validatePassword, isValidEmail, trim, sanitizePhone, isValidPhone, asyncHandler, safeQueryValue, rejectHppArrays, resolveOptionalField, normalizeIp, invalidateActiveStaffCache, authKeyGenerator, findNonStringField, logError } = require('../utils');
 const { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_SHORT_STR, MAX_EMAIL, MAX_PHONE, BCRYPT_SALT_ROUNDS } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
@@ -614,12 +614,10 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
   // masquerading as an absent one. The app-wide rule the README documents
   // ("A value of the wrong type ... is an invalid value, not a missing one,
   // and is reported as such") applies here too.
-  for (const field of ['first_name', 'last_name', 'email']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/profile');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['first_name', 'last_name', 'email']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/profile');
   }
   // Absent-vs-present markers for the required profile fields. An ABSENT
   // field in a partial API submission preserves the stored value; a PRESENT
@@ -731,8 +729,14 @@ router.put('/profile', requireAuth, profileLimiter, asyncHandler(async (req, res
       await _regenerateSession(req.session);
     } catch (regErr) {
       logError('Session regeneration error during profile update:', regErr);
-      req.flash('error', 'An error occurred. Please try again.');
-      return res.redirect('/profile');
+      // The profile row was ALREADY written above, so the details are saved —
+      // reporting "An error occurred. Please try again." contradicted what
+      // happened and invited a pointless retry of a write that had succeeded.
+      // Say what actually happened, and make the user log in again because the
+      // session was left in an unknown state (the regeneration failed
+      // mid-flight).
+      req.flash('error', 'Your profile was updated, but your session could not be renewed. Please log in again.');
+      return res.redirect('/login');
     }
     if (previousSessionStart) {
       req.session.sessionStart = previousSessionStart;
@@ -792,12 +796,10 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
   // app-wide "Invalid request parameters" instead of the "… is required"
   // wording a genuinely absent field gets. The sibling reset-password route
   // in staff.js already reports the identical submission this way.
-  for (const field of ['current_password', 'new_password', 'confirm_password']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/profile');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['current_password', 'new_password', 'confirm_password']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/profile');
   }
 
   if (!current_password) {
@@ -890,8 +892,14 @@ router.put('/profile/password', requireAuth, passwordLimiter, asyncHandler(async
     await _regenerateSession(req.session);
   } catch (err) {
     logError('Session regeneration error during password change:', err);
-    req.flash('error', 'An error occurred. Please try again.');
-    return res.redirect('/profile');
+    // The password hash was ALREADY written above, so the change SUCCEEDED —
+    // the old password no longer works. Reporting "An error occurred. Please
+    // try again." contradicted what happened and, worse, invited the user to
+    // retry with the old password (which now fails) or to believe their old
+    // password still works. Say what actually happened and send them to log
+    // in again with the NEW password.
+    req.flash('error', 'Your password was changed, but your session could not be renewed. Please log in again with your new password.');
+    return res.redirect('/login');
   }
   // Fetch fresh user data (without password) for the new session
   const freshUser = _getProfileSelectStmt().get(userId);

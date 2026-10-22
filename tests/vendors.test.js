@@ -43,6 +43,18 @@ describe('validateVendorRating', () => {
     expect(validateVendorRating(null)).toEqual({ value: null, error: null });
   });
 
+  it('rejects a whitespace-only rating instead of silently discarding it', () => {
+    // A present-but-whitespace-only value is neither an absent field
+    // ("not submitted") nor an intentional empty string ("clear") — it is an
+    // INVALID value, and the rating follows the same rule the money fields
+    // follow (a whitespace-only amount is rejected as invalid). The validator
+    // used to TRIM first, so "   " collapsed to the empty string and was
+    // classified as absent: the create route stored NULL and the update route
+    // kept the stored rating, both with a success flash and no feedback.
+    expect(validateVendorRating('   ')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
+    expect(validateVendorRating('\t')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
+  });
+
   it('rejects out-of-range ratings with a clear error', () => {
     expect(validateVendorRating('0')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
     expect(validateVendorRating('6')).toEqual({ value: null, error: 'Rating must be a whole number between 1 and 5' });
@@ -170,6 +182,14 @@ describe('resolveVendorRatingOnUpdate (rating preservation)', () => {
 
   it('preserves the existing rating when an empty value is submitted', () => {
     expect(resolveVendorRatingOnUpdate('', null, 3)).toBe(3);
+  });
+
+  it('preserves the existing rating for a whitespace-only value (defensive)', () => {
+    // A whitespace-only rating is now rejected by the VALIDATOR (the same
+    // verdict the money fields give a whitespace-only amount), so the route
+    // never reaches this resolver with one. The resolver keeps its defensive
+    // preserve-on-null behaviour so it cannot wipe a stored rating if a
+    // future caller reaches it directly.
     expect(resolveVendorRatingOnUpdate('  ', null, 5)).toBe(5);
   });
 

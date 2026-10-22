@@ -794,10 +794,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // values are captured here for the resolveOptionalField resolution inside the
       // transaction. Mirrors the raw-vs-processed split in assets.js and vendors.js.
       const rawDept = rawDepartment;
+      // No error sentinel is needed for it: resolveOptionalField's three
+      // error classes are all rejected before the transaction — an array by
+      // the HPP guard, a non-string by the findNonStringField guard, and a
+      // whitespace-only value by the dedicated department check above. The
+      // sentinel was unreachable, and its message ("Invalid Department")
+      // contradicted the one the route actually reports for a whitespace-only
+      // department ("Please enter a valid department").
       const resolvedDepartment = resolveOptionalField(rawDept, department || null, MAX_SHORT_STR, recheck.department);
-      if (resolvedDepartment && resolvedDepartment.error) {
-        throw new Error('INVALID_DEPARTMENT');
-      }
       const rawStaffPhone = req.body.phone;
       const resolvedPhone = resolveOptionalField(rawStaffPhone, phone || null, MAX_PHONE, recheck.phone);
       if (resolvedPhone && resolvedPhone.error) {
@@ -883,10 +887,6 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     // already reject present non-string values) to a specific validation
     // message instead of the generic server-error flash, matching the INVALID_
     // mapping in vendors.js / licenses.js.
-    if (err.message === 'INVALID_DEPARTMENT') {
-      req.flash('error', 'Invalid Department');
-      return res.redirect(`/staff/${id}/edit`);
-    }
     if (err.message === 'INVALID_PHONE') {
       req.flash('error', 'Please enter a valid phone number');
       return res.redirect(`/staff/${id}/edit`);

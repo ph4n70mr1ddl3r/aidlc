@@ -1267,9 +1267,26 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
     return res.redirect(`/tickets/${id}`);
   }
 
+  // Fail closed on a present-but-wrong-typed status (e.g. a JSON number): a
+  // wrong TYPE is neither an absent field nor an invalid VALUE, and the
+  // app-wide wording for it is "Invalid request parameters" — the same
+  // sentence the matching ticket update route (findNonStringField) and the
+  // ticket create route report for the identical submission. Without this
+  // guard the same column answered with two different messages depending on
+  // which route carried it ("Invalid request parameters" on PUT /:id, "Invalid
+  // Status" here). The field-specific wording is reserved for an invalid
+  // VALUE (a string outside the allowlist).
+  //
+  // The type test runs against the RAW submitted value, because trim()
+  // coerces a non-string to '' and the type information would be lost.
+  if (req.body.status !== undefined && req.body.status !== null && req.body.status !== '' && typeof req.body.status !== 'string') {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/tickets/${id}`);
+  }
+
   const status = trim(safeQueryValue(req.body.status));
 
-  if (typeof status !== 'string' || !VALID_STATUSES.includes(status)) {
+  if (!VALID_STATUSES.includes(status)) {
     req.flash('error', 'Invalid Status');
     return res.redirect(`/tickets/${id}`);
   }

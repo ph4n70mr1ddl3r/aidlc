@@ -33,6 +33,23 @@ function _validateVendorRating(rawValue) {
   if (Array.isArray(rawValue)) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear") — it is an INVALID
+  // value. The app-wide partial-update contract rejects such a submission
+  // rather than silently ignoring it, and the rating follows the same rule
+  // the money fields follow (the README: "A vendor's rating follows the same
+  // rule"): a money field rejects "   " as an invalid amount while an empty
+  // string means "not recorded" and is preserved.
+  //
+  // Without this guard the rating was trimmed FIRST, so "   " collapsed to the
+  // empty string and was classified as absent — the operator's typed value was
+  // then discarded without any feedback (the create route stored NULL and
+  // flashed success; the update route kept the stored rating and flashed
+  // success). The test runs against the RAW value, so the trim() below cannot
+  // collapse it to the empty string first.
+  if (typeof rawValue === 'string' && rawValue !== '' && rawValue.trim() === '') {
+    return { value: null, error: 'Rating must be a whole number between 1 and 5' };
+  }
   // Reject absurdly long rating strings to prevent resource exhaustion
   if (typeof rawValue === 'string' && rawValue.length > _MAX_RATING_INPUT) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
@@ -68,10 +85,15 @@ function _validateVendorRating(rawValue) {
  * not free text: ABSENT fields preserve the existing rating, and empty
  * submitted values also preserve it — so editing any other field never wipes
  * a previously set rating. Only a present, non-empty, validated value replaces it.
+ *
+ * A present-but-whitespace-only value never reaches this helper: the
+ * validator rejects it as an invalid rating (the same verdict the money
+ * fields give a whitespace-only amount), so the route refuses the request
+ * before the rating is resolved.
  * @param {*} rawValue - The submitted value (e.g. req.body.rating); may be
  *   undefined (absent field), a string, an array (HPP), or any other type.
  * @param {number|null} validatedRating - The parsed rating from _validateVendorRating,
- *   or null when the field was empty/invalid-but-optional
+ *   or null when the field was absent/empty
  * @param {number|null} existingRating - The current rating from the DB
  * @returns {number|null}
  */
@@ -588,7 +610,10 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     // unchanged) — surfaced in the audit details after the transaction.
     // resolvedVendorName is hoisted out of the transaction so the audit entry
     // names the EFFECTIVE (resolved) vendor even when the request omitted it.
+    // previousVendorName is hoisted the same way, so the audit entry can name
+    // the name the vendor was renamed FROM (null when it was not renamed).
     let renamedLicenseRefs = 0;
+    let previousVendorName = null;
     let resolvedVendorName = name;
     const updateVendor = db.transaction(() => {
       // Verify vendor exists and fetch current state inside the transaction
@@ -618,11 +643,13 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       if (safeEmail && safeEmail.error) {
         throw new Error('INVALID_EMAIL');
       }
-      const rawVendorPhone = req.body.phone;
-      const safePhone = resolveOptionalField(rawVendorPhone, phone || null, MAX_PHONE, existing.phone);
-      if (safePhone && safePhone.error) {
-        throw new Error('INVALID_PHONE');
-      }
+      // No error sentinel is needed for the phone: resolveOptionalField's
+      // three error classes are all rejected before the transaction — an array
+      // by the HPP guard, a non-string by the phone validation above (which
+      // rejects anything that does not sanitize to a number), and a
+      // whitespace-only value by the same check (it sanitizes to nothing).
+      // The sentinel was unreachable.
+      const safePhone = resolveOptionalField(rawPhone, phone || null, MAX_PHONE, existing.phone);
       const rawAddress = req.body.address;
       const safeAddress = resolveOptionalField(rawAddress, address || null, MAX_ADDRESS, existing.address);
       if (safeAddress && safeAddress.error) {
@@ -636,10 +663,13 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // The category is a nullable enum whose stored default carries no
       // meaning: an explicit empty string clears it to NULL, an absent field
       // preserves it, and a valid value replaces it.
+      //
+      // No error sentinel is needed for it: resolveOptionalField's three
+      // error classes are all rejected before the transaction — an array by
+      // the HPP guard, a non-string by the findNonStringField guard, and a
+      // whitespace-only value by the resolveEnumField check above (which
+      // rejects the 'blank' state). The sentinel was unreachable.
       const safeCategory = resolveOptionalField(rawCategory, categoryEnum.state === 'valid' ? categoryEnum.value : null, null, existing.category);
-      if (safeCategory && safeCategory.error) {
-        throw new Error('INVALID_CATEGORY');
-      }
       const rawNotes = req.body.notes;
       const safeNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, existing.notes);
       if (safeNotes && safeNotes.error) {
@@ -711,6 +741,7 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
       // matching the vendor's name — not a foreign key).
       if (existing.name !== safeName) {
         renamedLicenseRefs = _licenseDependentsCountStmt.get(existing.name).cnt;
+        previousVendorName = existing.name;
         _licenseSyncStmt.run(safeName, existing.name);
       }
     });
@@ -720,9 +751,19 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     // the audit details (mirrors the delete route's "detached from N license(s)")
     // — otherwise an auditor cannot tell why N licenses' vendor/updated_at
     // changed alongside a vendor rename.
-    req.audit('update', 'vendor', id, renamedLicenseRefs > 0
-      ? `Updated vendor ${resolvedVendorName} (renamed from previous name; ${renamedLicenseRefs} license reference(s) updated)`
-      : `Updated vendor ${resolvedVendorName}`);
+    //
+    // The PREVIOUS name is named explicitly. The entry used to say only
+    // "renamed from previous name" without naming it, so the audit trail
+    // recorded that a rename happened but not what the vendor was called
+    // before — the one fact an auditor reading the trail needs. The rename
+    // was also omitted entirely when the vendor had no license references to
+    // rewrite (the count was 0), so a plain rename left no sign of it.
+    const renameDetail = previousVendorName
+      ? ` (renamed from "${previousVendorName}"`
+        + (renamedLicenseRefs > 0 ? `; ${renamedLicenseRefs} license reference(s) updated` : '')
+        + ')'
+      : '';
+    req.audit('update', 'vendor', id, `Updated vendor ${resolvedVendorName}${renameDetail}`);
     req.flash('success', 'Vendor updated.');
     invalidateDashboardCache();
     return res.redirect(`/vendors/${id}`);

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase, authKeyGenerator, isPrivileged, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safeDateTimeLocal, trim, getActiveStaff, isActiveUser, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, isPrivileged, logError } = require('../utils');
 const { CHANGE_TYPES: VALID_CHANGE_TYPES, CHANGE_STATUSES: VALID_STATUSES, CHANGE_PRIORITIES: VALID_PRIORITIES, MAX_MEDIUM_STR, MAX_DESC, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -122,11 +122,21 @@ router.get('/', (req, res) => {
   const qChangeType = safeQueryValue(req.query.change_type);
   const qPriority = safeQueryValue(req.query.priority);
   const qAssignedTo = safeQueryValue(req.query.assigned_to);
+  // The assignee filter must apply exactly what the CONTROL offers this
+  // viewer. The change index hides the assignee dropdown from a non-privileged
+  // viewer (the route scopes their list to their own assignments below), so
+  // applying a submitted ?assigned_to for one produced a filter the viewer
+  // could neither see nor clear — it narrowed an already-scoped list to
+  // nothing and the page reported "No changes found" for a filter that was
+  // not even on screen. A non-privileged viewer's assignee filter is
+  // therefore ignored, exactly as the knowledge index ignores a status its
+  // dropdown does not offer.
+  const assignedToFilter = isPrivileged(req.session.user) ? qAssignedTo : '';
   const filters = buildFilters({
     'c.status': { value: VALID_STATUSES.includes(qStatus) ? qStatus : '' },
     'c.change_type': { value: VALID_CHANGE_TYPES.includes(qChangeType) ? qChangeType : '' },
     'c.priority': { value: VALID_PRIORITIES.includes(qPriority) ? qPriority : '' },
-    'c.assigned_to': { value: qAssignedTo ? safeId(qAssignedTo) || '' : '' }
+    'c.assigned_to': { value: assignedToFilter ? safeId(assignedToFilter) || '' : '' }
   }, ['c.status', 'c.change_type', 'c.priority', 'c.assigned_to']);
 
   const where = [...filters.where];
@@ -229,12 +239,10 @@ router.post('/', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // ("Title and change type are required"), while the matching update route
   // reported the identical submission as "Invalid request parameters" — a
   // type error masquerading as an absent one.
-  for (const field of ['title', 'change_type', 'description', 'impact', 'priority', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/changes/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'change_type', 'description', 'impact', 'priority', 'status']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/changes/new');
   }
   if (!title || !change_type) {
     req.flash('error', 'Title and change type are required');
@@ -469,12 +477,10 @@ router.put('/:id', requireAdminOrManager, changeWriteLimiter, (req, res) => {
   // same column, two messages, depending on the verb. The field-specific
   // wording is now reserved for the case it describes: an invalid VALUE (a
   // string outside the allowlist) or a whitespace-only VALUE.
-  for (const field of ['title', 'change_type', 'description', 'impact', 'priority', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/changes/${id}/edit`);
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'change_type', 'description', 'impact', 'priority', 'status']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/changes/${id}/edit`);
   }
   if ((!titleAbsent && !title) || (!changeTypeAbsent && !change_type)) {
     req.flash('error', 'Title and change type are required');

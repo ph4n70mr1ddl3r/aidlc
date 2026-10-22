@@ -603,10 +603,16 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       if (resolvedVendor && resolvedVendor.error) {
         throw new Error('INVALID_VENDOR');
       }
+      // The licence type is a nullable enum whose stored default carries no
+      // meaning: an explicit empty string clears it to NULL, an absent field
+      // preserves it, and a valid value replaces it.
+      //
+      // No error sentinel is needed for it: resolveOptionalField's three
+      // error classes are all rejected before the transaction — an array by
+      // the HPP guard, a non-string by the findNonStringField guard, and a
+      // whitespace-only value by the resolveEnumField check above (which
+      // rejects the 'blank' state). The sentinel was unreachable.
       const resolvedLicenseType = resolveOptionalField(rawLicenseType, license_type || null, null, existing.license_type);
-      if (resolvedLicenseType && resolvedLicenseType.error) {
-        throw new Error('INVALID_LICENSE_TYPE');
-      }
       const resolvedNotes = resolveOptionalField(rawNotes, notes || null, MAX_NOTES, existing.notes);
       if (resolvedNotes && resolvedNotes.error) {
         throw new Error('INVALID_NOTES');

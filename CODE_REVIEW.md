@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-22 (380th pass)
+**Date:** 2026-10-22 (383rd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (379 consecutive hardening reviews) was
+`npm audit`. Prior review history (382 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -15773,4 +15773,218 @@ problem.
 - `npm test` — **1807 passed / 1807 total** (104 suites, +34 from #381).
 - `npm run test:coverage` — global thresholds pass (statements 77.29%,
   branches 76.40%, functions 88.30%, lines 77.28%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-22 (383rd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+nine defect classes. Three of them are the SAME COLUMN, TWO VERDICTS
+contract mismatch this project has been closing for 383 cycles — this time the
+"wrong type" and the "silently discarded value" variants — and the rest are a
+client/server contract gap, a copy-accuracy problem and a set of dead-code
+defects.
+
+1. **The two quick-status routes reported a wrong-TYPED `status` with the
+   field-specific wording** (MEDIUM, consistency — fixed). The README's
+   partial-update contract states that every text field answers a wrong-typed
+   value with the app-wide `"Invalid request parameters"`, and that the
+   field-specific wording ("Invalid Status", "Invalid Task Status", …) is
+   reserved for an invalid **VALUE** (a string outside the allowlist) or a
+   whitespace-only one. The ticket quick-status route (`PUT /tickets/:id/status`)
+   and the task quick-status branch of `PUT /projects/:projectId/tasks/:taskId`
+   both answered a JSON number with the field-specific message. Each route
+   also has a sibling full-update route that handles the SAME column and
+   answers the identical submission with the app-wide message — so the same
+   column produced two different verdicts depending on which route carried
+   it, and (for the task) which branch of the same handler carried it. Fix:
+   both quick paths now run the type test against the RAW submitted value
+   (before `trim()`, which coerces a non-string to `''` and would lose the
+   type information) and report the app-wide wording; the field-specific
+   wording is unchanged for an invalid value.
+
+2. **A non-privileged author's status promotion was silently discarded**
+   (MEDIUM, correctness — fixed). The knowledge module deliberately restricts
+   a non-privileged author to keeping an article's status or demoting it to
+   `draft` — publishing is an administrative action. The route enforced that
+   by COERCING the submitted value back to the stored status and flashing
+   "Article updated." / "Article created.": the author asked to publish, the
+   app published nothing, and the flash said it had worked. That is the
+   "value silently dropped" defect class, and it contradicts the app-wide
+   contract that a field present but invalid for this viewer is **rejected
+   with an error** — nothing is written. Fix: a new
+   `isStatusPermittedForUser()` guard rejects a forbidden status with
+   "Invalid Status" on both the create and the update route (the update
+   check runs inside the transaction, against the transaction-consistent
+   stored status). `resolveSafeStatus()` stays as the defence-in-depth clamp
+   behind the guard. Keeping the current status and demoting to `draft` are
+   still permitted, and a privileged viewer can still publish.
+
+3. **The vendor rating accepted a present-but-whitespace-only value and
+   discarded it without any feedback** (MEDIUM, consistency — fixed). The
+   README documents the rating to follow the same rule as the money fields,
+   and the money fields REJECT a whitespace-only amount ("Invalid Purchase
+   Price"). The rating's validator trimmed the value FIRST, so `"   "`
+   collapsed to the empty string and was classified as absent: the create
+   route stored `NULL` and flashed success, and the update route kept the
+   stored rating and flashed success — the operator's typed value was
+   discarded with no feedback at all. Fix: the validator now tests the RAW
+   value and rejects a whitespace-only rating with the rating error, exactly
+   as the money fields reject a whitespace-only amount. An **empty** rating
+   still preserves the stored value (the documented money-field rule).
+
+4. **The change list applied a filter its control does not offer** (LOW-MEDIUM,
+   consistency — fixed). The change index hides the assignee dropdown from a
+   non-privileged viewer (the route scopes their list to their own
+   assignments), but the route still applied a submitted `?assigned_to=` for
+   that viewer — a filter they could neither see nor clear, which narrowed
+   their already-scoped list to nothing while the page reported "No changes
+   found". This is the same defect the knowledge index's status filter had
+   (closed in pass 381) and the changes module missed. Fix: the assignee
+   filter is ignored for a non-privileged viewer, exactly as the knowledge
+   index ignores a status its dropdown does not offer. A privileged viewer's
+   filter is unchanged.
+
+5. **A write that had already committed was reported as a failure**
+   (LOW-MEDIUM, copy accuracy — fixed). Both the profile route and the
+   password-change route write to the database **before** they regenerate the
+   session, and both then flashed "An error occurred. Please try again." if
+   the regeneration failed — contradicting what had happened. For the
+   password route the consequence was worse than cosmetic: the hash was
+   already committed, so the old password no longer worked, and the message
+   invited the user to retry with the very password that had just stopped
+   working (or to believe it still worked). Fix: both routes now say what
+   actually happened ("Your password was changed, but your session could not
+   be renewed. Please log in again with your new password." / "Your profile
+   was updated, but your session could not be renewed.") and send the user
+   to log in again, because the session was left in an unknown state.
+
+6. **The article truncator dropped a COMPLETE entity plus all the text after
+   it** (LOW-MEDIUM, correctness — fixed). `_truncateAtEntityBoundary()`
+   exists to drop a *partial* HTML entity so a stored body never ends in a
+   literal `"&am"`. It found the last `&` in the cut string and dropped
+   everything from there whenever the tail did not END with `;` — so the
+   sanitized body `"R&amp;D budget plan"` truncated to 10 characters yielded
+   `"R"`: the complete `&amp;` entity and the nine characters after it were
+   all discarded, not the partial entity the helper exists to remove. Fix:
+   the tail is checked for a terminating `;` anywhere inside it (an entity
+   cannot contain another, so a `;` inside the tail always terminates the
+   entity that opened it); only an entity with no terminator is dropped, and
+   only the partial entity is removed.
+
+7. **The truncation message blamed the wrong cause, and the field-precedence
+   comment contradicted the code** (LOW, copy accuracy — fixed). The message
+   said a value was "too long after removing invalid markup" — but markup
+   removal SHRINKS the text; it is the entity-escaping that GROWS it (every
+   `&` becomes `&amp;`), so an author whose body was well within the limit
+   was told their content had been shortened past it. The message now says
+   the limit applies to the STORED form and explains the escaping. The
+   title and tags messages name their own limits plainly, since both are
+   stored as plain text. Separately, the code checked the title before the
+   content while the comment explained that the content was "reported ahead
+   of the other fields" — the code was changed to match the documented
+   intent, so the content (the field whose stored form differs from what the
+   author typed) is the one reported first.
+
+8. **The vendor rename audit entry did not name the previous name**
+   (LOW, copy accuracy — fixed). The entry read "Updated vendor ACME
+   (renamed from previous name; 2 license reference(s) updated)" — it
+   recorded THAT a rename happened but not what the vendor was called
+   before, which is the one fact an auditor reading the trail needs. The
+   rename was also omitted entirely when the vendor had no license
+   references to rewrite (the count was 0), so a plain rename left no sign
+   of it at all. Fix: the previous name is named explicitly, and the rename
+   is recorded whether or not any license reference was rewritten.
+
+9. **The wrong-type guard was hand-rolled in three modules, and four
+   unreachable sentinel branches remained** (LOW, consistency — fixed).
+   `knowledge.js`, `changes.js` and `auth.js` each re-implemented the
+   predicate that the shared `findNonStringField()` helper already provides
+   (a copy that can only drift from it), and `vendors.js`, `licenses.js` and
+   `staff.js` still carried `resolveOptionalField` error sentinels that
+   could never fire: all three of `resolveOptionalField`'s error classes (an
+   array, a non-string and a whitespace-only string) are rejected by an
+   earlier guard on each of those routes. The staff `INVALID_DEPARTMENT`
+   branch was the worst of them — unreachable, and its message
+   ("Invalid Department") contradicted the one the route actually reports
+   for the same condition ("Please enter a valid department"). Fix: the
+   three modules now use the shared helper, and the four unreachable
+   branches are removed (the routes still refuse every input they covered
+   — pinned by regression tests).
+
+### Considered and rejected
+- **"Make the asset report's age buckets compare whole days."** The buckets
+  use `julianday('now','localtime') - julianday(purchase_date)`, which
+  carries the current time of day as a fraction of a day. Checked
+  exhaustively over 2000 consecutive ages: the bucket assignment is
+  IDENTICAL to the whole-day comparison for every one of them (the fraction
+  is < 1 day and the boundaries are multiples of 365 days), so an asset
+  exactly 365 days old lands in the same bucket either way. No change.
+- **"Make the staff edit/write routes answer a privileged-account refusal
+  with the not-found wording."** The staff routes are `requireAdminOrManager`
+  and the staff directory already lists every account with its role to a
+  privileged viewer, so the refusal discloses nothing the directory does
+  not already show — and the message tells the manager *why* they may not
+  edit the account, which a "Staff member not found" would not. The
+  app-wide non-enumerating rule is about records whose EXISTENCE is
+  secret; here it is not.
+- **"Reject a present-but-empty `is_featured` submission."** The flag
+  resolves to 0 in every case (the form pairs a hidden `0` with the
+  checkbox, so the browser never sends an empty value) and a non-canonical
+  value is already rejected with "Invalid Featured Flag". The remaining
+  gap is API-only and the outcome (not featured) is the safe one.
+
+### Fixes applied
+1. `src/routes/tickets.js`, `src/routes/projects.js` — the quick-status
+   paths answer a wrong-typed status with the app-wide "Invalid request
+   parameters".
+2. `src/routes/knowledge.js` — a forbidden status promotion is rejected with
+   "Invalid Status" instead of being silently discarded; new
+   `isStatusPermittedForUser()` helper.
+3. `src/routes/vendors.js` — the rating validator rejects a whitespace-only
+   value; the rename audit entry names the previous name.
+4. `src/routes/changes.js` — the assignee filter is ignored for a
+   non-privileged viewer.
+5. `src/routes/auth.js` — a committed write is reported as committed, and
+   the user is sent to log in again.
+6. `src/routes/knowledge.js` — `_truncateAtEntityBoundary()` drops only a
+   partial entity; the truncation messages name the real cause and the
+   content limit is reported first.
+7. `src/routes/knowledge.js`, `src/routes/changes.js`, `src/routes/auth.js` —
+   the shared `findNonStringField()` helper replaces the hand-rolled
+   wrong-type loops.
+8. `src/routes/vendors.js`, `src/routes/licenses.js`, `src/routes/staff.js` —
+   the four unreachable sentinel branches are removed.
+
+### Regression tests added
+- `tests/code_review_383.test.js` — 31 tests driving the REAL route handlers
+  and the REAL schema against an in-memory SQLite database: the two
+  quick-status routes and their full-update siblings answer a wrong-typed
+  status identically (and an invalid VALUE keeps its field-specific
+  wording); a non-privileged author's promotion is refused on both the
+  create and the update route (nothing is written) while keeping the
+  current status, demoting to draft and publishing as a privileged viewer
+  still work; the vendor rating validator rejects a whitespace-only value
+  and both routes refuse it (the stored rating survives) while an empty
+  rating still preserves it; the change list ignores the hidden assignee
+  filter for a non-privileged viewer and still applies it for a privileged
+  one; the profile and password routes report a committed write as
+  committed; the truncator keeps a complete entity and still drops a
+  partial one; the truncation message names the escaping cause and the
+  content limit is checked before the title; the vendor audit entry names
+  the previous name; the three modules use the shared helper and no
+  hand-rolled copy remains; and the four removed sentinels are still
+  unreachable, so every input they covered is still refused.
+
+### Existing tests updated
+- `tests/vendors.test.js` — the rating validator's whitespace-only case now
+  asserts the rejection (the empty-value case is unchanged), and the
+  resolver's whitespace-only case is pinned separately as the defensive
+  behaviour it now only exercises directly.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1840 passed / 1840 total** (105 suites, +31 from #382).
+- `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

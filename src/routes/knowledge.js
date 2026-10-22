@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, decodeHtmlEntities, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField, findBlankTextField, titleCase } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, trim, countQuery, selectQuery, isPrivileged, parseBooleanFlag, safeQueryValue, safeFilters, escapeHtml, decodeHtmlEntities, rejectHppArrays, authKeyGenerator, logError, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase } = require('../utils');
 const { KB_CATEGORIES: VALID_CATEGORIES, KB_STATUSES: VALID_STATUSES, MAX_MEDIUM_STR, MAX_CONTENT, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 // The package.json pins ^15.0.7 (marked v15 is the last CJS-compatible major).
@@ -128,6 +128,47 @@ function resolveSafeStatus(user, status, existingStatus) {
     return existingStatus;
   }
   return status || 'draft';
+}
+
+/**
+ * Determine whether a submitted article status is one the viewer may set.
+ *
+ * A privileged viewer (admin/manager) may set any status. A non-privileged
+ * author may only KEEP the article's current status or demote it to 'draft'
+ * (unpublish) — promoting an article to 'published'/'archived' is an
+ * administrative action. An ABSENT status preserves the stored one, so it is
+ * always permitted.
+ *
+ * The route used to let resolveSafeStatus() silently coerce a forbidden
+ * promotion back to the stored status and flash "Article updated." — the
+ * author asked to publish, the app published nothing, and nothing said so.
+ * That contradicts the app-wide partial-update contract ("a field present but
+ * invalid is rejected with an error — nothing is written"), so the routes now
+ * REJECT a status the viewer may not set instead of dropping it silently.
+ * resolveSafeStatus() remains as the defence-in-depth clamp behind the guard.
+ *
+ * @param {Object} user - the session user
+ * @param {string|null|undefined} status - the submitted status (null/undefined = absent)
+ * @param {string|null} existingStatus - the article's stored status (null on create)
+ * @returns {boolean}
+ */
+function isStatusPermittedForUser(user, status, existingStatus) {
+  if (isPrivileged(user)) {
+    return true;
+  }
+  // An absent status preserves the stored one — permitted for every viewer.
+  if (status === undefined || status === null) {
+    return true;
+  }
+  // Demoting to 'draft' (unpublishing) is permitted.
+  if (status === 'draft') {
+    return true;
+  }
+  // Keeping the article's current status is permitted.
+  if (existingStatus && status === existingStatus) {
+    return true;
+  }
+  return false;
 }
 
 function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
@@ -295,6 +336,17 @@ function renderMarkdown(content) {
  * When the cut point falls inside a trailing entity, the partial entity is
  * dropped instead.
  *
+ * Only the PARTIAL entity is dropped. The helper used to drop everything from
+ * the last "&" onwards whenever the text after it did not END with ";", so a
+ * COMPLETE entity followed by ordinary text was thrown away with it: the
+ * sanitized body "R&amp;D budget plan" truncated to 10 characters yielded
+ * "R" — the complete "&amp;" and the nine characters after it were all
+ * discarded, not the partial entity the helper exists to remove. The tail
+ * from the last "&" is therefore checked for a terminating ";" (an entity
+ * cannot contain another, so a ";" inside the tail always terminates the
+ * entity that opened it): the entity is complete and the cut point is in
+ * ordinary text, so nothing is dropped.
+ *
  * @param {string} value - the already-sanitized string
  * @param {number} maxLen - the maximum number of characters to keep
  * @returns {string}
@@ -308,9 +360,10 @@ function _truncateAtEntityBoundary(value, maxLen) {
   const amp = cut.lastIndexOf('&');
   if (amp !== -1) {
     const tail = cut.slice(amp);
-    // A complete entity ends with ';' — keep it. Anything else is a partial
-    // entity (or a bare '&') and is dropped.
-    if (!tail.endsWith(';')) {
+    // A complete entity is terminated by a ";" inside the tail. Without one
+    // the tail is a partial entity (or a bare "&") and is dropped — but ONLY
+    // the partial entity, never the complete one plus the text after it.
+    if (tail.indexOf(';') === -1) {
       cut = cut.slice(0, amp);
     }
   }
@@ -383,17 +436,21 @@ function sanitizeKnowledgeInput(title, content, tags) {
     const cleanContent = sanitizeHtml(content, STRIP_HTML_OPTIONS).trim();
     safeTitle = _truncateAtEntityBoundary(cleanTitle, MAX_MEDIUM_STR);
     safeContent = _truncateAtEntityBoundary(cleanContent, MAX_CONTENT);
-    if (safeTitle.length < cleanTitle.length) {
-      truncated = true;
-      truncatedField = 'title';
-    }
+    // The content is checked FIRST so it is reported ahead of the other
+    // fields: it is the only one whose stored form differs in length from
+    // what the author typed (the body is stored entity-escaped, so a body of
+    // ampersands grows several-fold), which makes it the limit an author is
+    // most likely to hit without being able to see why. The check order used
+    // to be the other way round, so a submission that overflowed BOTH the
+    // title and the content reported the title — contradicting the comment
+    // that explained the opposite.
     if (safeContent.length < cleanContent.length) {
       truncated = true;
-      // The content is the field that can actually overflow: it is stored
-      // entity-escaped, so a body of ampersands grows several-fold. It is
-      // reported ahead of the other fields because it is the only one whose
-      // stored form differs in length from what the author typed.
-      truncatedField = truncatedField || 'content';
+      truncatedField = 'content';
+    }
+    if (safeTitle.length < cleanTitle.length) {
+      truncated = true;
+      truncatedField = truncatedField || 'title';
     }
     // Normalize empty tags to null (the column is nullable and a NULL is
     // cleaner than a stored '' — searches and template rendering treat them
@@ -420,17 +477,29 @@ function sanitizeKnowledgeInput(title, content, tags) {
  * sanitization. The message names the field that overflowed and the limit
  * that applies to THAT field, so the author is told what to shorten.
  *
+ * The wording names what the limit actually measures, because the three
+ * fields measure different things:
+ *   - the TITLE and the TAGS are stored as PLAIN TEXT, so their limit is
+ *     simply the number of characters the author typed;
+ *   - the CONTENT is stored ENTITY-ESCAPED, so its limit applies to the
+ *     STORED form. The stored form can be several times longer than the text
+ *     the author typed (every "&" becomes "&amp;"), so an author whose body
+ *     is well within the limit can still be refused — the message says so
+ *     instead of attributing the overflow to "removing invalid markup", which
+ *     is what the old wording claimed (markup removal SHRINKS the text; it
+ *     is the escaping that grows it).
+ *
  * @param {string|null} field - 'title' | 'content' | 'tags' | null
  * @returns {string}
  */
 function _truncationMessage(field) {
   if (field === 'title') {
-    return `Title is too long after removing invalid markup (limit ${MAX_MEDIUM_STR} characters)`;
+    return `Title is too long (limit ${MAX_MEDIUM_STR} characters)`;
   }
   if (field === 'tags') {
-    return `Tags are too long after removing invalid markup (limit ${MAX_LONG_STR} characters)`;
+    return `Tags are too long (limit ${MAX_LONG_STR} characters)`;
   }
-  return `Content is too long after removing invalid markup (limit ${MAX_CONTENT} characters)`;
+  return `Content is too long once stored (limit ${MAX_CONTENT} characters) — special characters are stored escaped, so the stored text can be longer than what you typed`;
 }
 
 // List articles (paginated)
@@ -562,12 +631,10 @@ router.post('/', kbWriteLimiter, (req, res) => {
   // MISSING field ("Title, content, and category are required"), while the
   // matching update route reported the identical submission as "Invalid
   // request parameters" — a type error masquerading as an absent one.
-  for (const field of ['title', 'content', 'category', 'tags', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/knowledge/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'content', 'category', 'tags', 'status']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/knowledge/new');
   }
 
   if (!title || !content || !category) {
@@ -613,6 +680,19 @@ router.post('/', kbWriteLimiter, (req, res) => {
   // rejects it, and the create route used to accept it and silently default.
   const createStatusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
   if (createStatusEnum.state === 'blank' || createStatusEnum.state === 'invalid' || createStatusEnum.state === 'empty') {
+    req.flash('error', 'Invalid Status');
+    return res.redirect('/knowledge/new');
+  }
+
+  // A non-privileged author may not create an article in a published state:
+  // publishing is an administrative action. The route used to silently coerce
+  // the submitted status back to 'draft' and flash "Article created." — the
+  // author asked to publish, the app published nothing, and nothing said so.
+  // Reject it instead (nothing is written), per the app-wide partial-update
+  // contract: a field present but invalid for this viewer is rejected with an
+  // error rather than silently dropped.
+  const submittedCreateStatus = createStatusEnum.state === 'valid' ? createStatusEnum.value : null;
+  if (!isStatusPermittedForUser(req.session.user, submittedCreateStatus, null)) {
     req.flash('error', 'Invalid Status');
     return res.redirect('/knowledge/new');
   }
@@ -853,12 +933,10 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   // sibling required columns on the assets/tickets update routes report the
   // identical submission as "Invalid request parameters" — a type error
   // masquerading as an absent one.
-  for (const field of ['title', 'content', 'category', 'tags', 'status']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/knowledge/${id}/edit`);
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'content', 'category', 'tags', 'status']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/knowledge/${id}/edit`);
   }
 
   // Absent-vs-present markers for the fields this route resolves. An ABSENT
@@ -988,6 +1066,20 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
       // An ABSENT status preserves the stored one (the partial-update
       // contract) — the submitted value is only forwarded when the request
       // actually carried a valid one.
+      //
+      // A non-privileged author may not PROMOTE an article (draft ->
+      // published). The route used to silently coerce the submitted status
+      // back to the stored one and flash "Article updated." — the author
+      // asked to publish, the app published nothing, and nothing said so.
+      // Reject it instead (nothing is written), per the app-wide
+      // partial-update contract: a field present but invalid for this viewer
+      // is rejected with an error rather than silently dropped. The check
+      // runs against the transaction-consistent stored status so a concurrent
+      // status change cannot make the guard compare against a stale value.
+      const submittedStatus = statusEnum.state === 'valid' ? statusEnum.value : null;
+      if (!isStatusPermittedForUser(req.session.user, submittedStatus, recheck.status)) {
+        throw new Error('STATUS_NOT_PERMITTED');
+      }
       const txnSafeStatus = resolveSafeStatus(req.session.user, statusEnum.state === 'valid' ? statusEnum.value : recheck.status, recheck.status);
       const txnSafeFeatured = resolveSafeFeatured(req.session.user, is_featured, recheck.is_featured);
       // Resolve the required columns from the transaction-consistent row: an
@@ -1028,6 +1120,14 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     }
     if (err.message === 'INVALID_TAGS') {
       req.flash('error', 'Invalid Tags');
+      return res.redirect(`/knowledge/${id}/edit`);
+    }
+    if (err.message === 'STATUS_NOT_PERMITTED') {
+      // A non-privileged author tried to promote the article. The article
+      // itself is not hidden from its author, so this is NOT an
+      // existence oracle — the wording names the field that was rejected
+      // (the same "Invalid Status" the enum checks use), not the article.
+      req.flash('error', 'Invalid Status');
       return res.redirect(`/knowledge/${id}/edit`);
     }
     logError('Article update error:', err);

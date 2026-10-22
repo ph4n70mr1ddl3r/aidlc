@@ -1021,8 +1021,22 @@ router.put('/:projectId/tasks/:taskId', requireAdminOrManager, projectWriteLimit
     // status and reported "Status unchanged", mislabeling invalid input as a
     // valid no-op. The quick path REQUIRES a status, so a missing or blank one
     // is rejected rather than preserved.
+    //
+    // A present-but-wrong-typed status (e.g. a JSON number) is a TYPE error,
+    // not an invalid VALUE, so it is reported with the app-wide "Invalid
+    // request parameters" — the same message the full-update branch of THIS
+    // route (findNonStringField) and the task create route report for the
+    // identical submission. The field-specific wording ("Invalid Task
+    // Status") is reserved for a wrong VALUE (a string outside the
+    // allowlist). The type test runs against the RAW submitted value because
+    // trim() coerces a non-string to '' and the type information would be
+    // lost.
+    if (req.body.status !== undefined && req.body.status !== null && req.body.status !== '' && typeof req.body.status !== 'string') {
+      req.flash('error', 'Invalid request parameters');
+      return res.redirect(`/projects/${projectId}`);
+    }
     const quickStatus = trim(safeQueryValue(req.body.status));
-    if (typeof req.body.status !== 'string' || !VALID_TASK_STATUSES.includes(quickStatus)) {
+    if (!VALID_TASK_STATUSES.includes(quickStatus)) {
       req.flash('error', 'Invalid Task Status');
       return res.redirect(`/projects/${projectId}`);
     }

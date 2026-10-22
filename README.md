@@ -199,6 +199,7 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 - **Date handling**: the date-only columns (an asset's warranty, a licence's expiry, a project's start/end date) hold the **local** calendar day the user typed, and every horizon computed from them is measured against the local calendar too — the dashboard's 30-day warranty/licence alerts, the asset report's 90-day warranty list and the asset age buckets. An asset therefore never falls outside a window the app itself says it is inside.
 - **Financial data**: a project's budget and spent amount are withheld from viewers who are not admins/managers — the values are removed from the render context, not merely hidden by the template.
 - **Non-enumerating errors**: a record the viewer may not open is reported exactly like a record that does not exist, so a response cannot be used to confirm that an id exists. Every route that can refuse a viewer — the show, edit and write routes of assets, tickets, projects, staff, changes and knowledge — answers the refusal and the missing record identically.
+- **Honest write outcomes**: a write that has already committed is never reported as a failure. The profile and password routes write to the database before renewing the session, so if the renewal fails they say what actually happened ("Your password was changed, but your session could not be renewed…") and send the user to log in again — the old password no longer works, and the message must not suggest otherwise.
 - **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
 - **405 responses** carry a per-resource `Allow` header (the methods the addressed resource actually serves) together with the full security-header and `no-store` set
 - **License-key disclosure**: the plaintext key is never rendered into a page. The show/edit views receive only a `has_license_key` flag and a `****` mask; the full key is reachable exclusively through the audited, rate-limited `POST /licenses/:id/key` endpoint
@@ -207,7 +208,16 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
   are plain text** and are stored unescaped, so they display exactly as they
   were typed and are findable by the search box. The edit form decodes the
   stored body for the textarea only, so the author edits the text they typed
-  rather than its escaped form.
+  rather than its escaped form. Because the body is stored escaped, its
+  length limit applies to the **stored** form: special characters make the
+  stored text longer than what the author typed, and a body that does not fit
+  is rejected with a message that says so (never silently shortened, and never
+  with a partial HTML entity left behind).
+- **Article publishing is an administrative action**: a non-privileged author
+  may keep an article's current status or demote it to `draft`, but any other
+  status (including publishing or archiving) is **rejected** with "Invalid
+  Status" and nothing is written — the app never silently discards a status
+  the author asked for.
 - **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
 
 ### Partial-update (PUT) convention
@@ -253,10 +263,15 @@ the app-wide `"Invalid request parameters"`. The field-specific wording
 therefore describes what it says: an invalid **value** (a string outside the
 allowlist) or a whitespace-only one. This holds for the enums as well: a
 non-string `role` is a type error, while `"role": "owner"` is an invalid
-value and is reported as `"Invalid Role"`. The **phone** column is the one
-documented exception: it is loosely typed (any character outside the allowed
-set is stripped), so a value that sanitises to nothing — a JSON number, or
-the string `"abc"` — is reported as an invalid phone number on both verbs.
+value and is reported as `"Invalid Role"`. It holds for the **quick-status
+routes** as well: `PUT /tickets/:id/status` and the task quick-status branch
+of `PUT /projects/:projectId/tasks/:taskId` answer a wrong-typed `status`
+with the app-wide wording, exactly like the full-update route beside them —
+so the same column never produces two different verdicts. The **phone**
+column is the one documented exception: it is loosely typed (any character
+outside the allowed set is stripped), so a value that sanitises to nothing —
+a JSON number, or the string `"abc"` — is reported as an invalid phone
+number on both verbs.
 
 The same rule governs the **create** routes: a `POST` that submits a
 present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
@@ -277,7 +292,10 @@ exceptions:
   project's budget and spent amount. A blank money field means "not recorded",
   so the stored amount is preserved (a `NULL` amount is indistinguishable
   from "free" and would mislead the reports). A vendor's rating follows the
-  same rule. A money field also carries an inclusive upper bound
+  same rule — but note that a *whitespace-only* rating is an **invalid
+  value**, not a blank one: the rating is rejected exactly like a
+  whitespace-only money amount (an empty rating still preserves the stored
+  one). A money field also carries an inclusive upper bound
   (`MAX_MONEY_AMOUNT`), which a present value above it violates — the request
   is rejected, exactly like any other present-but-invalid value (see
   [Form constraints](#form-constraints)).
@@ -339,6 +357,12 @@ fully readable by the viewer:
   as HTML), so its search matches the text the reader actually sees
   ("R&D budget") as well as the escaped form it is stored in
   ("R&amp;D budget").
+- a **list filter is applied only when the list's control offers it**. The
+  change index hides the assignee dropdown from a non-privileged viewer (the
+  route scopes their list to their own assignments), so an `assigned_to`
+  filter submitted for one is ignored rather than narrowing their list to
+  nothing behind a control they cannot see. The knowledge index does the same
+  with its status filter. A privileged viewer's filters are unaffected.
 - the **staff** directory redacts a row's email, phone and department for
   viewers who may not see them, so those columns are not searchable for them
   and the department filter is offered to privileged viewers only. The
