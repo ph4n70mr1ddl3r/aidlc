@@ -91,7 +91,7 @@
         <% if (!isEdit || isPrivileged(user)) { %>
         <div class="form-group">
           <label for="requester_email">Requester Email *</label>
-          <input type="email" name="requester_email" id="requester_email" class="form-control" value="<%= ticket.requester_email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" required autocomplete="off">
+          <input type="email" name="requester_email" id="requester_email" class="form-control" value="<%= ticket.requester_email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" pattern="[^\s@]+@[^\s@]+\.[^\s@]+" title="Enter a valid email address (name@example.com)" required autocomplete="off">
         </div>
         <div class="form-group">
           <label for="requester_department">Department</label>

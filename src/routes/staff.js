@@ -290,13 +290,6 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   const first_name = trim(safeQueryValue(req.body.first_name));
   const last_name = trim(safeQueryValue(req.body.last_name));
   const department = trim(safeQueryValue(req.body.department));
-  // Fail closed on a present-but-non-string department (e.g. a JSON number):
-  // trim() coerces it to '', which would silently store NULL — the same
-  // fail-closed convention applied to phone below.
-  if (req.body.department !== undefined && req.body.department !== null && req.body.department !== '' && typeof req.body.department !== 'string') {
-    req.flash('error', 'Invalid Department');
-    return res.redirect('/staff/new');
-  }
   // Fail closed on a present-but-blank department (whitespace only). A
   // whitespace-only value is neither an ABSENT field ("no department") nor
   // an intentional empty string, so it is an invalid value — the app-wide
@@ -329,7 +322,13 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // category/priority/status, an article's status), so staff.js was the lone
   // module where a wrong-typed enum was indistinguishable from an unknown
   // value. "Invalid Role" now means what it says: an unknown role VALUE.
-  for (const field of ['username', 'password', 'email', 'first_name', 'last_name', 'role']) {
+  //
+  // `department` is guarded here too, for the same reason: a wrong TYPE is
+  // reported with the app-wide wording, while the field-specific wording
+  // ("Please enter a valid department") is reserved for the whitespace-only
+  // VALUE above. It used to answer "Invalid Department" for the type error,
+  // which the README's partial-update contract does not allow.
+  for (const field of ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department']) {
     const v = req.body[field];
     if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
       req.flash('error', 'Invalid request parameters');
@@ -592,13 +591,6 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     req.flash('error', 'Please enter a valid department');
     return res.redirect(`/staff/${id}/edit`);
   }
-  // Fail closed on a present-but-non-string department (e.g. a JSON number):
-  // trim() coerces it to '', which would silently clear the stored department
-  // on update — the same fail-closed convention applied to phone below.
-  if (rawDepartment !== undefined && rawDepartment !== null && rawDepartment !== '' && typeof rawDepartment !== 'string') {
-    req.flash('error', 'Invalid Department');
-    return res.redirect(`/staff/${id}/edit`);
-  }
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization
   if (typeof rawPhone === 'string' && rawPhone.length > MAX_PHONE) {
@@ -638,7 +630,13 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // category/priority/status, an article's status), so staff.js was the lone
   // module where a wrong-typed enum was indistinguishable from an unknown
   // value. "Invalid Role" now means what it says: an unknown role VALUE.
-  const wrongTypeField = findNonStringField(req.body, ['email', 'first_name', 'last_name', 'role']);
+  //
+  // `department` joins the guard so the wrong-typed value is reported with the
+  // app-wide wording on both verbs (it used to answer "Invalid Department"
+  // here and on the create route). The field-specific wording ("Please enter a
+  // valid department") is reserved for the whitespace-only VALUE, which is
+  // rejected by the dedicated check above.
+  const wrongTypeField = findNonStringField(req.body, ['email', 'first_name', 'last_name', 'role', 'department']);
   if (wrongTypeField) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect(`/staff/${id}/edit`);

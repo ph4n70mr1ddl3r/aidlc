@@ -15,7 +15,7 @@
       <div class="form-grid">
         <div class="form-group">
           <label for="asset_tag">Asset Tag *</label>
-          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" <% if (!isEdit) { %>disabled style="background:var(--bg);cursor:not-allowed;"<% } else { %>required<% } %>>
+          <input type="text" name="asset_tag" id="asset_tag" class="form-control" value="<%= asset.asset_tag || '' %>" maxlength="<%= CONSTANTS.MAX_ASSET_TAG %>" pattern="AST-\d{3,}" title="Format AST-XXX (e.g. AST-001)" <% if (!isEdit) { %>disabled style="background:var(--bg);cursor:not-allowed;"<% } else { %>required<% } %>>
           <% if (!isEdit) { %><small class="text-muted">Auto-generated when the asset is created.</small><% } %>
         </div>
         <div class="form-group">
@@ -69,7 +69,7 @@
         </div>
         <div class="form-group">
           <label for="purchase_price">Purchase Price ($)</label>
-          <input type="number" name="purchase_price" id="purchase_price" class="form-control" step="0.01" min="0" max="99999999.99" value="<%= asset.purchase_price != null ? asset.purchase_price : '' %>">
+          <input type="number" name="purchase_price" id="purchase_price" class="form-control" step="0.01" min="0" max="<%= CONSTANTS.MAX_MONEY_AMOUNT %>" value="<%= asset.purchase_price != null ? asset.purchase_price : '' %>">
         </div>
         <div class="form-group">
           <label for="warranty_expiry">Warranty Expiry</label>

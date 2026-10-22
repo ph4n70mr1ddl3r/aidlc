@@ -195,10 +195,10 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
 - **Rate limiting** on login (10 per 15 min per IP, plus a separate 5-failure / 15-min account+IP lockout — a successful login clears only the failures recorded for the account that logged in, so one valid account cannot reset the shared per-source brake; the per-source key groups IPv6 clients by /56, exactly as the rate limiter does), dashboard (10/min), health (30/min), logout (30/15 min per account), a global write backstop (100/15 min per account), and per-route limiters on reports (30/5 min), audit view (30/5 min), license-key reveal (20/15 min), knowledge writes (30/hour) and reads (100/15 min), staff create + deactivate (10/hour each), staff reactivation (10/min), staff updates (50/15 min), admin password resets (20/15 min), self-service profile updates (30/15 min), password changes (10/15 min), ticket writes (50/15 min), ticket comments (10/min), ticket quick-status updates (20/min), ticket satisfaction ratings (10/min), and per-entity write routes (assets / projects / vendors / changes / licenses at 50/15 min)
 - **bcryptjs** password hashing (12 salt rounds)
 - **Session security**: httpOnly, sameSite=lax, secure in production
-- **Input validation**: Whitelisted filter values, parameterized queries
+- **Input validation**: Whitelisted filter values, parameterized queries. The money and seat fields carry an inclusive upper bound (`MAX_MONEY_AMOUNT` / `MAX_SEAT_COUNT`) that the forms declare on their number inputs **and** the write routes enforce — an HTML `max` attribute is a client-side hint only, so the server repeats the check
 - **Date handling**: the date-only columns (an asset's warranty, a licence's expiry, a project's start/end date) hold the **local** calendar day the user typed, and every horizon computed from them is measured against the local calendar too — the dashboard's 30-day warranty/licence alerts, the asset report's 90-day warranty list and the asset age buckets. An asset therefore never falls outside a window the app itself says it is inside.
 - **Financial data**: a project's budget and spent amount are withheld from viewers who are not admins/managers — the values are removed from the render context, not merely hidden by the template.
-- **Non-enumerating errors**: a record the viewer may not open is reported exactly like a record that does not exist, so a response cannot be used to confirm that an id exists.
+- **Non-enumerating errors**: a record the viewer may not open is reported exactly like a record that does not exist, so a response cannot be used to confirm that an id exists. Every route that can refuse a viewer — the show, edit and write routes of assets, tickets, projects, staff, changes and knowledge — answers the refusal and the missing record identically.
 - **HTTP Parameter Pollution (HPP) defense**: All write routes reject array payloads via `rejectHppArrays()`, preventing multi-value parameter injection
 - **405 responses** carry a per-resource `Allow` header (the methods the addressed resource actually serves) together with the full security-header and `no-store` set
 - **License-key disclosure**: the plaintext key is never rendered into a page. The show/edit views receive only a `has_license_key` flag and a `****` mask; the full key is reachable exclusively through the audited, rate-limited `POST /licenses/:id/key` endpoint
@@ -247,13 +247,16 @@ nothing is written.
 
 A **wrong-typed** value is rejected the same way on both verbs too, and with
 the same message. A JSON number in a name field is a TYPE error — not an
-absent field and not an invalid value — and every route answers it with the
-app-wide `"Invalid request parameters"`. The field-specific wording
+absent field and not an invalid value — and every text field answers it with
+the app-wide `"Invalid request parameters"`. The field-specific wording
 (`"Invalid Manufacturer"`, `"Invalid Description"`, `"Invalid Role"`, …)
 therefore describes what it says: an invalid **value** (a string outside the
 allowlist) or a whitespace-only one. This holds for the enums as well: a
 non-string `role` is a type error, while `"role": "owner"` is an invalid
-value and is reported as `"Invalid Role"`.
+value and is reported as `"Invalid Role"`. The **phone** column is the one
+documented exception: it is loosely typed (any character outside the allowed
+set is stripped), so a value that sanitises to nothing — a JSON number, or
+the string `"abc"` — is reported as an invalid phone number on both verbs.
 
 The same rule governs the **create** routes: a `POST` that submits a
 present-but-empty value for a `NOT NULL` enum column (an asset's, a ticket's,
@@ -274,7 +277,10 @@ exceptions:
   project's budget and spent amount. A blank money field means "not recorded",
   so the stored amount is preserved (a `NULL` amount is indistinguishable
   from "free" and would mislead the reports). A vendor's rating follows the
-  same rule.
+  same rule. A money field also carries an inclusive upper bound
+  (`MAX_MONEY_AMOUNT`), which a present value above it violates — the request
+  is rejected, exactly like any other present-but-invalid value (see
+  [Form constraints](#form-constraints)).
 - the **nullable enum fields whose stored default carries meaning** — an
   asset's condition rating and the priority of a project, a task or a change.
   A blank value means "not submitted", so the stored value is preserved. A
@@ -285,6 +291,23 @@ The one field where an empty string is not a valid value — the licence key —
 has its own dedicated `clear_key` control on the edit form (ticking it wipes
 the stored key; typing a new key and ticking it at the same time is rejected
 rather than silently discarding one of the two).
+
+### Form constraints
+
+The forms declare the same rules the routes enforce, so a value the browser
+accepts is a value the server accepts:
+
+- the money inputs (an asset's purchase price, a licence's cost, a project's
+  budget and spent amount) and the licence seat inputs carry the app-wide
+  upper bound `CONSTANTS.MAX_MONEY_AMOUNT` / `CONSTANTS.MAX_SEAT_COUNT`. The
+  bound is enforced on the write routes as well — an HTML `max` attribute is a
+  client-side hint only, and an API client was storing amounts and seat
+  counts the UI refused to accept;
+- the username input declares the route's minimum length and character class
+  (`CONSTANTS.MIN_USERNAME`–`CONSTANTS.MAX_USERNAME`), the asset-tag input
+  declares the `AST-XXX` format, the website input declares the `http`/`https`
+  scheme, and every email input declares the route's "a dot in the domain"
+  rule — each of them accepted values the server always rejected.
 
 ### Search surface
 

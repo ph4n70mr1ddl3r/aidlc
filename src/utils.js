@@ -2,7 +2,7 @@
  * Shared utilities for routes
  */
 
-const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE, KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE, TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE, ASSET_STATUS_BADGE, PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE, CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE, KB_STATUS_BADGE, VENDOR_CATEGORY_BADGE } = require('./constants');
+const { MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_USERNAME, MIN_USERNAME, MAX_EMAIL, MAX_SEARCH, MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE, MAX_MONEY_AMOUNT, ASSET_TAG_RE, CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE, KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE, TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE, ASSET_STATUS_BADGE, PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE, TASK_PRIORITY_BADGE, CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE, KB_STATUS_BADGE, VENDOR_CATEGORY_BADGE } = require('./constants');
 const { ipKeyGenerator } = require('express-rate-limit');
 
 const ACRONYMS = Object.freeze(new Set(['AD', 'AI', 'API', 'BIOS', 'CDN', 'CLI', 'CPU', 'CSV', 'DHCP', 'DNS', 'FAQ', 'GPU', 'GUI', 'HDD', 'HTML', 'HTTP', 'HTTPS', 'HVAC', 'IOT', 'IP', 'JSON', 'KVM', 'LDAP', 'MFA', 'ML', 'NAS', 'NAT', 'NVME', 'OAUTH', 'PCIE', 'PDF', 'RAID', 'RAM', 'RBAC', 'RMA', 'SAN', 'SATA', 'SCSI', 'SLA', 'SOP', 'SQL', 'SSD', 'SSH', 'SSL', 'SSO', 'UPS', 'USB', 'VPN', 'XML', 'YAML']));
@@ -261,7 +261,7 @@ function validatePassword(password) {
   return null;
 }
 
-const _USERNAME_RE = new RegExp(`^[a-zA-Z0-9._-]{2,${MAX_USERNAME}}$`);
+const _USERNAME_RE = new RegExp(`^[a-zA-Z0-9._-]{${MIN_USERNAME},${MAX_USERNAME}}$`);
 
 /**
  * Validate that a string is a safe username (alphanumeric, dashes, underscores, dots).
@@ -613,6 +613,43 @@ function safePositiveFloat(value, fallback = null) {
     return fallback;
   }
   return n;
+}
+
+/**
+ * Resolve a MONEY field (an asset's purchase price, a licence's cost, a
+ * project's budget or spent amount) against the app-wide upper bound.
+ *
+ * The bound is the one the forms declare on their number inputs
+ * (CONSTANTS.MAX_MONEY_AMOUNT). An HTML `max` attribute is a CLIENT-side hint
+ * only: the browser refuses to submit a larger value, but an API client — or
+ * a hand-crafted POST — was stored without complaint, so the declared limit
+ * was not a limit at all and the UI's allowlist was a strict, undocumented
+ * subset of the server's (verified: a 250,000,000 purchase price, a
+ * 200,000,000 budget and 2,000,000 licence seats were all stored with a
+ * success flash).
+ *
+ * An ABSENT field takes the supplied fallback (0 on a create route, the
+ * stored value on an update route); a present field must parse to a
+ * non-negative number that is within the bound. Anything else is an error —
+ * the app-wide fail-closed convention for a present-but-invalid value.
+ *
+ * @param {*} rawValue - the raw submitted value (may be undefined/null/'')
+ * @param {number|null} fallback - the value to use when the field is absent
+ * @param {number} [max] - the inclusive upper bound
+ * @returns {{ value: number|null, error: 'invalid'|'too_large'|null }}
+ */
+function resolveMoneyAmount(rawValue, fallback, max = MAX_MONEY_AMOUNT) {
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return { value: fallback, error: null };
+  }
+  const parsed = safePositiveFloat(rawValue, NaN);
+  if (!Number.isFinite(parsed)) {
+    return { value: fallback, error: 'invalid' };
+  }
+  if (parsed > max) {
+    return { value: fallback, error: 'too_large' };
+  }
+  return { value: parsed, error: null };
 }
 
 /**
@@ -1616,6 +1653,7 @@ function rejectHppArrays(req, fields) {
 module.exports = {
   paginate, paginationBaseUrl, requestPath, safeSort, buildFilters, addSearch,
   safeId, isPresentInvalidId, safePositiveFloat, safeInt, safePositiveInt,
+  resolveMoneyAmount,
   parseEnvInt,
   resolveEnumField,
   validatePassword, isValidUsername, isValidEmail, isValidUrl,

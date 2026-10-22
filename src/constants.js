@@ -74,6 +74,10 @@ const ALLOWED_ENTITY_TYPES = Object.freeze(['user', 'ticket', 'asset', 'project'
 // used across route handlers. Kept here to eliminate magic number repetition.
 // ---------------------------------------------------------------------------
 const MAX_USERNAME = 50;          // username (also used as substring limit in auth.js and staff.js)
+// The minimum length the username rule enforces (utils.isValidUsername).
+// Kept here so the staff form can declare the same bound the route applies
+// instead of hard-coding "2" in the template.
+const MIN_USERNAME = 2;
 const MAX_SHORT_STR = 100;        // first_name, last_name, department, manufacturer, model, etc.
 const MAX_MEDIUM_STR = 200;       // title, software_name, vendor name, asset name, etc.
 const MAX_LONG_STR = 500;         // tags, impact, website, address, serial notes
@@ -95,6 +99,18 @@ const MAX_PASSWORD = 128;         // password max character length (hard char ca
 // enforced by validatePassword for non-browser callers).
 const MAX_PASSWORD_BYTES = 72;
 const MAX_SEARCH = 100;           // search box input (list filters)
+// ---------------------------------------------------------------------------
+// Upper bounds for the numeric fields the forms render as <input type="number">.
+// The forms declare them on the control (max="…"), but an HTML `max` attribute
+// is a CLIENT-side hint only: the browser refuses to submit a larger value,
+// while an API client — or a hand-crafted POST — was stored without
+// complaint. The declared limit was therefore not a limit at all, and the
+// UI's allowlist was a strict, undocumented subset of the server's. The same
+// bound is now enforced on the write routes, so the number the form declares
+// is the number the app accepts.
+// ---------------------------------------------------------------------------
+const MAX_MONEY_AMOUNT = 99999999.99;  // an asset's price, a licence's cost, a project's budget/spent
+const MAX_SEAT_COUNT = 1000000;        // a licence's total/used seats
 const MAX_ASSET_TAG = 50;         // asset tag format AST-<digits> (incl. prefix)
 const ASSET_TAG_PREFIX = 'AST-';  // asset tag prefix followed by digits
 // Require at least 3 digits so the auto-incrementing counter never produces a
@@ -227,8 +243,9 @@ module.exports = {
   USER_ROLES,
   SESSION_COOKIE, SESSION_COOKIE_OPTIONS, SESSION_MAX_AGE,
   ALLOWED_ACTIONS, ALLOWED_ENTITY_TYPES,
-  MAX_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
+  MAX_USERNAME, MIN_USERNAME, MAX_SHORT_STR, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_DESC, MAX_NOTES,
   MAX_CONTENT, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MIN_PASSWORD, MAX_PASSWORD, MAX_PASSWORD_BYTES, MAX_SEARCH, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSET_TAG_RE,
+  MAX_MONEY_AMOUNT, MAX_SEAT_COUNT,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
   BCRYPT_SALT_ROUNDS,

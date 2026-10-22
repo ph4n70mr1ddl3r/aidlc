@@ -1,8 +1,8 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
-const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, resolveMoneyAmount, safeDate, trim, getActiveStaff, isActiveUser, isPrivileged, ensureAssigneeInList, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, isValidAssetTag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList } = require('../utils');
+const { ASSET_CATEGORIES: VALID_CATEGORIES, ASSET_STATUSES: VALID_STATUSES, ASSET_CONDITIONS: VALID_CONDITIONS, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_NOTES, MAX_ASSET_TAG, MAX_MONEY_AMOUNT, ASSET_TAG_PREFIX, ASSIGNED_ITEMS_CAP } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -334,15 +334,22 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // Mirrors the assets UPDATE path (11th pass) and licenses create (9th pass).
   // Note: the schema declares purchase_price as a nullable REAL; this create
   // path is stricter by convention, writing 0 rather than NULL.
-  if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
-      !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
+  //
+  // The amount is also bounded by MAX_MONEY_AMOUNT — the limit the form's
+  // number input declares. The attribute is a client-side hint only, so
+  // without the server-side check an API client could store a price the UI
+  // refuses to accept (and the two surfaces disagreed about what a valid
+  // price is).
+  const priceCheck = resolveMoneyAmount(purchase_price, 0);
+  if (priceCheck.error === 'invalid') {
     req.flash('error', 'Invalid Purchase Price');
     return res.redirect('/assets/new');
   }
-
-  const safePurchasePrice = purchase_price === undefined || purchase_price === null || purchase_price === ''
-    ? 0
-    : safePositiveFloat(purchase_price, Infinity);
+  if (priceCheck.error === 'too_large') {
+    req.flash('error', `Purchase Price must be at most ${MAX_MONEY_AMOUNT}`);
+    return res.redirect('/assets/new');
+  }
+  const safePurchasePrice = priceCheck.value;
 
   // Validate assignee is an active user
   // Fail closed on a present-but-malformed id ("abc", "3.5", an HPP array)
@@ -675,9 +682,19 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // NULL, which would wipe a legitimate stored price on a partial edit. An
   // empty/omitted price preserves the existing stored value (read inside the
   // transaction, TOCTOU-safe, mirroring licenses.js / projects.js).
-  if (purchase_price !== undefined && purchase_price !== null && purchase_price !== '' &&
-      !Number.isFinite(safePositiveFloat(purchase_price, Infinity))) {
+  //
+  // The amount is also bounded by MAX_MONEY_AMOUNT — the limit the form's
+  // number input declares. The attribute is a client-side hint only, so
+  // without the server-side check an API client could store a price the UI
+  // refuses to accept (and the two surfaces disagreed about what a valid
+  // price is).
+  const priceCheck = resolveMoneyAmount(purchase_price, null);
+  if (priceCheck.error === 'invalid') {
     req.flash('error', 'Invalid Purchase Price');
+    return res.redirect(`/assets/${id}/edit`);
+  }
+  if (priceCheck.error === 'too_large') {
+    req.flash('error', `Purchase Price must be at most ${MAX_MONEY_AMOUNT}`);
     return res.redirect(`/assets/${id}/edit`);
   }
 
@@ -761,7 +778,7 @@ router.put('/:id', requireAdminOrManager, assetWriteLimiter, (req, res) => {
       //   made it impossible to clear a purchase/warranty date via the edit form.
       const resolvedPrice = (purchase_price === undefined || purchase_price === null || purchase_price === '')
         ? (current.purchase_price ?? null)
-        : safePositiveFloat(purchase_price, Infinity);
+        : priceCheck.value;
       const resolvedPurchase = (purchase_date === undefined || purchase_date === null)
         ? current.purchase_date
         : sPurchase;

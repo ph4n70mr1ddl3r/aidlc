@@ -1,8 +1,8 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveFloat, safePositiveInt, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, authKeyGenerator, logError } = require('../utils');
-const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES } = require('../constants');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, safePositiveInt, resolveMoneyAmount, safeDate, trim, titleCase, countQuery, selectQuery, safeQueryValue, safeFilters, parseBooleanFlag, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, authKeyGenerator, logError } = require('../utils');
+const { LICENSE_TYPES: VALID_LICENSE_TYPES, MAX_MEDIUM_STR, MAX_LONG_STR, MAX_NOTES, MAX_MONEY_AMOUNT, MAX_SEAT_COUNT } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 const rateLimit = require('express-rate-limit');
 
@@ -54,6 +54,17 @@ function _resolveSeats(totalSeatsRaw, usedSeatsRaw, existing) {
   }
   if (usedPresent && !Number.isFinite(used)) {
     return { seats, used, error: 'Invalid used seats' };
+  }
+  // The seat counts carry the app-wide upper bound (MAX_SEAT_COUNT) the form's
+  // number inputs declare. An HTML `max` attribute is a client-side hint
+  // only, so without this check an API client could store a seat count the UI
+  // refuses to accept (and the two surfaces disagreed about what a valid count
+  // is).
+  if (totalPresent && seats > MAX_SEAT_COUNT) {
+    return { seats, used, error: `Total Seats must be at most ${MAX_SEAT_COUNT}` };
+  }
+  if (usedPresent && used > MAX_SEAT_COUNT) {
+    return { seats, used, error: `Used Seats must be at most ${MAX_SEAT_COUNT}` };
   }
   const finalSeats = Math.max(1, seats);
   const finalUsed = used;
@@ -254,16 +265,22 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // Distinguish "cost not submitted" (default to 0) from "cost submitted with
   // an invalid value" (fail closed — reject rather than silently storing null,
   // which would wipe a legitimate stored cost). Mirrors projects.js budget/spent.
-  let safeCost;
-  if (cost === undefined || cost === null || cost === '') {
-    safeCost = 0;
-  } else {
-    safeCost = safePositiveFloat(cost, Infinity);
-    if (!Number.isFinite(safeCost)) {
-      req.flash('error', 'Invalid Cost Amount');
-      return res.redirect('/licenses/new');
-    }
+  //
+  // The amount is also bounded by MAX_MONEY_AMOUNT — the limit the form's
+  // number input declares. The attribute is a client-side hint only, so
+  // without the server-side check an API client could store a cost the UI
+  // refuses to accept (and the two surfaces disagreed about what a valid
+  // amount is).
+  const costCheck = resolveMoneyAmount(cost, 0);
+  if (costCheck.error === 'invalid') {
+    req.flash('error', 'Invalid Cost Amount');
+    return res.redirect('/licenses/new');
   }
+  if (costCheck.error === 'too_large') {
+    req.flash('error', `Cost must be at most ${MAX_MONEY_AMOUNT}`);
+    return res.redirect('/licenses/new');
+  }
+  const safeCost = costCheck.value;
 
   const { seats, used, error: seatError } = _resolveSeats(total_seats, used_seats, null);
   if (seatError) {
@@ -507,12 +524,19 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // transaction) from "cost submitted with an invalid value" (fail closed —
   // reject rather than silently wiping the stored cost). Mirrors projects.js
   // budget/spent. The existing value is read inside the transaction below.
-  if (cost !== undefined && cost !== null && cost !== '') {
-    const _costCheck = safePositiveFloat(cost, Infinity);
-    if (!Number.isFinite(_costCheck)) {
-      req.flash('error', 'Invalid Cost Amount');
-      return res.redirect(`/licenses/${id}/edit`);
-    }
+  //
+  // The amount is also bounded by MAX_MONEY_AMOUNT — the limit the form's
+  // number input declares. The attribute is a client-side hint only, so
+  // without the server-side check an API client could store a cost the UI
+  // refuses to accept.
+  const costCheck = resolveMoneyAmount(cost, null);
+  if (costCheck.error === 'invalid') {
+    req.flash('error', 'Invalid Cost Amount');
+    return res.redirect(`/licenses/${id}/edit`);
+  }
+  if (costCheck.error === 'too_large') {
+    req.flash('error', `Cost must be at most ${MAX_MONEY_AMOUNT}`);
+    return res.redirect(`/licenses/${id}/edit`);
   }
 
   // Validate date ordering. Reject a present, non-empty date that fails to
@@ -569,7 +593,7 @@ router.put('/:id', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
       // invalid value was already rejected before the transaction.
       const resolvedCost = (cost === undefined || cost === null || cost === '')
         ? (existing.cost ?? null)
-        : safePositiveFloat(cost, Infinity);
+        : costCheck.value;
       // Preserve the stored optional fields when they are ABSENT from the
       // request (partial submission) instead of wiping them to NULL — the same
       // class the assets/projects/vendors update paths already handle. An empty

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, canAccessResource } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, safePositiveFloat, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList, isPrivileged } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isPresentInvalidId, resolveMoneyAmount, trim, safeDate, getActiveStaff, isActiveUser, ensureAssigneeInList, recalcProjectProgress, countQuery, selectQuery, safeQueryValue, safeFilters, safeSort, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, authKeyGenerator, logError, capList, isPrivileged } = require('../utils');
 const {
   PROJECT_STATUSES: VALID_STATUSES,
   PROJECT_PRIORITIES: VALID_PRIORITIES,
@@ -9,6 +9,7 @@ const {
   TASK_PRIORITIES: VALID_TASK_PRIORITIES,
   MEMBER_ROLES: VALID_MEMBER_ROLES,
   MAX_MEDIUM_STR, MAX_DESC,
+  MAX_MONEY_AMOUNT,
   DESC_TRUNCATION_LEN,
   TASK_LIST_CAP, MEMBER_LIST_CAP
 } = require('../constants');
@@ -360,32 +361,39 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // fallback: a blank budget there preserves the stored value (see the
   // money-field convention in the update transaction). Mirrors the projects
   // UPDATE path (2nd pass).
-  let safeBudget;
-  if (budget === undefined || budget === null || budget === '') {
-    safeBudget = 0;
-  } else {
-    safeBudget = safePositiveFloat(budget, Infinity);
-    if (!Number.isFinite(safeBudget)) {
-      req.flash('error', 'Invalid Budget Amount');
-      return res.redirect('/projects/new');
-    }
+  //
+  // The amount is also bounded by MAX_MONEY_AMOUNT — the limit the form's
+  // number input declares. The attribute is a client-side hint only, so
+  // without the server-side check an API client could store a budget the UI
+  // refuses to accept (and the two surfaces disagreed about what a valid
+  // amount is).
+  const budgetCheck = resolveMoneyAmount(budget, 0);
+  if (budgetCheck.error === 'invalid') {
+    req.flash('error', 'Invalid Budget Amount');
+    return res.redirect('/projects/new');
   }
+  if (budgetCheck.error === 'too_large') {
+    req.flash('error', `Budget must be at most ${MAX_MONEY_AMOUNT}`);
+    return res.redirect('/projects/new');
+  }
+  const safeBudget = budgetCheck.value;
 
   // Fail closed on malformed spent, mirroring budget above: a present,
   // non-empty value that fails to parse is rejected rather than silently
   // coerced to 0. An empty/omitted value is allowed and falls back to 0 — the
   // column default and the "no amount recorded" representation (the UPDATE
-  // path instead preserves the stored value).
-  let safeSpent;
-  if (spent === undefined || spent === null || spent === '') {
-    safeSpent = 0;
-  } else {
-    safeSpent = safePositiveFloat(spent, Infinity);
-    if (!Number.isFinite(safeSpent)) {
-      req.flash('error', 'Invalid Spent Amount');
-      return res.redirect('/projects/new');
-    }
+  // path instead preserves the stored value). The amount carries the same
+  // upper bound as the budget.
+  const spentCheck = resolveMoneyAmount(spent, 0);
+  if (spentCheck.error === 'invalid') {
+    req.flash('error', 'Invalid Spent Amount');
+    return res.redirect('/projects/new');
   }
+  if (spentCheck.error === 'too_large') {
+    req.flash('error', `Spent Amount must be at most ${MAX_MONEY_AMOUNT}`);
+    return res.redirect('/projects/new');
+  }
+  const safeSpent = spentCheck.value;
 
   // Validate owner is an active user
   // Fail closed on a present-but-malformed owner id ("abc", "3.5", an HPP
@@ -443,7 +451,13 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, project)) {
     req.audit('access_denied', 'project', id, `Unauthorized view attempt on project ${project.name}`);
-    req.flash('error', 'You do not have permission to view this project.');
+    // Use the same non-enumerating wording as the "not found" branch above: a
+    // distinct "you do not have permission" message reveals that the project ID
+    // exists even though the viewer was refused the record. Mirrors the
+    // assets/staff/tickets/changes/knowledge show routes, which answer both
+    // branches identically, and the README's app-wide "Non-enumerating errors"
+    // rule.
+    req.flash('error', 'Project not found');
     return res.redirect('/projects');
   }
 
@@ -664,32 +678,29 @@ router.put('/:id', requireAdminOrManager, projectWriteLimiter, (req, res) => {
       //   numeric value replaces it, and an explicit 0 is a legitimate value
       //   that clears the amount to zero. This mirrors the assets
       //   purchase_price and licenses cost handling.
-      //   Using Infinity as the fallback sentinel lets safePositiveFloat
-      //   signal invalid input without masking it as a legitimate 0, so a
-      //   typo'd value is surfaced to the user rather than stored as 0.
-      let preservedSpent;
-      if (spent === undefined || spent === null || spent === '') {
-        // Preserve existing value (including NULL) rather than defaulting to 0.
-        // Using ?? null ensures that a stored NULL stays NULL on partial edits.
-        // See similar patterns in assets.js, vendors.js, licenses.js.
-        preservedSpent = existingProject.spent ?? null;
-      } else {
-        preservedSpent = safePositiveFloat(spent, Infinity);
-        if (!Number.isFinite(preservedSpent)) {
-          throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid Spent Amount' });
-        }
+      //   The amount also carries the app-wide upper bound
+      //   (MAX_MONEY_AMOUNT) the form's number input declares: an HTML `max`
+      //   attribute is a client-side hint only, so without the server-side
+      //   check an API client could store an amount the UI refuses to accept.
+      //   An ABSENT field falls back to the STORED value (including NULL, via
+      //   the ?? null) rather than to 0, so a partial edit never blanks the
+      //   financial columns.
+      const spentCheck = resolveMoneyAmount(spent, existingProject.spent ?? null);
+      if (spentCheck.error === 'invalid') {
+        throw Object.assign(new Error('INVALID_SPENT'), { flash: 'Invalid Spent Amount' });
       }
-      let preservedBudget;
-      if (budget === undefined || budget === null || budget === '') {
-        // Preserve existing value (including NULL) rather than defaulting to 0.
-        // Using ?? null ensures that a stored NULL stays NULL on partial edits.
-        preservedBudget = existingProject.budget ?? null;
-      } else {
-        preservedBudget = safePositiveFloat(budget, Infinity);
-        if (!Number.isFinite(preservedBudget)) {
-          throw Object.assign(new Error('INVALID_BUDGET'), { flash: 'Invalid Budget Amount' });
-        }
+      if (spentCheck.error === 'too_large') {
+        throw Object.assign(new Error('INVALID_SPENT'), { flash: `Spent Amount must be at most ${MAX_MONEY_AMOUNT}` });
       }
+      const preservedSpent = spentCheck.value;
+      const budgetCheck = resolveMoneyAmount(budget, existingProject.budget ?? null);
+      if (budgetCheck.error === 'invalid') {
+        throw Object.assign(new Error('INVALID_BUDGET'), { flash: 'Invalid Budget Amount' });
+      }
+      if (budgetCheck.error === 'too_large') {
+        throw Object.assign(new Error('INVALID_BUDGET'), { flash: `Budget must be at most ${MAX_MONEY_AMOUNT}` });
+      }
+      const preservedBudget = budgetCheck.value;
 
       // Preserve the current (possibly deactivated) owner when the submitted
       // value is unchanged, so editing an unrelated field on a project whose

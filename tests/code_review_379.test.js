@@ -518,7 +518,7 @@ describe('code review 379 — POST /staff department validation', () => {
 
     await createStaffHandler()(req, res);
 
-    expect(errorFlash(req)).toBe('Invalid Department');
+    expect(errorFlash(req)).toBe('Invalid request parameters');
     expect(db.prepare('SELECT COUNT(*) as c FROM users').get().c).toBe(0);
   });
 

@@ -15612,3 +15612,165 @@ problem.
 - `npm run test:coverage` — global thresholds pass (statements 76.43%,
   branches 75.34%, functions 88.26%, lines 76.42%).
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-22 (382nd pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) surfaced
+six defect classes. Three of them are the SAME COLUMN, THE SAME VALUE, TWO
+VERDICTS contract mismatch the previous passes have been closing for 382
+cycles — this time the *type-error* half of it — and the rest are a
+client/server contract gap, a disclosure boundary and a copy-accuracy
+problem.
+
+1. **The ticket and project routes still turned a refusal into an existence
+   oracle** (MEDIUM, security/consistency — fixed). Four of the six show
+   routes (assets, staff, changes, knowledge) answer a denied view exactly
+   like a missing record, and the README documents the rule app-wide ("a
+   record the viewer may not open is reported exactly like a record that
+   does not exist"), but the ticket show route answered "You do not have
+   permission to view this ticket." where a missing record answered "Ticket
+   not found", and the project show route did the same. The ticket EDIT,
+   UPDATE, quick-status and comment routes repeated the split ("You can
+   only edit / update / comment on this ticket."). Pass 381 closed the class
+   for the assets and staff show routes and missed these. Fix: all seven
+   branches now answer the refusal with the same wording as the missing
+   record. The access-denied audit entries are unchanged, so the attempt is
+   still on the trail.
+
+2. **The staff department was the app's last plain-text field whose
+   wrong-TYPED value was reported with a field-specific message** (MEDIUM,
+   consistency — fixed). A JSON number in `department` answered "Invalid
+   Department" on both verbs, while every other text field in the app
+   answers the identical submission with the app-wide "Invalid request
+   parameters" — the README's partial-update contract states the rule
+   ("every text field answers it with the app-wide 'Invalid request
+   parameters'"), and the field-specific wording is reserved for the case it
+   describes (an invalid VALUE, a string outside the allowlist, or a
+   whitespace-only one). Pass 381 closed the same class for the staff `role`
+   enum; the department was the remaining one. Fix: the type error answers
+   the app-wide wording, while a whitespace-only department keeps its
+   "Please enter a valid department" message.
+
+3. **The money and seat form controls declared an upper bound the routes
+   never enforced** (MEDIUM, correctness — fixed). The number inputs carry
+   `max="99999999.99"` (money) and `max="1000000"` (seats), but an HTML
+   `max` attribute is a CLIENT-side hint only: the browser refuses to
+   submit a larger value, while an API client was stored without complaint
+   (verified against the live app: a 250,000,000 purchase price, a
+   200,000,000 project budget and 2,000,000 licence seats were all stored
+   with a success flash). The UI's allowlist was therefore a strict,
+   undocumented subset of the server's, and the two surfaces disagreed about
+   what a valid amount is. Fix: the bound moves into one shared constant
+   (`MAX_MONEY_AMOUNT` / `MAX_SEAT_COUNT`), the write routes enforce it on
+   every money and seat field (create and update alike), and the templates
+   read the same constant — so the number the form declares is the number
+   the app accepts.
+
+4. **Four form controls under-declared the rule their route enforces**
+   (LOW-MEDIUM, UI/server contract — fixed). The username input declared
+   the route's maximum but not its minimum (2) or its character class, so a
+   one-character username passed browser validation and was always refused;
+   the asset-tag input declared the length but not the `AST-XXX` format, so
+   `ABC` was submitted and rejected; the website input (`type="url"`)
+   accepted any absolute URL — `ftp://…`, `mailto:…` — while the route
+   accepts only `http`/`https`; and every `type="email"` input accepted a
+   dot-less domain (`user@example`), which the route's regex rejects. Fix:
+   each control now declares the route's own rule (`minlength`/`pattern` on
+   the username, `pattern` on the asset tag, the website and every email
+   input). The username's character class escapes the dash (`[A-Za-z0-9._\-]`)
+   because the HTML `pattern` attribute is compiled with the `v` regex flag
+   by current browsers, where a bare `-` inside a character class is a syntax
+   error — an invalid pattern is ignored by the browser, so the constraint
+   would silently have done nothing. A new test compiles every pattern the
+   templates declare under that flag.
+
+5. **The staff form's "Deactivate Account" confirmation named one of the
+   five effects the route performs** (LOW, copy accuracy — fixed). The
+   dialog said "Open tickets will be unassigned", while the deactivate
+   transaction also unassigns the user's open tasks and scheduled changes,
+   clears the ownership of their live projects and RELEASES their project
+   memberships (the rows are deleted). The confirmation is the only warning
+   the administrator sees before a destructive action. Fix: the dialog now
+   names all of them.
+
+6. **`vendors.js` carried an unreachable copy of the app-wide wrong-type
+   guard** (LOW, dead code — fixed). The update route had a second
+   `rawName !== 'string'` check that the shared `findNonStringField()`
+   guard above already made unreachable, and it reported the stale
+   "Invalid Vendor Name" wording. Fix: the duplicate is removed; the
+   app-wide guard remains the single place the type is checked.
+
+### Considered and rejected
+- **"Make the phone column answer the app-wide type error too."** The phone
+  is the one loosely-typed column in the app (any character outside the
+  allowed set is stripped), so a JSON number and the string `"abc"` are the
+  same condition — "a value that sanitises to nothing" — and the route
+  reports both as an invalid phone number, consistently on both verbs. That
+  is one verdict for one condition, not the "same column, two verdicts" class
+  this pass closes; splitting the message would add a branch to six call
+  sites to distinguish two inputs the app already treats identically. The
+  README now documents the phone as the one documented exception instead.
+
+### Fixes applied
+1. `src/routes/tickets.js` — the show, edit, update, quick-status and
+   comment routes answer a refusal exactly like a missing record.
+2. `src/routes/projects.js` — the show route answers a refusal exactly like
+   a missing record.
+3. `src/routes/staff.js` — a wrong-typed department answers the app-wide
+   type-error wording on both verbs; the whitespace-only value keeps its
+   field-specific message.
+4. `src/routes/assets.js`, `projects.js`, `licenses.js` — the money and seat
+   fields enforce the shared upper bound on both verbs.
+5. `src/routes/vendors.js` — the unreachable duplicate wrong-type guard is
+   removed.
+6. `src/utils.js` — new `resolveMoneyAmount()` helper (the absent /
+   malformed / too-large resolution the money fields share).
+7. `src/constants.js` — new `MAX_MONEY_AMOUNT`, `MAX_SEAT_COUNT` and
+   `MIN_USERNAME` constants (the username minimum is now a shared constant
+   instead of a literal in the route's regex and the template).
+8. `src/app.js` — the new constants are wired into `TEMPLATE_CONSTANTS`.
+9. `views/pages/assets/form.ejs`, `projects/form.ejs`, `licenses/form.ejs`,
+   `staff/form.ejs`, `vendors/form.ejs`, `tickets/form.ejs`,
+   `auth/profile.ejs` — the controls declare the shared bounds and the rules
+   their routes enforce.
+10. `views/pages/staff/show.ejs` — the deactivate confirmation names the
+    effects the route performs.
+11. `README.md` — the Security section documents the enforced bounds and
+    the non-enumerating rule, the partial-update section documents the
+    money bound and the phone exception, and a new "Form constraints"
+    section documents what the controls declare.
+
+### Regression tests added
+- `tests/code_review_382.test.js` — 34 tests driving the REAL route handlers
+  and the REAL schema against an in-memory SQLite database: the ticket show,
+  edit, update, quick-status and comment routes and the project show route
+  answer a refusal exactly like a missing record (and no route module still
+  uses a permission-specific denial message); the staff department answers
+  the app-wide type error for a wrong-typed value on both verbs while a
+  whitespace-only value keeps its field-specific message; every money field
+  (an asset's price, a project's budget and spent amount, a licence's cost)
+  and both seat fields refuse a value above the shared bound on create and
+  on update, store nothing, and still accept a value inside it; every form
+  control declares the rule its route enforces (the shared money and seat
+  bounds, the username minimum and character class, the `AST-XXX` format,
+  the `http`/`https` scheme and the dot-required email rule) and every
+  pattern the templates declare compiles under the `v` regex flag; the deactivate
+  confirmation names the tickets, tasks, changes, projects and memberships
+  the route releases; and `vendors.js` carries no stale duplicate wrong-type
+  guard.
+
+### Existing tests updated
+- `tests/code_review_114.test.js`, `code_review_379.test.js` — the staff
+  department pins now assert the app-wide "Invalid request parameters" for
+  the wrong-typed submission (the whitespace-only pin is unchanged).
+- `tests/code_review_357.test.js` — the ticket comment denial pin now
+  asserts the non-enumerating wording.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1807 passed / 1807 total** (104 suites, +34 from #381).
+- `npm run test:coverage` — global thresholds pass (statements 77.29%,
+  branches 76.40%, functions 88.30%, lines 77.28%).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.

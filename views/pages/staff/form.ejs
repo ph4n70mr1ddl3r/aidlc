@@ -10,14 +10,14 @@
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="form-grid">
       <% if (!isEdit) { %>
-      <div class="form-group"><label for="username">Username *</label><input type="text" name="username" id="username" class="form-control" value="<%= staffMember.username || '' %>" maxlength="<%= CONSTANTS.MAX_USERNAME %>" required></div>
+      <div class="form-group"><label for="username">Username *</label><input type="text" name="username" id="username" class="form-control" value="<%= staffMember.username || '' %>" minlength="<%= CONSTANTS.MIN_USERNAME %>" maxlength="<%= CONSTANTS.MAX_USERNAME %>" pattern="[A-Za-z0-9._\-]{<%= CONSTANTS.MIN_USERNAME %>,<%= CONSTANTS.MAX_USERNAME %>}" title="<%= CONSTANTS.MIN_USERNAME %>–<%= CONSTANTS.MAX_USERNAME %> characters: letters, numbers, dots, dashes and underscores" required></div>
       <div class="form-group"><label for="password">Password *</label><input type="password" name="password" id="password" class="form-control" required minlength="<%= CONSTANTS.MIN_PASSWORD %>" maxlength="<%= CONSTANTS.MAX_PASSWORD_BYTES %>" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{<%= CONSTANTS.MIN_PASSWORD %>,}" title="Minimum <%= CONSTANTS.MIN_PASSWORD %> characters with uppercase, lowercase, number, and special character" autocomplete="new-password"></div>
       <% } else { %>
       <div class="form-group"><label for="username">Username</label><input type="text" id="username" class="form-control" value="<%= staffMember.username || '' %>" disabled style="background:var(--bg)"></div>
       <% } %>
       <div class="form-group"><label for="first_name">First Name *</label><input type="text" name="first_name" id="first_name" class="form-control" value="<%= staffMember.first_name || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" required></div>
       <div class="form-group"><label for="last_name">Last Name *</label><input type="text" name="last_name" id="last_name" class="form-control" value="<%= staffMember.last_name || '' %>" maxlength="<%= CONSTANTS.MAX_SHORT_STR %>" required></div>
-      <div class="form-group"><label for="email">Email *</label><input type="email" name="email" id="email" class="form-control" value="<%= staffMember.email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" required autocomplete="email"></div>
+      <div class="form-group"><label for="email">Email *</label><input type="email" name="email" id="email" class="form-control" value="<%= staffMember.email || '' %>" maxlength="<%= CONSTANTS.MAX_EMAIL %>" pattern="[^\s@]+@[^\s@]+\.[^\s@]+" title="Enter a valid email address (name@example.com)" required autocomplete="email"></div>
       <div class="form-group"><label for="role">Role *</label><select name="role" id="role" class="form-control" required>
         <% const assignableRoles = (typeof viewerRole !== 'undefined' && viewerRole === 'admin') ? CONSTANTS.USER_ROLES : ['staff']; %>
         <% assignableRoles.forEach(r => { %>

@@ -108,7 +108,7 @@
           <button type="submit" class="btn btn-sm btn-success" style="width:100%;"><i class="fas fa-check-circle" aria-hidden="true"></i> Reactivate Account</button>
         </form>
         <% } else { %>
-        <form action="/staff/<%= staffUser.id %>?_method=DELETE" method="POST" style="margin-bottom:12px;" data-confirm="Deactivate this account? Open tickets will be unassigned.">
+        <form action="/staff/<%= staffUser.id %>?_method=DELETE" method="POST" style="margin-bottom:12px;" data-confirm="Deactivate this account? Their open tickets, tasks and scheduled changes will be unassigned, their active projects will lose them as owner, and they will be removed from their project teams.">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="btn btn-sm btn-outline" style="width:100%;color:var(--danger);border-color:var(--danger);"><i class="fas fa-user-slash" aria-hidden="true"></i> Deactivate Account</button>
         </form>

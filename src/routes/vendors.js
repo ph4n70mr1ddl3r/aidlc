@@ -506,12 +506,11 @@ router.put('/:id', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // route already follows. The name was the sole exception: a partial PUT that
   // only changed the rating was rejected outright with "Vendor name is
   // required" even though the stored name was perfectly valid. A PRESENT but
-  // empty name is still rejected — the column is NOT NULL.
+  // empty name is still rejected — the column is NOT NULL. A present but
+  // wrong-TYPED name is rejected by the app-wide findNonStringField guard
+  // above (it used to be caught by a second, unreachable copy of that check
+  // further down, which reported the stale "Invalid Vendor Name" wording).
   const nameAbsent = rawName === undefined || rawName === null;
-  if (rawName !== undefined && rawName !== null && rawName !== '' && typeof rawName !== 'string') {
-    req.flash('error', 'Invalid Vendor Name');
-    return res.redirect(`/vendors/${id}/edit`);
-  }
   if (!nameAbsent && !name) {
     req.flash('error', 'Vendor name is required');
     return res.redirect(`/vendors/${id}/edit`);

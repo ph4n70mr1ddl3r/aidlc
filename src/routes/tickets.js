@@ -589,7 +589,12 @@ router.get('/:id', (req, res) => {
 
   if (!canAccessResource(req, ticket)) {
     req.audit('access_denied', 'ticket', id, `Unauthorized view attempt on ticket ${ticket.ticket_number}`);
-    req.flash('error', 'You do not have permission to view this ticket.');
+    // Use the same non-enumerating wording as the 'not found' branch above: a
+    // distinct "you do not have permission" message reveals that the ticket ID
+    // exists even though the viewer was refused the record. Mirrors the
+    // assets/staff/changes/knowledge show routes, which answer both branches
+    // identically, and the README's app-wide "Non-enumerating errors" rule.
+    req.flash('error', 'Ticket not found');
     return res.redirect('/tickets');
   }
 
@@ -659,7 +664,10 @@ router.get('/:id/edit', (req, res) => {
 
   if (!canAccessResource(req, ticket)) {
     req.audit('access_denied', 'ticket', id, 'Unauthorized edit attempt on ticket');
-    req.flash('error', 'You can only edit tickets assigned to you.');
+    // Non-enumerating wording — mirrors the show route and the 'not found'
+    // branch above: a distinct "you can only edit …" message reveals that the
+    // ticket ID exists even though the viewer was refused the record.
+    req.flash('error', 'Ticket not found');
     // Redirect to the list, not the detail page: the show route enforces the
     // same canAccessResource gate, so redirecting to detail would trigger a
     // second access_denied flash + audit on routine navigation.
@@ -1070,9 +1078,12 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
     }
+    // Non-enumerating wording — mirrors the show route and the 'not found'
+    // branch: a distinct "you can only update …" message reveals that the
+    // ticket ID exists even though the viewer was refused the record.
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized update attempt on ticket');
-      req.flash('error', 'You can only update tickets assigned to you.');
+      req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
     }
     if (err.message === 'ASSIGNEE_NOT_AVAILABLE') {
@@ -1216,9 +1227,13 @@ router.post('/:id/comments', commentRateLimiter, (req, res) => {
       // redirect.
       return res.redirect('/login?reason=deactivated');
     }
+    // Non-enumerating wording — mirrors the show route and the 'not found'
+    // branch: a distinct "you do not have permission to comment" message
+    // reveals that the ticket ID exists even though the viewer was refused
+    // the record.
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized comment attempt on ticket');
-      req.flash('error', 'You do not have permission to comment on this ticket.');
+      req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
     }
     logError('Ticket comment error:', err);
@@ -1298,9 +1313,12 @@ router.put('/:id/status', statusUpdateLimiter, (req, res) => {
       req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
     }
+    // Non-enumerating wording — mirrors the show route and the 'not found'
+    // branch: a distinct "you can only update …" message reveals that the
+    // ticket ID exists even though the viewer was refused the record.
     if (err.message === 'ACCESS_DENIED') {
       req.audit('access_denied', 'ticket', id, 'Unauthorized quick-status update attempt on ticket');
-      req.flash('error', 'You can only update status of tickets assigned to you.');
+      req.flash('error', 'Ticket not found');
       return res.redirect('/tickets');
     }
     logError('Ticket status update error:', err);

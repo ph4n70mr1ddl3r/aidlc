@@ -274,13 +274,13 @@ describe('staff update — non-string department is rejected instead of clearing
     db.prepare().run.mockClear();
   });
 
-  it('rejects {"department": 5} with "Invalid Department" and no UPDATE', () => {
+  it('rejects {"department": 5} with the app-wide type error and no UPDATE', () => {
     const h = lastHandlerFor(staffRouter, 'put', '/:id');
     const { redirectCalls, flashCalls } = runHandler(h, {
       email: 'a@b.co', first_name: 'A', last_name: 'B', role: 'staff', department: 5
     }, { id: '2' });
     expect(redirectCalls).toEqual(['/staff/2/edit']);
-    expect(errorFlash(flashCalls)).toBe('Invalid Department');
+    expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
     expect(jest.requireMock('../src/models/database').prepare().run).not.toHaveBeenCalled();
   });
 
@@ -290,7 +290,7 @@ describe('staff update — non-string department is rejected instead of clearing
       username: 'newuser1', password: 'ValidPass1!xyz', email: 'a@b.co',
       first_name: 'A', last_name: 'B', role: 'staff', department: 5
     });
-    expect(errorFlash(flashCalls)).toBe('Invalid Department');
+    expect(errorFlash(flashCalls)).toBe('Invalid request parameters');
   });
 });
 

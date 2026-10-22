@@ -171,7 +171,7 @@ describe('code review 357 — staff can comment on tickets assigned to them (ass
 
     expect(mocks.commentInsert.run).not.toHaveBeenCalled();
     expect(req.audit).toHaveBeenCalledWith('access_denied', 'ticket', 7, 'Unauthorized comment attempt on ticket');
-    expect(req.flash).toHaveBeenCalledWith('error', 'You do not have permission to comment on this ticket.');
+    expect(req.flash).toHaveBeenCalledWith('error', 'Ticket not found');
     expect(res.redirect).toHaveBeenCalledWith('/tickets');
   });
 
