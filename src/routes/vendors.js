@@ -267,12 +267,10 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
   // is required"), while the matching update route reported the identical
   // submission as "Invalid Vendor Name" — a type error masquerading as an
   // absent one.
-  for (const field of ['name', 'contact_person', 'email', 'address', 'website', 'category', 'notes']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/vendors/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['name', 'contact_person', 'email', 'address', 'website', 'category', 'notes']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/vendors/new');
   }
   if (!name) {
     req.flash('error', 'Vendor name is required');

@@ -28,7 +28,7 @@ describe('code review 165: consistency/completeness/correctness', () => {
       // Pass 378 extended the guard to the task's REQUIRED `title` column as
       // well (a JSON number in the title used to be reported as a MISSING
       // field) — status and priority are still guarded alongside description.
-      expect(src).toContain("for (const field of ['title', 'description', 'status', 'priority'])");
+      expect(src).toContain("findNonStringField(req.body, ['title', 'description', 'status', 'priority'])");
     });
   });
 

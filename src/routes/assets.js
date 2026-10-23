@@ -225,12 +225,10 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
   // and without a guard a JSON number reached the "Name and category are
   // required" check — a type error reported as a missing field, while the
   // update route reports the same submission as "Invalid request parameters".
-  for (const field of ['name', 'category', 'manufacturer', 'model', 'serial_number', 'location', 'notes', 'status', 'condition_rating']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/assets/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['name', 'category', 'manufacturer', 'model', 'serial_number', 'location', 'notes', 'status', 'condition_rating']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/assets/new');
   }
   if (!name || !category) {
     req.flash('error', 'Name and category are required');

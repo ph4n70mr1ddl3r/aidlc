@@ -328,12 +328,10 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // ("Please enter a valid department") is reserved for the whitespace-only
   // VALUE above. It used to answer "Invalid Department" for the type error,
   // which the README's partial-update contract does not allow.
-  for (const field of ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/staff/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['username', 'password', 'email', 'first_name', 'last_name', 'role', 'department']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/staff/new');
   }
   const rawPhone = safeQueryValue(req.body.phone);
   // Reject overly long phone input before expensive sanitization

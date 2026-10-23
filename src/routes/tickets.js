@@ -340,12 +340,10 @@ router.post('/', ticketWriteLimiter, (req, res) => {
   // email are required" check — a type error reported as a missing field,
   // while the update route reports the same submission as "Invalid request
   // parameters".
-  for (const field of ['title', 'category', 'requester_name', 'requester_email', 'description', 'requester_department', 'status', 'priority']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/tickets/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'category', 'requester_name', 'requester_email', 'description', 'requester_department', 'status', 'priority']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/tickets/new');
   }
   const category = trim(safeQueryValue(req.body.category));
   const requester_name = trim(safeQueryValue(req.body.requester_name));

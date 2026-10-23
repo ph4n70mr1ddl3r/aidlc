@@ -209,12 +209,10 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   // ("Software name is required"), while the matching update route reported
   // the identical submission as "Invalid Software Name" — a type error
   // masquerading as an absent one.
-  for (const field of ['software_name', 'vendor', 'license_key', 'license_type', 'notes']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/licenses/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['software_name', 'vendor', 'license_key', 'license_type', 'notes']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/licenses/new');
   }
   if (!software_name) {
     req.flash('error', 'Software name is required');

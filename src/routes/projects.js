@@ -261,12 +261,10 @@ router.post('/', requireAdminOrManager, projectWriteLimiter, (req, res) => {
   // as an absent one. The enum fields are guarded for the same reason
   // (a non-string status/priority used to be reported as an invalid enum
   // value rather than as an invalid request).
-  for (const field of ['name', 'description', 'status', 'priority']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect('/projects/new');
-    }
+  const wrongTypeField = findNonStringField(req.body, ['name', 'description', 'status', 'priority']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect('/projects/new');
   }
   const start_date = safeQueryValue(req.body.start_date);
   const end_date = safeQueryValue(req.body.end_date);
@@ -865,12 +863,10 @@ router.post('/:id/tasks', requireAdminOrManager, projectWriteLimiter, (req, res)
   // required"), while the matching update route reported the identical
   // submission as "Invalid Task Title" — a type error masquerading as an
   // absent one.
-  for (const field of ['title', 'description', 'status', 'priority']) {
-    const v = req.body[field];
-    if (v !== undefined && v !== null && v !== '' && typeof v !== 'string') {
-      req.flash('error', 'Invalid request parameters');
-      return res.redirect(`/projects/${projectId}`);
-    }
+  const wrongTypeField = findNonStringField(req.body, ['title', 'description', 'status', 'priority']);
+  if (wrongTypeField) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/projects/${projectId}`);
   }
   const assigned_to = safeQueryValue(req.body.assigned_to);
   const due_date = safeQueryValue(req.body.due_date);
