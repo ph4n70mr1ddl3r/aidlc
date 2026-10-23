@@ -52,7 +52,7 @@
   "license": "UNLICENSED",
   "private": true,
   "overrides": {
-    "ip-address": "^10.4.0",
+    "ip-address": "^10.7.4",
     "qs": "^6.16.0"
   },
   "type": "commonjs",
