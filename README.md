@@ -217,7 +217,11 @@ Hardcoded limits (not env-configurable): request timeout `30s`, keep-alive `5s`,
   may keep an article's current status or demote it to `draft`, but any other
   status (including publishing or archiving) is **rejected** with "Invalid
   Status" and nothing is written — the app never silently discards a status
-  the author asked for.
+  the author asked for. The `is_featured` flag follows the same rule: a
+  non-privileged author cannot set it, and a privileged author's submission
+  must be a canonical checkbox value — a JSON number, object or boolean is
+  a TYPE error and is rejected with the app-wide "Invalid request
+  parameters" wording, never silently resolved to 0.
 - **Audit logging** of all data mutations (auto-growing table — consider periodic archival for long-running deployments)
 
 ### Partial-update (PUT) convention

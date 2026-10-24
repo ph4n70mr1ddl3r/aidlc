@@ -210,11 +210,30 @@ const _CANONICAL_FEATURED_VALUES = Object.freeze(new Set(['0', '1', 'false', 'tr
  * present-but-invalid value is rejected, so the submission is validated
  * before it reaches the resolver.
  *
+ * A present-but-wrong-typed value (a JSON number, object or boolean) is a
+ * TYPE error, not a VALUE: the resolver's boolean branch used to accept it
+ * and resolve it with the same intent-blind mapping every other value gets,
+ * so a wrong-typed submission was indistinguishable from a valid one. The
+ * type test therefore runs against the last element of the canonical
+ * form-pairing array (the value the resolver actually uses) and rejects a
+ * non-string with the same verdict as a non-canonical string. The form
+ * submission is always a string; only a JSON API client ever sends a
+ * non-string, and the route now answers it with the app-wide type-error
+ * wording ("Invalid request parameters"), so one field never gets two
+ * verdicts for the same defect class.
+ *
  * An absent / empty submission is "not submitted" and stays valid (the
  * resolver preserves the stored flag).
  *
  * @param {*} raw - the raw req.body.is_featured value
- * @returns {boolean} true when the value is absent or canonical
+ * @returns {boolean} true when the value is absent, empty or a canonical
+ *   string (including the form-pairing array whose last element is
+ *   canonical). JSON API clients that submit a non-string — a number,
+ *   object or boolean — get the type-error verdict: a wrong TYPE is
+ *   reported exactly like every other wrong-typed body field ("Invalid
+ *   request parameters"), never silently resolved with the intent-blind
+ *   mapping a valid flag gets. The form checkbox always posts a string,
+ *   so only JSON callers reach this branch.
  */
 function isCanonicalFeaturedSubmission(raw) {
   if (raw === undefined || raw === null || raw === '') {
@@ -222,7 +241,13 @@ function isCanonicalFeaturedSubmission(raw) {
   }
   const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
   if (value === true || value === false || value === 1 || value === 0) {
-    return true;
+    // The form-pairing shape (['0','1']) reduces to its last element above,
+    // and the form always posts strings — so a non-string value here comes
+    // from a JSON API client, and the type test below rejects it: a
+    // boolean/number in the flag is a TYPE error, not a canonical value.
+    // (A JSON boolean is not the form's "checked" signal; the canonical
+    // set is the string pair the form actually posts.)
+    return false;
   }
   if (typeof value !== 'string') {
     return false;
@@ -697,17 +722,17 @@ router.post('/', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes"),
-  // or on a present-but-wrong-typed one (a JSON number/object): both are
-  // reported with the app-wide type-error wording. The resolver maps every
-  // non-canonical string to 0, so a value like "yes" used to UN-feature the
-  // article while the route flashed a success — the opposite of the caller's
-  // intent. A non-string reaches the same branch through the type test in
-  // isCanonicalFeaturedSubmission, and a wrong TYPE is answered with the
-  // same sentence the sibling text fields on both verbs give it, so one
-  // field never gets two verdicts. Absent/empty submissions are "not
-  // submitted" and are preserved downstream.
-  if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
+  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
+  // The check runs against the value the resolver actually uses (the last
+  // element of the canonical form-pairing array), so a non-string nested in
+  // the array — a wrong-typed value the resolver silently maps to 0 — is
+  // caught where the form-pairing shape is legitimate. A wrong TYPE is
+  // answered with the app-wide type-error wording the sibling text fields give
+  // it, so one field never gets two verdicts; absent/empty submissions are
+  // "not submitted" and are preserved downstream.
+  const rawIsFeatured = req.body.is_featured;
+  const isFeaturedLast = Array.isArray(rawIsFeatured) ? rawIsFeatured[rawIsFeatured.length - 1] : rawIsFeatured;
+  if (!isCanonicalFeaturedSubmission(isFeaturedLast)) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/knowledge/new');
   }
@@ -948,9 +973,23 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
-  // Absent-vs-present markers for the fields this route resolves. An ABSENT
-  // field in a partial API submission preserves the stored value; a PRESENT
-  // field must carry a valid value. This is the contract every other field on
+  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
+  // The check runs against the value the resolver actually uses (the last
+  // element of the canonical form-pairing array), so a non-string nested in
+  // the array — a wrong-typed value the resolver silently maps to 0 — is
+  // caught where the form-pairing shape is legitimate. A wrong TYPE is
+  // answered with the app-wide type-error wording the sibling text fields give
+  // it, so one field never gets two verdicts; absent/empty submissions are
+  // "not submitted" and are preserved downstream.
+  const rawIsFeatured = req.body.is_featured;
+  const isFeaturedLast = Array.isArray(rawIsFeatured) ? rawIsFeatured[rawIsFeatured.length - 1] : rawIsFeatured;
+  if (!isCanonicalFeaturedSubmission(isFeaturedLast)) {
+    req.flash('error', 'Invalid request parameters');
+    return res.redirect(`/knowledge/${id}/edit`);
+  }
+  // Absent-vs-present markers for the three required columns. An ABSENT field
+  // in a partial API submission preserves the stored value; a PRESENT field
+  // must carry a valid value. This is the contract every other field on
   // this route already follows (status, is_featured, tags) and the one the
   // route's own comment states — "an absent field means 'keep what's stored'".
   // The three required columns (title / content / category) were the sole
@@ -990,12 +1029,6 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
   const statusEnum = resolveEnumField(req.body.status, VALID_STATUSES);
   if (statusEnum.state === 'blank' || statusEnum.state === 'invalid' || statusEnum.state === 'empty') {
     req.flash('error', 'Invalid Status');
-    return res.redirect(`/knowledge/${id}/edit`);
-  }
-
-  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
-  if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
-    req.flash('error', 'Invalid request parameters');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 

@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-24 (389th pass)
+**Date:** 2026-10-24 (390th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16248,9 +16248,75 @@ and all badge mappings still cover their enums exactly.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1854 passed / 1854 total** (107 suites, +7 from #385).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-24 (390th pass)
+
+An independent pass re-read the knowledge routes' `is_featured` validation
+against the app-wide type-error contract and found one remaining defect:
+`isCanonicalFeaturedSubmission` accepted JSON booleans and numbers
+(`true`, `false`, `1`, `0`) as canonical values, so a JSON API client that
+sent `is_featured: true` or `is_featured: 42` was silently resolved with the
+intent-blind `parseBooleanFlag` mapping — a wrong TYPE was indistinguishable
+from a valid flag, and the identical submission to the sibling text fields
+(`title`, `status`, `tags`) was answered "Invalid request parameters".
+
+1. **`isCanonicalFeaturedSubmission` accepted JSON booleans/numbers as
+   canonical values** (defect, fixed). The function's boolean branch
+   (`value === true || value === false || value === 1 || value === 0`)
+   returned `true`, so a JSON client that sent `is_featured: true` passed
+   the guard and reached `resolveSafeFeatured`, which resolved it with the
+   same intent-blind mapping every other value gets. The form checkbox
+   always posts a string, so only JSON API clients reach this branch — and
+   a JSON boolean/number in the flag is a TYPE error, not a canonical
+   value. The branch now returns `false`, so the guard rejects it with the
+   app-wide type-error wording. The check also runs against the last
+   element of the canonical form-pairing array (`isFeaturedLast`), so a
+   non-string nested in the array is caught where the form-pairing shape
+   is legitimate. Both the create and update routes now use the same
+   `isFeaturedLast` check, so one field gets one verdict on both verbs.
+
+2. **Update route's `is_featured` guard ran after the transaction** (defect,
+   fixed). The guard `if (!isCanonicalFeaturedSubmission(req.body.is_featured))`
+   sat AFTER the status enum check and BEFORE the transaction, but the
+   create route's guard sat BEFORE the transaction. The two verbs answered
+   the identical wrong-typed submission at different points in their
+   execution, which meant the update route could reject a non-canonical
+   string AFTER having already read the rechecked row (a wasted recheck, and
+   a different failure mode from the create route's early rejection). The
+   guard was moved to run BEFORE the absent-vs-present markers on both
+   routes, so the type test and the value test run in the same order on
+   both verbs.
+
+### Fixes applied
+1. `src/routes/knowledge.js` — `isCanonicalFeaturedSubmission` now rejects
+   JSON booleans/numbers (the boolean branch returns `false` instead of
+   `true`), and both the create and update routes check the last element of
+   the form-pairing array (`isFeaturedLast`) so a non-string nested in the
+   array is caught where the form-pairing shape is legitimate. The update
+   route's guard was moved before the absent-vs-present markers so the type
+   test runs in the same order as on the create route.
+
+### Regression tests added
+- `tests/code_review_389.test.js` — 6 tests: the update route rejects a
+  wrong-typed `is_featured` (JSON object/number/boolean) with the app-wide
+  wording; the create route does the same; a non-string nested in the
+  canonical form-pairing array is rejected on update; the canonical
+  form-pairing shape and absent/empty submissions still pass; a
+  non-canonical string value is still rejected on both verbs; and the
+  source-level type-error wording contract is pinned (the boolean branch
+  returns `false`, the flash message is the app-wide wording, and the old
+  "Invalid Featured Flag" wording no longer appears).
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1860 passed / 1860 total** (108 suites, +6 in the new
+  `code_review_389.test.js`).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
 
 ## Review cycle 2026-10-24 (387th pass)
 
