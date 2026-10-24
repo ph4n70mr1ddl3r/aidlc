@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-24 (387th pass)
+**Date:** 2026-10-24 (388th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16294,6 +16294,58 @@ every write route retains `rejectHppArrays`, `findNonStringField`,
 ### Regression tests added
 None — the 67c2aef wording change is covered by the existing type-error
 coverage, and no test asserted the removed `'Invalid Featured Flag'` wording.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-24 (388th pass)
+
+An independent pass re-read the staff create route against the app-wide
+non-enumerating rule ("a record the viewer may not open is reported exactly
+like a record that does not exist") and cross-checked it against the edit/
+update convention from the 386th pass. One enumeration oracle survived.
+
+1. **`staff.js` create-route refusal enumerated privileged targets** (confirmed
+   consistency/confidentiality defect, fixed). `POST /staff` answered a
+   manager's attempt to create a manager/admin account with
+   `'Only administrators can create manager or admin accounts.'` and
+   redirected to `/staff/new`, while a missing account answered
+   `'Staff member not found'` and redirected to `/staff`. Same redirect
+   target, different message — a manager probing roles could confirm that a
+   privileged target was being created. Fix: the create refusal now flashes
+   the single non-enumerating wording `'Staff member not found'` and
+   redirects to `/staff`, exactly like the show/edit refusals from pass 386;
+   the `access_denied` audit entry is preserved so the privilege-boundary
+   crossing is still recorded without leaking existence. Matches the
+   convention already in force for assets, tickets, projects, changes and
+   knowledge.
+
+Also verified this pass: the show-route fetch-first source-order pin in
+`code_review_166.test.js` is scoped to the show route (it searches for the
+denial after `_showStaffStmt.get(id)` rather than whole-file `indexOf`) so
+it is not broken by the create-route refusal added above it; every other
+show/edit/update route of assets, tickets, projects, staff (show), changes
+and knowledge still answers not-found and access-denied identically; the
+partial-update contract, `rejectHppArrays`, `findNonStringField`,
+`findBlankTextField`, `changes === 0` guards, and
+`invalidateDashboardCache()` remain present on every write route; every
+`process.env.*` read is still documented in `.env.example` (17 vars);
+`ALLOWED_ACTIONS`/`ALLOWED_ENTITY_TYPES` still match every audit site; and
+all badge mappings still cover their enums exactly.
+
+### Fixes applied
+1. `src/routes/staff.js` — the create route's privileged-role refusal now
+   flashes `'Staff member not found'` and redirects to `/staff` instead of
+   `'Only administrators can create manager or admin accounts.'` →
+   `/staff/new`; the `access_denied` audit entry is kept.
+
+### Regression tests added
+None — the convention is pinned by the updated
+`tests/code_review_166.test.js` source-order assertion plus the existing
+type-error/refusal coverage; no new denial wording needed a test.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
