@@ -697,7 +697,16 @@ router.post('/', kbWriteLimiter, (req, res) => {
     return res.redirect('/knowledge/new');
   }
 
-  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
+  // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes"),
+  // or on a present-but-wrong-typed one (a JSON number/object): both are
+  // reported with the app-wide type-error wording. The resolver maps every
+  // non-canonical string to 0, so a value like "yes" used to UN-feature the
+  // article while the route flashed a success — the opposite of the caller's
+  // intent. A non-string reaches the same branch through the type test in
+  // isCanonicalFeaturedSubmission, and a wrong TYPE is answered with the
+  // same sentence the sibling text fields on both verbs give it, so one
+  // field never gets two verdicts. Absent/empty submissions are "not
+  // submitted" and are preserved downstream.
   if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/knowledge/new');
