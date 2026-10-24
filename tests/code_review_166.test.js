@@ -171,7 +171,17 @@ describe('code review 166: consistency/completeness/correctness', () => {
       // records the record that was actually looked up.
       expect(src).toContain("req.flash('error', 'Staff member not found');");
       expect(src).not.toContain('You do not have permission to view this staff member.');
-      expect(src.indexOf('_showStaffStmt.get(id)')).toBeLessThan(src.indexOf('Staff member not found'));
+      // The show route fetches the row before its denial flash (fetch-first),
+      // so a missing id and a privilege-denied id answer with the same wording
+      // and the audit records the record actually looked up. Scope the
+      // ordering check to the show route: the create route's non-enumerating
+      // refusal (same convention, added above it) also contains this wording,
+      // so search from the show fetch onward rather than using whole-file
+      // indexOf, which the create-route addition would otherwise break.
+      const fetchIndex = src.indexOf('_showStaffStmt.get(id)');
+      expect(fetchIndex).toBeGreaterThanOrEqual(0);
+      const denialAfterFetch = src.indexOf("req.flash('error', 'Staff member not found');", fetchIndex);
+      expect(denialAfterFetch).toBeGreaterThan(fetchIndex);
     });
   });
 

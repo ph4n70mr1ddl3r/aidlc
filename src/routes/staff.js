@@ -422,9 +422,15 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // Only admins can create privileged accounts (manager/admin). Managers must
   // not be able to escalate privileges by creating new manager accounts.
   if (role !== 'staff' && req.session.user.role !== 'admin') {
+    // Non-enumerating wording: a distinct "Only administrators can create
+    // manager or admin accounts." message would confirm that the role column
+    // is what it is, revealing that a privileged account was targeted. Every
+    // other refusal in the app (the show and edit routes below, the sibling
+    // denial branches in tickets/assets/projects/changes/knowledge) answers
+    // the denial exactly like a missing record.
     req.audit('access_denied', 'user', null, `Unauthorized privileged account creation attempt (role: ${role})`);
-    req.flash('error', 'Only administrators can create manager or admin accounts.');
-    return res.redirect('/staff/new');
+    req.flash('error', 'Staff member not found');
+    return res.redirect('/staff');
   }
 
   try {
