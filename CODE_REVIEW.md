@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-24 (388th pass)
+**Date:** 2026-10-24 (389th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -15985,7 +15985,7 @@ defects.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1840 passed / 1840 total** (105 suites, +31 from #382).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
@@ -16039,7 +16039,7 @@ passes had left behind.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
-- `npm test` — **1840 passed / 1840 total** (105 suites, +0 net).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
@@ -16346,6 +16346,54 @@ all badge mappings still cover their enums exactly.
 None — the convention is pinned by the updated
 `tests/code_review_166.test.js` source-order assertion plus the existing
 type-error/refusal coverage; no new denial wording needed a test.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-24 (389th pass)
+
+An independent pass re-read the knowledge create route's `is_featured` fail-closed
+validation against the comment above it and cross-checked it against the app-wide
+type-error wording aligned in commit `67c2aef` (documented in the 387th pass).
+No functional defect was found; the create-route comment was incomplete.
+
+1. **`knowledge.js` create-route `is_featured` comment under-described the
+   fail-closed behavior** (documentation defect, fixed). The comment above the
+   rejection described only a present-but-uninterpretable string (e.g. "yes")
+   but omitted the present-but-wrong-typed case (a JSON number/object), the
+   canonical-value pass-through, and the absent/empty "not submitted"
+   preservation downstream. Expanded the comment so it fully describes: absent
+   or empty submissions are "not submitted" (the flag is preserved downstream
+   by `resolveSafeFeatured`), canonical values pass, and any present-but-wrong-
+   typed or non-canonical value is rejected with the app-wide
+   `'Invalid request parameters'` wording instead of silently un-featuring the
+   article and flashing success. Matches the behavior aligned in `67c2aef` and
+   documented in the 387th review pass; no test asserted the removed comment
+   scope, so nothing needed updating.
+
+Also verified this pass: the create route still excludes `is_featured` from the
+`rejectHppArrays` field list (the hidden value="0" / value="1" checkbox pair
+deliberately submits an array that `resolveSafeFeatured` resolves by last
+element); `findNonStringField` still guards `title`, `content`, `category`,
+`tags` and `status` before the type-error branch; `resolveSafeFeatured` is
+still resolved inside the create transaction so the resolved flag and the
+INSERT stay atomic; every other `process.env.*` read remains documented in
+`.env.example` (17 vars); and `npm audit --omit=dev --audit-level=high`
+reports **0 vulnerabilities**.
+
+### Fixes applied
+1. `src/routes/knowledge.js` — expanded the comment above the create-route
+   `is_featured` rejection to fully describe the fail-closed behavior
+   (absent/empty preservation, canonical pass-through, wrong-typed/non-canonical
+   rejection with the app-wide wording). Documentation only; no behavioral
+   change.
+
+### Regression tests added
+None — the behavior is pinned by the existing type-error/refusal coverage and
+the 387th-pass alignment of `67c2aef`; no test asserted the comment's scope.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
