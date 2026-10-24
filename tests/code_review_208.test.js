@@ -39,7 +39,7 @@ describe('code review 208 — self-role-change denial audits access_denied', () 
     };
     handler(req, res, () => {});
     expect(res.redirectCalls).toEqual(['/staff']);
-    expect(flashStore.error).toContain('You cannot change your own role.');
+    expect(flashStore.error).toContain('Staff member not found');
     // The self-role-change denial now leaves an audit trail, matching the
     // privileged-role and admin-protection denial paths in the same handler.
     expect(audit).toHaveBeenCalledWith('access_denied', 'user', 1, 'Unauthorized self-role-change attempt');

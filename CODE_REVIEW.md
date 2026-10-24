@@ -16181,3 +16181,74 @@ seed invariant, and a stray debug statement.
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**
   (body-parser pinned to the patched 1.20.9).
+
+## Review cycle 2026-10-24 (386th pass)
+
+An independent pass re-read the README's "Non-enumerating errors" rule
+against every show/edit/update route that can refuse a viewer, then
+cross-checked the route-to-route refusal conventions (assets, tickets,
+projects, changes, knowledge all answer not-found and access-denied with
+the identical wording). One enumeration oracle survived.
+
+1. **`staff.js` edit/update refusals leaked account existence** (confirmed
+   consistency/confidentiality defect, fixed). The README's app-wide rule
+   — "a record the viewer may not open is reported exactly like a record
+   that does not exist" — held for every show/edit route except staff:
+   `GET /staff/:id/edit` and `PUT /staff/:id` answered a manager's attempt
+   to touch an admin/manager account with `'You cannot modify
+   administrator or manager accounts.'` (plus `'Only administrators can
+   assign the manager or admin role.'` and `'You cannot change your own
+   role.'`), while a missing ID answered `'Staff member not found'`.
+   Same redirect target (`/staff`), different message — a manager probing
+   IDs could confirm which IDs belong to privileged accounts. Fix: all
+   five refusal sites now flash the single non-enumerating wording
+   `'Staff member not found'` and redirect to `/staff`; the `access_denied`
+   audit entries are preserved so the privilege-boundary crossing is still
+   recorded without leaking existence. Matches the convention already in
+   force for assets, tickets, projects, changes, and knowledge.
+
+Also verified this pass: every other show/edit/update route of assets,
+tickets, projects, staff (show), changes and knowledge still answers
+not-found and access-denied identically; the partial-update contract
+(absent preserves, present-but-empty rejects, wrong-typed = "Invalid
+request parameters", whitespace-only = field-specific invalid) remains
+uniform across all eight entity update routes; `rejectHppArrays`,
+`findNonStringField`, `findBlankTextField`, `changes === 0` guards, and
+`invalidateDashboardCache()` remain present on every write route; every
+`process.env.*` read is still documented in `.env.example` (17 vars);
+`ALLOWED_ACTIONS`/`ALLOWED_ENTITY_TYPES` still match every audit site;
+and all badge mappings still cover their enums exactly.
+
+### Fixes applied
+1. `src/routes/staff.js` — the edit refusal, the update role-escalation
+   guard (both branches), the update self-role-change guard, and the
+   update manager-guard now flash `'Staff member not found'` instead of
+   four distinct denial wordings; every `access_denied` audit entry is
+   kept.
+
+### Regression tests added
+- `tests/code_review_386.test.js` — 7 tests: source-level pin that all
+  refusal branches share the single wording (and that the three old
+  denial messages no longer appear), plus behavioral coverage that a
+  manager editing/probing an admin account, a manager assigning a
+  privileged role, an admin changing their own role, a manager editing
+  another manager, and a missing account all answer `'Staff member not
+  found'` → `/staff`, with the `access_denied` audit still written where
+  a real denial occurred.
+
+### Existing tests updated
+- `tests/code_review_124.test.js` — the self-role-change denial now
+  asserts `'Staff member not found'` instead of the removed
+  `'You cannot change your own role.'`.
+- `tests/code_review_208.test.js` — the self-role-change denial now
+  asserts `'Staff member not found'` (the `access_denied` audit assertion
+  is unchanged).
+- `tests/code_review_180.test.js` — the self-role-change denial now
+  asserts `'Staff member not found'`.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1854 passed / 1854 total** (107 suites, +7 from #385).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+

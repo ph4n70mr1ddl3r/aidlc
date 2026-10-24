@@ -481,7 +481,7 @@ describe('code review 180: template fallback consistency + route redirect fix + 
       };
       handler(req, res, () => {});
       expect(res.redirectCalls).toEqual(['/staff']);
-      expect(flashStore.error).toContain('You cannot change your own role.');
+      expect(flashStore.error).toContain('Staff member not found');
     });
   });
 

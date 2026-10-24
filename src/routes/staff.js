@@ -543,7 +543,11 @@ router.get('/:id/edit', requireAdminOrManager, (req, res) => {
     // Audit the denial like the sibling knowledge edit route — a manager
     // probing the admin/manager edit form is a privilege boundary crossing.
     req.audit('access_denied', 'user', id, 'Unauthorized staff edit attempt');
-    req.flash('error', 'You cannot modify administrator or manager accounts.');
+    // Use the same non-enumerating wording as the 'not found' branch above: a
+    // distinct "you cannot modify…" message reveals that the account ID exists
+    // even though the viewer was refused the record. Mirrors the
+    // changes/knowledge show routes, which answer both branches identically.
+    req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
   res.render('pages/staff/form', { title: 'Edit Staff Member', staffMember: user, isEdit: true, viewerRole: req.session.user.role });
@@ -717,11 +721,14 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   if (effectiveRole !== 'staff' && req.session.user.role !== 'admin') {
     if (roleAbsent) {
       req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
-      req.flash('error', 'You cannot modify administrator or manager accounts.');
     } else {
       req.audit('access_denied', 'user', id, `Unauthorized privileged role assignment attempt (role: ${effectiveRole})`);
-      req.flash('error', 'Only administrators can assign the manager or admin role.');
     }
+    // Use the same non-enumerating wording as the 'not found' branch above so
+    // a manager probing IDs cannot distinguish an existing privileged account
+    // from a missing one. The audit entries above preserve the trail without
+    // leaking existence.
+    req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
   // Prevent admin from changing their own role (would lock themselves out).
@@ -731,14 +738,19 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // the audit log.
   if (Number(id) === Number(req.session.user.id) && effectiveRole !== req.session.user.role) {
     req.audit('access_denied', 'user', id, 'Unauthorized self-role-change attempt');
-    req.flash('error', 'You cannot change your own role.');
+    // Use the same non-enumerating wording as the 'not found' branch above so
+    // the refusal does not confirm the account's existence or its role.
+    req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
   // Managers cannot edit or deactivate admin accounts, nor other managers
   // (only admins may manage manager accounts).
   if (req.session.user.role !== 'admin' && targetUser.role !== 'staff') {
     req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
-    req.flash('error', 'You cannot modify administrator or manager accounts.');
+    // Use the same non-enumerating wording as the 'not found' branch above so
+    // a manager probing IDs cannot distinguish an existing privileged account
+    // from a missing one.
+    req.flash('error', 'Staff member not found');
     return res.redirect('/staff');
   }
   // Preserve existing is_active on edit. Deactivation must go through the
@@ -872,9 +884,10 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
     if (err.message === 'ACCESS_DENIED_ADMIN') {
       // Same condition as the outer check (non-admin editing a manager/admin
       // account) — keep the message identical so the race path does not
-      // misdescribe which guard fired.
+      // misdescribe which guard fired, and non-enumerating so a manager
+      // probing IDs cannot confirm a privileged account's existence.
       req.audit('access_denied', 'user', id, 'Unauthorized administrator or manager account modification attempt');
-      req.flash('error', 'You cannot modify administrator or manager accounts.');
+      req.flash('error', 'Staff member not found');
       return res.redirect('/staff');
     }
     if (err.message === 'ROLE_CHANGED') {
