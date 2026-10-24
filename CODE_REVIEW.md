@@ -15988,3 +15988,196 @@ defects.
 - `npm test` — **1840 passed / 1840 total** (105 suites, +31 from #382).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-23 (384th pass)
+
+An independent pass (full re-read of all 12 route modules, both middleware
+modules, utils, constants, the schema, the seeder, every EJS view and
+`public/js/app.js`, plus ESLint, Jest, coverage and `npm audit`) found no
+new functional defect; it closed the last class of dead code the earlier
+passes had left behind.
+
+1. **The six create routes still hand-rolled the shared wrong-type
+   guard** (LOW, consistency — fixed). `assets.js`, `licenses.js`,
+   `projects.js` (both the project and the task create routes),
+   `staff.js` and `tickets.js` each re-implemented the predicate that
+   the shared `findNonStringField()` helper in `utils.js` already
+   provides — six copies of a loop that can only drift from the
+   others. The identical submissions (a JSON number in a required or
+   optional text field) answered "Invalid request parameters" either
+   way, but a fix to the helper's contract (e.g. the 381st pass moving
+   a new field onto the app-wide wording) would have reached the six
+   create routes one pass later than the update routes. Fix: every
+   create route now calls the shared helper with its own field list,
+   and the behaviour is byte-for-byte unchanged (pinned by the
+   existing type-error regression tests). The last hand-rolled
+   wrong-type loop in the app is gone: `grep "for (const field of"`
+   no longer matches any route module.
+
+### Considered and rejected
+- **"Update the 383rd pass's 'no hand-rolled loop' test to cover the
+  create routes."** That test pins the three modules the 383rd pass
+  itself converted (`knowledge.js`, `changes.js`, `auth.js`); the
+  384th pass extends the same contract to the six create routes in
+  `code_review_383.test.js` (the create-module list is now asserted in
+  the same test).
+
+### Fixes applied
+1. `src/routes/assets.js`, `src/routes/licenses.js`,
+   `src/routes/projects.js` (×2), `src/routes/staff.js`,
+   `src/routes/tickets.js` — the six create routes' hand-rolled
+   `typeof v !== 'string'` loops are replaced by the shared
+   `findNonStringField()` helper (field lists and redirect targets
+   unchanged).
+2. `tests/code_review_165.test.js` — the source-pin that named the
+   old loop now names the helper call it was replaced with.
+
+### Regression tests updated
+- `tests/code_review_383.test.js` — the "no hand-rolled wrong-type
+  loop" test now covers the six create modules alongside the three
+  from the 383rd pass.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1840 passed / 1840 total** (105 suites, +0 net).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-24 (385th pass)
+
+An independent pass re-read all 12 route modules, the two middleware
+modules, utils, constants, the schema, the seeder, the app wiring
+(`src/app.js`), every EJS view, `public/js/app.js`, the README,
+`.env.example` and the CI workflow, cross-checked against the 384 prior
+cycles. Candidate defects were re-derived against the code and the
+sibling conventions before anything was changed. The pass surfaced a
+new high-severity advisory, two silent env-parse fallbacks, a missing
+seed invariant, and a stray debug statement.
+
+1. **`body-parser` 1.20.6 (pulled in via express 4.22.x) carried a
+   high-severity DoS advisory** (GHSA-27r3-jxmh-p828 — trailing bytes
+   after a compressed request body). The repo already pins its
+   transitive overrides (`ip-address`, `qs`), but `body-parser` was
+   not among them, so `npm audit --omit=dev --audit-level=high` (the
+   CI gate) was RED. Fix: the override list now pins `body-parser` to
+   1.20.9 (the patched 1.x line; the 1.x series tops out at 1.20.9,
+   and express 4 keeps `~1.20.5`), so every express-installed copy
+   resolves to the patched version. `npm audit` is clean again, and
+   the full suite (1847/1847) passes with the pinned version.
+
+2. **`SESSION_ABSOLUTE_TIMEOUT_SECONDS` fell back silently on a
+   set-but-invalid value** (LOW-MEDIUM, completeness/consistency —
+   fixed). The PRUNE_* sites warn on a set-but-invalid value ("Invalid
+   PRUNE_AUDIT_DAYS … using default"), `PAGE_SIZE` warns on an invalid
+   or over-max value, and `SESSION_IDLE_TIMEOUT_SECONDS` warns on the
+   below-60s floor — but a typo'd absolute timeout ("8hours", "0",
+   "abc") vanished into the 28800-second default with no warning at
+   all, so an operator's misconfigured hard session cap was invisible.
+   Fix: a set-but-invalid value now warns (`"… is not a positive
+   integer of seconds — using the 28800 (8 h) default."`) while still
+   failing closed to the default; an unset or valid value stays quiet.
+
+3. **A set-but-out-of-range `DASHBOARD_TTL_MS` clamped without a
+   warning** (LOW, consistency — fixed). The clamp itself was correct
+   (a 0 or a multi-day value cannot occur), but the operator's typo
+   was invisible: every other clamped env site (`PAGE_SIZE`, the
+   PRUNE_* values) announces the clamp, and this one did not. Fix: a
+   set value outside [1000, 3600000] now warns (`"… is outside the
+   1000-3600000ms range — clamped."`); unset and in-range values stay
+   quiet. The README's env table now names the warning on both rows.
+
+4. **The seeder's enum and cap invariants were untested** (MEDIUM,
+   completeness — fixed). `tests/seed.test.js` pinned record counts,
+   the asset counter, the future-dated scheduled changes, the bcrypt
+   hashing and the production guard — but never checked that a seeded
+   `role`, `status`, `priority`, `category`, `license_type`,
+   `condition_rating`, `change_type` or member role is a member of the
+   matching allowlist in `src/constants.js`, nor that any seeded money
+   or seat value stays under `MAX_MONEY_AMOUNT` / `MAX_SEAT_COUNT`. A
+   seed regression that stored an out-of-enum value or an over-cap
+   amount would pass silently, and the matching write route would then
+   refuse to touch the row. Fix: a new `tests/seed.test.js` case runs
+   the seeder against a fresh schema and asserts every seeded enum
+   column against the constants the routes validate with, and every
+   seeded money/seat value against the shared caps.
+
+5. **A stray `console.log` leaked a cookie fragment into the test
+   output** (LOW, hygiene — fixed).
+   `tests/code_review_376.test.js` carried a debug line that printed
+   the first 80 characters of the admin session cookie on every run.
+   Removed.
+
+### Considered and rejected
+- **"The license create route silently stores a present-but-empty
+  `license_type` as NULL."** The column is nullable with no meaningful
+  default, and the form's explicit "Unspecified" option POSTS `''` —
+  the README's documented nullable-enum rule ("a blank value clears
+  them to NULL"), shared with the vendor `category`. Whitespace-only
+  is rejected. Not a defect.
+- **"The knowledge update route reports a blank required title with the
+  missing-field wording."** Every sibling update route (tickets,
+  assets, licenses, projects, changes) answers a present-but-blank NOT
+  NULL value with the identical "X is required" class; knowledge
+  batches its three into one sentence, exactly as assets does. One
+  column, one verdict — consistent.
+- **"The ticket report windows are UTC while the asset windows are
+  local."** The convention is per-COLUMN: UTC-stored datetime columns
+  are compared against the UTC clock, local-calendar date-only columns
+  against the local one. The ticket `created_at`/`resolved_at` windows
+  use `date('now')` (UTC) and the asset `purchase_date`/`warranty_expiry`
+  windows use `date('now','localtime')`; both are correct for their
+  columns. The `julianday` duration math is clock-base-independent.
+- **"The audit middleware's `entityId` coercion accepts `'1e5'`."**
+  Every call site feeds the value through `safeId` (which already
+  rejects non-canonical strings) or a DB-row integer, so no route can
+  reach the exotic case; the middleware's documented goal is to never
+  crash the request, and the column carries no FK constraint.
+- **"The seed password's fixed `Aa1!` suffix is weak."** The suffix
+  exists to guarantee the four complexity classes so the generated
+  password always passes the app's own `validatePassword()` policy
+  (10,000 generated samples verified), and `runSeed()` enforces that
+  policy on every seeded password. Printing it is opt-in
+  (`SEED_VERBOSE=1`) and is the documented dev-seeding workflow. No
+  policy violation.
+- **"The license form's `required` seat inputs contradict the route's
+  absent-preserve rule."** The route is the authoritative surface:
+  the form always posts both seat fields, so the route never sees an
+  absent submission from it, and a client that omits them still gets
+  the documented preserve default. No change.
+
+### Fixes applied
+1. `package.json` — the `overrides` block pins `body-parser` to 1.20.9
+   (the CI high-severity gate); `package-lock.json` regenerated.
+2. `src/app.js` — a set-but-invalid `SESSION_ABSOLUTE_TIMEOUT_SECONDS`
+   warns and still fails closed to the 28800-second default.
+3. `src/routes/dashboard.js` — a set-but-out-of-range `DASHBOARD_TTL_MS`
+   warns on the clamp.
+4. `tests/seed.test.js` — new case: every seeded enum value is a member
+   of the matching `src/constants.js` allowlist and every seeded
+   money/seat value respects the shared caps.
+5. `tests/code_review_376.test.js` — the stray `console.log` is removed.
+6. `README.md` — the env table names the new warnings (absolute
+   timeout, TTL clamp) and the idle-timeout fallback wording.
+
+### Regression tests added
+- `tests/code_review_385.test.js` — 6 tests: `app.js` warns on every
+  set-but-invalid `SESSION_ABSOLUTE_TIMEOUT_SECONDS` value (and stays
+  quiet for unset/valid ones) while still failing closed to the
+  default; `dashboard.js` warns on a set TTL below 1000ms or above
+  3600000ms (and stays quiet for unset/in-range values); and both
+  warning contracts are pinned at the source level so a future edit
+  that silences either one is caught.
+
+### Existing tests updated
+- `tests/code_review_383.test.js` — the "no hand-rolled wrong-type
+  loop" test now covers the six create modules the 384th pass
+  converted, alongside the three it already covered.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1847 passed / 1847 total** (106 suites, +7 from #384:
+  6 in the new `code_review_385.test.js` and 1 new seed invariant in
+  `seed.test.js`).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**
+  (body-parser pinned to the patched 1.20.9).

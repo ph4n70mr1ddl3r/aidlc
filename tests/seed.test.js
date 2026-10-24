@@ -126,6 +126,60 @@ describe('seed.js runSeed', () => {
     db.close();
   });
 
+  it('seeds only values the application itself accepts (enums in constants.js, money/seat caps respected)', () => {
+    const db = new Database(':memory:');
+    db.pragma('foreign_keys = ON');
+    db.exec(getSchemaSQL());
+
+    const { runSeed } = require('../src/seed');
+    runSeed(db, 'AdminPassword123!', 'StaffPassword123!');
+
+    // A seed value outside a documented enum (or above a documented cap) is
+    // accepted by the seeder but rejected by the matching write route, so the
+    // seeded rows become un-editable. Pin the seed data to the same allowlists
+    // and caps the routes enforce (src/constants.js).
+    const constants = require('../src/constants');
+    const inEnum = (rows, column, allow) => rows.every((r) => allow.includes(r[column]));
+
+    expect(inEnum(db.prepare('SELECT role, department FROM users').all(), 'role', constants.USER_ROLES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, condition_rating FROM assets').all(), 'status', constants.ASSET_STATUSES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, condition_rating FROM assets').all(), 'condition_rating', constants.ASSET_CONDITIONS)).toBe(true);
+    const categories = new Set(db.prepare('SELECT DISTINCT category FROM assets').all().map((r) => r.category));
+    for (const c of categories) {
+      expect(constants.ASSET_CATEGORIES.includes(c)).toBe(true);
+    }
+    expect(inEnum(db.prepare('SELECT status, priority FROM tickets').all(), 'status', constants.TICKET_STATUSES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, priority FROM tickets').all(), 'priority', constants.TICKET_PRIORITIES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT category FROM tickets').all(), 'category', constants.TICKET_CATEGORIES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, priority FROM projects').all(), 'status', constants.PROJECT_STATUSES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, priority FROM projects').all(), 'priority', constants.PROJECT_PRIORITIES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, priority FROM project_tasks').all(), 'status', constants.TASK_STATUSES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, priority FROM project_tasks').all(), 'priority', constants.TASK_PRIORITIES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT role FROM project_members').all(), 'role', constants.MEMBER_ROLES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, change_type, priority FROM change_log').all(), 'status', constants.CHANGE_STATUSES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, change_type, priority FROM change_log').all(), 'change_type', constants.CHANGE_TYPES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT status, change_type, priority FROM change_log').all(), 'priority', constants.CHANGE_PRIORITIES)).toBe(true);
+    expect(inEnum(db.prepare('SELECT license_type FROM licenses').all(), 'license_type', [...constants.LICENSE_TYPES, null])).toBe(true);
+    expect(inEnum(db.prepare('SELECT category FROM vendors').all(), 'category', [...constants.VENDOR_CATEGORIES, null])).toBe(true);
+
+    // Numeric caps: the seeder must stay within the limits the forms declare
+    // (MAX_MONEY_AMOUNT / MAX_SEAT_COUNT) or the route would refuse the value.
+    const money = [
+      ...db.prepare('SELECT purchase_price FROM assets').all().map((r) => r.purchase_price),
+      ...db.prepare('SELECT cost FROM licenses').all().map((r) => r.cost),
+      ...db.prepare('SELECT budget, spent FROM projects').all().flatMap((r) => [r.budget, r.spent])
+    ].filter((v) => v != null);
+    expect(money.length).toBeGreaterThan(0);
+    for (const v of money) {
+      expect(v).toBeLessThanOrEqual(constants.MAX_MONEY_AMOUNT);
+    }
+    for (const row of db.prepare('SELECT total_seats, used_seats FROM licenses').all()) {
+      expect(row.total_seats).toBeLessThanOrEqual(constants.MAX_SEAT_COUNT);
+      expect(row.used_seats).toBeLessThanOrEqual(constants.MAX_SEAT_COUNT);
+    }
+    db.close();
+  });
+
   it('refuses to seed under a case/whitespace NODE_ENV variant of production', () => {
     const db = new Database(':memory:');
     db.pragma('foreign_keys = ON');

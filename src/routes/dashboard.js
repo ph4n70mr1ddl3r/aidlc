@@ -76,6 +76,12 @@ const _parsedDTTL = parseEnvInt(process.env.DASHBOARD_TTL_MS);
 // Clamp TTL to [1s, 1h] so accidental 0 (cache-bust on every request) or
 // astronomically large values (days/weeks of stale data) cannot occur.
 const DASHBOARD_TTL_MS = Number.isFinite(_parsedDTTL) ? Math.max(1_000, Math.min(3_600_000, _parsedDTTL)) : 30_000;
+// A set-but-out-of-range value is an operator typo worth seeing (the silent
+// clamp would leave a 0ms or a multi-day cache in force); the PAGE_SIZE and
+// PRUNE_* sites warn the same way. The value is still clamped, not rejected.
+if (Number.isFinite(_parsedDTTL) && (process.env.DASHBOARD_TTL_MS !== undefined && process.env.DASHBOARD_TTL_MS !== '') && (_parsedDTTL < 1_000 || _parsedDTTL > 3_600_000)) {
+  console.warn(`WARNING: DASHBOARD_TTL_MS "${process.env.DASHBOARD_TTL_MS}" is outside the 1000-3600000ms range — clamped.`);
+}
 let dashboardCache = { timestamp: 0, data: null };
 
 // Defensive defaults — used when the cache is empty (e.g. first-request DB failure)

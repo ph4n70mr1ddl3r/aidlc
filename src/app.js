@@ -519,7 +519,14 @@ if (process.env.SESSION_IDLE_TIMEOUT_SECONDS !== undefined && process.env.SESSIO
   console.warn(`WARNING: SESSION_IDLE_TIMEOUT_SECONDS "${process.env.SESSION_IDLE_TIMEOUT_SECONDS}" is below the 60s lastAccess write-throttle floor — raised to 60.`);
 }
 const SESSION_IDLE_TIMEOUT_SECONDS = Math.max(_LAST_ACCESS_THROTTLE_MS / 1000, _rawIdleSeconds); // 15 minutes
+// A set-but-invalid absolute timeout ("8hours", "0", "abc") would otherwise
+// vanish into the 8-hour default invisibly; the PRUNE_* sites warn the same
+// way on a set-but-invalid value.
 const SESSION_ABSOLUTE_TIMEOUT_SECONDS = _parsePositiveSeconds(process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS, 8 * 60 * 60); // 8 hours
+const _rawAbsoluteSeconds = utilsModule.parseEnvInt(process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS);
+if (process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS !== undefined && process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS !== '' && !(Number.isFinite(_rawAbsoluteSeconds) && _rawAbsoluteSeconds > 0)) {
+  console.warn(`WARNING: SESSION_ABSOLUTE_TIMEOUT_SECONDS "${process.env.SESSION_ABSOLUTE_TIMEOUT_SECONDS}" is not a positive integer of seconds — using the 28800 (8 h) default.`);
+}
 
 // Re-evaluate secure flag at session-config time so it is always correct
 // regardless of when constants.js was required relative to NODE_ENV normalization.

@@ -822,7 +822,6 @@ describe('code review 376 — the search surface covers the rendered columns', (
       VALUES (900, 'AST-CR376-LOC', 'CR376 located', 'laptop', 'in_use', 'Basement-7')
     `).run();
     const res = await request('GET', '/assets?search=Basement-7', { cookies: sessions.admin.cookies });
-    console.log('DEBUG assets', res.status, res.headers.location, 'cookies:', sessions.admin.cookies.slice(0, 80));
     expect(res.status).toBe(200);
     expect(res.body).toContain('CR376 located');
   });

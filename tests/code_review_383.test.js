@@ -734,9 +734,20 @@ describe('code review 383 — one shared wrong-type guard, no dead sentinels', (
     'src/routes/changes.js',
     'src/routes/auth.js'
   ];
+  // Pass 384 replaced the create routes' own hand-rolled loops with the shared
+  // helper too (assets, licenses, projects, staff, tickets, vendors); the same
+  // "no hand-rolled copy" contract applies to them.
+  const createModules = [
+    'src/routes/assets.js',
+    'src/routes/licenses.js',
+    'src/routes/projects.js',
+    'src/routes/staff.js',
+    'src/routes/tickets.js',
+    'src/routes/vendors.js'
+  ];
 
   it('no module hand-rolls the wrong-type loop any more', () => {
-    for (const mod of modules) {
+    for (const mod of modules.concat(createModules)) {
       const src = readSrc(mod);
       // The hand-rolled predicate the shared helper replaced.
       expect(src).not.toMatch(/typeof v !== 'string'/);

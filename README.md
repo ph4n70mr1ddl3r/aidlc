@@ -176,10 +176,10 @@ Environment variables (set in `.env`):
 | `TRUST_PROXY` | `0` | Set to `1`/`true` when behind a reverse proxy (nginx, etc.) |
 | `PRUNE_AUDIT_DAYS` | `0` (disabled) | Auto-prune `audit_log` entries older than N days on startup (e.g. `365`) |
 | `PRUNE_AUDIT_INTERVAL_MS` | `86400000` (24h) | Interval (ms) between periodic audit log pruning cycles; only used when `PRUNE_AUDIT_DAYS > 0`; set to `0` to disable periodic pruning (invalid values fall back to `86400000`) |
-| `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped |
+| `DASHBOARD_TTL_MS` | `30000` (30s) | Dashboard aggregation cache TTL in ms (range: 1000–3600000); values outside the range are clamped with a warning |
 | `SESSION_STORE` | *unset* (MemoryStore) | Production session store package (`connect-*` / `@scope/connect-*`); must export the classic connect-session factory (`module.exports = function (connect) { return StoreClass; }`) — packages that export an object (e.g. `connect-redis@10`) are not supported; MemoryStore is not suitable for production |
-| `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; invalid values fall back to `900`; values below 60 are raised to 60 (lastAccess write-throttle floor) with a warning |
-| `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity |
+| `SESSION_IDLE_TIMEOUT_SECONDS` | `900` (15 min) | Session inactivity window; invalid values fall back to `900`, and values below 60 are raised to 60 (lastAccess write-throttle floor) with a warning |
+| `SESSION_ABSOLUTE_TIMEOUT_SECONDS` | `28800` (8 h) | Hard cap on a session's total lifetime regardless of activity; a set-but-invalid value falls back to `28800` with a warning |
 | `PAGE_SIZE` | `25` | Default page size for paginated list views; values above `100` are clamped to `100` with a warning; invalid values fall back to `25` with a warning |
 | `SEED_ADMIN_PASSWORD` | *unset* (random) | Fixed admin password for `npm run seed` (must satisfy the app's password policy — the seeder refuses a non-compliant value) |
 | `SEED_PASSWORD` | *unset* (random) | Fixed shared manager/staff password for `npm run seed` (must satisfy the app's password policy) |
