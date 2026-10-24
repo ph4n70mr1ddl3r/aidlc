@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-22 (383rd pass)
+**Date:** 2026-10-24 (387th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16249,6 +16249,55 @@ and all badge mappings still cover their enums exactly.
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1854 passed / 1854 total** (107 suites, +7 from #385).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-24 (387th pass)
+
+An independent pass re-read all 12 route modules, both middleware modules,
+utils, constants, the schema, the seeder, `src/app.js`, every EJS view,
+`public/js/app.js`, the README, `.env.example` and the CI workflow, and
+re-verified every invariant asserted by the 384th–386th passes against the
+current tree (which sits one commit ahead of the 386th pass:
+`67c2aef` "align knowledge is_featured non-string rejection with the
+app-wide type-error wording"). No functional defect was found.
+
+1. **CODE_REVIEW.md header was stale** (documentation defect — fixed). The
+   header still read "2026-10-22 (383rd pass)" although the file already
+   documents the 384th (2026-10-23), 385th and 386th passes (both 2026-10-24)
+   and the working tree contains one further commit (`67c2aef`). Updated to
+   "2026-10-24 (387th pass)".
+
+2. **The pending `67c2aef` change is consistent** (no defect — documented).
+   `src/routes/knowledge.js` now reports a present-but-uninterpretable
+   `is_featured` value (e.g. a JSON object) as `'Invalid request parameters'`
+   on both the create and update routes instead of the hand-rolled
+   `'Invalid Featured Flag'`, so a wrong-typed submission uses the same
+   wording every other route applies to present-but-non-string fields. No
+   test asserted the old wording, so nothing needed updating.
+
+Also verified this pass: `npm run lint` clean (exit 0); `npm test` —
+1854 passed / 1854 total (107 suites); `npm audit --omit=dev
+--audit-level=high` — 0 vulnerabilities (body-parser pinned to 1.20.9);
+no hand-rolled `for (const field of` wrong-type loops remain in any route
+module; all 17 `process.env.*` reads are documented in `.env.example`;
+`ALLOWED_ACTIONS`/`ALLOWED_ENTITY_TYPES` still match every audit site;
+every write route retains `rejectHppArrays`, `findNonStringField`,
+`findBlankTextField`, `changes === 0` guards and
+`invalidateDashboardCache()`; all authenticated limiters use
+`authKeyGenerator`; and every badge mapping covers its enum exactly.
+
+### Fixes applied
+1. `CODE_REVIEW.md` — header date/pass number brought current (documentation
+   only; no behavioral change).
+
+### Regression tests added
+None — the 67c2aef wording change is covered by the existing type-error
+coverage, and no test asserted the removed `'Invalid Featured Flag'` wording.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1854 passed / 1854 total** (107 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
 
