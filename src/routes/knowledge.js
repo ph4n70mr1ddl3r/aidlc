@@ -699,7 +699,7 @@ router.post('/', kbWriteLimiter, (req, res) => {
 
   // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
   if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
-    req.flash('error', 'Invalid Featured Flag');
+    req.flash('error', 'Invalid request parameters');
     return res.redirect('/knowledge/new');
   }
 
@@ -986,7 +986,7 @@ router.put('/:id', kbWriteLimiter, (req, res) => {
 
   // Fail closed on a present-but-uninterpretable is_featured value (e.g. "yes").
   if (!isCanonicalFeaturedSubmission(req.body.is_featured)) {
-    req.flash('error', 'Invalid Featured Flag');
+    req.flash('error', 'Invalid request parameters');
     return res.redirect(`/knowledge/${id}/edit`);
   }
 
