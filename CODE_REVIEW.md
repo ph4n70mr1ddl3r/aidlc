@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-24 (390th pass)
+**Date:** 2026-10-25 (392nd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16463,5 +16463,75 @@ from a valid flag, and the identical submission to the sibling text fields
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1860 passed / 1860 total** (108 suites, +6 in the new
   `code_review_389.test.js`).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-25 (391st pass)
+
+An independent pass found no functional defects. The pass was a CODE_REVIEW.md
+layout correction: the 390th-pass section was appended at the end of the file so
+the newest cycle is the last section, matching the documented layout convention
+(the block at the top is the original history, ordered newest-first back to the
+91st pass; every cycle since then is appended below it). No source code or test
+files were changed.
+
+### Fixes applied
+1. `CODE_REVIEW.md` — moved the 390th-pass entry to the end of the file so the
+   newest cycle is the last section. No functional change; no behavioral impact.
+
+### Regression tests added
+None — this pass changed documentation layout only.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1860 passed / 1860 total** (108 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-25 (392nd pass)
+
+An independent pass re-read the dashboard aggregation routes against the
+non-enumerating and viewer-scoping invariants and found one confidentiality
+defect: dashboard ticket aggregations were served from the shared all-tickets
+cache to every viewer, so a non-privileged staff member could see aggregate
+counts of tickets assigned to colleagues (ticketStats, recentTickets,
+ticketsByCategory, staffWorkload were all read from the shared TTL cache
+without a privilege check).
+
+1. **Dashboard ticket aggregations leaked colleague ticket counts to
+   non-privileged viewers** (confidentiality defect, fixed). The shared
+   dashboard TTL cache served the all-tickets view of `ticketStats`,
+   `recentTickets`, `ticketsByCategory` and `staffWorkload` to every
+   authenticated viewer. A non-privileged staff member is gated on the ticket
+   show route to their own assigned tickets (assigned-to-or-privileged), so the
+   dashboard's aggregate counts of all tickets exposed data the viewer could
+   not individually open. Fix: viewer-scoped prepared-statement variants
+   (`ticketStatsOwned`, `recentTicketsOwned`, `ticketsByCategoryOwned`,
+   `staffWorkloadOwned`) are now queried per request for non-privileged viewers,
+   while privileged viewers keep the cached all-tickets view unchanged. The
+   scoped queries filter on `assigned_to = ?` so the set exposed exactly
+   matches the set the viewer may open, mirroring the pattern already used by
+   the upcoming-changes and license-alert widgets.
+
+### Fixes applied
+1. `src/routes/dashboard.js` — added `ticketStatsOwned`, `recentTicketsOwned`,
+   `ticketsByCategoryOwned`, and `staffWorkloadOwned` prepared statements; in
+   `getDashboardData`, non-privileged viewers now override the cached values
+   with scoped per-request queries while privileged viewers keep the shared
+   cached view. No change to `assetStats`, `projectStats`, `staffCount`,
+   `expiringWarranties`, `licenseAlertsCount`, `myTickets`, `upcomingChanges`,
+   or `licenseAlerts` (already viewer-scoped or count-only).
+
+### Regression tests added
+- `tests/code_review_392.test.js` — 8 tests: privileged viewer sees the cached
+  all-tickets `ticketStats`/`recentTickets`/`ticketsByCategory`/`staffWorkload`;
+  non-privileged viewer sees only their own assigned-ticket stats and category
+  counts; `staffWorkload` returns only the viewer's own row (empty when no open
+  tickets); a colleague's ticket is excluded from all four scoped aggregations;
+  the scoped queries use `assigned_to = ?` so the exposed set matches the
+  show-route access gate.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1862 passed / 1862 total** (109 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
