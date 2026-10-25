@@ -218,7 +218,6 @@ function ensureLinkedAssetInList(assets, linkedAsset) {
 
 // List tickets (paginated)
 router.get('/', (req, res) => {
-  req.audit('read', 'ticket', null, 'Viewed tickets list');
   // Fail closed on HTTP parameter pollution: reject array payloads on query
   // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
   // convention used by every write route in the app.
@@ -227,6 +226,11 @@ router.get('/', (req, res) => {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/tickets');
   }
+  // Audited AFTER the HPP rejection so a refused request is not recorded
+  // as a list view that never happened (the show route audits after its
+  // visibility guard, for the same reason).
+  req.audit('read', 'ticket', null, 'Viewed tickets list');
+
   const { page: requestedPage, limit } = paginate(req);
 
   const qStatus = safeQueryValue(req.query.status);

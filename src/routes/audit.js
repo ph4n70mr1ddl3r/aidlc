@@ -46,7 +46,9 @@ router.get('/', auditLimiter, (req, res) => {
   }
 
   // Record that the audit trail was accessed — a compromised privileged
-  // account reading the full audit log should leave a trace of its own.
+  // account reading the full audit log should leave a trace of its own. The
+  // read is audited AFTER the HPP rejection so a request that is refused is
+  // not recorded as a view that never happened (mirrors the knowledge index).
   req.audit('read', 'audit_log', null, 'Viewed audit log');
 
   const { page: requestedPage, limit } = paginate(req);

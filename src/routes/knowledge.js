@@ -225,21 +225,35 @@ const _CANONICAL_FEATURED_VALUES = Object.freeze(new Set(['0', '1', 'false', 'tr
  * An absent / empty submission is "not submitted" and stays valid (the
  * resolver preserves the stored flag).
  *
- * @param {*} raw - the raw req.body.is_featured value
- * @returns {boolean} true when the value is absent, empty or a canonical
- *   string (including the form-pairing array whose last element is
- *   canonical). JSON API clients that submit a non-string — a number,
- *   object or boolean — get the type-error verdict: a wrong TYPE is
- *   reported exactly like every other wrong-typed body field ("Invalid
- *   request parameters"), never silently resolved with the intent-blind
- *   mapping a valid flag gets. The form checkbox always posts a string,
- *   so only JSON callers reach this branch.
- */
+   * @param {*} raw - the raw req.body.is_featured value
+   * @returns {boolean} true when the value is absent, empty or a canonical
+   *   string (including the form-pairing array whose last element is
+   *   canonical). A form-pairing array whose LAST element is JSON null is
+   *   the absent equivalent (JSON.stringify turns undefined into null) and
+   *   is accepted, so the same submission is not rejected on one channel
+   *   and accepted on another. JSON API clients that submit a non-string —
+   *   a number, object or boolean — get the type-error verdict: a wrong TYPE
+   *   is reported exactly like every other wrong-typed body field ("Invalid
+   *   request parameters"), never silently resolved with the intent-blind
+   *   mapping a valid flag gets. The form checkbox always posts a string,
+   *   so only JSON callers reach this branch.
+   */
 function isCanonicalFeaturedSubmission(raw) {
   if (raw === undefined || raw === null || raw === '') {
     return true;
   }
   const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
+  // JSON API clients may send a non-string last element: a JSON boolean or
+  // number is a TYPE error (rejected below); a JSON NULL inside the form-pairing
+  // array is the absent equivalent — JSON.stringify turns JS undefined into
+  // null, and an explicit JSON null from an API client reads as "no opinion on
+  // this field", which the resolver treats as absent (it preserves the stored
+  // flag). Without this branch a null last element fell into the type test and
+  // was rejected with the app-wide wording, disagreeing with the JSON-omitted
+  // null on the same route (which findNonStringField lets through as absent).
+  if (Array.isArray(raw) && raw[raw.length - 1] === null) {
+    return true;
+  }
   if (value === true || value === false || value === 1 || value === 0) {
     // The form-pairing shape (['0','1']) reduces to its last element above,
     // and the form always posts strings — so a non-string value here comes
@@ -529,7 +543,6 @@ function _truncationMessage(field) {
 
 // List articles (paginated)
 router.get('/', kbReadLimiter, (req, res) => {
-  req.audit('read', 'knowledge_article', null, 'Viewed knowledge base list');
   // Fail closed on HTTP parameter pollution: reject array payloads on query
   // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
   // convention used by every write route in the app.
@@ -538,6 +551,10 @@ router.get('/', kbReadLimiter, (req, res) => {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/knowledge');
   }
+  // Audited AFTER the HPP rejection so a refused request is not recorded
+  // as a list view that never happened (the show route audits after its
+  // visibility guard, for the same reason).
+  req.audit('read', 'knowledge_article', null, 'Viewed knowledge base list');
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);

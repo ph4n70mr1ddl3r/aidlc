@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-25 (394th pass)
+**Date:** 2026-10-26 (395th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16614,3 +16614,91 @@ None — no behavioral change.
 - `npm test` — **1862 passed / 1862 total** (109 suites).
 - `npm run test:coverage` — global thresholds pass.
 - `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-26 (395th pass)
+
+An independent pass re-read every route module, both middleware modules, utils.js,
+constants.js, models/database.js, app.js, seed.js, the EJS views under `views/`,
+the static assets under `public/`, `.env.example`, README.md, and the CI
+workflow, plus ESLint, Jest coverage, and `npm audit`. Prior review history
+(394 consecutive hardening reviews) was cross-checked.
+
+### Findings
+
+1. **Every list route's read audit fired BEFORE its HPP rejection**
+   (consistency defect, fixed). All nine paginated list routes
+   (`assets`, `tickets`, `projects`, `staff`, `vendors`, `licenses`,
+   `knowledge`, `changes`, `audit`) audited `read` on the very first line of
+   the handler, before `rejectHppArrays()` ran — so a request that was
+   REFUSED (flash + redirect to the list) was still recorded in the audit
+   log as "Viewed X list": a view that never happened. The convention every
+   other read in the app follows (the show routes audit AFTER their
+   visibility gate, the dashboard audit sits after its own checks) was the
+   exception here. Fix: the read audit now runs after the HPP rejection on
+   all nine routes; the rejection still comes before any query work, so the
+   fail-closed guarantee is unchanged.
+
+2. **The knowledge index's audit was the only one with a stale sibling**
+   (fixed in the same move). knowledge.js now audits "Viewed knowledge base
+   list" only after a clean pass, pinning the convention with the same
+   comment the other routes carry.
+
+3. **Stale template comment in `views/pages/knowledge/form.ejs`** (fixed).
+   The status dropdown's comment claimed `resolveSafeStatus` "silently
+   discards any other promotion" — since cycle 383 a forbidden promotion is
+   REJECTED with "Invalid Status" and nothing is written
+   (`isStatusPermittedForUser` → `STATUS_NOT_PERMITTED`). The comment now
+   says so.
+
+4. **Staff deactivation confirm-dialog under-described its effects**
+   (fixed). The dialog said "scheduled changes will be unassigned", but
+   `staff.js` also unassigns `in_progress` changes
+   (`status NOT IN ('completed','failed','cancelled')`). The wording now
+   reads "scheduled or in-progress changes".
+
+5. **`is_featured` form-pairing array with a JSON-null last element**
+   (edge case, fixed). `isCanonicalFeaturedSubmission` rejected
+   `['0', null]` with the app-wide type-error wording while the same
+   submission on a route where `findNonStringField` lets JSON `null`
+   through as "absent" was accepted — one submission, two verdicts. The
+   null-last-element shape is now treated as the absent equivalent.
+
+### Fixes applied
+- `src/routes/assets.js`, `tickets.js`, `projects.js`, `staff.js`,
+  `vendors.js`, `licenses.js`, `changes.js`, `knowledge.js`, `audit.js` —
+  list-route read audits moved after the HPP rejection (with the shared
+  explanatory comment).
+- `views/pages/knowledge/form.ejs` — status-dropdown comment corrected.
+- `views/pages/staff/show.ejs` — deactivation confirm wording corrected.
+- `src/routes/knowledge.js` — `isCanonicalFeaturedSubmission` accepts a
+  form-pairing array whose last element is JSON null.
+
+### Regression tests added
+- `tests/code_review_395.test.js` — 2 tests: the knowledge index audits the
+  clean read but NOT the HPP-rejected one.
+- `tests/code_review_389.test.js` — 1 test: the `['0', null]`
+  last-element case is accepted (absent equivalent).
+- `tests/code_review_388.test.js` — 2 tests: the staff create-route
+  privileged-escalation refusal answers exactly like a missing record
+  ("Staff member not found" + `/staff` redirect, `access_denied` audit),
+  and a manager's staff-account creation does not trigger it.
+
+### Accepted divergences (documented, no code change)
+- The `logout` / `profile` / `password` limiters in `auth.js` use the
+  default 429+message path (no custom handler, no flash-redirect, no audit
+  row on trip), unlike `loginRateLimiter`. This is deliberate: those
+  routes are authenticated pages where a bare 429 is honest, and the
+  README documents all four caps.
+- The `requester_phone` field is the documented loosely-typed exception on
+  every phone-bearing route (create AND update): a value that sanitises to
+  nothing is answered with "Please enter a valid phone number" on both
+  verbs (README, Partial-update section).
+- The ticket `satisfaction_rating` field is integer-typed, not text: a JSON
+  boolean there is an out-of-type VALUE answered field-specific
+  ("Invalid Satisfaction Rating"), mirroring the vendor `rating` field —
+  both are numeric scales, not the app-wide text-field type-error rule.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1867 passed / 1867 total** (111 suites).
+- `npm audit` — 0 vulnerabilities.

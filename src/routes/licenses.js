@@ -127,7 +127,6 @@ const _licenseUpdateStmt = db.prepare(`
 // meaningless. `notes` is intentionally not selected — the index template
 // never renders it (mirrors the dashboard's minimal-column convention).
 router.get('/', requireAdminOrManager, (req, res) => {
-  req.audit('read', 'license', null, 'Viewed licenses list');
   // Fail closed on HTTP parameter pollution: reject array payloads on query
   // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
   // convention used by every write route in the app.
@@ -136,6 +135,11 @@ router.get('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/licenses');
   }
+  // Audited AFTER the HPP rejection so a refused request is not recorded
+  // as a list view that never happened (the show route audits after its
+  // visibility guard, for the same reason).
+  req.audit('read', 'license', null, 'Viewed licenses list');
+
   const { page: requestedPage, limit } = paginate(req);
 
   const qLicenseType = safeQueryValue(req.query.license_type);

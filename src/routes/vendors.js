@@ -176,7 +176,6 @@ const _vendorInsertStmt = db.prepare(`
 // closed for licenses. Every write route below is already privileged, so this
 // makes the whole module a coherent admin/manager surface.
 router.get('/', requireAdminOrManager, (req, res) => {
-  req.audit('read', 'vendor', null, 'Viewed vendors list');
   // Fail closed on HTTP parameter pollution: reject array payloads on query
   // params. Mirrors the explicit HPP guard on GET /audit and the array-rejection
   // convention used by every write route in the app.
@@ -185,6 +184,11 @@ router.get('/', requireAdminOrManager, (req, res) => {
     req.flash('error', 'Invalid request parameters');
     return res.redirect('/vendors');
   }
+  // Audited AFTER the HPP rejection so a refused request is not recorded
+  // as a list view that never happened (the show route audits after its
+  // visibility guard, for the same reason).
+  req.audit('read', 'vendor', null, 'Viewed vendors list');
+
   const { page: requestedPage, limit } = paginate(req);
 
   const qCategory = safeQueryValue(req.query.category);

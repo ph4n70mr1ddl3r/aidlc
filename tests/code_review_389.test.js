@@ -118,6 +118,15 @@ describe('knowledge is_featured type-error wording (pass 389)', () => {
     expect(c.flashCalls).toContainEqual(['error', 'Invalid request parameters']);
   });
 
+  it('a form-pairing array whose last element is JSON null is the absent equivalent', () => {
+    const h = lastHandlerFor(knowledgeRouter, 'put', '/:id');
+    const { flashCalls } = runHandler(h, {
+      body: { is_featured: ['0', null] },
+      sessionUser: ADMIN_SESSION
+    });
+    expect(flashCalls).not.toContainEqual(['error', 'Invalid request parameters']);
+  });
+
   it('pins the source-level type-error wording contract in knowledge.js', () => {
     expect(sourceContains('if (!isCanonicalFeaturedSubmission(isFeaturedLast)) {')).toBe(true);
     expect(sourceContains("req.flash('error', 'Invalid request parameters');")).toBe(true);
