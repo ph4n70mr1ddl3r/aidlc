@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-25 (392nd pass)
+**Date:** 2026-10-25 (393rd pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16529,6 +16529,38 @@ without a privilege check).
   tickets); a colleague's ticket is excluded from all four scoped aggregations;
   the scoped queries use `assigned_to = ?` so the exposed set matches the
   show-route access gate.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1862 passed / 1862 total** (109 suites).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+## Review cycle 2026-10-25 (393rd pass)
+
+An independent pass re-read every route module (tickets, assets, projects,
+staff, vendors, knowledge, changes, licenses, dashboard, reports, audit, auth),
+both middleware modules (auth, audit), utils.js, constants.js, models/database.js,
+app.js, seed.js, the EJS views under `views/`, and the static assets under
+`public/`, plus ESLint, Jest coverage, and `npm audit`. Prior review history
+(392 consecutive hardening reviews) was cross-checked.
+
+No functional defect was found. Every route continues to apply the documented
+consistency invariants: HPP rejection (`rejectHppArrays`), absent-vs-empty
+partial updates (`resolveOptionalField` / `resolveEnumField`),
+transaction-consistent re-reads inside the write transactions, `changes === 0`
+no-op guards on every mutation, access-scoped list queries, cache invalidation
+(`invalidateDashboardCache` / `invalidateActiveStaffCache`),
+view-to-route gating (`canAccessResource`), non-enumerating refusal wording,
+and per-account rate limiting. The dashboard's viewer-scoped ticket
+aggregations added in cycle 392 remain correctly scoped, and the `is_featured`
+type-error wording aligned in cycle 390 remains uniform on both verbs.
+
+### Fixes applied
+None — this pass changed no source or test files.
+
+### Regression tests added
+None — no behavioral change.
 
 ### Tooling
 - `npm run lint` — clean (exit 0).
