@@ -125,6 +125,23 @@ const stmts = {
       COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress','waiting') THEN 1 ELSE 0 END), 0) as critical_open
     FROM tickets
   `),
+  // Viewer-scoped variant of ticketStats: a non-privileged viewer may only see
+  // their own assigned tickets (the show route gates ticket detail to
+  // assigned-to-or-privileged), so the dashboard stats card must not expose
+  // aggregate counts of tickets they cannot individually view. Privileged
+  // viewers keep the all-tickets query above.
+  ticketStatsOwned: db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0) as open,
+      COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0) as in_progress,
+      COALESCE(SUM(CASE WHEN status = 'waiting' THEN 1 ELSE 0 END), 0) as waiting,
+      COALESCE(SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END), 0) as resolved,
+      COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0) as closed,
+      COALESCE(SUM(CASE WHEN priority = 'critical' AND status IN ('open','in_progress','waiting') THEN 1 ELSE 0 END), 0) as critical_open
+    FROM tickets
+    WHERE assigned_to = ?
+  `),
   // Exclude disposed assets so the total matches the "Active Assets" stat card
   // label in the dashboard template and the reports page's "Active Assets" card.
   // Mirrors the disposed-asset exclusion in reports.js assetsByCategory and
@@ -155,6 +172,17 @@ const stmts = {
     FROM tickets t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.status NOT IN ('closed', 'resolved')
+    ORDER BY t.updated_at DESC, t.id DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT + 1}
+  `),
+  // Viewer-scoped variant of recentTickets: a non-privileged viewer must not
+  // see titles/categories of tickets assigned to colleagues. Mirrors the
+  // show-route access gate (assigned-to-or-privileged).
+  recentTicketsOwned: db.prepare(`
+    SELECT t.id, t.ticket_number, t.title, t.category, t.priority, t.status, t.assigned_to, t.created_at,
+            u.first_name || ' ' || u.last_name as assigned_name
+    FROM tickets t
+    LEFT JOIN users u ON t.assigned_to = u.id
+    WHERE t.assigned_to = ? AND t.status NOT IN ('closed', 'resolved')
     ORDER BY t.updated_at DESC, t.id DESC LIMIT ${_DASH_RECENT_TICKETS_LIMIT + 1}
   `),
   // Include already-expired warranties — they are more urgent than expiring-soon.
@@ -236,12 +264,34 @@ const stmts = {
     WHERE status IN ('open','in_progress','waiting')
     GROUP BY category ORDER BY count DESC, category ASC
   `),
+  // Viewer-scoped variant of ticketsByCategory: category counts must reflect
+  // only tickets the viewer is allowed to see, otherwise a non-privileged
+  // viewer can infer the existence and volume of colleagues' tickets by
+  // category.
+  ticketsByCategoryOwned: db.prepare(`
+    SELECT category, COUNT(*) as count FROM tickets
+    WHERE status IN ('open','in_progress','waiting') AND assigned_to = ?
+    GROUP BY category ORDER BY count DESC, category ASC
+  `),
   staffWorkload: db.prepare(`
     SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
       COUNT(t.id) as open_tickets
     FROM users u
     LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status IN ('open','in_progress','waiting')
     WHERE u.is_active = 1
+    GROUP BY u.id
+    ORDER BY open_tickets DESC, u.id ASC
+    LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT + 1}
+  `),
+  // Viewer-scoped variant of staffWorkload: a non-privileged viewer must not
+  // see colleagues' open-ticket counts. Returns only the viewer's own workload
+  // row (empty when they have no open tickets).
+  staffWorkloadOwned: db.prepare(`
+    SELECT u.id, u.first_name || ' ' || u.last_name as name, u.role,
+      COUNT(t.id) as open_tickets
+    FROM users u
+    LEFT JOIN tickets t ON t.assigned_to = u.id AND t.status IN ('open','in_progress','waiting')
+    WHERE u.is_active = 1 AND u.id = ?
     GROUP BY u.id
     ORDER BY open_tickets DESC, u.id ASC
     LIMIT ${_DASH_STAFF_WORKLOAD_LIMIT + 1}
@@ -363,6 +413,22 @@ function getDashboardData(user) {
     }
   }
 
+  // Viewer-scoped ticket aggregations: the shared cache holds the all-tickets
+  // (privileged) view. A non-privileged viewer may only see their own assigned
+  // tickets (the show route gates ticket detail to assigned-to-or-privileged),
+  // so override the cached values with scoped per-request queries for them.
+  // Privileged viewers keep the cached all-tickets view unchanged.
+  let ticketStats = shared.ticketStats;
+  let recentTickets = shared.recentTickets;
+  let ticketsByCategory = shared.ticketsByCategory;
+  let staffWorkload = shared.staffWorkload;
+  if (!isPrivileged(user)) {
+    ticketStats = stmts.ticketStatsOwned.get(user.id);
+    recentTickets = stmts.recentTicketsOwned.all(user.id);
+    ticketsByCategory = stmts.ticketsByCategoryOwned.all(user.id);
+    staffWorkload = stmts.staffWorkloadOwned.all(user.id);
+  }
+
   // Deep-merge defaults to avoid shared nested object references between cache
   // and rendered data.  Object.assign only copies one level deep, so mutating a
   // nested object in a template (e.g. ticketStats.open) would corrupt the cache.
@@ -377,14 +443,14 @@ function getDashboardData(user) {
   // not used to derive the list markers — the licence list is read per
   // request while its count comes from the shared cache, so a count-derived
   // marker could disagree with the list it describes.)
-  const recentTicketsCap = capList(shared.recentTickets || [], DASHBOARD_LIMITS.recentTickets);
-  const staffWorkloadCap = capList(shared.staffWorkload || [], DASHBOARD_LIMITS.staffWorkload);
+  const recentTicketsCap = capList(recentTickets || [], DASHBOARD_LIMITS.recentTickets);
+  const staffWorkloadCap = capList(staffWorkload || [], DASHBOARD_LIMITS.staffWorkload);
   const myTicketsCap = capList(myTickets, DASHBOARD_LIMITS.myTickets);
   const upcomingChangesCap = capList(upcomingChanges, DASHBOARD_LIMITS.upcomingChanges);
   const expiringWarrantiesCap = capList(shared.expiringWarranties || [], DASHBOARD_LIMITS.warrantyAlerts);
   const licenseAlertsCap = capList(licenseAlerts, DASHBOARD_LIMITS.licenseAlerts);
   const result = {
-    ticketStats: { ...EMPTY_DEFAULTS.ticketStats, ...(shared.ticketStats || {}) },
+    ticketStats: { ...EMPTY_DEFAULTS.ticketStats, ...(ticketStats || {}) },
     assetStats: { ...EMPTY_DEFAULTS.assetStats, ...(shared.assetStats || {}) },
     projectStats: { ...EMPTY_DEFAULTS.projectStats, ...(shared.projectStats || {}) },
     staffCount: { ...EMPTY_DEFAULTS.staffCount, ...(shared.staffCount || {}) },
@@ -395,7 +461,7 @@ function getDashboardData(user) {
     expiringWarrantiesTruncated: expiringWarrantiesCap.truncated,
     upcomingChanges: upcomingChangesCap.rows.map(r => ({ ...r })),
     upcomingChangesTruncated: upcomingChangesCap.truncated,
-    ticketsByCategory: (shared.ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
+    ticketsByCategory: (ticketsByCategory || EMPTY_DEFAULTS.ticketsByCategory).map(r => ({ ...r })),
     staffWorkload: staffWorkloadCap.rows.map(r => ({ ...r })),
     staffWorkloadTruncated: staffWorkloadCap.truncated,
     licenseAlerts: licenseAlertsCap.rows.map(r => ({ ...r })),
