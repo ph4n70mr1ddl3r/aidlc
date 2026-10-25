@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-25 (393rd pass)
+**Date:** 2026-10-25 (394th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16555,6 +16555,53 @@ view-to-route gating (`canAccessResource`), non-enumerating refusal wording,
 and per-account rate limiting. The dashboard's viewer-scoped ticket
 aggregations added in cycle 392 remain correctly scoped, and the `is_featured`
 type-error wording aligned in cycle 390 remains uniform on both verbs.
+
+### Fixes applied
+None — this pass changed no source or test files.
+
+### Regression tests added
+None — no behavioral change.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1862 passed / 1862 total** (109 suites).
+- `npm run test:coverage` — global thresholds pass.
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+
+---
+
+## Review cycle 2026-10-25 (394th pass)
+
+An independent pass re-read every route module (tickets, assets, projects,
+staff, vendors, knowledge, changes, licenses, dashboard, reports, audit, auth),
+both middleware modules (auth, audit), utils.js, constants.js, models/database.js,
+app.js, seed.js, the EJS views under `views/`, the static assets under `public/`,
+`.env.example`, README.md, and the CI workflow, plus ESLint, Jest coverage, and
+`npm audit`. Prior review history (393 consecutive hardening reviews) was
+cross-checked.
+
+No functional defect was found. Every route continues to apply the documented
+consistency invariants: HPP rejection (`rejectHppArrays`), absent-vs-empty
+partial updates (`resolveOptionalField` / `resolveEnumField`),
+transaction-consistent re-reads inside the write transactions, `changes === 0`
+no-op guards on every mutation, access-scoped list queries, cache invalidation
+(`invalidateDashboardCache` / `invalidateActiveStaffCache`),
+view-to-route gating (`canAccessResource`), non-enumerating refusal wording,
+and per-account rate limiting. The dashboard's viewer-scoped ticket
+aggregations added in cycle 392 remain correctly scoped, and the `is_featured`
+type-error wording aligned in cycle 390 remains uniform on both verbs. The
+`.env.example` file still matches all 17 env reads in `src/`, every view
+link/action resolves to an existing route, and every write route carries its
+`rejectHppArrays` guard.
+
+Also verified this pass: all 109 test suites pass, coverage thresholds hold,
+`npm audit` reports 0 vulnerabilities, all `res.redirect()` targets are
+same-origin pathnames, all form `action` URLs are relative, all badge mappings
+in `constants.js` cover their enums exactly, `ALLOWED_ACTIONS` / `ALLOWED_ENTITY_TYPES`
+match all emitted audit values (zero unused, zero extra), all 15 core modules
+export `resetCachedStatements`, and no dangerous patterns (`eval`, `new
+Function()`, `innerHTML`, `document.write`, `javascript:` URLs) exist in
+`src/`, `views/`, or `public/`.
 
 ### Fixes applied
 None — this pass changed no source or test files.
