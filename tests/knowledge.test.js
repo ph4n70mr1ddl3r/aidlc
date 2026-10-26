@@ -166,6 +166,29 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
     expect(resolveSafeFeatured(admin, false)).toBe(0);
     expect(resolveSafeFeatured(manager, false)).toBe(0);
   });
+
+  // Regression: a form-pairing array whose LAST element is JSON null or an
+  // empty string is the absent equivalent (mirrors tags absent-preserve and
+  // resolveOptionalField). The validator isCanonicalFeaturedSubmission accepts
+  // such a submission as "absent / preserve", so the resolver must agree and
+  // keep the stored flag instead of resolving the null/empty last element
+  // through parseBooleanFlag (which would map null to 0 and clear the flag).
+  // One submission must never yield two verdicts.
+  it('treats a form-pairing array whose last element is JSON null as absent (preserve existing)', () => {
+    expect(resolveSafeFeatured(admin, ['0', null], 1)).toBe(1);
+    expect(resolveSafeFeatured(admin, ['0', null], 0)).toBe(0);
+    expect(resolveSafeFeatured(manager, [1, null], 1)).toBe(1);
+  });
+
+  it('treats a form-pairing array whose last element is an empty string as absent (preserve existing)', () => {
+    expect(resolveSafeFeatured(admin, ['0', ''], 1)).toBe(1);
+    expect(resolveSafeFeatured(admin, ['0', ''], 0)).toBe(0);
+  });
+
+  it('treats an empty form-pairing array as absent (preserve existing)', () => {
+    expect(resolveSafeFeatured(admin, [], 1)).toBe(1);
+    expect(resolveSafeFeatured(admin, [], 0)).toBe(0);
+  });
 });
 
 describe('resolveSafeStatus', () => {

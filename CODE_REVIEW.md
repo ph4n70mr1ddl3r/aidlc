@@ -1,6 +1,6 @@
 # Code Review Notes
 
-**Date:** 2026-10-26 (395th pass)
+**Date:** 2026-10-26 (396th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
@@ -16701,4 +16701,31 @@ workflow, plus ESLint, Jest coverage, and `npm audit`. Prior review history
 ### Tooling
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1867 passed / 1867 total** (111 suites).
+- `npm audit` — 0 vulnerabilities.
+
+## Review cycle 2026-10-26 (396th pass)
+
+An independent pass re-read every route module, both middleware modules,
+utils.js, constants.js, models/database.js, app.js, seed.js, the EJS views
+under `views/`, `.env.example`, README.md, plus ESLint, Jest coverage, and
+`npm audit`. Prior review history (395 consecutive hardening reviews) was
+cross-checked. All previously documented consistency invariants (HPP
+rejection before read audit, absent-vs-empty partial updates,
+transaction-consistent rechecks, `changes === 0` no-op guards,
+access-scoped list queries, cache invalidation, view-to-route gating) were
+re-verified and remain intact.
+
+### Findings
+
+1. **`resolveSafeFeatured` disagreed with its own validator on the null-last-element form-pairing array** (consistency defect, fixed). Cycle 395 taught `isCanonicalFeaturedSubmission` to accept a form-pairing array whose last element is JSON null as the absent equivalent ("preserve the existing `is_featured` flag"), but the resolver `resolveSafeFeatured` resolved that same null last element through `parseBooleanFlag(null)`, which maps to `0` and cleared the flag. One submission therefore yielded two verdicts: the validator accepted it as "absent / preserve", while the resolver silently cleared it to `0`. Fix: `resolveSafeFeatured` now resolves the last array element first and treats `undefined`/`null`/`''` as absent (preserving the stored value), so the validator and resolver agree — a form-pairing array whose last element is JSON null is now preserved, not cleared.
+
+### Fixes applied
+- `src/routes/knowledge.js` — `resolveSafeFeatured` resolves the last element of the `is_featured` form-pairing array before the absent check, so a `null`/empty last element preserves the stored flag (matching `isCanonicalFeaturedSubmission`).
+
+### Regression tests added
+- `tests/knowledge.test.js` — 3 tests: an array whose last element is JSON null preserves the existing flag; an array whose last element is an empty string preserves it; an empty array preserves it. The canonical checked/unchecked shapes and whole-value `null`/`undefined` remain unchanged.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1870 passed / 1870 total** (111 suites).
 - `npm audit` — 0 vulnerabilities.

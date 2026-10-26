@@ -175,23 +175,27 @@ function resolveSafeFeatured(user, is_featured, existingFeatured = 0) {
   if (!isPrivileged(user)) {
     return existingFeatured;
   }
-  // When the is_featured field is absent from the request (partial API update
-  // that omits the field), preserve the existing value. Null is treated as
-  // absent too (mirrors tags absent-preserve and resolveOptionalField).
-  if (is_featured === undefined || is_featured === null || is_featured === '') {
-    return existingFeatured;
-  }
   // The edit form pairs the checkbox (value="1") with a hidden value="0"
   // companion, so a submission arrives as either '0' (unchecked, single value)
   // or ['0','1'] (checked, parsed by querystring as an array). In both cases
   // the last element encodes the checkbox state, so arrays are resolved by
   // taking the final element rather than safeQueryValue's first-element rule.
+  const lastValue = Array.isArray(is_featured) ? is_featured[is_featured.length - 1] : is_featured;
+  // When the field is absent from the request, or the resolved last element is
+  // null or empty, preserve the existing value — the absent equivalent. This
+  // mirrors tags absent-preserve and resolveOptionalField, and keeps the
+  // validator (isCanonicalFeaturedSubmission) and the resolver in agreement:
+  // a form-pairing array whose last element is JSON null is treated as absent,
+  // so the same submission is not rejected on one channel and cleared on the
+  // other (the "one submission, two verdicts" defect).
+  if (lastValue === undefined || lastValue === null || lastValue === '') {
+    return existingFeatured;
+  }
   // Only the canonical "checked" values set the flag; parseBooleanFlag rejects
   // any other string (e.g. 'false', 'off', 'no') so an API/HTML form with a
   // custom value cannot silently mark an article featured. The privilege gate
   // is already enforced by the early return above, so `true` is passed here
   // directly — calling isPrivileged again would be redundant.
-  const lastValue = Array.isArray(is_featured) ? is_featured[is_featured.length - 1] : is_featured;
   return parseBooleanFlag(lastValue, true);
 }
 
