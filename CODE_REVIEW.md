@@ -1,11 +1,11 @@
 # Code Review Notes
 
-**Date:** 2026-10-26 (396th pass)
+**Date:** 2026-10-28 (397th pass)
 **Scope:** Full-stack Express.js + better-sqlite3 IT Department Manager app
 (`src/`, `tests/`, `views/`). 12 route modules, 2 middleware modules, models,
 utils, constants, the EJS templates and the seeder.
 **Method:** Full re-read of all source files plus ESLint, Jest coverage, and
-`npm audit`. Prior review history (382 consecutive hardening reviews) was
+`npm audit`. Prior review history (396 consecutive hardening reviews) was
 cross-checked.
 **Layout:** the review cycles are appended **chronologically at the end** of
 this file, so the newest cycle is the **last** section — not the first. (The
@@ -16729,3 +16729,44 @@ re-verified and remain intact.
 - `npm run lint` — clean (exit 0).
 - `npm test` — **1870 passed / 1870 total** (111 suites).
 - `npm audit` — 0 vulnerabilities.
+
+## Review cycle 2026-10-28 (397th pass)
+
+An independent pass re-checked the documented consistency invariants (HPP
+rejection before read audits, absent-vs-empty partial updates,
+transaction-consistent rechecks, `changes === 0` no-op guards, access-scoped
+list queries, cache invalidation, and view-to-route gating) and audited the
+dependency surface after a newly published advisory.
+
+### Findings
+
+1. **The committed lockfile still pinned the vulnerable `qs` release**
+   (dependency defect, fixed). `package.json` declared `overrides.qs` as
+   `^6.16.0`, so the lockfile resolved `qs` 6.16.0 even though 6.17.0
+   contains the fix for `GHSA-6pq8-jhm2-2vcw` (uncaught `TypeError` in
+   `qs.stringify` with `arrayFormat: 'comma'`). The production audit reported
+   the lockfile's `qs` and its `express` parent as 2 moderate vulnerabilities;
+   a clean install from the committed lock would therefore reproduce the
+   vulnerable tree. The local `node_modules` happened to contain 6.17.0, which
+   is why the advisory could be missed by testing against the working tree
+   alone. Fix: raise the override to `^6.17.0` and regenerate the lockfile.
+   The full test suite exercises Express query/body parsing against the
+   upgraded release.
+
+### Fixes applied
+- `package.json` — `overrides.qs` raised from `^6.16.0` to `^6.17.0`.
+- `package-lock.json` — `qs` updated from 6.16.0 to 6.17.0.
+
+### Accepted divergences (documented, no code change)
+- `npm audit` still lists 6 low-severity `deepmerge` findings under Jest's
+  development-only dependency tree. The advisory has no fixed release, it is
+  never installed in production (`npm audit --omit=dev` is clean), and CI
+  runs `npm audit --omit=dev --audit-level=high`. The alternative suggested
+  by `npm audit fix --force` would downgrade Jest to 25.1.0, a breaking
+  change that is not justified for a dev-only low.
+
+### Tooling
+- `npm run lint` — clean (exit 0).
+- `npm test` — **1870 passed / 1870 total** (111 suites).
+- `npm audit --omit=dev --audit-level=high` — **0 vulnerabilities**.
+- `npm audit` — 6 low (dev-only `deepmerge` via Jest; no fixed release).
