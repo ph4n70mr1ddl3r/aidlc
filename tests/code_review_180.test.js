@@ -1,11 +1,16 @@
-const { describe, it, expect } = require('@jest/globals');
+const { describe, it, expect, beforeEach } = require('@jest/globals');
 const fs = require('fs');
 const path = require('path');
 const { baseLocals, render } = require('./template_helpers');
+const db = require('../src/models/database');
 
 function read(rel) {
   return fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 }
+
+beforeEach(() => {
+  db.prepare("INSERT OR IGNORE INTO users (id, username, password, email, first_name, last_name, role, department, is_active) VALUES (1, 'testuser', 'hashed', 'test@test.com', 'Test', 'User', 'staff', 'IT', 1)").run();
+});
 
 function emptyDashboard() {
   return {
