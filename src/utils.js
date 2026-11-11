@@ -1113,8 +1113,11 @@ function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
     return { error: true };
   }
   // Present but blank (whitespace only): fail closed instead of clearing.
-  // An explicit '' still clears the field (the branch below).
-  if (rawValue !== '' && rawValue.trim() === '') {
+  // An explicit '' still clears the field; whitespace-only rejects it.
+  if (rawValue.trim() === '') {
+    if (rawValue === '') {
+      return null;
+    }
     return { error: true };
   }
   if (processedValue !== null && processedValue !== '') {
