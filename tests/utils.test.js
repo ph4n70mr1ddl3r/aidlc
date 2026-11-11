@@ -871,6 +871,33 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat('Infinity', 0)).toBe(0);
     expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
+
+  it('should reject strings with leading plus sign', () => {
+    // parseFloat("+5") === 5 would silently accept, but safePositiveFloat
+    // must reject non-canonical input consistent with safeInt.
+    expect(utils.safePositiveFloat('+5')).toBeNull();
+    expect(utils.safePositiveFloat('+5', 0)).toBe(0);
+  });
+
+  it('should reject bare dot string', () => {
+    // parseFloat(".") === NaN, must reject rather than pass through.
+    expect(utils.safePositiveFloat('.')).toBeNull();
+    expect(utils.safePositiveFloat('.', 0)).toBe(0);
+  });
+
+  it('should reject trailing dot without digits', () => {
+    // parseFloat("0.") === 0 would silently accept, but safePositiveFloat
+    // must reject incomplete number strings.
+    expect(utils.safePositiveFloat('0.')) .toBeNull();
+    expect(utils.safePositiveFloat('0.', 0)).toBe(0);
+  });
+
+  it('should reject scientific notation strings', () => {
+    // parseFloat("1e5") === 100000 would silently accept, but safePositiveFloat
+    // must reject non-canonical exponent form.
+    expect(utils.safePositiveFloat('1e5')).toBeNull();
+    expect(utils.safePositiveFloat('1e5', 0)).toBe(0);
+  });
 });
 
 /**
