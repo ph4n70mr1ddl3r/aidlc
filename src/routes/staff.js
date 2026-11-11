@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager, requireAdmin } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, validatePassword, isValidUsername, isValidEmail, trim, sanitizePhone, isValidPhone, recalcProjectProgress, asyncHandler, countQuery, selectQuery, safeQueryValue, safeFilters, isPrivileged, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, titleCase, invalidateActiveStaffCache, authKeyGenerator, logError, capList } = require('../utils');
 const { USER_ROLES, MAX_USERNAME, MAX_PASSWORD_BYTES, MAX_EMAIL, MAX_SHORT_STR, MAX_PHONE, BCRYPT_SALT_ROUNDS, ASSIGNED_ITEMS_CAP, MEMBER_LIST_CAP } = require('../constants');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -288,6 +288,12 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
     return res.redirect('/staff/new');
   }
 
+  const blankField = findBlankTextField(req.body, ['department']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/staff/new');
+  }
+
   const username = trim(safeQueryValue(req.body.username)).toLowerCase();
   const password = safeQueryValue(req.body.password);
   const email = trim(safeQueryValue(req.body.email)).toLowerCase();
@@ -302,10 +308,6 @@ router.post('/', requireAdminOrManager, createStaffLimiter, asyncHandler(async (
   // on BOTH verbs. The create route used to trim it to '' and store NULL
   // with a success flash, so the identical submission was accepted on create
   // and refused on update.
-  if (typeof req.body.department === 'string' && req.body.department !== '' && req.body.department.trim() === '') {
-    req.flash('error', 'Please enter a valid department');
-    return res.redirect('/staff/new');
-  }
   // The REQUIRED columns are guarded too: without it a JSON number in
   // `username`, `email`, `first_name` or `last_name` collapsed to '' and was
   // reported as a MISSING field ("All required fields must be filled in"),

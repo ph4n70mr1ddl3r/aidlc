@@ -431,7 +431,7 @@ describe('staff department — wrong type answers the app-wide type error', () =
 
     await handler(req, res);
 
-    expect(errorFlash(req)).toBe('Please enter a valid department');
+    expect(errorFlash(req)).toBe('Invalid Department');
   });
 });
 

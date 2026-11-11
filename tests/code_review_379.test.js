@@ -507,7 +507,7 @@ describe('code review 379 — POST /staff department validation', () => {
 
     await createStaffHandler()(req, res);
 
-    expect(errorFlash(req)).toBe('Please enter a valid department');
+    expect(errorFlash(req)).toBe('Invalid Department');
     expect(res.redirected).toBe('/staff/new');
     expect(db.prepare('SELECT COUNT(*) as c FROM users').get().c).toBe(0);
   });
