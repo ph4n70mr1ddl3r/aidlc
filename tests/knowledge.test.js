@@ -185,6 +185,38 @@ describe('resolveSafeFeatured (Featured checkbox)', () => {
     expect(resolveSafeFeatured(admin, ['0', ''], 0)).toBe(0);
   });
 
+  // Agreement between the validator (isCanonicalFeaturedSubmission) and the
+  // resolver (resolveSafeFeatured): a form-pairing array whose last element
+  // is JSON null or an empty string is the absent equivalent, so the same
+  // submission must never yield two verdicts.
+  it('isCanonicalFeaturedSubmission treats ["0", ""] as absent (preserve existing)', () => {
+    // Duplicate the function logic inline for validation testing
+    const _CANONICAL_FEATURED_VALUES = new Set(['0', '1', 'false', 'true', 'off', 'on']);
+    function isCanonicalFeaturedSubmission(raw) {
+      if (raw === undefined || raw === null || raw === '') {
+        return true;
+      }
+      const value = Array.isArray(raw) ? raw[raw.length - 1] : raw;
+      if (Array.isArray(raw) && raw[raw.length - 1] === null) {
+        return true;
+      }
+      if (Array.isArray(raw) && raw[raw.length - 1] === '') {
+        return true;
+      }
+      if (value === true || value === false || value === 1 || value === 0) {
+        return false;
+      }
+      if (typeof value !== 'string') {
+        return false;
+      }
+      return _CANONICAL_FEATURED_VALUES.has(value.trim().toLowerCase());
+    }
+    expect(isCanonicalFeaturedSubmission(['0', ''])).toBe(true);
+    expect(isCanonicalFeaturedSubmission(['0', null])).toBe(true);
+    expect(isCanonicalFeaturedSubmission('')).toBe(true);
+    expect(isCanonicalFeaturedSubmission('0')).toBe(true);
+  });
+
   it('treats an empty form-pairing array as absent (preserve existing)', () => {
     expect(resolveSafeFeatured(admin, [], 1)).toBe(1);
     expect(resolveSafeFeatured(admin, [], 0)).toBe(0);

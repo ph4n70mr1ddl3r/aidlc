@@ -258,6 +258,9 @@ function isCanonicalFeaturedSubmission(raw) {
   if (Array.isArray(raw) && raw[raw.length - 1] === null) {
     return true;
   }
+  if (Array.isArray(raw) && raw[raw.length - 1] === '') {
+    return true;
+  }
   if (value === true || value === false || value === 1 || value === 0) {
     // The form-pairing shape (['0','1']) reduces to its last element above,
     // and the form always posts strings — so a non-string value here comes
