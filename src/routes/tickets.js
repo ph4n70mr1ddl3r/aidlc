@@ -1008,10 +1008,11 @@ router.put('/:id', ticketWriteLimiter, (req, res) => {
         throw new Error('INVALID_REQUESTER_DEPARTMENT');
       }
       const resolvedRequesterPhone = canEditRequesterPII
-        ? ((rawRequesterPhone === undefined || rawRequesterPhone === null)
-          ? ticket.requester_phone
-          : (requester_phone ? requester_phone.substring(0, MAX_PHONE) : null))
+        ? resolveOptionalField(rawRequesterPhone, requester_phone || null, MAX_PHONE, ticket.requester_phone)
         : ticket.requester_phone;
+      if (resolvedRequesterPhone && resolvedRequesterPhone.error) {
+        throw new Error('INVALID_REQUESTER_PHONE');
+      }
       // Absent-vs-empty convention for the optional text fields: an ABSENT field
       // (partial API submission) preserves the stored value, while an explicit
       // empty string CLEARS it (null). A present non-string value is rejected

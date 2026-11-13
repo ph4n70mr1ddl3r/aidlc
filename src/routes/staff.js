@@ -824,6 +824,9 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
       // contradicted the one the route actually reports for a whitespace-only
       // department ("Please enter a valid department").
       const resolvedDepartment = resolveOptionalField(rawDept, department || null, MAX_SHORT_STR, recheck.department);
+      if (resolvedDepartment && resolvedDepartment.error) {
+        throw new Error('INVALID_DEPARTMENT');
+      }
       const rawStaffPhone = req.body.phone;
       const resolvedPhone = resolveOptionalField(rawStaffPhone, phone || null, MAX_PHONE, recheck.phone);
       if (resolvedPhone && resolvedPhone.error) {

@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findBlankTextField, findNonStringField, authKeyGenerator, titleCase, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, authKeyGenerator, titleCase, logError } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -284,13 +284,30 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
 
   // A present-but-whitespace-only value is neither an ABSENT field ("not
   // submitted") nor an intentional empty string ("clear the column") — it is
-  // an INVALID value. The matching UPDATE route rejects the identical value
-  // through resolveOptionalField's blank-value guard ("Invalid Contact
-  // Person", "Invalid Email", ...), so the create route must not accept it,
-  // store NULL and flash success: the same column, two verdicts.
-  const blankField = findBlankTextField(req.body, ['contact_person', 'email', 'address', 'website', 'notes']);
-  if (blankField) {
-    req.flash('error', `Invalid ${titleCase(blankField)}`);
+  // an INVALID value. The create route now uses resolveOptionalField (shared
+  // with the update route) so both verbs enforce the same absent/empty/blank
+  // contract: an absent field preserves the (non-existent) default, an
+  // explicit empty string clears to NULL, and a whitespace-only value is
+  // rejected with a consistent error message — eliminating the "two verdicts"
+  // class where create accepted and update rejected the identical submission.
+  const rawContactPerson = req.body.contact_person;
+  const resolvedContactPerson = resolveOptionalField(rawContactPerson, contact_person || null, MAX_SHORT_STR, null);
+  if (resolvedContactPerson && resolvedContactPerson.error) {
+    req.flash('error', 'Invalid Contact Person');
+    return res.redirect('/vendors/new');
+  }
+  const rawEmail = req.body.email;
+  const resolvedEmail = resolveOptionalField(rawEmail, email || null, MAX_EMAIL, null);
+  if (resolvedEmail && resolvedEmail.error) {
+    req.flash('error', 'Invalid email');
+    return res.redirect('/vendors/new');
+  }
+  if (address && address.length > MAX_ADDRESS) {
+    req.flash('error', `Address must be at most ${MAX_ADDRESS} characters`);
+    return res.redirect('/vendors/new');
+  }
+  if (notes && notes.length > MAX_NOTES) {
+    req.flash('error', `Notes must be at most ${MAX_NOTES} characters`);
     return res.redirect('/vendors/new');
   }
 

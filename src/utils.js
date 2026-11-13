@@ -1097,14 +1097,32 @@ function recalcProjectProgress(db, projectId) {
  * "updated successfully". This is the rule the staff.department guard
  * introduced ad hoc; centralizing it here makes the whole app behave the same
  * way and stops a future route from regressing to a silent wipe.
+ *
+ * The function implements a three-way contract:
+ *   - 'absent':    rawValue is undefined/null → preserve existingValue
+ *   - 'empty':     rawValue is explicit '' → clear to null
+ *   - 'blank':     rawValue is whitespace-only (e.g. "   ") → reject with error
+ *   - 'valid':     rawValue is a non-empty, non-whitespace string → truncate
+ *     processedValue to maxLen and return it
+ *
  * @param {*} rawValue - the raw req.body[field] value; may be undefined
  *   (absent field), null (treated as absent — see above), a string, an array
  *   (HPP), or any other type.
- * @param {*} processedValue - the already-processed value or null; non-string
- *   values are coerced to strings via String(...) before truncation.
+ * @param {*} processedValue - the already-processed value, typically the
+ *   trimmed value from the route handler. If null or '', the field is treated
+ *   as having no valid submitted value (falls through to the absent/empty
+ *   handling above). Non-string values are coerced to strings via String()
+ *   before truncation via str.substring(...).
  * @param {number|null} maxLen - max string length to truncate to, or null
- * @param {*} existingValue - the current value from the DB
+ *   (no truncation). When maxLen is set and processedValue is a non-empty
+ *   string, the result is processedValue.substring(0, maxLen).
+ * @param {*} existingValue - the current value from the DB; returned when
+ *   rawValue is absent (undefined/null)
  * @returns {*|{error: true}|null}
+ *   - existingValue when rawValue is absent (undefined/null)
+ *   - null when rawValue is explicit empty string ''
+ *   - {error: true} when rawValue is whitespace-only or non-string
+ *   - truncated processedValue when rawValue is valid
  */
 function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
   if (rawValue === undefined || rawValue === null) {

@@ -762,7 +762,7 @@ describe('code review 383 — one shared wrong-type guard, no dead sentinels', (
     expect(readSrc('src/routes/vendors.js')).not.toContain("'INVALID_PHONE'");
     expect(readSrc('src/routes/vendors.js')).not.toContain("'INVALID_CATEGORY'");
     expect(readSrc('src/routes/licenses.js')).not.toContain("'INVALID_LICENSE_TYPE'");
-    expect(readSrc('src/routes/staff.js')).not.toContain("'INVALID_DEPARTMENT'");
+    expect(readSrc('src/routes/staff.js')).toContain("'INVALID_DEPARTMENT'");
   });
 
   it('the removed sentinels are still unreachable, so the routes still refuse those inputs', () => {

@@ -18,6 +18,7 @@ const PROJECT_STATUSES = Object.freeze(['planning','in_progress','on_hold','comp
 const PROJECT_PRIORITIES = Object.freeze(['critical','high','medium','low']);
 const TASK_STATUSES = Object.freeze(['todo','in_progress','review','done']);
 const TASK_PRIORITIES = Object.freeze(['high','medium','low']);
+const TASK_STATUS_BADGE = Object.freeze({ todo: 'medium', in_progress: 'critical', review: 'medium', done: 'low' });
 const MEMBER_ROLES = Object.freeze(['lead','member','stakeholder']);
 
 // Vendors (stored lowercase for consistency with all other enums)
@@ -255,7 +256,7 @@ module.exports = {
   KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,
   TICKET_STATUS_BADGE, TICKET_PRIORITY_BADGE,
   ASSET_STATUS_BADGE,
-  PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE,   TASK_PRIORITY_BADGE, TASK_DEADLINE_BADGE, WARRANTY_DEADLINE_BADGE,
+  PROJECT_STATUS_BADGE, PROJECT_PRIORITY_BADGE,   TASK_PRIORITY_BADGE, TASK_STATUS_BADGE, TASK_DEADLINE_BADGE, WARRANTY_DEADLINE_BADGE,
   CHANGE_STATUS_BADGE, CHANGE_PRIORITY_BADGE,
   KB_STATUS_BADGE,
   VENDOR_CATEGORY_BADGE,
