@@ -881,12 +881,14 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 
-  it('should accept strings with leading plus sign (consistent with safeInt/parseInt)', () => {
-    // parseFloat("+5") === 5; safePositiveFloat now matches safeInt behavior.
-    expect(utils.safePositiveFloat('+5')).toBe(5);
-    expect(utils.safePositiveFloat('+5', 0)).toBe(5);
-    expect(utils.safePositiveFloat('+3.14')).toBe(3.14);
-    expect(utils.safePositiveFloat('+0')).toBe(0);
+  it('should reject strings with leading plus sign (consistent with safeInt/safePositiveInt)', () => {
+    // safeInt and safePositiveInt reject the '+' prefix as non-canonical;
+    // safePositiveFloat now matches this behavior to avoid inconsistent
+    // verdicts for the same submission across the codebase.
+    expect(utils.safePositiveFloat('+5')).toBeNull();
+    expect(utils.safePositiveFloat('+5', 0)).toBe(0);
+    expect(utils.safePositiveFloat('+3.14')).toBeNull();
+    expect(utils.safePositiveFloat('+0')).toBeNull();
   });
 
   it('should reject bare dot string', () => {

@@ -190,6 +190,7 @@ const IS_ACTIVE_BADGE = Object.freeze({ 1: 'low', 0: 'medium' });
 const MAX_PAGE = 5000;            // maximum allowed page number to prevent excessively deep pagination offsets
 const DEFAULT_PAGE_SIZE = 25;     // default rows per page (overridable via PAGE_SIZE env, max MAX_PAGE_SIZE)
 const MAX_PAGE_SIZE = 100;        // hard cap on page size to prevent resource exhaustion
+const ASSET_DROPDOWN_LIMIT = 1000; // max assets in Related-Asset dropdown, mirrors _ASSET_DROPDOWN_LIMIT in tickets.js
 
 // ---------------------------------------------------------------------------
 // View-level rendering constants — centralized so EJS templates share the same
@@ -248,6 +249,7 @@ module.exports = {
   MAX_MONEY_AMOUNT, MAX_SEAT_COUNT,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
+  ASSET_DROPDOWN_LIMIT,
   BCRYPT_SALT_ROUNDS,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
   KB_CATEGORY_BADGE, LICENSE_TYPE_BADGE,

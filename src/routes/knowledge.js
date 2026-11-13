@@ -858,15 +858,12 @@ router.get('/:id', kbReadLimiter, (req, res) => {
   // behind the stored one (the first-ever view of an article rendered
   // "0 views" while the row already read 1).
   let viewCount = article.views;
-  // The per-session "already viewed" set. The guard must cover the WRITE as
-  // well as the read: the previous `if (!req.session || !req.session[VIEWED_KEY])
-  // { req.session[VIEWED_KEY] = []; }` anticipated a missing session but then
-  // assigned a property on it, which throws a TypeError and turns a show
-  // request into a 500. The set is simply skipped when there is no session.
-  const viewed = (req.session && req.session[VIEWED_KEY]) || [];
+  // Per-session "already viewed" set — track which articles the current user
+  // has viewed to prevent refresh inflation. Initialize if missing.
   if (req.session && !req.session[VIEWED_KEY]) {
     req.session[VIEWED_KEY] = [];
   }
+  const viewed = req.session[VIEWED_KEY];
   if (!viewed.includes(id) && req.session.user && Number(article.author_id) !== Number(req.session.user.id)) {
     try {
       const result = _viewCountStmt.run(id);
