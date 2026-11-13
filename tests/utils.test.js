@@ -857,6 +857,15 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat('abc100')).toBeNull();
   });
 
+  it("should trim whitespace from numeric strings (consistent with safeInt)", () => {
+    // safePositiveFloat now trims before validating, matching safeInt behavior
+    expect(utils.safePositiveFloat(" 42 ", 0)).toBe(42);
+    expect(utils.safePositiveFloat(" 3.14 ", 0)).toBe(3.14);
+    expect(utils.safePositiveFloat("-1 ", 0)).toBe(0);  // negative rejected, returns fallback
+    expect(utils.safePositiveFloat("0.5 ", 0)).toBe(0.5);
+    expect(utils.safePositiveFloat("0 .5", 0)).toBe(0);  // space in middle rejected, returns fallback
+  });
+
   it('should accept integer, decimal, and leading-dot values', () => {
     expect(utils.safePositiveFloat('100')).toBe(100);
     expect(utils.safePositiveFloat('0.5')).toBe(0.5);
