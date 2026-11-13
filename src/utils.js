@@ -602,7 +602,7 @@ function safePositiveFloat(value, fallback = null) {
   // Also blocks parseFloat("Infinity") masquerading as a number.
   if (typeof value === 'string') {
     value = value.trim();
-    if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+    if (!/^(?:\+?\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
       return fallback;
     }
   }

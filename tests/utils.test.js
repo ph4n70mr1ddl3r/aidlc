@@ -857,13 +857,13 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat('abc100')).toBeNull();
   });
 
-  it("should trim whitespace from numeric strings (consistent with safeInt)", () => {
+  it('should trim whitespace from numeric strings (consistent with safeInt)', () => {
     // safePositiveFloat now trims before validating, matching safeInt behavior
-    expect(utils.safePositiveFloat(" 42 ", 0)).toBe(42);
-    expect(utils.safePositiveFloat(" 3.14 ", 0)).toBe(3.14);
-    expect(utils.safePositiveFloat("-1 ", 0)).toBe(0);  // negative rejected, returns fallback
-    expect(utils.safePositiveFloat("0.5 ", 0)).toBe(0.5);
-    expect(utils.safePositiveFloat("0 .5", 0)).toBe(0);  // space in middle rejected, returns fallback
+    expect(utils.safePositiveFloat(' 42 ', 0)).toBe(42);
+    expect(utils.safePositiveFloat(' 3.14 ', 0)).toBe(3.14);
+    expect(utils.safePositiveFloat('-1 ', 0)).toBe(0);  // negative rejected, returns fallback
+    expect(utils.safePositiveFloat('0.5 ', 0)).toBe(0.5);
+    expect(utils.safePositiveFloat('0 .5', 0)).toBe(0);  // space in middle rejected, returns fallback
   });
 
   it('should accept integer, decimal, and leading-dot values', () => {
@@ -881,11 +881,12 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 
-  it('should reject strings with leading plus sign', () => {
-    // parseFloat("+5") === 5 would silently accept, but safePositiveFloat
-    // must reject non-canonical input consistent with safeInt.
-    expect(utils.safePositiveFloat('+5')).toBeNull();
-    expect(utils.safePositiveFloat('+5', 0)).toBe(0);
+  it('should accept strings with leading plus sign (consistent with safeInt/parseInt)', () => {
+    // parseFloat("+5") === 5; safePositiveFloat now matches safeInt behavior.
+    expect(utils.safePositiveFloat('+5')).toBe(5);
+    expect(utils.safePositiveFloat('+5', 0)).toBe(5);
+    expect(utils.safePositiveFloat('+3.14')).toBe(3.14);
+    expect(utils.safePositiveFloat('+0')).toBe(0);
   });
 
   it('should reject bare dot string', () => {
