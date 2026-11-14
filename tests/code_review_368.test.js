@@ -252,7 +252,7 @@ describe('staff update — whitespace-only department fails closed (pass 368)', 
     const { redirectCalls, flashCalls } = runHandler(h, { body, params: { id: '7' }, sessionUser: ADMIN });
 
     expect(redirectCalls).toEqual(['/staff/7/edit']);
-    expect(flashCalls).toContainEqual(['error', 'Please enter a valid department']);
+    expect(flashCalls).toContainEqual(['error', 'Invalid Department']);
     // No write happened at all.
     const update = db.__stmt('UPDATE users SET email');
     expect(update.run).not.toHaveBeenCalled();

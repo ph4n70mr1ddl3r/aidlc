@@ -809,7 +809,7 @@ describe('code review 383 — one shared wrong-type guard, no dead sentinels', (
     for (const [value, expected] of [
       [['IT'], 'Invalid request parameters'],
       [42, 'Invalid request parameters'],
-      ['   ', 'Please enter a valid department']
+      ['   ', 'Invalid Department']
     ]) {
       const req = writeReq({ email: 'dept@x.io', first_name: 'D', last_name: 'U', department: value }, { id: String(userId) });
       makeRes();

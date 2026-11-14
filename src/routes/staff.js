@@ -597,12 +597,12 @@ router.put('/:id', requireAdminOrManager, staffWriteLimiter, (req, res) => {
   // raw value is kept so an ABSENT field (partial submission — preserve the
   // stored value) and an EXPLICIT empty string (clear the field) stay
   // distinguishable. A whitespace-only value is neither: it trimmed to an
-  // empty string, so resolveOptionalField treated it as an explicit clear and
-  // silently wiped the stored department while the route flashed "success".
-  // The sibling phone field in this same handler already rejects a
-  // present-but-blank value; department now behaves the same way.
-  if (typeof rawDepartment === 'string' && rawDepartment !== '' && rawDepartment.trim() === '') {
-    req.flash('error', 'Please enter a valid department');
+  // empty string, so findBlankTextField rejects it and the route reports
+  // a consistent error. The sibling phone field in this same handler already
+  // rejects a present-but-blank value; department now behaves the same way.
+  const blankDepartment = findBlankTextField(req.body, ['department']);
+  if (blankDepartment) {
+    req.flash('error', `Invalid ${titleCase(blankDepartment)}`);
     return res.redirect(`/staff/${id}/edit`);
   }
   const rawPhone = safeQueryValue(req.body.phone);
