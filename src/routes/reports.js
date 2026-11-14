@@ -3,10 +3,11 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { safeInt, safeQueryValue, authKeyGenerator, rejectHppArrays, logError } = require('../utils');
+const { MAX_REPORT_PERIOD } = require('../constants');
 
 /**
- * Parse the `period` report query parameter, clamps to [1, 365], and fails
- * closed on HTTP parameter pollution. An array (e.g. ?period[]=999&period[]=1)
+ * Parse the `period` report query parameter, clamps to [1, MAX_REPORT_PERIOD],
+ * and fails closed on HTTP parameter pollution. An array (e.g. ?period[]=999&period[]=1)
  * is rejected and falls back to the default rather than silently using the
  * first element — consistent with the array-rejection guards in safeId /
  * safeInt / safePositiveFloat and the HPP defense used across the codebase.
@@ -24,7 +25,7 @@ function resolveReportPeriod(raw, fallback = 30) {
     return fallback;
   }
   const v = safeQueryValue(raw);
-  return Math.max(1, Math.min(365, safeInt(v, fallback)));
+  return Math.max(1, Math.min(MAX_REPORT_PERIOD, safeInt(v, fallback)));
 }
 
 const router = require('express').Router();
@@ -177,8 +178,8 @@ const stmts = {
   // date-only column in the app: `purchase_date` is written from an <input
   // type="date">, so it holds the calendar day the user typed. `julianday('now')`
   // is the current UTC instant, so in a UTC+8 deployment the difference was up
-  // to a day off — an asset bought exactly 365 days ago fell into the '< 1
-  // year' bucket instead of '1-2 years'.
+  // to a day off — an asset bought exactly MAX_REPORT_PERIOD days ago fell into
+  // the '< 1 year' bucket instead of '1-2 years'.
   ageDistribution: db.prepare(`
     SELECT
       CASE

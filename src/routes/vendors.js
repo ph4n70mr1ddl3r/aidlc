@@ -2,7 +2,7 @@ const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
 const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, authKeyGenerator, titleCase, logError } = require('../utils');
-const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR } = require('../constants');
+const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR, MAX_RATING_INPUT } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
 const rateLimit = require('express-rate-limit');
@@ -24,7 +24,6 @@ router.use(requireAuth, auditMiddleware);
  * Returns { value, error } where value is the parsed integer or null for empty fields.
  * Rejects arrays (HPP), non-integers, and out-of-range values.
  */
-const _MAX_RATING_INPUT = 10; // Reject absurdly long rating strings early
 
 function _validateVendorRating(rawValue) {
   // Reject arrays from HTTP parameter pollution (e.g. ?rating[]=3&rating[]=5),
@@ -51,7 +50,7 @@ function _validateVendorRating(rawValue) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   // Reject absurdly long rating strings to prevent resource exhaustion
-  if (typeof rawValue === 'string' && rawValue.length > _MAX_RATING_INPUT) {
+  if (typeof rawValue === 'string' && rawValue.length > MAX_RATING_INPUT) {
     return { value: null, error: 'Rating must be a whole number between 1 and 5' };
   }
   // Normalise leading/trailing whitespace so " 3 " is treated as "3" rather

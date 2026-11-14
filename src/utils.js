@@ -185,7 +185,10 @@ function safeSort(value, allowedMap, defaultKey) {
   // Fail closed if defaultKey is not a valid key in the map — a typo'd
   // defaultKey would otherwise silently fall back to an arbitrary first entry.
   if (!Object.hasOwn(allowedMap, defaultKey)) {
-    throw new Error(`safeSort: defaultKey "${defaultKey}" is not a valid sort key`);
+    throw new Error(
+      `safeSort: defaultKey "${defaultKey}" is not a valid sort key. `
+      + `Available keys: ${keys.join(', ')}`
+    );
   }
   return allowedMap[defaultKey];
 }
@@ -504,11 +507,17 @@ function safeId(value) {
 /**
  * Detect a present-but-invalid relational id (assigned_to / owner_id / asset_id).
  * Returns true when the submitted value cannot parse to a valid positive integer.
- * Absent (undefined/null) and empty-string values return false (treated as "clear").
- * Used by write routes to fail closed on malformed present ids instead of
- * silently coercing them to NULL through safeId.
- * @param {*} value
- * @returns {boolean}
+ * Absent (undefined/null) and empty-string values return false (treated as "clear"
+ * / "unassigned"), so the write route can distinguish "clear the assignment" from
+ * "reject the submission".
+ * Valid canonical positive integers (e.g. "123") return false — they are valid.
+ * Non-canonical strings (e.g. "abc", "12abc", "+5", arrays) return true — they
+ * are invalid and must be rejected.
+ * Any other type (boolean, object, etc.) returns true — it is present but
+ * malformed.
+ * @param {*} value - the submitted value to check
+ * @returns {boolean} true when the value is present but cannot be a valid
+ *   positive integer; false when the value is absent/empty (treated as clear)
  */
 function isPresentInvalidId(value) {
   if (value === undefined || value === null || value === '') {
@@ -1098,10 +1107,14 @@ function recalcProjectProgress(db, projectId) {
  * introduced ad hoc; centralizing it here makes the whole app behave the same
  * way and stops a future route from regressing to a silent wipe.
  *
- * The function implements a three-way contract:
+ * The function implements a four-way contract. The test runs against the RAW
+ * submitted value, never the trimmed one, and only for strings: a non-string
+ * value is caught by the routes' own non-string type guard, and an empty string
+ * is a legitimate "not submitted" on a create form (an empty input posts '').
+ *
  *   - 'absent':    rawValue is undefined/null → preserve existingValue
  *   - 'empty':     rawValue is explicit '' → clear to null
- *   - 'blank':     rawValue is whitespace-only (e.g. "   ") → reject with error
+ *   - 'blank':     rawValue is whitespace-only (e.g. "   ") → reject with {error:true}
  *   - 'valid':     rawValue is a non-empty, non-whitespace string → truncate
  *     processedValue to maxLen and return it
  *

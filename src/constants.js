@@ -121,6 +121,10 @@ const ASSET_TAG_RE = /^AST-\d{3,}$/;
 
 // Audit log
 const MAX_AUDIT_DETAILS = 4000; // max length of audit log details to prevent unbounded row growth
+// Vendor rating input validation
+const MAX_RATING_INPUT = 10; // reject absurdly long rating strings early
+// Report period clamp (days) — maximum window for report queries
+const MAX_REPORT_PERIOD = 365;
 
 // Bcrypt
 const BCRYPT_SALT_ROUNDS = 12;
@@ -250,6 +254,7 @@ module.exports = {
   MAX_MONEY_AMOUNT, MAX_SEAT_COUNT,
   MAX_PAGE, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE,
   MAX_AUDIT_DETAILS,
+  MAX_REPORT_PERIOD,
   ASSET_DROPDOWN_LIMIT,
   BCRYPT_SALT_ROUNDS,
   CONDITION_BADGE, CHANGE_TYPE_BADGE, ROLE_BADGE, MEMBER_ROLE_BADGE,
