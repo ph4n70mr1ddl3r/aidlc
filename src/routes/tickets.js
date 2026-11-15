@@ -184,8 +184,8 @@ const MAX_TICKET_NUMBER_ATTEMPTS = 10;
 const _ticketInsertStmt = db.prepare(`
     INSERT INTO tickets (ticket_number, title, description, category, priority, status,
       requester_name, requester_email, requester_department, requester_phone,
-      assigned_to, asset_id, due_date, resolved_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END)
+      assigned_to, asset_id, due_date, resolved_at, satisfaction_rating)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END, ?)
   `);
 
 // Every ORDER BY carries an `id` tiebreaker: created_at/updated_at have
@@ -530,7 +530,7 @@ router.post('/', ticketWriteLimiter, (req, res) => {
       try {
         const result = _ticketInsertStmt.run(ticket_number, title.substring(0, MAX_MEDIUM_STR), (description || '').substring(0, MAX_DESC) || null, category, safePriority, safeStatus,
           requester_name.substring(0, MAX_SHORT_STR), requester_email.substring(0, MAX_EMAIL), (requester_department || '').substring(0, MAX_SHORT_STR) || null, requester_phone ? requester_phone.substring(0, MAX_PHONE) : null,
-          safeAssignee, safeAssetId, safeDueDate, isTerminalStatus);
+          safeAssignee, safeAssetId, safeDueDate, isTerminalStatus, null);
         return { ticket_number, id: result.lastInsertRowid };
       } catch (insertErr) {
         if (insertErr.code !== 'SQLITE_CONSTRAINT_UNIQUE') {
