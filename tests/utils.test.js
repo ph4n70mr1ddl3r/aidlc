@@ -904,11 +904,14 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat('0.', 0)).toBe(0);
   });
 
-  it('should reject scientific notation strings', () => {
+it('should reject scientific notation strings', () => {
     // parseFloat("1e5") === 100000 would silently accept, but safePositiveFloat
     // must reject non-canonical exponent form.
     expect(utils.safePositiveFloat('1e5')).toBeNull();
     expect(utils.safePositiveFloat('1e5', 0)).toBe(0);
+    expect(utils.safePositiveFloat('1E5')).toBeNull();
+    expect(utils.safePositiveFloat('1E5', 0)).toBe(0);
+    expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 });
 
