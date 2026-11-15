@@ -609,6 +609,11 @@ function safePositiveFloat(value, fallback = null) {
   // Reject strings with a leading '+' — consistent with safeInt and
   // safePositiveInt which also reject the '+' prefix as non-canonical.
   // Also blocks parseFloat("Infinity") masquerading as a number.
+  // The regex ^(?:\d+(?:\.\d+)?|\.\d+)$ accepts:
+  //   - Integer strings: "0", "1", "42"
+  //   - Decimal strings: "3.14", "0.5", "2.5e2" is NOT accepted (scientific notation rejected)
+  //   - Decimal-only strings: ".5"
+  // Rejects: "+5", "5.", "abc", "1,000", etc.
   if (typeof value === 'string') {
     value = value.trim();
     if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
@@ -1138,25 +1143,32 @@ function recalcProjectProgress(db, projectId) {
  *   - truncated processedValue when rawValue is valid
  */
 function resolveOptionalField(rawValue, processedValue, maxLen, existingValue) {
+  // 1. Absent field: preserve the stored database value.
   if (rawValue === undefined || rawValue === null) {
     return existingValue;
   }
+
+  // 2. Non-string or array value: reject immediately (fails closed).
   if (Array.isArray(rawValue) || typeof rawValue !== 'string') {
     return { error: true };
   }
-  // Present but blank (whitespace only): fail closed instead of clearing.
-  // An explicit '' still clears the field; whitespace-only rejects it.
-  if (rawValue.trim() === '') {
+
+  // 3. Blank vs. empty vs. valid string handling.
+  // Trim the raw value to check for whitespace-only content.
+  const trimmed = rawValue.trim();
+  if (trimmed === '') {
+    // Explicit empty string → clear the field (set to null).
     if (rawValue === '') {
       return null;
     }
+    // Whitespace-only (e.g. "   ") → always reject, never clear.
     return { error: true };
   }
+
+  // 4. Valid non-empty, non-whitespace string: truncate processedValue.
+  // If processedValue is null or '', treat as having no valid submitted value
+  // and fall through to return null (absent/empty handling).
   if (processedValue !== null && processedValue !== '') {
-    // Guard against non-string processedValues (e.g. a numeric form field that
-    // bypassed trim/safeQueryValue). Calling .substring on a non-string would
-    // throw at runtime. Coerce to string so truncation is safe — callers that
-    // need strict typing should validate upstream before reaching this helper.
     const str = typeof processedValue === 'string' ? processedValue : String(processedValue);
     return maxLen ? str.substring(0, maxLen) : str;
   }
