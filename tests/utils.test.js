@@ -881,15 +881,28 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 
-it('should accept strings with leading plus sign (consistent with parseInt)', () => {
-    // safePositiveFloat now accepts the '+' prefix to be consistent with
-    // parseInt, avoiding inconsistent verdicts for the same submission
-    // across the codebase (e.g. +5 parsed as 5 by parseInt but previously
-    // rejected by safePositiveFloat).
-    expect(utils.safePositiveFloat('+5')).toBe(5);
-    expect(utils.safePositiveFloat('+5', 0)).toBe(5);
-    expect(utils.safePositiveFloat('+3.14')).toBe(3.14);
-    expect(utils.safePositiveFloat('+0')).toBe(0);
+it('should reject strings with leading plus sign (consistent with safeInt)', () => {
+    // safePositiveFloat now rejects '+' prefix to match safeInt's
+    // /^-?\d+$/ contract. Both utilities must behave consistently so that
+    // the same submission never produces different verdicts across the codebase.
+    // Default fallback is null; callers may supply an explicit fallback.
+    expect(utils.safePositiveFloat('+5')).toBeNull();
+    expect(utils.safePositiveFloat('+5', 0)).toBe(0);
+    expect(utils.safePositiveFloat('+5', 10)).toBe(10);
+    expect(utils.safePositiveFloat('+3.14')).toBeNull();
+    expect(utils.safePositiveFloat('+0', 10)).toBe(10);
+  });
+
+  it('safeInt and safePositiveFloat must agree on + prefix rejection (consistency)', () => {
+    // Both utilities must reject '+'-prefixed strings, since safeInt uses
+    // /^-?\d+$/ which explicitly rejects '+'. safePositiveFloat must not
+    // diverge: +5 must return the fallback for both, preventing silent
+    // inconsistency across the codebase. Default fallback is null for
+    // safePositiveFloat; callers supply an explicit fallback when needed.
+    expect(utils.safeInt('+5')).toBe(0);
+    expect(utils.safePositiveFloat('+5')).toBeNull();
+    expect(utils.safeInt('+5', 10)).toBe(10);
+    expect(utils.safePositiveFloat('+5', 10)).toBe(10);
   });
 
   it('should reject bare dot string', () => {

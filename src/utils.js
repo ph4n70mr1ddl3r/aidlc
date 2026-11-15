@@ -616,7 +616,7 @@ function safePositiveFloat(value, fallback = null) {
   // Rejects: "+5", "5.", "abc", "1,000", etc.
   if (typeof value === 'string') {
     value = value.trim();
-    if (!/^(?:\+?\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
+    if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value)) {
       return fallback;
     }
   }
