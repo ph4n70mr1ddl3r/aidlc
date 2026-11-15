@@ -1,7 +1,7 @@
 const db = require('../models/database');
 const { requireAuth, requireAdminOrManager } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
-const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, authKeyGenerator, titleCase, logError } = require('../utils');
+const { paginate, paginationBaseUrl, addSearch, buildFilters, safeId, isValidEmail, isValidUrl, safeDate, trim, sanitizePhone, isValidPhone, countQuery, selectQuery, safeQueryValue, safeFilters, rejectHppArrays, resolveOptionalField, resolveEnumField, findNonStringField, findBlankTextField, authKeyGenerator, titleCase, logError } = require('../utils');
 const { VENDOR_CATEGORIES: VALID_CATEGORIES_VENDOR, MAX_MEDIUM_STR, MAX_SHORT_STR, MAX_ADDRESS, MAX_EMAIL, MAX_PHONE, MAX_NOTES, MAX_LONG_STR, MAX_RATING_INPUT } = require('../constants');
 const { invalidateDashboardCache } = require('./dashboard');
 
@@ -280,6 +280,19 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
     return res.redirect('/vendors/new');
   }
 
+  // A present-but-whitespace-only value is neither an ABSENT field ("not
+  // submitted") nor an intentional empty string ("clear the column") — it is
+  // an INVALID value. The create route now uses findBlankTextField (shared
+  // with the update route) so both verbs enforce the same absent/empty/blank
+  // contract: an absent field preserves the (non-existent) default, an
+  // explicit empty string clears to NULL, and a whitespace-only value is
+  // rejected with a consistent error message — eliminating the "two verdicts"
+  // class where create accepted and update rejected the identical submission.
+  const blankField = findBlankTextField(req.body, ['address', 'website', 'notes']);
+  if (blankField) {
+    req.flash('error', `Invalid ${titleCase(blankField)}`);
+    return res.redirect('/vendors/new');
+  }
 
   // A present-but-whitespace-only value is neither an ABSENT field ("not
   // submitted") nor an intentional empty string ("clear the column") — it is

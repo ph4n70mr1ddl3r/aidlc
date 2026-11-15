@@ -881,14 +881,15 @@ describe('safePositiveFloat', () => {
     expect(utils.safePositiveFloat(Infinity, 5)).toBe(5);
   });
 
-  it('should reject strings with leading plus sign (consistent with safeInt/safePositiveInt)', () => {
-    // safeInt and safePositiveInt reject the '+' prefix as non-canonical;
-    // safePositiveFloat now matches this behavior to avoid inconsistent
-    // verdicts for the same submission across the codebase.
-    expect(utils.safePositiveFloat('+5')).toBeNull();
-    expect(utils.safePositiveFloat('+5', 0)).toBe(0);
-    expect(utils.safePositiveFloat('+3.14')).toBeNull();
-    expect(utils.safePositiveFloat('+0')).toBeNull();
+it('should accept strings with leading plus sign (consistent with parseInt)', () => {
+    // safePositiveFloat now accepts the '+' prefix to be consistent with
+    // parseInt, avoiding inconsistent verdicts for the same submission
+    // across the codebase (e.g. +5 parsed as 5 by parseInt but previously
+    // rejected by safePositiveFloat).
+    expect(utils.safePositiveFloat('+5')).toBe(5);
+    expect(utils.safePositiveFloat('+5', 0)).toBe(5);
+    expect(utils.safePositiveFloat('+3.14')).toBe(3.14);
+    expect(utils.safePositiveFloat('+0')).toBe(0);
   });
 
   it('should reject bare dot string', () => {
@@ -2179,5 +2180,50 @@ describe('capList', () => {
     expect(utils.capList(rows, 0)).toEqual({ rows, truncated: false });
     expect(utils.capList(rows, -1)).toEqual({ rows, truncated: false });
     expect(utils.capList(rows, 1.5)).toEqual({ rows, truncated: false });
+  });
+});
+
+/**
+ * Test for findBlankTextField function
+ */
+describe('findBlankTextField', () => {
+  it('should flag a present-but-whitespace-only string as blank', () => {
+    expect(utils.findBlankTextField({ address: '   ' }, ['address'])).toBe('address');
+    expect(utils.findBlankTextField({ website: '\t' }, ['website'])).toBe('website');
+    expect(utils.findBlankTextField({ notes: '\n' }, ['notes'])).toBe('notes');
+  });
+
+  it('should NOT flag empty strings (treated as "not submitted")', () => {
+    expect(utils.findBlankTextField({ address: '' }, ['address'])).toBeNull();
+    expect(utils.findBlankTextField({ website: '' }, ['website'])).toBeNull();
+    expect(utils.findBlankTextField({ notes: '' }, ['notes'])).toBeNull();
+  });
+
+  it('should NOT flag non-string values (undefined, null, numbers, booleans)', () => {
+    expect(utils.findBlankTextField({ address: undefined }, ['address'])).toBeNull();
+    expect(utils.findBlankTextField({ address: null }, ['address'])).toBeNull();
+    expect(utils.findBlankTextField({ address: 0 }, ['address'])).toBeNull();
+    expect(utils.findBlankTextField({ address: true }, ['address'])).toBeNull();
+  });
+
+  it('should NOT flag normal strings', () => {
+    expect(utils.findBlankTextField({ address: '  hello  ' }, ['address'])).toBeNull();
+    expect(utils.findBlankTextField({ website: 'example.com' }, ['website'])).toBeNull();
+    expect(utils.findBlankTextField({ notes: 'Some notes here' }, ['notes'])).toBeNull();
+  });
+
+  it('should return the first blank field when multiple are present', () => {
+    expect(utils.findBlankTextField({ address: '   ', website: '  ' }, ['address', 'website'])).toBe('address');
+  });
+
+  it('should work with the vendors create route fields', () => {
+    expect(utils.findBlankTextField(
+      { address: '   ', website: '  ', notes: 'normal' },
+      ['address', 'website', 'notes']
+    )).toBe('address');
+    expect(utils.findBlankTextField(
+      { address: 'normal', website: '  ', notes: 'normal' },
+      ['address', 'website', 'notes']
+    )).toBe('website');
   });
 });
