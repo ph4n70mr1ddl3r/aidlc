@@ -429,7 +429,7 @@ router.post('/', requireAdminOrManager, vendorWriteLimiter, (req, res) => {
         safeCategory,
         sContractStart,
         sContractEnd,
-        (notes || '').substring(0, MAX_NOTES) || null,
+        (notes || '').substring(0, MAX_NOTES),
         safeRating
       );
     });

@@ -816,3 +816,52 @@ describe('code review 380 — POST /staff department default', () => {
     expect(db.prepare("SELECT department FROM users WHERE username = 'newuser'").get().department).toBe('IT');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 11. POST /vendors and POST /assets apply the same absent-vs-empty convention
+// ---------------------------------------------------------------------------
+describe('code review 380 — POST /vendors and POST /assets notes handling', () => {
+  it('POST /vendors rejects a whitespace-only notes and writes nothing', () => {
+    const req = writeReq({ name: 'Acme Supplies', notes: '  ' });
+    const res = makeRes();
+
+    lastHandlerFor(vendorsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Notes');
+    expect(res.redirected).toBe('/vendors/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM vendors').get().c).toBe(0);
+  });
+
+  it('POST /vendors accepts an empty notes string and writes it (bug fix: consistent with create path)', () => {
+    const req = writeReq({ name: 'Acme Supplies', notes: '' });
+    const res = makeRes();
+
+    lastHandlerFor(vendorsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBeNull();
+    const row = db.prepare('SELECT notes FROM vendors WHERE name = ?').get('Acme Supplies');
+    expect(row).toEqual({ notes: '' });
+  });
+
+  it('POST /assets rejects a whitespace-only notes and writes nothing', () => {
+    const req = writeReq({ name: 'Test Asset', category: 'other', manufacturer: 'Dell', model: 'OptiPlex', notes: '  ' });
+    const res = makeRes();
+
+    lastHandlerFor(assetsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Notes');
+    expect(res.redirected).toBe('/assets/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM assets').get().c).toBe(0);
+  });
+
+  it('POST /assets accepts an empty notes string and writes it (bug fix: consistent with create path)', () => {
+    const req = writeReq({ name: 'Test Asset', category: 'other', manufacturer: 'Dell', model: 'OptiPlex', notes: '' });
+    const res = makeRes();
+
+    lastHandlerFor(assetsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBeNull();
+    const row = db.prepare('SELECT notes FROM assets WHERE name = ?').get('Test Asset');
+    expect(row).toEqual({ notes: '' });
+  });
+});

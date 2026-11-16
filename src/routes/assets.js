@@ -398,7 +398,7 @@ router.post('/', requireAdminOrManager, assetWriteLimiter, (req, res) => {
             (model || '').substring(0, MAX_SHORT_STR) || null, (serial_number || '').substring(0, MAX_SHORT_STR) || null,
             safeStatus, safeCondition, sPurchase,
             safePurchasePrice,
-            sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES) || null
+            sWarranty, createAssignee, (location || '').substring(0, MAX_SHORT_STR) || null, (notes || '').substring(0, MAX_NOTES)
           );
           return { asset_tag, id: result.lastInsertRowid };
         } catch (insertErr) {
