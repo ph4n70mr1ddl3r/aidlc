@@ -375,6 +375,28 @@ describe('code review 380 — create routes reject a whitespace-only optional te
     expect(db.prepare('SELECT COUNT(*) as c FROM licenses').get().c).toBe(0);
   });
 
+  it('POST /licenses rejects a whitespace-only notes and writes nothing', () => {
+    const req = writeReq({ software_name: 'Acme ERP', notes: '  ' });
+    const res = makeRes();
+
+    lastHandlerFor(licensesRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Notes');
+    expect(res.redirected).toBe('/licenses/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM licenses').get().c).toBe(0);
+  });
+
+  it('POST /licenses accepts an empty notes string and writes it (bug fixed: consistent with create path)', () => {
+    const req = writeReq({ software_name: 'Acme ERP', notes: '' });
+    const res = makeRes();
+
+    lastHandlerFor(licensesRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBeNull();
+    const row = db.prepare('SELECT notes FROM licenses WHERE software_name = ?').get('Acme ERP');
+    expect(row).toEqual({ notes: '' });
+  });
+
   it('POST /licenses rejects a whitespace-only vendor and writes nothing', () => {
     const req = writeReq({ software_name: 'Acme ERP', vendor: '   ' });
     const res = makeRes();
@@ -444,6 +466,45 @@ describe('code review 380 — create routes reject a whitespace-only optional te
     expect(errorFlash(req)).toBe('Invalid Impact');
     expect(res.redirected).toBe('/changes/new');
     expect(db.prepare('SELECT COUNT(*) as c FROM change_log').get().c).toBe(0);
+  });
+
+  it('POST /changes rejects a whitespace-only description and writes nothing', () => {
+    const req = writeReq({ title: 'Patching', change_type: 'maintenance', description: '   ' });
+    const res = makeRes();
+
+    lastHandlerFor(changesRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Description');
+    expect(res.redirected).toBe('/changes/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM change_log').get().c).toBe(0);
+  });
+
+  it('POST /tickets rejects a whitespace-only requester_department and writes nothing', () => {
+    const req = writeReq({
+      title: 'Printer on fire',
+      category: 'hardware',
+      requester_name: 'Ada Lovelace',
+      requester_email: 'ada@example.com',
+      requester_department: '   '
+    });
+    const res = makeRes();
+
+    lastHandlerFor(ticketsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Requester Department');
+    expect(res.redirected).toBe('/tickets/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM tickets').get().c).toBe(0);
+  });
+
+  it('POST /vendors rejects a whitespace-only address and writes nothing', () => {
+    const req = writeReq({ name: 'Acme Supplies', address: '   ' });
+    const res = makeRes();
+
+    lastHandlerFor(vendorsRouter, 'post', '/')(req, res);
+
+    expect(errorFlash(req)).toBe('Invalid Address');
+    expect(res.redirected).toBe('/vendors/new');
+    expect(db.prepare('SELECT COUNT(*) as c FROM vendors').get().c).toBe(0);
   });
 
   it('the matching PUT route rejects the same value with the same message', () => {

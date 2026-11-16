@@ -311,7 +311,7 @@ router.post('/', requireAdminOrManager, licenseWriteLimiter, (req, res) => {
   try {
     const result = _licenseInsertStmt.run(software_name.substring(0, MAX_MEDIUM_STR), (vendor || '').substring(0, MAX_MEDIUM_STR) || null, (license_key || '').substring(0, MAX_LONG_STR) || null, license_type || null,
       seats, used,
-      sPurchase, sExpiry, safeCost, (notes || '').substring(0, MAX_NOTES) || null);
+      sPurchase, sExpiry, safeCost, (notes || '').substring(0, MAX_NOTES));
 
     req.audit('create', 'license', result.lastInsertRowid, `Created license for ${software_name}`);
     req.flash('success', `License for ${software_name} created.`);
